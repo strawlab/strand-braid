@@ -590,8 +590,7 @@ extern "C" {
     fn launch_queue_set_consumer(f4: &Closure<dyn FnMut(JsValue)>);
 }
 
-#[wasm_bindgen(start)]
-pub fn run_app() {
+pub fn main() {
     wasm_logger::init(wasm_logger::Config::new(log::Level::Info));
     #[allow(unused_variables)]
     let app_handle = yew::Renderer::<Model>::new().render();
