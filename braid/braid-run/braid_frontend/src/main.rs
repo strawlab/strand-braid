@@ -6,7 +6,7 @@ use std::{
 use serde::{Deserialize, Serialize};
 
 use gloo_events::EventListener;
-use wasm_bindgen::{prelude::wasm_bindgen, JsCast, JsValue, UnwrapThrowExt};
+use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{EventSource, MessageEvent};
 
@@ -496,8 +496,8 @@ async fn post_callback(msg: &BraidHttpApiCallback) -> Result<(), FetchError> {
 
 // -----------------------------------------------------------------------------
 
-#[wasm_bindgen(start)]
-pub fn run_app() {
+pub fn main() {
+    console_error_panic_hook::set_once();
     wasm_logger::init(wasm_logger::Config::new(log::Level::Info));
     yew::Renderer::<Model>::new().render();
 }

@@ -112,12 +112,12 @@ potentially reduced features and performance.
 We will build `braid-run` which is the main runtime application we call "Braid".
 
 First, build the browser user interface (BUI) for Braid. This will build files
-in `braid/braid-run/braid_frontend/pkg` which get included in the `braid-run`
+in `braid/braid-run/braid_frontend/dist` which get included in the `braid-run`
 executable:
 
 ```
 cd /path/to/strand-braid/braid/braid-run/braid_frontend
-wasm-pack build --target web
+./build.sh
 ```
 
 Then, build the `braid-run` executable:

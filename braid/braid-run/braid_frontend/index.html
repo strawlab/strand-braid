@@ -3,7 +3,9 @@
     <head>
         <meta charset="utf-8">
         <title>Loading...</title>
-        <link rel="stylesheet" href="style.css">
+        <link data-trunk rel="scss" href="scss/braid_frontend.scss" />
+        <link data-trunk rel="copy-file" href="src/braid-logo-no-text.png">
+        <base data-trunk-public-url />
     </head>
     <body>
         <div id="app">
@@ -40,11 +42,9 @@
               "<p>For a list of supported browsers, see <a href=\"https://caniuse.com/#search=WebAssembly\">this</a>.<p>";
           }
         </script>
-        <script type="module">
-            // https://rustwasm.github.io/docs/wasm-bindgen/examples/without-a-bundler.html
-            import init from '/braid_frontend.js';
-            init('/braid_frontend_bg.wasm');
-        </script>
+
+        <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="braid_frontend" />
+
         <script type='text/javascript'>
             function _remove_token_from_url() {
               if (window.location.search.length <= 1) {
