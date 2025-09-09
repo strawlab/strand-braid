@@ -382,16 +382,12 @@ build-freemovr-calibration-webapp:
     - echo $PATH
     - rustup target add wasm32-unknown-unknown
 
-    - cargo install wasm-bindgen-cli --version 0.2.100 --force --locked
-    - cargo install grass
-
-    - wasm-bindgen --version
+    - cargo install trunk
 
     - cd freemovr-calibration/freemovr-calibration-webapp
-    - cargo update wasm-bindgen --precise 0.2.100
     - ./build.sh
     - mkdir -p $CI_PROJECT_DIR/freemovr-cal-webapp
-    - cp -a pkg/* $CI_PROJECT_DIR/freemovr-cal-webapp
+    - cp -a dist/* $CI_PROJECT_DIR/freemovr-cal-webapp
   artifacts:
     paths:
       - freemovr-cal-webapp

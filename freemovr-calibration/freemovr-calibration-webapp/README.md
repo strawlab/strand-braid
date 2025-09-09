@@ -11,8 +11,8 @@ Compile:
 Run locally:
 
     # install microserver with: 'cargo install microserver'
-    microserver --port 8000 --no-spa pkg
+    microserver --port 8000 --no-spa dist
 
 ## Install to production
 
-    rsync -avzP pkg/ strawlab-org:strawlab.org/vr-cal/
+    rsync -avzP dist/ strawlab-org:strawlab.org/vr-cal/
