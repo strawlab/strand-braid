@@ -1,11 +1,11 @@
 #!/bin/bash -x
 set -o errexit
 
-# Create pkg/.htaccess file
-mkdir -p pkg
-cat <<EOF > pkg/.htaccess
+# Create dist/.htaccess file
+mkdir -p dist
+cat <<EOF > dist/.htaccess
 AddType application/wasm                            wasm
 EOF
 
-# Upload pkg directory
-rsync -avzP --delete pkg/ strawlab-org:strawlab.org/braid-april-cal-webapp/
+# Upload dist directory
+rsync -avzP --delete dist/ strawlab-org:strawlab.org/braid-april-cal-webapp/

@@ -5,9 +5,6 @@ edition = "2021"
 rust-version = "1.76"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 
-[lib]
-crate-type = ["cdylib", "rlib"]
-
 [dependencies]
 yew.workspace = true
 yew-tincture.workspace = true
@@ -25,5 +22,3 @@ chrono.workspace = true
 ads-webasm = { workspace = true, features = ["csv-widget"] }
 braid-april-cal.workspace = true
 apriltag-detection-writer.workspace = true
-
-[features]
