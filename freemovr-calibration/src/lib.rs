@@ -388,7 +388,7 @@ fn debug_image(
         3 => buf.iter().map(|el| (el * 255.0).trunc() as u8).collect(),
         2 => {
             buf.chunks(2)
-                .map(|uv| {
+                .flat_map(|uv| {
                     let u = uv[0];
                     let v = uv[1];
 
@@ -402,7 +402,6 @@ fn debug_image(
                         vec![(u * 255.0).trunc() as u8, (v * 255.0).trunc() as u8, 255u8]
                     }
                 })
-                .flatten()
                 .collect()
         }
         nchan => {
@@ -450,7 +449,7 @@ pub trait DisplayGeometry {
 
         let opt_ray_intersect =
             self.ncollide_shape()
-                .toi_and_normal_and_uv_with_ray(&eye, ray, std::f64::MAX, solid);
+                .toi_and_normal_and_uv_with_ray(&eye, ray, f64::MAX, solid);
 
         match compute {
             Computable::TexCoords => {
@@ -725,8 +724,7 @@ where
         pixels,
     };
 
-    // let mut file = std::fs::File::create(out_fname)?;
-    let mut exr_writer = ExrWriter::new();
+    let mut exr_writer = ExrWriter::default();
     // info!("saving EXR output file: {}", out_fname);
     exr_writer.update(&float_image, exr_comment);
     out_wtr.write_all(&exr_writer.buffer())?;
@@ -814,7 +812,7 @@ where
 
 /// find the index of a needle in a haystack
 fn get_idx(
-    haystack: &Vec<nalgebra::geometry::Point3<f64>>,
+    haystack: &[nalgebra::geometry::Point3<f64>],
     needle: &nalgebra::geometry::Point3<f64>,
 ) -> Option<usize> {
     const EPSILON: f64 = 1e-2;

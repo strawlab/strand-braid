@@ -222,7 +222,7 @@ fn no_distortion(c: GenerateExr) -> anyhow::Result<()> {
     )?;
     let out_fname = "out.exr";
     let mut file = std::fs::File::create(out_fname)?;
-    let mut exr_writer = freemovr_calibration::ExrWriter::new();
+    let mut exr_writer = freemovr_calibration::ExrWriter::default();
     info!("saving EXR output file: {}", out_fname);
     exr_writer.update(&float_image, EXR_COMMENT);
     file.write(&exr_writer.buffer())?;
@@ -239,7 +239,7 @@ fn multi_display(c: MultiDisplayExr) -> anyhow::Result<()> {
     let float_image = freemovr_calibration::do_multi_display(fd, c.epsilon, &src_dir)?;
     let out_fname = "multi.exr";
     let mut file = std::fs::File::create(out_fname)?;
-    let mut exr_writer = freemovr_calibration::ExrWriter::new();
+    let mut exr_writer = freemovr_calibration::ExrWriter::default();
     info!("saving EXR output file: {}", out_fname);
     exr_writer.update(&float_image, EXR_COMMENT);
     file.write(&exr_writer.buffer())?;

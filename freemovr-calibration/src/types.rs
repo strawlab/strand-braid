@@ -32,7 +32,7 @@ pub struct SimpleDisplay {
 }
 
 impl SimpleDisplay {
-    pub(crate) fn to_orig(self, name: &str) -> Display {
+    pub(crate) fn into_orig(self, name: &str) -> Display {
         let vdisp = VirtualDisplay {
             id: VirtualDisplayName(name.to_string()),
             viewport: vec![
@@ -96,7 +96,7 @@ pub struct SimpleUVCorrespondance {
 }
 
 impl SimpleUVCorrespondance {
-    pub(crate) fn to_orig(self, name: &str) -> UVCorrespondance {
+    pub(crate) fn into_orig(self, name: &str) -> UVCorrespondance {
         UVCorrespondance {
             virtual_display: VirtualDisplayName(name.to_string()),
             display_x: self.display_x,

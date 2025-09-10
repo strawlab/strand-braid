@@ -53,20 +53,16 @@ pub struct ExrWriter {
 
 impl Default for ExrWriter {
     fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ExrWriter {
-    pub fn new() -> ExrWriter {
-        ExrWriter {
+        Self {
             buffer: vec![],
             width: 0,
             height: 0,
             data_offset: 0,
         }
     }
+}
 
+impl ExrWriter {
     fn write_header(&mut self) {
         self.buffer.write_i32::<LittleEndian>(MAGIC_NUMBER).unwrap();
         self.buffer.write_i32::<LittleEndian>(VERSION).unwrap();
@@ -193,12 +189,11 @@ impl ExrWriter {
                 LittleEndian::write_i32(&mut line[0..4], y as i32); // Scan line number.
                 LittleEndian::write_u32(&mut line[4..8], line_size as u32 - 8); // Bytes in line.
 
-                // let first_pixel = index(film.height - y - 1, 0, film.width);
                 let first_pixel = index(y, 0, film.width);
                 for i in 0..film.width {
                     let pixel = &film.pixels[first_pixel + i];
                     let val = [pixel.0 as f32, pixel.1 as f32, pixel.2 as f32];
-                    let z = 8 + (0 * film.width + i) * 4;
+                    let z = 8 + i * 4; // 8 + (0 * film.width + i) * 4;
                     let y = 8 + (film.width + i) * 4;
                     let x = 8 + (2 * film.width + i) * 4;
                     LittleEndian::write_f32(&mut line[z..(z + 4)], val[2]);

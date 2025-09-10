@@ -93,9 +93,9 @@ impl SimplePinholeInputFile {
             uv_display_points: self
                 .uv_display_points
                 .into_iter()
-                .map(|x| x.to_orig(DEFAULT_VDISP))
+                .map(|x| x.into_orig(DEFAULT_VDISP))
                 .collect(),
-            display: self.display.to_orig(DEFAULT_VDISP),
+            display: self.display.into_orig(DEFAULT_VDISP),
             geom: self.geom,
         }
     }
@@ -132,7 +132,7 @@ impl PinholeCalib for SimplePinholeNoFile {
     }
 
     fn virtual_displays(&self) -> Vec<VirtualDisplay> {
-        let display = self.display.clone().to_orig(DEFAULT_VDISP);
+        let display = self.display.clone().into_orig(DEFAULT_VDISP);
         display.virtual_displays
     }
 
@@ -140,7 +140,7 @@ impl PinholeCalib for SimplePinholeNoFile {
         self.uv_display_points
             .clone()
             .into_iter()
-            .map(|x| x.to_orig(DEFAULT_VDISP))
+            .map(|x| x.into_orig(DEFAULT_VDISP))
             .collect()
     }
 

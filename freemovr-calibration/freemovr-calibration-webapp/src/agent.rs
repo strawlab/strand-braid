@@ -70,7 +70,7 @@ impl yew_agent::worker::Worker for MyWorker {
                     }
                 };
 
-                let mut exr_writer = freemovr_calibration::ExrWriter::new();
+                let mut exr_writer = freemovr_calibration::ExrWriter::default();
                 exr_writer.update(&float_image, EXR_COMMENT);
                 let exr_buf = exr_writer.buffer();
 
