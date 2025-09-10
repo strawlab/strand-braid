@@ -15,7 +15,9 @@ pub enum Msg {
     Files(Vec<File>),
 }
 
+#[derive(Default)]
 pub enum MaybeValidObjFile {
+    #[default]
     NotLoaded,
     ParseFail(simple_obj_parse::Error),
     Valid(Box<ValidObjFile>),
@@ -50,12 +52,6 @@ pub struct ValidObjFile {
 impl ValidObjFile {
     pub fn mesh(&self) -> &textured_tri_mesh::TriMesh {
         &self.mesh
-    }
-}
-
-impl Default for MaybeValidObjFile {
-    fn default() -> Self {
-        MaybeValidObjFile::NotLoaded
     }
 }
 
