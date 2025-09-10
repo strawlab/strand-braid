@@ -193,10 +193,7 @@ impl Component for Model {
         let obj_file_state = format!("{}", self.obj_file);
         let csv_file_state = format!("{}", self.csv_file);
         let stage_2_csv_file_state = format!("{}", self.stage_2_csv_file);
-        let can_compute_stage_2_exr = match self.stage_2_csv_file {
-            MaybeCsvData::Valid(_) => true,
-            _ => false,
-        };
+        let can_compute_stage_2_exr = matches!(self.stage_2_csv_file, MaybeCsvData::Valid(_));
 
         let missing = self.missing_for_calibration();
         let can_compute_pinhole_calibration = missing.is_empty();
