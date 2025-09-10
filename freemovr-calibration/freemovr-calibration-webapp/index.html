@@ -1,39 +1,43 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="utf-8">
-        <title>FreemoVR Pinhole Calibration Tool</title>
-        <link data-trunk rel="scss" href="static/freemovr-calibration-webapp.scss" />
-        <base data-trunk-public-url />
-    </head>
-    <body>
-        <noscript>
-            <h1>❌ Error: your browser does not support JavaScript. ❌</h1>
-        </noscript>
-        <script type='text/javascript'>
-          // Check if WebAssembly is supported. Code from
-          // https://stackoverflow.com/questions/47879864 .
-          const supported = (() => {
-              try {
-                  if (typeof WebAssembly === "object"
-                      && typeof WebAssembly.instantiate === "function") {
-                      const module = new WebAssembly.Module(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
-                      if (module instanceof WebAssembly.Module)
-                          return new WebAssembly.Instance(module) instanceof WebAssembly.Instance;
-                  }
-              } catch (e) {
-              }
-              return false;
-          })();
 
-          if (!supported) {
-              document.body.innerHTML = "<h1>❌ Error: your browser does not support WebAssembly. ❌</h1>" +
-              "<p>For a list of supported browsers, see <a href=\"https://caniuse.com/#search=WebAssembly\">this</a>.<p>";
-          }
-        </script>
+<head>
+    <meta charset="utf-8">
+    <title>FreemoVR Pinhole Calibration Tool</title>
+    <link data-trunk rel="scss" href="static/freemovr-calibration-webapp.scss" />
+    <base data-trunk-public-url />
+</head>
 
-        <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="freemovr-calibration-webapp" data-type="main" />
-        <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="native_worker" data-type="worker" />
+<body>
+    <noscript>
+        <h1>❌ Error: your browser does not support JavaScript. ❌</h1>
+    </noscript>
+    <script type='text/javascript'>
+        // Check if WebAssembly is supported. Code from
+        // https://stackoverflow.com/questions/47879864 .
+        const supported = (() => {
+            try {
+                if (typeof WebAssembly === "object"
+                    && typeof WebAssembly.instantiate === "function") {
+                    const module = new WebAssembly.Module(Uint8Array.of(0x0, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00));
+                    if (module instanceof WebAssembly.Module)
+                        return new WebAssembly.Instance(module) instanceof WebAssembly.Instance;
+                }
+            } catch (e) {
+            }
+            return false;
+        })();
 
-    </body>
+        if (!supported) {
+            document.body.innerHTML = "<h1>❌ Error: your browser does not support WebAssembly. ❌</h1>" +
+                "<p>For a list of supported browsers, see <a href=\"https://caniuse.com/#search=WebAssembly\">this</a>.<p>";
+        }
+    </script>
+
+    <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="freemovr-calibration-webapp"
+        data-type="main" />
+    <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="worker" data-type="worker" />
+
+</body>
+
 </html>

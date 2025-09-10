@@ -1,19 +1,20 @@
+use ads_webasm::components::{
+    obj_widget::MaybeValidObjFile, CsvDataField, MaybeCsvData, ObjWidget,
+};
 use serde::{Deserialize, Serialize};
-use wasm_bindgen::{JsCast, UnwrapThrowExt};
-
 use tracing::info;
-use yew::{html, Component, Context, Html};
-use yew_agent::{Bridge, Bridged, HandlerId, Public, Worker as Agent, WorkerLink as AgentLink};
-
-use ads_webasm::components::{CsvDataField, MaybeCsvData, ObjWidget};
+use wasm_bindgen::{JsCast, UnwrapThrowExt};
+use yew::{function_component, html, Component, Context, Html};
+use yew_agent::{scope_ext::AgentScopeExt, worker::WorkerProvider};
 use yew_tincture::components::{Button, TypedInput, TypedInputStorage};
-
-use ads_webasm::components::obj_widget::MaybeValidObjFile;
 
 use freemovr_calibration::types::{
     CompleteCorrespondance, SimpleDisplay, SimpleUVCorrespondance, VDispInfo,
 };
 use freemovr_calibration::TriMeshGeom;
+
+pub mod agent;
+use agent::MyWorker;
 
 const EXR_COMMENT: Option<&str> = Some("Created by https://strawlab.org/vr-cal/");
 
@@ -39,7 +40,7 @@ impl std::fmt::Display for MyError {
 }
 
 pub struct Model {
-    worker: Box<dyn Bridge<MyWorker>>,
+    worker: yew_agent::scope_ext::WorkerBridgeHandle<MyWorker>,
     obj_file: MaybeValidObjFile,
     csv_file: MaybeCsvData<SimpleUVCorrespondance>,
     display_width: TypedInputStorage<usize>,
@@ -67,7 +68,7 @@ pub enum Msg {
     ComputeExr2,
     DownloadExr2,
 
-    DataReceived(MyWorkerResponse),
+    DataReceived(agent::MyWorkerResponse),
 }
 
 impl Component for Model {
@@ -79,7 +80,7 @@ impl Component for Model {
             let link = ctx.link().clone();
             move |v| link.send_message(Self::Message::DataReceived(v))
         };
-        let worker = MyWorker::bridge(std::rc::Rc::new(cb));
+        let worker = ctx.link().bridge_worker(cb.into());
 
         Self {
             worker,
@@ -112,7 +113,7 @@ impl Component for Model {
             Msg::ComputeExr => match self.get_pinhole_cal_data() {
                 Ok(src_data) => {
                     self.n_computing_exr += 1;
-                    self.worker.send(MyWorkerRequest::CalcExr(src_data));
+                    self.worker.send(agent::MyWorkerRequest::CalcExr(src_data));
                 }
                 Err(e) => {
                     tracing::error!("cound not get calibration data: {:?}", e);
@@ -126,7 +127,7 @@ impl Component for Model {
             Msg::ComputeCorrespondingCsv => match self.get_pinhole_cal_data() {
                 Ok(src_data) => {
                     self.n_computing_csv += 1;
-                    self.worker.send(MyWorkerRequest::CalcCsv(src_data));
+                    self.worker.send(agent::MyWorkerRequest::CalcCsv(src_data));
                 }
                 Err(e) => {
                     tracing::error!("cound not get calibration data: {:?}", e);
@@ -147,7 +148,7 @@ impl Component for Model {
                 match &self.stage_2_csv_file {
                     MaybeCsvData::Valid(csv_file) => {
                         self.n_computing_stage_2_exr += 1;
-                        self.worker.send(MyWorkerRequest::CalcAdvancedExr(
+                        self.worker.send(agent::MyWorkerRequest::CalcAdvancedExr(
                             csv_file.raw_buf().to_vec(),
                         ));
                     }
@@ -162,21 +163,21 @@ impl Component for Model {
                 }
             }
             Msg::DataReceived(from_worker) => match from_worker {
-                MyWorkerResponse::ExrData(d) => {
+                agent::MyWorkerResponse::ExrData(d) => {
                     self.n_computing_exr -= 1;
                     match d {
                         Ok(d) => self.computed_exr = Some(d),
                         Err(e) => tracing::error!("{}", e),
                     }
                 }
-                MyWorkerResponse::CsvData(d) => {
+                agent::MyWorkerResponse::CsvData(d) => {
                     self.n_computing_csv -= 1;
                     match d {
                         Ok(d) => self.computed_csv = Some(d),
                         Err(e) => tracing::error!("{}", e),
                     }
                 }
-                MyWorkerResponse::AdvancedExrData(d) => {
+                agent::MyWorkerResponse::AdvancedExrData(d) => {
                     self.n_computing_stage_2_exr -= 1;
                     match d {
                         Ok(d) => self.computed_stage_2_exr = Some(d),
@@ -440,152 +441,11 @@ fn download_file(orig_buf: &[u8], filename: &str) {
     web_sys::Url::revoke_object_url(&data_url).unwrap_throw();
 }
 
-pub struct MyWorker {
-    link: AgentLink<Self>,
-}
-
-pub enum MyWorkerMsg {}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum MyWorkerRequest {
-    CalcExr(freemovr_calibration::PinholeCalData),
-    CalcAdvancedExr(Vec<u8>),
-    CalcCsv(freemovr_calibration::PinholeCalData),
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub enum MyWorkerResponse {
-    ExrData(Result<Vec<u8>, String>),
-    CsvData(Result<Vec<u8>, String>),
-    AdvancedExrData(Result<Vec<u8>, String>),
-}
-
-impl Agent for MyWorker {
-    type Reach = Public<Self>;
-
-    type Message = MyWorkerMsg;
-    type Input = MyWorkerRequest;
-    type Output = MyWorkerResponse;
-
-    fn create(link: AgentLink<Self>) -> Self {
-        Self { link }
-    }
-
-    fn update(&mut self, msg: Self::Message) {
-        match msg {}
-    }
-
-    fn handle_input(&mut self, msg: Self::Input, who: HandlerId) {
-        let (save_debug_images, show_mask) = (false, false);
-
-        match msg {
-            MyWorkerRequest::CalcExr(src_data) => {
-                let vdisp_data = match freemovr_calibration::compute_vdisp_images(
-                    &src_data,
-                    save_debug_images,
-                    show_mask,
-                ) {
-                    Ok(mut vdisp_data) => vdisp_data.remove(0),
-                    Err(e) => {
-                        self.link
-                            .respond(who, MyWorkerResponse::ExrData(Err(format!("{}", e))));
-                        return;
-                    }
-                };
-
-                let visp_info_vec: Vec<&VDispInfo> = vec![&vdisp_data];
-                let float_image = match freemovr_calibration::merge_vdisp_images(
-                    &visp_info_vec,
-                    &src_data,
-                    save_debug_images,
-                    show_mask,
-                ) {
-                    Ok(float_image) => float_image,
-                    Err(e) => {
-                        self.link
-                            .respond(who, MyWorkerResponse::ExrData(Err(format!("{}", e))));
-                        return;
-                    }
-                };
-
-                let mut exr_writer = freemovr_calibration::ExrWriter::new();
-                exr_writer.update(&float_image, EXR_COMMENT);
-                let exr_buf = exr_writer.buffer();
-
-                self.link
-                    .respond(who, MyWorkerResponse::ExrData(Ok(exr_buf)));
-            }
-            MyWorkerRequest::CalcCsv(src_data) => {
-                use freemovr_calibration::PinholeCal;
-                let trimesh = src_data.geom_as_trimesh().unwrap_throw();
-
-                let pinhole_fits = src_data.pinhole_fits();
-                assert!(pinhole_fits.len() == 1);
-                let (_name, cam) = &pinhole_fits[0];
-
-                let mut csv_buf = Vec::<u8>::new();
-
-                let jsdate = js_sys::Date::new_0();
-                let iso8601_dt_str: String = jsdate.to_iso_string().into();
-
-                let tz_offset_minutes = jsdate.get_timezone_offset();
-
-                // get correct UTC datetime
-                let created_at: Option<chrono::DateTime<chrono::Utc>> =
-                    chrono::DateTime::parse_from_rfc3339(&iso8601_dt_str)
-                        .ok()
-                        .map(|dt| dt.with_timezone(&chrono::Utc));
-
-                let offset =
-                    chrono::FixedOffset::west_opt((tz_offset_minutes * 60.0) as i32).unwrap();
-                let created_at = created_at.map(|dt| dt.with_timezone(&offset));
-
-                // TODO: why does chrono save this without the timezone offset information?
-                match freemovr_calibration::export_to_csv(&mut csv_buf, &cam, &trimesh, created_at)
-                {
-                    Ok(()) => {}
-                    Err(e) => {
-                        self.link
-                            .respond(who, MyWorkerResponse::CsvData(Err(format!("{}", e))));
-                        return;
-                    }
-                }
-
-                self.link
-                    .respond(who, MyWorkerResponse::CsvData(Ok(csv_buf)));
-            }
-            MyWorkerRequest::CalcAdvancedExr(raw_buf) => {
-                let save_debug_images = false;
-                let mut exr_buf = Vec::<u8>::new();
-                let reader = std::io::Cursor::new(raw_buf.as_slice());
-                match freemovr_calibration::csv2exr(
-                    reader,
-                    &mut exr_buf,
-                    save_debug_images,
-                    EXR_COMMENT,
-                ) {
-                    Ok(()) => {}
-                    Err(e) => {
-                        self.link.respond(
-                            who,
-                            MyWorkerResponse::AdvancedExrData(Err(format!("{}", e))),
-                        );
-                        return;
-                    }
-                }
-                self.link
-                    .respond(who, MyWorkerResponse::AdvancedExrData(Ok(exr_buf)));
-            }
-        }
-    }
-
-    fn name_of_resource() -> &'static str {
-        // This is the relative path.
-        "native_worker.js"
-    }
-
-    fn resource_path_is_relative() -> bool {
-        // allow relocating with URL hierarchy
-        true
+#[function_component]
+pub fn App() -> Html {
+    html! {
+        <WorkerProvider<MyWorker> path="/worker.js">
+            <Model />
+        </WorkerProvider<MyWorker>>
     }
 }

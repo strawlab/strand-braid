@@ -10,12 +10,12 @@ name = "freemovr-calibration-webapp"
 path = "src/bin/freemovr-calibration-webapp.rs"
 
 [[bin]]
-name = "native_worker"
-path = "src/bin/native_worker.rs"
+name = "worker"
+path = "src/bin/worker.rs"
 
 [dependencies]
 yew.workspace = true
-yew-agent = "0.2.0"
+yew-agent = "0.3.0"
 yew-tincture.workspace = true
 js-sys.workspace = true
 wasm-bindgen.workspace = true
