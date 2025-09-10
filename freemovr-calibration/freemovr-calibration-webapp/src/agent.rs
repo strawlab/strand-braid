@@ -102,8 +102,7 @@ impl yew_agent::worker::Worker for MyWorker {
                 let created_at = created_at.map(|dt| dt.with_timezone(&offset));
 
                 // TODO: why does chrono save this without the timezone offset information?
-                match freemovr_calibration::export_to_csv(&mut csv_buf, &cam, &trimesh, created_at)
-                {
+                match freemovr_calibration::export_to_csv(&mut csv_buf, cam, trimesh, created_at) {
                     Ok(()) => {}
                     Err(e) => {
                         scope.respond(id, MyWorkerResponse::CsvData(Err(format!("{}", e))));

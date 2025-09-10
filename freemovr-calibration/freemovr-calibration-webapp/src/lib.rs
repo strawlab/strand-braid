@@ -121,7 +121,7 @@ impl Component for Model {
             },
             Msg::DownloadExr => {
                 if let Some(ref buf) = self.computed_exr {
-                    download_file(&buf, "out.exr");
+                    download_file(buf, "out.exr");
                 }
             }
             Msg::ComputeCorrespondingCsv => match self.get_pinhole_cal_data() {
@@ -135,7 +135,7 @@ impl Component for Model {
             },
             Msg::DownloadCorrespondingCsv => {
                 if let Some(ref buf) = self.computed_csv {
-                    download_file(&buf, "out.csv");
+                    download_file(buf, "out.csv");
                 }
             }
             Msg::CsvFile2(csv_file) => {
@@ -159,7 +159,7 @@ impl Component for Model {
             }
             Msg::DownloadExr2 => {
                 if let Some(ref buf) = self.computed_stage_2_exr {
-                    download_file(&buf, "advanced.exr");
+                    download_file(buf, "advanced.exr");
                 }
             }
             Msg::DataReceived(from_worker) => match from_worker {
@@ -199,7 +199,7 @@ impl Component for Model {
         };
 
         let missing = self.missing_for_calibration();
-        let can_compute_pinhole_calibration = missing.len() == 0;
+        let can_compute_pinhole_calibration = missing.is_empty();
 
         let download_exr_str = if can_compute_pinhole_calibration {
             ""
@@ -209,12 +209,10 @@ impl Component for Model {
 
         let download_stage_2_exr_str = if self.computed_stage_2_exr.is_some() {
             "Valid CSV file loaded. EXR file computed. Ready to download."
+        } else if can_compute_stage_2_exr {
+            "Valid CSV file loaded. Can compute EXR file."
         } else {
-            if can_compute_stage_2_exr {
-                "Valid CSV file loaded. Can compute EXR file."
-            } else {
-                "No valid CSV file is loaded."
-            }
+            "No valid CSV file is loaded."
         };
 
         let n_computing =
@@ -255,7 +253,7 @@ impl Component for Model {
                 <h2>{"Input: Display Surface Model"}</h2>
                 <ObjWidget
                     button_text={"Select an OBJ file."}
-                    onfile={ctx.link().callback(|obj_file| Msg::ObjFile(obj_file))}
+                    onfile={ctx.link().callback(Msg::ObjFile)}
                     />
                 <p>
                     { &obj_file_state }
@@ -278,7 +276,7 @@ impl Component for Model {
                 <p>{"The file must be a CSV file with columns: display_x, display_y, texture_u, texture_v."}</p>
                 <CsvDataField<SimpleUVCorrespondance>
                     button_text={"Select a CSV file."}
-                    onfile={ctx.link().callback(|csv_file| Msg::CsvFile(csv_file))}
+                    onfile={ctx.link().callback(Msg::CsvFile)}
                     />
                 <p>
                     { &csv_file_state }
@@ -329,7 +327,7 @@ impl Component for Model {
                     <h3>{"Step 3: Upload the Corresponding Points"}</h3>
                         <CsvDataField<CompleteCorrespondance>
                             button_text={"Select a CSV file."}
-                            onfile={ctx.link().callback(|csv_file| Msg::CsvFile2(csv_file))}
+                            onfile={ctx.link().callback(Msg::CsvFile2)}
                             />
                     <p>
                         { &stage_2_csv_file_state }
@@ -360,11 +358,11 @@ impl Component for Model {
 impl Model {
     fn missing_for_calibration(&self) -> Vec<&str> {
         let mut missing = vec![];
-        if let &MaybeValidObjFile::Valid(ref _obj) = &self.obj_file {
+        if let MaybeValidObjFile::Valid(_obj) = &self.obj_file {
         } else {
             missing.push("display surface model .obj file");
         }
-        if let &MaybeCsvData::Valid(ref _csv) = &self.csv_file {
+        if let MaybeCsvData::Valid(_csv) = &self.csv_file {
         } else {
             missing.push("corresponding points .csv file");
         }
@@ -385,7 +383,7 @@ impl Model {
             height: self.display_height.parsed()?,
         };
         let geom = match &self.obj_file {
-            &MaybeValidObjFile::Valid(ref obj) => {
+            MaybeValidObjFile::Valid(obj) => {
                 let mesh = freemovr_calibration::as_ncollide_mesh(obj.mesh());
                 TriMeshGeom::new(&mesh, Some(obj.filename.clone()))?
             }
@@ -394,7 +392,7 @@ impl Model {
             }
         };
         let uv_display_points = match &self.csv_file {
-            &MaybeCsvData::Valid(ref data) => data.rows().to_vec(),
+            MaybeCsvData::Valid(data) => data.rows().to_vec(),
             _ => {
                 return Err(MyError {});
             }
@@ -408,7 +406,7 @@ impl Model {
 
 fn download_file(orig_buf: &[u8], filename: &str) {
     let mime_type = "application/octet-stream";
-    let b = js_sys::Uint8Array::new(&unsafe { js_sys::Uint8Array::view(&orig_buf) }.into());
+    let b = js_sys::Uint8Array::new(&unsafe { js_sys::Uint8Array::view(orig_buf) }.into());
     let array = js_sys::Array::new();
     array.push(&b.buffer());
 
@@ -425,7 +423,7 @@ fn download_file(orig_buf: &[u8], filename: &str) {
         .unwrap_throw();
 
     anchor.set_href(&data_url);
-    anchor.set_download(&filename);
+    anchor.set_download(filename);
     anchor.set_target("_blank");
 
     anchor
