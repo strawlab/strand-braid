@@ -729,7 +729,7 @@ where
     let mut exr_writer = ExrWriter::new();
     // info!("saving EXR output file: {}", out_fname);
     exr_writer.update(&float_image, exr_comment);
-    out_wtr.write(&exr_writer.buffer())?;
+    out_wtr.write_all(&exr_writer.buffer())?;
     Ok(())
 }
 
