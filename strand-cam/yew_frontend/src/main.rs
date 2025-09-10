@@ -11,6 +11,7 @@ use strand_cam_remote_control::CamArg;
 use strand_led_box_comms::ToDevice as ToLedBoxDevice;
 use strand_cam_enum_iter::EnumIter;
 
+use console_error_panic_hook::set_once as set_panic_hook;
 use gloo_events::EventListener;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::{JsCast, JsValue};
@@ -1431,8 +1432,17 @@ impl HasAvail for ServerState {
     }
 }
 
-#[wasm_bindgen(start)]
-pub fn run_app() {
+// #[wasm_bindgen(start)]
+// pub fn run_app() {
+//     wasm_logger::init(wasm_logger::Config::default());
+//     yew::Renderer::<Model>::new().render();
+// }
+
+fn main() -> Result<(), JsValue> {
+    set_panic_hook();
     wasm_logger::init(wasm_logger::Config::default());
-    yew::Renderer::<Model>::new().render();
+
+    yew::Renderer::<Model>::new()
+    .render();
+    Ok(())
 }

@@ -8,8 +8,6 @@ On Linux, build with
 
     ./build.sh
 
-Test with microserver (install with `cargo install microserver`)
+Test with
 
-    microserver --no-spa pkg
-
-Then open in your browser: http://localhost:9090/
+    trunk serve --open

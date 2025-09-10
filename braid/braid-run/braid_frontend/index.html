@@ -3,12 +3,20 @@
     <head>
         <meta charset="utf-8">
         <title>Loading...</title>
-        <link rel="stylesheet" href="style.css">
+        <link data-trunk rel="scss" href="scss/braid_frontend.scss" />
+        <link data-trunk rel="copy-file" href="src/braid-logo-no-text.png">
+        <base data-trunk-public-url />
     </head>
     <body>
-        <h1>Strand Camera <a href="https://strawlab.org/strand-cam/"><span class="infoCircle">ℹ</span></a></h1>
-        <div class="lds-ellipsis">
-            <div></div><div></div><div></div><div></div>
+        <div id="app">
+            <!-- The WASM app will draw in this div. -->
+        </div>
+        <div id="loading">
+          <h1>Braid <a href="https://strawlab.org/braid/"><span class="infoCircle">ℹ</span></a></h1>
+          <div class="lds-ellipsis">
+              <div></div><div></div><div></div><div></div>
+          </div>
+          <h1>Loading...</h1>
         </div>
         <noscript>
             <h1>❌ Error: your browser does not support JavaScript. ❌</h1>
@@ -34,16 +42,9 @@
               "<p>For a list of supported browsers, see <a href=\"https://caniuse.com/#search=WebAssembly\">this</a>.<p>";
           }
         </script>
-        <!-- Note the usage of `type=module` here as this is an ES6 module -->
-        <script type="module">
-          import init from './strand_cam_frontend_yew.js';
 
-          async function run() {
-              await init();
-          }
+        <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="braid_frontend" />
 
-          run();
-      </script>
         <script type='text/javascript'>
             function _remove_token_from_url() {
               if (window.location.search.length <= 1) {

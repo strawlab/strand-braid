@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use wasm_bindgen::{prelude::wasm_bindgen, JsCast};
+use wasm_bindgen::JsCast;
 
 use yew::prelude::*;
 use yew_tincture::components::Button;
@@ -299,8 +299,7 @@ fn download_file(orig_buf: &[u8], filename: &str) {
     web_sys::Url::revoke_object_url(&data_url).unwrap();
 }
 
-#[wasm_bindgen(start)]
-pub fn run_app() {
+pub fn main() {
     wasm_logger::init(wasm_logger::Config::default());
     yew::Renderer::<Model>::new().render();
 }

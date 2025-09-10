@@ -5,8 +5,13 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 rust-version = "1.76"
 
-[lib]
-crate-type = ["cdylib", "rlib"]
+[[bin]]
+name = "freemovr-calibration-webapp"
+path = "src/bin/freemovr-calibration-webapp.rs"
+
+[[bin]]
+name = "native_worker"
+path = "src/bin/native_worker.rs"
 
 [dependencies]
 yew.workspace = true

@@ -5,10 +5,8 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2021"
 rust-version = "1.76"
 
-[lib]
-crate-type = ["cdylib", "rlib"]
-
 [dependencies]
+console_error_panic_hook.workspace = true
 wasm-logger.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true

@@ -38,7 +38,7 @@ use crate::multicam_http_session_handler::{MaybeSession, StrandCamHttpSessionHan
 
 #[cfg(feature = "bundle_files")]
 static ASSETS_DIR: include_dir::Dir<'static> =
-    include_dir::include_dir!("$CARGO_MANIFEST_DIR/braid_frontend/pkg");
+    include_dir::include_dir!("$CARGO_MANIFEST_DIR/braid_frontend/dist");
 
 lazy_static::lazy_static! {
     static ref EVENTS_PREFIX: String = format!("/{}", BRAID_EVENTS_URL_PATH);
@@ -310,7 +310,7 @@ async fn launch_braid_http_backend(
     let serve_dir = tower_http::services::fs::ServeDir::new(
         std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("braid_frontend")
-            .join("pkg"),
+            .join("dist"),
     );
 
     let auth_layer = cfg.into_layer();

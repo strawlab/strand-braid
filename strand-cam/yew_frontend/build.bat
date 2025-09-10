@@ -1,10 +1,3 @@
-REM Install wasm-pack from here https://rustwasm.github.io/wasm-pack/installer/
+REM Install trunk as described here https://trunkrs.dev/#install
 
-REM This will build the source and place results into a new `pkg` dir
-wasm-pack build --target web
-
-REM Install grass with: cargo install grass
-grass -I ..\..\ads-webasm\scss scss\strand-cam-frontend.scss pkg\style.css
-
-copy static\index.html pkg\index.html
-copy static\strand-camera-no-text.png pkg\strand-camera-no-text.png
+trunk build --release

@@ -1,10 +1,8 @@
 #!/bin/bash -x
 set -euo pipefail
 
-wasm-pack build --target web --dev --features ads-webasm/obj
+# Build the project with Trunk. Installs into the `dist` directory.
+trunk build --features ads-webasm/obj
 
-cp static/index.html pkg/index.html
-grass -I ../scss static/ads-webasm-example.scss pkg/style.css
-
-echo "Build OK. Now run with:\n"
-echo "    microserver --port 8000 --no-spa pkg"
+# Run with Trunk development server using:
+#    trunk serve --features ads-webasm/obj

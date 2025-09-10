@@ -9,9 +9,7 @@ ENV CARGO_HOME=/usr
 RUN apt-get update && \
    DEBIAN_FRONTEND=noninteractive apt-get install -y curl llvm-dev libclang-dev clang git && \
    curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y && \
-   cargo install wasm-bindgen-cli && \
-   cargo install wasm-pack && \
-   cargo install grass
+   cargo install trunk
 
 WORKDIR /usr/src/strand-braid
 COPY . .

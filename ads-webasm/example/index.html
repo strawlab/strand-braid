@@ -3,8 +3,9 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Braid April Tag Calibration Tool</title>
-    <link rel="stylesheet" href="style.css">
+    <title>example</title>
+    <link data-trunk rel="scss" href="static/ads-webasm-example.scss" />
+    <base data-trunk-public-url />
 </head>
 
 <body>
@@ -32,16 +33,9 @@
                 "<p>For a list of supported browsers, see <a href=\"https://caniuse.com/#search=WebAssembly\">this</a>.<p>";
         }
     </script>
-    <!-- Note the usage of `type=module` here as this is an ES6 module -->
-    <script type="module">
-        import init from './braid_april_cal_webapp.js';
 
-        async function run() {
-            await init();
-        }
+    <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="ads-webasm-example" />
 
-        run();
-    </script>
 </body>
 
 </html>

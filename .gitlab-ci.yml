@@ -382,16 +382,12 @@ build-freemovr-calibration-webapp:
     - echo $PATH
     - rustup target add wasm32-unknown-unknown
 
-    - cargo install wasm-bindgen-cli --version 0.2.100 --force --locked
-    - cargo install grass
-
-    - wasm-bindgen --version
+    - cargo install trunk
 
     - cd freemovr-calibration/freemovr-calibration-webapp
-    - cargo update wasm-bindgen --precise 0.2.100
     - ./build.sh
     - mkdir -p $CI_PROJECT_DIR/freemovr-cal-webapp
-    - cp -a pkg/* $CI_PROJECT_DIR/freemovr-cal-webapp
+    - cp -a dist/* $CI_PROJECT_DIR/freemovr-cal-webapp
   artifacts:
     paths:
       - freemovr-cal-webapp
@@ -518,6 +514,7 @@ strand-cam-pylon-binary:
     - export RUSTFLAGS="-D warnings"
 
     - rustc --version
+    - rustup target add wasm32-unknown-unknown
 
     - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
 
@@ -559,6 +556,7 @@ strand-cam-vimba-binary:
     - export RUSTFLAGS="-D warnings"
 
     - rustc --version
+    - rustup target add wasm32-unknown-unknown
 
     - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-vimba
 
@@ -616,6 +614,7 @@ strand-cam-flydratrax-pylon-binary:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
+    - rustup target add wasm32-unknown-unknown
 
     - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon-gui
 
@@ -786,25 +785,14 @@ braid-webapps:
   script:
     - export RUSTFLAGS="-D warnings"
 
-    # Update wasm-bindgen to latest...
-    - cargo update
-    # ... and install latest (and therefore matching) wasm-pack
-    - curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-    # ... and wasm-bindgen-cli
-    - cargo install wasm-bindgen-cli --version 0.2.100 --force --locked
-    - cargo install grass
+    - cargo install trunk
     - rustup target add wasm32-unknown-unknown
     - export PATH="$PATH:$CARGO_HOME/bin"
 
-    # - wasm-pack --version # disabled, see https://github.com/rustwasm/wasm-pack/issues/1301
-    - wasm-bindgen --version
-
-    - cd braidz-viewer
-    - cargo update wasm-bindgen --precise 0.2.100
+    - cd $CI_PROJECT_DIR/braidz-viewer
     - ./build.sh
 
     - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-webapp
-    - cargo update wasm-bindgen --precise 0.2.100
     - ./build.sh
 
 braid-run-binary:
@@ -816,6 +804,7 @@ braid-run-binary:
   script:
     - _packaging/setup-ubuntu-base.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
+    - rustup target add wasm32-unknown-unknown
     # - export RUSTFLAGS="-D warnings"
 
     # build mainbrain web frontend
@@ -1062,10 +1051,11 @@ strand-braid-ubuntu-2204:
 build_simple:
   image: ubuntu:focal
   script:
-    # Install cargo and wasm-pack and grass
+    # Install cargo and trunk
     - _packaging/setup-ubuntu-base.sh
     # Put them on the path
     - export PATH="$PATH:$CARGO_HOME/bin"
+    - rustup target add wasm32-unknown-unknown
     # Install Pylon
     - _packaging/install-pylon-linux.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang

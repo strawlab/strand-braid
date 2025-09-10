@@ -3,7 +3,8 @@
     <head>
         <meta charset="utf-8">
         <title>FreemoVR Pinhole Calibration Tool</title>
-        <link rel="stylesheet" href="style.css">
+        <link data-trunk rel="scss" href="static/freemovr-calibration-webapp.scss" />
+        <base data-trunk-public-url />
     </head>
     <body>
         <noscript>
@@ -30,15 +31,9 @@
               "<p>For a list of supported browsers, see <a href=\"https://caniuse.com/#search=WebAssembly\">this</a>.<p>";
           }
         </script>
-        <!-- Note the usage of `type=module` here as this is an ES6 module -->
-        <script type="module">
-            import init from './freemovr-calibration-webapp.js';
 
-            async function run() {
-                await init();
-            }
+        <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="freemovr-calibration-webapp" data-type="main" />
+        <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="native_worker" data-type="worker" />
 
-            run();
-        </script>
     </body>
 </html>

@@ -1,7 +1,7 @@
-@use 'colors';
-@use 'base';
-@use 'custom_file_upload';
-@use 'lds_ellipsis';
+@use '../../../ads-webasm/scss/colors';
+@use '../../../ads-webasm/scss/base';
+@use '../../../ads-webasm/scss/custom_file_upload';
+@use '../../../ads-webasm/scss/lds_ellipsis';
 
 @include base.base($body-color-dark: colors.$body-color-dark,
     $body-background-dark: colors.$body-background-dark,

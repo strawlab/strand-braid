@@ -3,9 +3,12 @@
     <head>
         <meta charset="utf-8">
         <title>BRAIDZ Viewer</title>
-        <link rel="stylesheet" href="style.css">
         <link rel="manifest" href="manifest.json" />
         <link rel="icon" href="braidz-viewer.svg" />
+
+        <link data-trunk rel="scss" href="scss/braidz-viewer.scss" />
+        <link data-trunk rel="copy-dir" href="static" data-target-path=".">
+        <base data-trunk-public-url />
     </head>
     <body>
         <section id="app"></section>
@@ -33,11 +36,7 @@
               "<p>For a list of supported browsers, see <a href=\"https://caniuse.com/#search=WebAssembly\">this</a>.<p>";
           }
         </script>
-        <script type="module">
-            // https://rustwasm.github.io/docs/wasm-bindgen/examples/without-a-bundler.html
-            import init from '/braidz_viewer.js';
-            init('/braidz_viewer_bg.wasm');
-        </script>
+        <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" data-bin="braidz-viewer" />
 
     </body>
 </html>

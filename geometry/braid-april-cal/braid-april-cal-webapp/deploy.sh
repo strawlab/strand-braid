@@ -1,1 +1,1 @@
-rsync -avzP pkg/ strawlab-org:strawlab.org/braid-april-cal-webapp/
+rsync -avzP dist/ strawlab-org:strawlab.org/braid-april-cal-webapp/

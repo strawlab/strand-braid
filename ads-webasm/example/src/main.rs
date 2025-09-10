@@ -243,7 +243,6 @@ impl Component for Model {
     }
 }
 
-#[wasm_bindgen(start)]
 pub fn main() -> Result<(), JsValue> {
     wasm_logger::init(wasm_logger::Config::default());
     yew::Renderer::<Model>::new().render();
