@@ -1,7 +1,8 @@
 #!/bin/bash -x
 set -euo pipefail
 
+# Build the project with Trunk. Installs into the `dist` directory.
 trunk build --features ads-webasm/obj
 
-echo "Build OK. Now run with:\n"
-echo "    microserver --port 8080 --no-spa dist"
+# Run with Trunk development server using:
+#    trunk serve --features ads-webasm/obj

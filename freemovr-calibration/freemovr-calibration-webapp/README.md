@@ -10,8 +10,7 @@ Compile:
 
 Run locally:
 
-    # install microserver with: 'cargo install microserver'
-    microserver --port 8000 --no-spa dist
+    trunk serve
 
 ## Install to production
 

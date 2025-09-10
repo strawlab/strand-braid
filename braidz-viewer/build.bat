@@ -1,4 +1,5 @@
+# Build the project with Trunk. Installs into the `dist` directory.
 trunk build --release
 
-REM Build OK. Now run with:
-REM     microserver --port 8000 --no-spa dist
+# Run with Trunk development server using:
+#    trunk serve

@@ -1,9 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
+# Build the project with Trunk. Installs into the `dist` directory.
 trunk build --release
 
-# above built everything, let's now run it locally
-# (install with `cargo install microserver`)
-echo "Build OK. Now run with:\n"
-echo "    microserver --port 8000 --no-spa dist"
+# Run with Trunk development server using:
+#    trunk serve
