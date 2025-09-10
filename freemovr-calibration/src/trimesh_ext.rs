@@ -10,10 +10,7 @@ pub trait FaceIndices<N: nalgebra::RealField + Copy> {
 
 impl<N: nalgebra::RealField + Copy> FaceIndices<N> for TriMesh<N> {
     fn indices(&self) -> Vec<Point3<usize>> {
-        self.faces()
-            .iter()
-            .map(|face| face.indices.clone())
-            .collect()
+        self.faces().iter().map(|face| face.indices).collect()
     }
 }
 
@@ -33,9 +30,9 @@ impl<N: nalgebra::RealField + Copy> UvPosition<N> for TriMesh<N> {
         point: &Point3<N>,
         _solid: bool,
     ) -> Option<Point2<N>> {
-        if let Some(ref uvs) = self.uvs() {
+        if let Some(uvs) = self.uvs() {
             // tri_idx is the number of the triangle
-            let (pp, (tri_idx, loc)) = self.project_point_with_location(&m, point, true);
+            let (pp, (tri_idx, loc)) = self.project_point_with_location(m, point, true);
             if !pp.is_inside {
                 // TODO sometimes this fails when it shouldn't. I'm not exactly
                 // sure what is wrong. Look at implementation of ncollide3d

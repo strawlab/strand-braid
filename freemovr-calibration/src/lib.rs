@@ -170,8 +170,7 @@ pub fn do_multi_display<R: std::io::Read, P: AsRef<Path>>(
     for display in data.displays.iter() {
         let orig_path = &display.calibration_file;
         let cal_file = if orig_path.is_absolute() {
-            let x = orig_path.clone();
-            x
+            orig_path.clone()
         } else {
             let mut new_base = src_dir.as_ref().to_path_buf();
             new_base.push(orig_path);
@@ -235,10 +234,7 @@ impl ActualFiles {
         let yaml_dir = src_dir.as_ref().to_path_buf();
         let data = parse_pinhole_yaml(fd, &yaml_dir)?;
 
-        let trimesh = match data.loaded.geom.as_trimesh(&yaml_dir) {
-            Ok(tm) => Some(tm),
-            Err(_) => None,
-        };
+        let trimesh = data.loaded.geom.as_trimesh(&yaml_dir).ok();
 
         let loaded_geom = data.loaded.geom.load_geom(&yaml_dir)?;
         info!("parsed input file");
@@ -286,7 +282,7 @@ impl PinholeCal for ActualFiles {
         self.loaded_geom.as_ref()
     }
     fn geom_as_trimesh(&self) -> Option<&TriMeshGeom> {
-        (&self.trimesh).as_ref()
+        self.trimesh.as_ref()
     }
     fn merge_virtual_displays(&self, vdisp_data: &[&VDispInfo], show_mask: bool) -> Vec<f64> {
         merge_vdisps(&self.data.loaded, vdisp_data, show_mask)
@@ -395,7 +391,8 @@ fn debug_image(
                 .map(|uv| {
                     let u = uv[0];
                     let v = uv[1];
-                    let rgb = if u.is_nan() {
+
+                    if u.is_nan() {
                         // black if no texcoord
                         vec![0, 0, 0]
                     } else {
@@ -403,8 +400,7 @@ fn debug_image(
                         // green = V scaled
                         // blue = 0
                         vec![(u * 255.0).trunc() as u8, (v * 255.0).trunc() as u8, 255u8]
-                    };
-                    rgb
+                    }
                 })
                 .flatten()
                 .collect()
@@ -530,7 +526,7 @@ pub fn compute_image_for_camera_view(
 
             let dir = world_coord.coords - center;
             debug_assert!((dir.magnitude_squared() - 1.0).abs() < 1e-10); // ensure unit distance
-            let ray = ncollide3d::query::Ray::new(center.clone(), dir);
+            let ray = ncollide3d::query::Ray::new(*center, dir);
 
             let start = (camy * cam.width() + camx) * nchan;
             // let stop = start+nchan;
@@ -578,9 +574,8 @@ where
         buf_reader.read_line(&mut line)?;
         if line.starts_with("#") {
             const PARAMS: &str = "# params: ";
-            if line.starts_with(PARAMS) {
-                let comment_params_buf = &line[PARAMS.len()..];
-                let comment_params: CommentParams = serde_json::from_str(&comment_params_buf)?;
+            if let Some(comment_params_buf) = line.strip_prefix(PARAMS) {
+                let comment_params: CommentParams = serde_json::from_str(comment_params_buf)?;
                 width = Some(comment_params.display_width);
                 height = Some(comment_params.display_height);
             }
@@ -667,9 +662,8 @@ where
             .map(|idx| {
                 let real_texcoord = orig_geom_texcoords[*idx];
                 // find the row in the CSV file with this texcoord
-                let opt_found_displaycoord = get_idx(&csv_texcoords_3d, &real_texcoord)
-                    .and_then(|i| Some(csv_displaycoords[i]));
-                opt_found_displaycoord
+
+                get_idx(&csv_texcoords_3d, &real_texcoord).map(|i| csv_displaycoords[i])
             })
             .collect();
 
@@ -720,8 +714,7 @@ where
     if save_debug_images {
         let flat: Vec<f64> = pixels
             .iter()
-            .map(|px| vec![px.0, px.1, px.2])
-            .flatten()
+            .flat_map(|px| vec![px.0, px.1, px.2])
             .collect();
         debug_image(&flat, height as u32, width as u32, 3, "out.jpg", None).unwrap();
     }

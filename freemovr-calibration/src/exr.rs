@@ -51,6 +51,12 @@ pub struct ExrWriter {
     data_offset: usize,
 }
 
+impl Default for ExrWriter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ExrWriter {
     pub fn new() -> ExrWriter {
         ExrWriter {
@@ -151,7 +157,7 @@ impl ExrWriter {
         self.write_str("comments");
         self.write_str("string");
         self.buffer
-            .write_i32::<LittleEndian>(comment.as_bytes().len() as i32)
+            .write_i32::<LittleEndian>(comment.len() as i32)
             .unwrap();
         self.buffer.extend_from_slice(comment.as_bytes());
     }
@@ -193,7 +199,7 @@ impl ExrWriter {
                     let pixel = &film.pixels[first_pixel + i];
                     let val = [pixel.0 as f32, pixel.1 as f32, pixel.2 as f32];
                     let z = 8 + (0 * film.width + i) * 4;
-                    let y = 8 + (1 * film.width + i) * 4;
+                    let y = 8 + (film.width + i) * 4;
                     let x = 8 + (2 * film.width + i) * 4;
                     LittleEndian::write_f32(&mut line[z..(z + 4)], val[2]);
                     LittleEndian::write_f32(&mut line[y..(y + 4)], val[1]);

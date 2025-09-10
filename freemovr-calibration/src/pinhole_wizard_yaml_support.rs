@@ -17,7 +17,7 @@ use std::path::Path;
 
 use crate::trimesh_ext::FaceIndices;
 
-const DEFAULT_VDISP: &'static str = "fullscreen";
+const DEFAULT_VDISP: &str = "fullscreen";
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
@@ -238,7 +238,7 @@ pub fn parse_obj_from_reader<R: std::io::Read>(
     let (_name, mesh) = obj;
 
     let mesh = as_ncollide_mesh(&mesh);
-    Ok(TriMeshGeom::new(&mesh, fname.map(|x| x.to_string()))?)
+    TriMeshGeom::new(&mesh, fname.map(|x| x.to_string()))
 }
 
 struct LoadedSphere {
@@ -312,7 +312,7 @@ impl DisplayGeometry for LoadedSphere {
 fn get_uvs_trimesh(
     mesh: &ncollide3d::shape::TriMesh<f64>,
 ) -> Option<ncollide3d::shape::TriMesh<f64>> {
-    if let Some(ref uvs) = mesh.uvs() {
+    if let Some(uvs) = mesh.uvs() {
         let indices = mesh.indices();
         let coords = uvs
             .iter()
@@ -352,7 +352,7 @@ impl TriMeshGeom {
         mesh: &ncollide3d::shape::TriMesh<f64>,
         original_fname: Option<String>,
     ) -> Result<Self> {
-        let uvs = match get_uvs_trimesh(&mesh) {
+        let uvs = match get_uvs_trimesh(mesh) {
             Some(uvs) => uvs,
             None => {
                 return Err(Error::ObjHasNoTextureCoords);
@@ -375,7 +375,7 @@ impl TriMeshGeom {
 
     pub fn original_fname(&self) -> Option<&str> {
         // see https://stackoverflow.com/a/31234028/1633026
-        self.original_fname.as_ref().map(|x| &**x)
+        self.original_fname.as_deref()
     }
 }
 
@@ -437,7 +437,7 @@ impl DisplayGeometry for TriMeshGeom {
         use nalgebra::geometry::Isometry3;
 
         self.worldcoords
-            .project_point_to_uv(&Isometry3::identity(), &surface_pt, false)
+            .project_point_to_uv(&Isometry3::identity(), surface_pt, false)
     }
 
     fn ncollide_shape(&self) -> &dyn ncollide3d::query::RayCast<f64> {
@@ -492,7 +492,7 @@ pub fn solve_no_distortion_display_camera<D: PinholeCalib>(
         );
 
         let dlt_pmat =
-            dlt::dlt_corresponding(&this_vdisp_corr, epsilon).map_err(|e| Error::SvdError(e))?;
+            dlt::dlt_corresponding(&this_vdisp_corr, epsilon).map_err(Error::SvdError)?;
 
         // println!("pmat: {}", pretty_print_nalgebra::pretty_print!(&dlt_pmat));
 

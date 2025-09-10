@@ -61,16 +61,12 @@ pub struct VirtualDisplay {
     pub mirror: Mirror,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub enum Mirror {
+    #[default]
     None,
     #[serde(rename = "lr")]
     Lr,
-}
-impl std::default::Default for Mirror {
-    fn default() -> Mirror {
-        Mirror::None
-    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
