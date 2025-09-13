@@ -1,4 +1,3 @@
-use strand_bui_backend_session_types::{ConnectionKey, SessionKey};
 use bytes::Bytes;
 use futures::StreamExt;
 use http::{header::ACCEPT, request::Parts, StatusCode};
@@ -9,6 +8,7 @@ use std::{
     pin::Pin,
     sync::{Arc, RwLock},
 };
+use strand_bui_backend_session_types::ConnectionKey;
 use tokio::sync::mpsc::Sender;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -29,12 +29,8 @@ pub enum ConnectionEventType {
 pub struct ConnectionEvent {
     /// The type of connection for this event.
     pub typ: ConnectionEventType,
-    /// Identifier for the connecting session (one per browser).
-    pub session_key: SessionKey,
     /// Identifier for the connection (one per tab).
     pub connection_key: ConnectionKey,
-    /// The path being requested (starts with `BuiService::events_prefix`).
-    pub path: String,
 }
 
 // header extractor for "Accept: text/event-stream" --------------------------

@@ -29,7 +29,7 @@ use ci2::{Camera, CameraInfo, CameraModule, DynamicFrameWithInfo};
 use ci2_async::AsyncCamera;
 use fmf::FMFWriter;
 use formats::PixFmt;
-use strand_bui_backend_session_types::{AccessToken, BuiServerAddrInfo, ConnectionKey, SessionKey};
+use strand_bui_backend_session_types::{AccessToken, BuiServerAddrInfo, ConnectionKey};
 use strand_dynamic_frame::DynamicFrame;
 
 use video_streaming::AnnotatedFrame;
@@ -676,7 +676,6 @@ async fn events_handler(
     session_key: axum_token_auth::SessionKey,
     axum::extract::ConnectInfo(addr): axum::extract::ConnectInfo<SocketAddr>,
     _: AcceptsEventStream,
-    req: axum::extract::Request,
 ) -> impl axum::response::IntoResponse {
     session_key.is_present();
     tracing::trace!("events");
@@ -725,17 +724,13 @@ async fn events_handler(
     // "global event sender" which will send further events to the connection.
     {
         let typ = ConnectionEventType::Connect(tx);
-        let path = req.uri().path().to_string();
         let connection_key = ConnectionKey { addr };
-        let session_key = SessionKey(session_key.0);
 
         match app_state
             .tx_new_connection
             .send(ConnectionEvent {
                 typ,
-                session_key,
                 connection_key,
-                path,
             })
             .await
         {
