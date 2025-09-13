@@ -3241,11 +3241,10 @@ where
         });
     }
 
-    let connection_callback_rx = rx_new_connection;
     let firehose_task_join_handle = tokio::spawn(async {
         // The first thing this task does is pop a frame from firehose_rx, so we
         // should ensure there is one present.
-        video_streaming::firehose_task(connection_callback_rx, firehose_rx, firehose_callback_rx)
+        video_streaming::firehose_task(rx_new_connection, firehose_rx, firehose_callback_rx)
             .await
             .unwrap();
     });

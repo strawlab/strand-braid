@@ -1,13 +1,11 @@
-use strand_http_video_streaming_types::StrokeStyle;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
 };
+use strand_http_video_streaming_types::StrokeStyle;
 
-use tokio_stream::StreamExt;
-
-use strand_bui_backend_session_types::ConnectionKey;
 use event_stream_types::{ConnectionEvent, ConnectionEventType, EventChunkSender};
+use strand_bui_backend_session_types::ConnectionKey;
 use strand_dynamic_frame::DynamicFrameOwned;
 
 pub use strand_http_video_streaming_types::{CircleParams, DrawableShape, Point, Shape, ToClient};
@@ -113,11 +111,12 @@ impl PerSender {
                             center_y: found_point.y.round() as i16,
                             radius: 10,
                         });
-                        let green_shape = strand_http_video_streaming_types::DrawableShape::from_shape(
-                            &shape,
-                            &self.green_stroke,
-                            line_width,
-                        );
+                        let green_shape =
+                            strand_http_video_streaming_types::DrawableShape::from_shape(
+                                &shape,
+                                &self.green_stroke,
+                                line_width,
+                            );
                         annotations.push(green_shape);
                     }
                     ToClient {
@@ -211,10 +210,25 @@ impl TaskState {
     }
 }
 
+/// Option unwrap macro for use in loop.
+///
+/// Logs message and breaks out of loop if None.
+macro_rules! otry {
+    ($e:expr, $msg:expr) => {
+        match $e {
+            Some(v) => v,
+            None => {
+                tracing::debug!($msg);
+                break;
+            }
+        }
+    };
+}
+
 pub async fn firehose_task(
-    connection_callback_rx: tokio::sync::mpsc::Receiver<ConnectionEvent>,
+    mut connection_callback_rx: tokio::sync::mpsc::Receiver<ConnectionEvent>,
     mut firehose_rx: tokio::sync::mpsc::Receiver<AnnotatedFrame>,
-    firehose_callback_rx: tokio::sync::mpsc::Receiver<ConnectionKey>,
+    mut firehose_callback_rx: tokio::sync::mpsc::Receiver<ConnectionKey>,
 ) -> Result<()> {
     // Wait for the first frame so we don't need to deal with an Option<>.
     let first_frame = firehose_rx.recv().await.unwrap();
@@ -225,48 +239,17 @@ pub async fn firehose_task(
         frame,
     };
 
-    let mut connection_callback_rx =
-        tokio_stream::wrappers::ReceiverStream::new(connection_callback_rx);
-    let mut firehose_callback_rx =
-        tokio_stream::wrappers::ReceiverStream::new(firehose_callback_rx);
     let mut interval = tokio::time::interval(std::time::Duration::from_millis(100));
     loop {
         tokio::select! {
-            opt_new_connection = connection_callback_rx.next() => {
-                match opt_new_connection {
-                    Some(new_connection) => {
-                        task_state.handle_connection(new_connection)?;
-                    }
-                    None => {
-                        tracing::debug!("new connection senders done.");
-                        // All senders done.
-                        break;
-                    }
-                }
+            opt_new_connection = connection_callback_rx.recv() => {
+                task_state.handle_connection(otry!(opt_new_connection, "new connection senders done."))?;
             }
             opt_new_frame = firehose_rx.recv() => {
-                match opt_new_frame {
-                    Some(new_frame) => {
-                        task_state.handle_frame(new_frame)?;
-                    }
-                    None => {
-                        tracing::debug!("new frame senders done.");
-                        // All senders done.
-                        break;
-                    }
-                }
+                task_state.handle_frame(otry!(opt_new_frame, "new frame senders done."))?;
             },
-            opt_callback = firehose_callback_rx.next() => {
-                match opt_callback {
-                    Some(callback) => {
-                        task_state.handle_callback(callback)?;
-                    }
-                    None => {
-                        tracing::debug!("new callback senders done.");
-                        // All senders done.
-                        break;
-                    }
-                }
+            opt_callback = firehose_callback_rx.recv() => {
+                task_state.handle_callback(otry!(opt_callback, "new callback senders done."))?;
             },
             _ = interval.tick() => {
                 task_state.service().await?;
