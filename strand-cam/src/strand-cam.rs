@@ -701,11 +701,8 @@ async fn events_handler(
 
     // Send an initial copy of our state.
     let shared_store = app_state.shared_store_arc.read().unwrap().as_ref().clone();
-    let frame_string = to_event_frame(&shared_store);
-    match tx
-        .send(Ok(http_body::Frame::data(frame_string.into())))
-        .await
-    {
+    let chunk = to_event_chunk(&shared_store);
+    match tx.send(Ok(http_body::Frame::data(chunk.into()))).await {
         Ok(()) => {}
         Err(tokio::sync::mpsc::error::SendError(_)) => {
             // The receiver was dropped because the connection closed. Should probably do more here.
@@ -2011,8 +2008,8 @@ where
     let event_broadcaster = app_state.event_broadcaster.clone();
     let send_updates_future = async move {
         while let Some((_prev_state, next_state)) = shared_store_changes_rx.next().await {
-            let frame_string = to_event_frame(&next_state);
-            event_broadcaster.broadcast_frame(frame_string).await;
+            let chunk = to_event_chunk(&next_state);
+            event_broadcaster.broadcast_frame(chunk).await;
         }
     };
 
