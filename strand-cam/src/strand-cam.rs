@@ -660,12 +660,17 @@ fn test_nvenc_save(frame: DynamicFrame) -> Result<bool> {
     Ok(true)
 }
 
-fn to_event_frame(state: &StoreType) -> String {
+fn to_event_chunk(state: &StoreType) -> String {
     let buf = serde_json::to_string(&state).unwrap();
-    let frame_string = format!("event: {STRAND_CAM_EVENT_NAME}\ndata: {buf}\n\n");
-    frame_string
+    format!("event: {STRAND_CAM_EVENT_NAME}\ndata: {buf}\n\n")
 }
 
+/// Handle a new connection to the event stream.
+///
+/// This creates a new channel which sends events to the new connection. The
+/// receiver side is simply the http body passed to axum. The sender side is
+/// initially started with a couple messages and then is ultimately sent to a
+/// "global event sender" which will send ongoing events to all connections.
 async fn events_handler(
     axum::extract::State(app_state): axum::extract::State<StrandCamAppState>,
     session_key: axum_token_auth::SessionKey,
@@ -678,9 +683,13 @@ async fn events_handler(
     // Connection wants to subscribe to event stream.
 
     let key = ConnectionSessionKey::new(session_key.0, addr);
+
+    // Create a new channel in which the receiver is used to send responses to
+    // the new connection. The sender receives changes from a global change
+    // receiver.
     let (tx, body) = app_state.event_broadcaster.new_connection(key);
 
-    // Send the connection key
+    // Send the first message, the connection key.
     {
         let frame_string = format!(
             "event: {}\ndata: {}\n\n",
@@ -699,40 +708,43 @@ async fn events_handler(
         }
     }
 
-    // Send an initial copy of our state.
-    let shared_store = app_state.shared_store_arc.read().unwrap().as_ref().clone();
-    let chunk = to_event_chunk(&shared_store);
-    match tx.send(Ok(http_body::Frame::data(chunk.into()))).await {
-        Ok(()) => {}
-        Err(tokio::sync::mpsc::error::SendError(_)) => {
-            // The receiver was dropped because the connection closed. Should probably do more here.
-            tracing::debug!("initial send error");
+    // Send the second message, a copy of our state.
+    {
+        let shared_store = app_state.shared_store_arc.read().unwrap().as_ref().clone();
+        let chunk = to_event_chunk(&shared_store);
+        match tx.send(Ok(http_body::Frame::data(chunk.into()))).await {
+            Ok(()) => {}
+            Err(tokio::sync::mpsc::error::SendError(_)) => {
+                // The receiver was dropped because the connection closed. Should probably do more here.
+                tracing::debug!("initial send error");
+            }
         }
     }
 
-    // Create a new channel in which the receiver is used to send responses to
-    // the new connection. The sender receives changes from a global change
-    // receiver.
-    let typ = ConnectionEventType::Connect(tx);
-    let path = req.uri().path().to_string();
-    let connection_key = ConnectionKey { addr };
-    let session_key = SessionKey(session_key.0);
-
-    match app_state
-        .tx_new_connection
-        .send(ConnectionEvent {
-            typ,
-            session_key,
-            connection_key,
-            path,
-        })
-        .await
+    // Finally, send `tx`, the sender of the newly created channel, to the
+    // "global event sender" which will send further events to the connection.
     {
-        Ok(()) => Ok(body),
-        Err(_) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "sending new connection failed",
-        )),
+        let typ = ConnectionEventType::Connect(tx);
+        let path = req.uri().path().to_string();
+        let connection_key = ConnectionKey { addr };
+        let session_key = SessionKey(session_key.0);
+
+        match app_state
+            .tx_new_connection
+            .send(ConnectionEvent {
+                typ,
+                session_key,
+                connection_key,
+                path,
+            })
+            .await
+        {
+            Ok(()) => Ok(body),
+            Err(_) => Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "sending new connection failed",
+            )),
+        }
     }
 }
 
