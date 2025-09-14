@@ -37,7 +37,8 @@ fn _test_annotated_frame_is_send() {
 }
 
 struct PerSender {
-    out: EventChunkSender,
+    /// The Sender to the specific HTTP connection.
+    conn_tx: EventChunkSender,
     frame_lifo: Option<Arc<Mutex<AnnotatedFrame>>>,
     ready_to_send: bool,
     conn_key: ConnectionKey,
@@ -60,12 +61,12 @@ pub enum NameSelector {
 
 impl PerSender {
     fn new(
-        out: EventChunkSender,
+        conn_tx: EventChunkSender,
         conn_key: ConnectionKey,
         frame: Arc<Mutex<AnnotatedFrame>>,
     ) -> PerSender {
         PerSender {
-            out,
+            conn_tx,
             frame_lifo: Some(frame),
             ready_to_send: true,
             conn_key,
@@ -134,9 +135,9 @@ impl PerSender {
                     strand_http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
                     buf
                 );
-                let hc = http_body::Frame::data(bytes::Bytes::from(buf));
+                let chunk = http_body::Frame::data(bytes::Bytes::from(buf));
 
-                match self.out.send(Ok(hc)).await {
+                match self.conn_tx.send(chunk).await {
                     Ok(()) => {}
                     Err(_) => {
                         tracing::info!("failed to send data to connection. dropping.");
@@ -175,11 +176,12 @@ impl TaskState {
         }
         Ok(())
     }
+    /// Event handler when a new connection or disconnection is made.
     fn handle_connection(&mut self, conn_evt: ConnectionEvent) -> Result<()> {
         match conn_evt.typ {
-            ConnectionEventType::Connect(chunk_sender) => {
+            ConnectionEventType::Connect(conn_tx) => {
                 // sender was added.
-                let ps = PerSender::new(chunk_sender, conn_evt.connection_key, self.frame.clone());
+                let ps = PerSender::new(conn_tx, conn_evt.connection_key, self.frame.clone());
                 self.per_sender_map.insert(conn_evt.connection_key, ps);
             }
             ConnectionEventType::Disconnect => {

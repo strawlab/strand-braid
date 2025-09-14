@@ -12,8 +12,8 @@ use strand_bui_backend_session_types::ConnectionKey;
 use tokio::sync::mpsc::Sender;
 use tokio_stream::wrappers::ReceiverStream;
 
-pub type EventChunkSender = Sender<Result<Frame<Bytes>, Infallible>>;
-type EventReceiver = ReceiverStream<Result<Frame<Bytes>, Infallible>>;
+pub type EventChunkSender = Sender<Frame<Bytes>>;
+type EventReceiver = ReceiverStream<Frame<Bytes>>;
 
 /// The type of possible connect event, either connect or disconnect.
 #[derive(Debug)]
@@ -109,7 +109,11 @@ impl http_body::Body for EventsBody {
         mut self: Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
-        self.events.poll_next_unpin(cx)
+        match self.events.poll_next_unpin(cx) {
+            std::task::Poll::Ready(Some(frame)) => std::task::Poll::Ready(Some(Ok(frame))),
+            std::task::Poll::Ready(None) => std::task::Poll::Ready(None),
+            std::task::Poll::Pending => std::task::Poll::Pending,
+        }
     }
 }
 
@@ -186,7 +190,7 @@ where
         // now we have released the lock and can await without holding the lock.
         let mut keep_event_listeners = Vec::with_capacity(txers.len());
         for (key, tx) in txers.into_iter() {
-            match tx.send(Ok(Frame::data(frame_string.clone().into()))).await {
+            match tx.send(Frame::data(frame_string.clone().into())).await {
                 Ok(()) => {
                     keep_event_listeners.push((key, tx));
                 }

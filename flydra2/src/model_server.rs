@@ -48,7 +48,7 @@ async fn events_handler(
     // If we extracted a calibration above, send it already now.
     if let Some(cal_data) = cal_data {
         let cal_body = get_body(&cal_data);
-        tx.send(Ok(Frame::data(cal_body.into()))).await.unwrap();
+        tx.send(Frame::data(cal_body.into())).await.unwrap();
     }
 
     body

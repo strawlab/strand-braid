@@ -112,10 +112,7 @@ async fn events_handler(
     {
         let current_state = app_state.shared_store.read().unwrap().as_ref().clone();
         let frame_string = to_event_frame(&current_state);
-        match tx
-            .send(Ok(http_body::Frame::data(frame_string.into())))
-            .await
-        {
+        match tx.send(http_body::Frame::data(frame_string.into())).await {
             Ok(()) => {}
             Err(_) => {
                 // The receiver was dropped because the connection closed. Should probably do more here.

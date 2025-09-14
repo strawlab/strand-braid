@@ -684,21 +684,19 @@ async fn events_handler(
     let key = ConnectionSessionKey::new(session_key.0, addr);
 
     // Create a new channel in which the receiver is used to send responses to
-    // the new connection. The sender receives changes from a global change
-    // receiver.
-    let (tx, body) = app_state.event_broadcaster.new_connection(key);
+    // the new connection. The sender is sent to the app where it is stored in a
+    // per-connection map. Changes for this connection will then be sent to the
+    // stored sender.
+    let (conn_tx, body) = app_state.event_broadcaster.new_connection(key);
 
     // Send the first message, the connection key.
     {
-        let frame_string = format!(
+        let chunk = format!(
             "event: {}\ndata: {}\n\n",
             strand_cam_storetype::CONN_KEY_EVENT_NAME,
             addr
         );
-        match tx
-            .send(Ok(http_body::Frame::data(frame_string.into())))
-            .await
-        {
+        match conn_tx.send(http_body::Frame::data(chunk.into())).await {
             Ok(()) => {}
             Err(tokio::sync::mpsc::error::SendError(_)) => {
                 // The receiver was dropped because the connection closed. Should probably do more here.
@@ -711,7 +709,7 @@ async fn events_handler(
     {
         let shared_store = app_state.shared_store_arc.read().unwrap().as_ref().clone();
         let chunk = to_event_chunk(&shared_store);
-        match tx.send(Ok(http_body::Frame::data(chunk.into()))).await {
+        match conn_tx.send(http_body::Frame::data(chunk.into())).await {
             Ok(()) => {}
             Err(tokio::sync::mpsc::error::SendError(_)) => {
                 // The receiver was dropped because the connection closed. Should probably do more here.
@@ -723,7 +721,7 @@ async fn events_handler(
     // Finally, send `tx`, the sender of the newly created channel, to the
     // "global event sender" which will send further events to the connection.
     {
-        let typ = ConnectionEventType::Connect(tx);
+        let typ = ConnectionEventType::Connect(conn_tx);
         let connection_key = ConnectionKey { addr };
 
         match app_state
