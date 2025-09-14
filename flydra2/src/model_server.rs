@@ -256,12 +256,13 @@ pub async fn new_model_server(
                                     let intrinsics: cam_geom::IntrinsicParametersPerspective<_> =
                                         params.into();
                                     // TODO: confirm that `intrinsics` is equal to `cam.intrinsics()`.
-                                    let pinhole = braid_mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(
-                                        &intrinsics,
-                                        w,
-                                        h,
-                                    )
-                                    .unwrap();
+                                    let pinhole =
+                                        braid_mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(
+                                            &intrinsics,
+                                            w,
+                                            h,
+                                        )
+                                        .unwrap();
                                     rec.log(raw_path, &pinhole).unwrap();
                                 }
                             }
