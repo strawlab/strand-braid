@@ -9,7 +9,7 @@ fn git_hash(orig_version: &str) -> Result<(), Box<(dyn std::error::Error)>> {
     Ok(())
 }
 
-fn main() -> Result<(), Box<(dyn std::error::Error)>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     git_hash(env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }
