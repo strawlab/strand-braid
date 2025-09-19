@@ -17,7 +17,16 @@ curl -O --show-error --fail --silent https://static.rust-lang.org/rustup/dist/x8
 export PATH="$PATH:$CARGO_HOME/bin"
 
 # Install trunk (Rust WASM builder and bundler)
-cargo install trunk
+if [ "$(uname -m)" = "x86_64" ]; then
+    echo "Running on AMD64/x86_64"
+    curl --location --remote-name https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-musl.tar.gz
+    tar xzf trunk-x86_64-unknown-linux-musl.tar.gz
+    mv trunk $CARGO_HOME/bin/
+    trunk --version
+else
+    echo "Running on $(uname -m) architecture"
+    cargo install trunk
+fi
 
 # TODO: include firmware bundled
 rustc --version
