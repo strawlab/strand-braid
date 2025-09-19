@@ -1,6 +1,6 @@
 /// Set the environment variables `GIT_HASH` AND `CARGO_PKG_VERSION` to include
 /// the current git revision.
-pub fn git_hash(orig_version: &str) -> Result<(), Box<(dyn std::error::Error)>> {
+pub fn git_hash(orig_version: &str) -> Result<(), Box<dyn std::error::Error>> {
     let output = std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
         .output()?;
@@ -10,13 +10,3 @@ pub fn git_hash(orig_version: &str) -> Result<(), Box<(dyn std::error::Error)>> 
     println!("cargo:rustc-env=CARGO_PKG_VERSION={version}"); // override default
     Ok(())
 }
-
-// pub fn bui_backend_generate_code<P>(
-//     _files_dir: P,
-//     _generated_path: &str,
-// ) -> Result<(), Box<(dyn std::error::Error)>>
-// where
-//     P: AsRef<std::path::Path>,
-// {
-//     todo!();
-// }
