@@ -103,18 +103,6 @@ pub enum FeatureDetectionMethod {
     Flydra(std::collections::BTreeMap<String, flydra_feature_detector::ImPtDetectCfg>),
 }
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
-pub struct BrightPointOptions {
-    max_num_points: usize,
-}
-
-impl Default for BrightPointOptions {
-    fn default() -> Self {
-        Self { max_num_points: 10 }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields, tag = "type")]
 #[derive(Default)]
