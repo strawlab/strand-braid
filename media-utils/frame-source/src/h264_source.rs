@@ -275,7 +275,7 @@ impl H264AnnexBSource {
         let inner = Box::new(BufReader::new(fd));
         Self::from_readseek(inner)
     }
-    pub fn from_readseek(mut inner: Box<(dyn SeekRead + Send)>) -> Result<Self> {
+    pub fn from_readseek(mut inner: Box<dyn SeekRead + Send>) -> Result<Self> {
         inner.seek(std::io::SeekFrom::Start(0))?;
         let my_nal_boundaries = crate::h264_annexb_splitter::find_nals(&mut inner)?;
         inner.seek(std::io::SeekFrom::Start(0))?;

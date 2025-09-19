@@ -45,7 +45,7 @@ fn test_h264_precision_timestamps() -> Result<()> {
     let size = mp4_buf.len() as u64;
     let rdr = std::io::Cursor::new(mp4_buf);
 
-    let buf_reader: Box<(dyn SeekRead + Send)> = Box::new(std::io::BufReader::new(rdr));
+    let buf_reader: Box<dyn SeekRead + Send> = Box::new(std::io::BufReader::new(rdr));
     let mp4_reader = mp4::Mp4Reader::read_header(buf_reader, size)?;
 
     let do_decode_h264 = false; // no need to decode h264 to get timestamps.
