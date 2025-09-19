@@ -150,7 +150,7 @@ pub(crate) fn open_h264_in_mp4<P: AsRef<Path>>(
 ) -> Result<H264Source<Mp4Source>> {
     let rdr = std::fs::File::open(path.as_ref())?;
     let size = rdr.metadata()?.len();
-    let buf_reader: Box<(dyn SeekRead + Send + 'static)> = Box::new(std::io::BufReader::new(rdr));
+    let buf_reader: Box<dyn SeekRead + Send + 'static> = Box::new(std::io::BufReader::new(rdr));
     let mp4_reader = mp4::Mp4Reader::read_header(buf_reader, size)?;
 
     let result = from_reader_with_timestamp_source(
