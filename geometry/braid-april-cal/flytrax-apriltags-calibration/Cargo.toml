@@ -29,3 +29,6 @@ apriltag-detection-writer.workspace = true
 
 [dev-dependencies]
 download-verify.workspace = true
+
+[build-dependencies]
+build-util.workspace = true
