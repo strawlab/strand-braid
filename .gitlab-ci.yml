@@ -13,7 +13,7 @@ cache:
 #   Debian (jessie?) - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential libgfortran-6-dev liblapack-dev libblas-dev
 
 test_crates:
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.1
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.2
   script:
     - export PATH="$PATH:$CARGO_HOME/bin"
 
@@ -296,7 +296,7 @@ test_crates_rust_nightly:
     - cd ..
 
 test_flydra_feature_detector:
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.1
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.2
   script:
     - _packaging/setup-ubuntu-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -306,7 +306,7 @@ test_flydra_feature_detector:
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd flydra-feature-detector && RUST_BACKTRACE=1 cargo test --features ipp-sys/2019,use_ipp
 
 test_fastimage:
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.1
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.2
   script:
     - _packaging/setup-ubuntu-ipp.sh
     - export PATH="$PATH:$CARGO_HOME/bin"
@@ -315,7 +315,7 @@ test_fastimage:
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd fastimage && cargo test --verbose --features "ipp-sys/2019" -- --nocapture --test-threads 1
 
 led-box-ubuntu2004-debs:
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.1
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.2
   script:
     - mkdir -p $CI_PROJECT_DIR/focal-led-box-debs
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
@@ -336,7 +336,7 @@ led-box-ubuntu2004-debs:
     name: "rust-cam-focal-led-box-debs-${CI_COMMIT_SHA}"
 
 led-box-standalone-ubuntu2004-deb:
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.1
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.2
   script:
     - export PATH="$PATH:$CARGO_HOME/bin"
     - mkdir -p $CI_PROJECT_DIR/led-box-standalone-debs
@@ -415,7 +415,7 @@ deploy-freemovr-calibration-webapp:
   when: manual
 
 build-api-docs:
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.1
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.2
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
@@ -498,7 +498,7 @@ publish-api-docs:
   when: manual
 
 strand-cam-pylon-binary:
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.1
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.2
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
@@ -538,7 +538,7 @@ strand-cam-pylon-binary:
     name: "strand-cam-pylon-binary-${CI_COMMIT_SHA}"
 
 strand-cam-vimba-binary:
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.1
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.2
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
@@ -598,7 +598,7 @@ flytrax-csv-to-braidz-binary:
       - build/
 
 strand-cam-flydratrax-pylon-binary:
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.1
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.2
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
@@ -705,10 +705,8 @@ slow-tests:
 extra-programs:
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
-  image: ubuntu:focal
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.2
   script:
-    - _packaging/setup-ubuntu-apt-proxy.sh
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl clang libclang-dev pkg-config dpkg-dev debhelper zip
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
@@ -755,11 +753,8 @@ extra-programs:
 fmf-cli:
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
-  image: ubuntu:focal
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.2
   script:
-    - _packaging/setup-ubuntu-apt-proxy.sh
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential curl
-
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
@@ -797,7 +792,7 @@ braid-webapps:
 braid-run-binary:
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.1
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.2
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
@@ -1047,14 +1042,13 @@ strand-braid-ubuntu-2204:
     name: "strand-braid-ubuntu-2204-${CI_COMMIT_TAG}"
 
 build_simple:
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.1
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.2
   script:
     # Put them on the path
     - export PATH="$PATH:$CARGO_HOME/bin"
     - rustup target add wasm32-unknown-unknown
     # Install Pylon
     - _packaging/install-pylon-linux.sh
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
 
     # Build strand-cam-pylon with simplest build configuration possible
     - cd $CI_PROJECT_DIR/strand-cam/yew_frontend

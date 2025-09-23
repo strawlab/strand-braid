@@ -4,7 +4,7 @@ set -o errexit
 _packaging/setup-ubuntu-apt-proxy.sh
 
 apt-get update
-DEBIAN_FRONTEND=noninteractive apt-get install -y cpio libudev-dev zlib1g-dev pkg-config curl build-essential git libvpx-dev
+DEBIAN_FRONTEND=noninteractive apt-get install -y cpio libudev-dev zlib1g-dev pkg-config curl build-essential git libvpx-dev clang libclang-dev dpkg-dev debhelper zip llvm-dev
 
 ORIG_DIR=`pwd`
 echo $ORIG_DIR
