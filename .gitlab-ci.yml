@@ -377,7 +377,11 @@ build-freemovr-calibration-webapp:
     - echo $PATH
     - rustup target add wasm32-unknown-unknown
 
-    - cargo install trunk
+    - curl --location --remote-name https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-musl.tar.gz
+    - tar xzf trunk-x86_64-unknown-linux-musl.tar.gz
+    - mkdir -p $CARGO_HOME/bin/
+    - mv trunk $CARGO_HOME/bin/
+    - trunk --version
 
     - cd freemovr-calibration/freemovr-calibration-webapp
     - ./build.sh
@@ -774,10 +778,15 @@ braid-webapps:
   image: rust:1.88
   script:
     - export RUSTFLAGS="-D warnings"
-
-    - cargo install trunk
-    - rustup target add wasm32-unknown-unknown
     - export PATH="$PATH:$CARGO_HOME/bin"
+
+    - curl --location --remote-name https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-musl.tar.gz
+    - tar xzf trunk-x86_64-unknown-linux-musl.tar.gz
+    - mkdir -p $CARGO_HOME/bin/
+    - mv trunk $CARGO_HOME/bin/
+    - trunk --version
+
+    - rustup target add wasm32-unknown-unknown
 
     - cd $CI_PROJECT_DIR/braidz-viewer
     - ./build.sh
