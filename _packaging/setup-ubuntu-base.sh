@@ -14,7 +14,12 @@ echo $ORIG_DIR
 cd /tmp
 curl -O --show-error --fail --silent https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && chmod a+x rustup-init && ./rustup-init -y --default-toolchain nightly-2025-06-20
 
-export PATH="$PATH:$CARGO_HOME/bin"
+if [[ -f "$HOME/.cargo/env" ]]; then
+    # Put rust on the path (otherwise, it was probably in /usr/bin and on the path anyway).
+    . "$HOME/.cargo/env"
+fi
+
+rustc --version
 
 # Install trunk (Rust WASM builder and bundler)
 if [ "$(uname -m)" = "x86_64" ]; then
@@ -27,8 +32,5 @@ else
     echo "Running on $(uname -m) architecture"
     cargo install trunk
 fi
-
-# TODO: include firmware bundled
-rustc --version
 
 cd $ORIG_DIR
