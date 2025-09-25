@@ -728,13 +728,6 @@ extra-programs:
     - cp $CI_PROJECT_DIR/target/release/cal-to-xml $CI_PROJECT_DIR/build
     - cp $CI_PROJECT_DIR/target/release/align-calibration $CI_PROJECT_DIR/build
 
-    - cd $CI_PROJECT_DIR/geometry/mcsc-structs
-    - ./package-mcsc-zip.sh
-
-    - cd $CI_PROJECT_DIR/geometry/braidz-mcsc
-    - cargo build --release
-    - cp $CI_PROJECT_DIR/target/release/braidz-mcsc $CI_PROJECT_DIR/build
-
     - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-cli
     - cargo build --release
     - cp $CI_PROJECT_DIR/target/release/braid-april-cal-cli $CI_PROJECT_DIR/build
@@ -759,6 +752,28 @@ extra-programs:
     paths:
       - build/
     name: "extra-programs-${CI_COMMIT_SHA}"
+
+braidz-mcsc:
+  stage: build
+  # Build on Ubuntu Focal (20.04) but doesn't link libraries with
+  # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  script:
+    - rustup default stable
+    - export RUSTFLAGS="-D warnings"
+
+    - mkdir -p $CI_PROJECT_DIR/build
+
+    - cd $CI_PROJECT_DIR/geometry/mcsc-structs
+    - ./package-mcsc-zip.sh
+
+    - cd $CI_PROJECT_DIR/geometry/braidz-mcsc
+    - cargo build --release
+    - cp $CI_PROJECT_DIR/target/release/braidz-mcsc $CI_PROJECT_DIR/build
+  artifacts:
+    paths:
+      - build/
+    name: "braidz-mcsc-${CI_COMMIT_SHA}"
 
 fmf-cli:
   dependencies: []
@@ -922,6 +937,7 @@ strand-braid-ubuntu-2404:
     - braid-offline-static
     - braid-process-video
     - braid-run-binary
+    - braidz-mcsc
     - extra-programs
     - fmf-cli
     - strand-cam-vimba-binary
@@ -981,6 +997,7 @@ strand-braid-ubuntu-2004:
     - braid-offline-static
     - braid-process-video
     - braid-run-binary
+    - braidz-mcsc
     - extra-programs
     - fmf-cli
     - strand-cam-vimba-binary
@@ -1040,6 +1057,7 @@ strand-braid-ubuntu-2204:
     - braid-offline-static
     - braid-process-video
     - braid-run-binary
+    - braidz-mcsc
     - extra-programs
     - fmf-cli
     - strand-cam-vimba-binary
