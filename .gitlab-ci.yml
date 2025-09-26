@@ -1,5 +1,4 @@
 variables:
-  CARGO_HOME: $CI_PROJECT_DIR/.cargo-proj
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
 
 cache:
@@ -13,11 +12,9 @@ cache:
 #   Debian (jessie?) - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential libgfortran-6-dev liblapack-dev libblas-dev
 
 test_crates:
-  image: ubuntu:focal
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  dependencies: []
   script:
-    - _packaging/setup-ubuntu-base.sh
-    - export PATH="$PATH:$CARGO_HOME/bin"
-
     - export RUSTFLAGS="-D warnings"
 
     - DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg
@@ -111,12 +108,14 @@ test_crates:
     - cargo test
 
 test_flydra2:
+  dependencies: []
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   image: ubuntu:noble
   script:
     - _packaging/setup-ubuntu-base.sh
-    - export PATH="$PATH:$CARGO_HOME/bin"
+    # Put cargo and rust on the path
+    - . "$HOME/.cargo/env"
 
     # Install python and pip, but let pip install everything from there.
     - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt install -y python3-full python3-pip python-is-python3 libcairo2-dev
@@ -151,6 +150,7 @@ test_flydra2:
     # cargo run --bin braid-offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
 test_crates_rust_stable:
+  dependencies: []
   image: rust:1.88
   script:
     # Fail on any compiler warnings.
@@ -280,6 +280,7 @@ test_crates_rust_stable:
     - cd ../..
 
 test_crates_rust_nightly:
+  dependencies: []
   image: rust:1.88
   script:
     - export RUSTFLAGS="-D warnings"
@@ -297,30 +298,27 @@ test_crates_rust_nightly:
     - cd ..
 
 test_flydra_feature_detector:
-  image: ubuntu:focal
+  dependencies: []
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
   script:
-    - _packaging/setup-ubuntu-base.sh
     - _packaging/setup-ubuntu-ipp.sh
-    - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
     - cargo --version
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd flydra-feature-detector && RUST_BACKTRACE=1 cargo test --features ipp-sys/2019,use_ipp
 
 test_fastimage:
-  image: ubuntu:focal
+  dependencies: []
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
   script:
-    - _packaging/setup-ubuntu-base.sh
     - _packaging/setup-ubuntu-ipp.sh
-    - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd fastimage && cargo test --verbose --features "ipp-sys/2019" -- --nocapture --test-threads 1
 
 led-box-ubuntu2004-debs:
-  image: ubuntu:focal
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
   script:
-    - _packaging/setup-ubuntu-base.sh
     - mkdir -p $CI_PROJECT_DIR/focal-led-box-debs
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
 
@@ -340,10 +338,9 @@ led-box-ubuntu2004-debs:
     name: "rust-cam-focal-led-box-debs-${CI_COMMIT_SHA}"
 
 led-box-standalone-ubuntu2004-deb:
-  image: ubuntu:focal
+  dependencies: []
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
   script:
-    - _packaging/setup-ubuntu-base.sh
-    - export PATH="$PATH:$CARGO_HOME/bin"
     - mkdir -p $CI_PROJECT_DIR/led-box-standalone-debs
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev cmake pkg-config libfontconfig-dev
 
@@ -360,6 +357,7 @@ led-box-standalone-ubuntu2004-deb:
     name: "led-box-standalone-debs-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration:
+  dependencies: []
   image: rust:1.88
   script:
     - export RUSTFLAGS="-D warnings"
@@ -375,14 +373,20 @@ build-freemovr-calibration:
     name: "freemovr-cal-linux-${CI_COMMIT_SHA}"
 
 build-freemovr-calibration-webapp:
+  dependencies: []
   image: rust:1.88
   script:
     - export RUSTFLAGS="-D warnings"
+    - export CARGO_HOME="$CI_PROJECT_DIR/.cargo-proj"
     - export PATH="$PATH:$CARGO_HOME/bin"
     - echo $PATH
     - rustup target add wasm32-unknown-unknown
 
-    - cargo install trunk
+    - curl --location --remote-name https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-musl.tar.gz
+    - tar xzf trunk-x86_64-unknown-linux-musl.tar.gz
+    - mkdir -p $CARGO_HOME/bin/
+    - mv trunk $CARGO_HOME/bin/
+    - trunk --version
 
     - cd freemovr-calibration/freemovr-calibration-webapp
     - ./build.sh
@@ -416,14 +420,13 @@ deploy-freemovr-calibration-webapp:
   when: manual
 
 build-api-docs:
-  image: ubuntu:focal
+  dependencies: []
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
-    - _packaging/setup-ubuntu-base.sh
     - _packaging/setup-ubuntu-ipp.sh
     - _packaging/setup-opencv-4.9.0-static.sh
-    - export PATH="$PATH:$CARGO_HOME/bin"
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
 
     # build docs for braid-run
@@ -500,21 +503,19 @@ publish-api-docs:
   when: manual
 
 strand-cam-pylon-binary:
-  image: ubuntu:focal
+  stage: build
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
-    - _packaging/setup-ubuntu-base.sh
     - _packaging/setup-opencv-4.9.0-static.sh
     - _packaging/install-pylon-linux.sh
     - _packaging/setup-ubuntu-ipp.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
-    - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
 
     - rustc --version
-    - rustup target add wasm32-unknown-unknown
 
     - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
 
@@ -541,22 +542,19 @@ strand-cam-pylon-binary:
     name: "strand-cam-pylon-binary-${CI_COMMIT_SHA}"
 
 strand-cam-vimba-binary:
-  image: ubuntu:focal
+  stage: build
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
-
   script:
-    - _packaging/setup-ubuntu-base.sh
     - _packaging/setup-opencv-4.9.0-static.sh
     - _packaging/setup-ubuntu-ipp.sh
     - _packaging/setup-ubuntu-vimba.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
-    - export PATH="$PATH:$CARGO_HOME/bin"
 
     - export RUSTFLAGS="-D warnings"
 
     - rustc --version
-    - rustup target add wasm32-unknown-unknown
 
     - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-vimba
 
@@ -582,11 +580,13 @@ strand-cam-vimba-binary:
     name: "strand-cam-vimba-binary-${CI_COMMIT_SHA}"
 
 flytrax-csv-to-braidz-binary:
+  stage: build
   # Use manylinux project to build binary compatible with old glibc
   image: quay.io/pypa/manylinux2014_x86_64
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
+    - export CARGO_HOME="$CI_PROJECT_DIR/.cargo-proj"
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
@@ -603,18 +603,16 @@ flytrax-csv-to-braidz-binary:
       - build/
 
 strand-cam-flydratrax-pylon-binary:
-  image: ubuntu:focal
+  stage: build
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
-    - _packaging/setup-ubuntu-base.sh
     - _packaging/setup-opencv-4.9.0-static.sh
     - _packaging/install-pylon-linux.sh
     - _packaging/setup-ubuntu-ipp.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
-    - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
-    - rustup target add wasm32-unknown-unknown
 
     - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon-gui
 
@@ -643,9 +641,11 @@ strand-cam-flydratrax-pylon-binary:
     name: "strand-cam-flydratrax-pylon-linux-${CI_COMMIT_SHA}"
 
 braid-offline-static:
+  dependencies: []
   # Use manylinux project to build binary compatible with old glibc
   image: quay.io/pypa/manylinux2014_x86_64
   script:
+    - export CARGO_HOME="$CI_PROJECT_DIR/.cargo-proj"
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
@@ -664,6 +664,7 @@ braid-offline-static:
     name: "braid-offline-static-${CI_COMMIT_SHA}"
 
 braid-process-video:
+  stage: build
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
   image: ubuntu:focal
@@ -671,6 +672,7 @@ braid-process-video:
     - _packaging/setup-ubuntu-apt-proxy.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper git pkg-config libclang-dev libvpx-dev curl
 
+    - export CARGO_HOME="$CI_PROJECT_DIR/.cargo-proj"
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
@@ -688,6 +690,7 @@ braid-process-video:
     name: "braid-process-video-${CI_COMMIT_SHA}"
 
 slow-tests:
+  dependencies: []
   image: ubuntu:focal
   when: manual
   script:
@@ -695,6 +698,7 @@ slow-tests:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y git pkg-config libclang-dev curl build-essential libvpx-dev zip octave
     - cc --version
 
+    - export CARGO_HOME="$CI_PROJECT_DIR/.cargo-proj"
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
@@ -709,14 +713,12 @@ slow-tests:
     - cargo test --release -- --include-ignored
 
 extra-programs:
+  stage: build
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
-  image: ubuntu:focal
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
   script:
-    - _packaging/setup-ubuntu-apt-proxy.sh
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl clang libclang-dev pkg-config dpkg-dev debhelper zip
-    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
-    - source $CARGO_HOME/env
+    - rustup default stable
     - export RUSTFLAGS="-D warnings"
 
     - mkdir -p $CI_PROJECT_DIR/build
@@ -725,13 +727,6 @@ extra-programs:
     - cargo build --release
     - cp $CI_PROJECT_DIR/target/release/cal-to-xml $CI_PROJECT_DIR/build
     - cp $CI_PROJECT_DIR/target/release/align-calibration $CI_PROJECT_DIR/build
-
-    - cd $CI_PROJECT_DIR/geometry/mcsc-structs
-    - ./package-mcsc-zip.sh
-
-    - cd $CI_PROJECT_DIR/geometry/braidz-mcsc
-    - cargo build --release
-    - cp $CI_PROJECT_DIR/target/release/braidz-mcsc $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-cli
     - cargo build --release
@@ -758,16 +753,35 @@ extra-programs:
       - build/
     name: "extra-programs-${CI_COMMIT_SHA}"
 
-fmf-cli:
+braidz-mcsc:
+  stage: build
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
-  image: ubuntu:focal
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
   script:
-    - _packaging/setup-ubuntu-apt-proxy.sh
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y build-essential curl
+    - rustup default stable
+    - export RUSTFLAGS="-D warnings"
 
-    - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
-    - source $CARGO_HOME/env
+    - mkdir -p $CI_PROJECT_DIR/build
+
+    - cd $CI_PROJECT_DIR/geometry/mcsc-structs
+    - ./package-mcsc-zip.sh
+
+    - cd $CI_PROJECT_DIR/geometry/braidz-mcsc
+    - cargo build --release
+    - cp $CI_PROJECT_DIR/target/release/braidz-mcsc $CI_PROJECT_DIR/build
+  artifacts:
+    paths:
+      - build/
+    name: "braidz-mcsc-${CI_COMMIT_SHA}"
+
+fmf-cli:
+  dependencies: []
+  # Build on Ubuntu Focal (20.04) but doesn't link libraries with
+  # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  script:
+    - rustup default stable
     - export RUSTFLAGS="-D warnings"
 
     - cd $CI_PROJECT_DIR/media-utils/fmf/fmf-cli
@@ -781,13 +795,20 @@ fmf-cli:
     name: "fmf-cli-${CI_COMMIT_SHA}"
 
 braid-webapps:
+  dependencies: []
   image: rust:1.88
   script:
+    - export CARGO_HOME="$CI_PROJECT_DIR/.cargo-proj"
     - export RUSTFLAGS="-D warnings"
-
-    - cargo install trunk
-    - rustup target add wasm32-unknown-unknown
     - export PATH="$PATH:$CARGO_HOME/bin"
+
+    - curl --location --remote-name https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-musl.tar.gz
+    - tar xzf trunk-x86_64-unknown-linux-musl.tar.gz
+    - mkdir -p $CARGO_HOME/bin/
+    - mv trunk $CARGO_HOME/bin/
+    - trunk --version
+
+    - rustup target add wasm32-unknown-unknown
 
     - cd $CI_PROJECT_DIR/braidz-viewer
     - ./build.sh
@@ -796,15 +817,13 @@ braid-webapps:
     - ./build.sh
 
 braid-run-binary:
+  stage: build
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
-  image: ubuntu:focal
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
-    - _packaging/setup-ubuntu-base.sh
-    - export PATH="$PATH:$CARGO_HOME/bin"
-    - rustup target add wasm32-unknown-unknown
     # - export RUSTFLAGS="-D warnings"
 
     # build mainbrain web frontend
@@ -836,6 +855,7 @@ braid-run-binary:
 
 led-box-linux:
   image: rust:1.88
+  dependencies: []
   script:
     - _packaging/setup-ubuntu-apt-proxy.sh
     - apt-get update
@@ -852,6 +872,7 @@ led-box-linux:
     name: "led-box-linux-${CI_COMMIT_SHA}"
 
 led-box-firmware:
+  dependencies: []
   image: rust:1.88
   script:
     - rustc --version
@@ -916,6 +937,7 @@ strand-braid-ubuntu-2404:
     - braid-offline-static
     - braid-process-video
     - braid-run-binary
+    - braidz-mcsc
     - extra-programs
     - fmf-cli
     - strand-cam-vimba-binary
@@ -975,6 +997,7 @@ strand-braid-ubuntu-2004:
     - braid-offline-static
     - braid-process-video
     - braid-run-binary
+    - braidz-mcsc
     - extra-programs
     - fmf-cli
     - strand-cam-vimba-binary
@@ -1034,6 +1057,7 @@ strand-braid-ubuntu-2204:
     - braid-offline-static
     - braid-process-video
     - braid-run-binary
+    - braidz-mcsc
     - extra-programs
     - fmf-cli
     - strand-cam-vimba-binary
@@ -1049,16 +1073,11 @@ strand-braid-ubuntu-2204:
     name: "strand-braid-ubuntu-2204-${CI_COMMIT_TAG}"
 
 build_simple:
-  image: ubuntu:focal
+  dependencies: []
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
   script:
-    # Install cargo and trunk
-    - _packaging/setup-ubuntu-base.sh
-    # Put them on the path
-    - export PATH="$PATH:$CARGO_HOME/bin"
-    - rustup target add wasm32-unknown-unknown
     # Install Pylon
     - _packaging/install-pylon-linux.sh
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
 
     # Build strand-cam-pylon with simplest build configuration possible
     - cd $CI_PROJECT_DIR/strand-cam/yew_frontend
@@ -1073,6 +1092,7 @@ build_simple:
     - cargo build --release
 
 test_user_guide:
+  dependencies: []
   image: rust:1.88
   script:
     - cd strand-braid-user/users-guide
