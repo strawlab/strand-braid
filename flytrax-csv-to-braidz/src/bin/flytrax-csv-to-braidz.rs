@@ -132,15 +132,15 @@ async fn open_files_and_run() -> anyhow::Result<()> {
         None => None,
     };
 
-    let flydra_csv_temp_dir = tempfile::Builder::new()
+    let braid_csv_temp_dir = tempfile::Builder::new()
         .prefix("strand-convert")
         .tempdir()?;
 
-    info!("strand-cam csv conversion to temporary flydra format:");
+    info!("strand-cam csv conversion to temporary directory:");
     info!(
         "  {} -> {}",
         cli.flytrax_csv.display(),
-        flydra_csv_temp_dir.as_ref().display()
+        braid_csv_temp_dir.as_ref().display()
     );
 
     let output_braidz = match cli.output_braidz {
@@ -198,7 +198,7 @@ async fn open_files_and_run() -> anyhow::Result<()> {
 
     parse_configs_and_run(
         point_detection_csv_reader,
-        Some(&flydra_csv_temp_dir),
+        Some(&braid_csv_temp_dir),
         flytrax_image,
         &output_braidz,
         cal_file_name,
@@ -210,7 +210,7 @@ async fn open_files_and_run() -> anyhow::Result<()> {
     )
     .await?;
 
-    flydra_csv_temp_dir.close()?;
+    braid_csv_temp_dir.close()?;
 
     Ok(())
 }

@@ -504,7 +504,7 @@ pub struct ExtrinsicsArgs {
 #[allow(clippy::too_many_arguments)]
 pub async fn parse_configs_and_run<R>(
     point_detection_csv_reader: R,
-    flydra_csv_temp_dir: Option<&tempfile::TempDir>,
+    braid_csv_temp_dir: Option<&tempfile::TempDir>,
     flytrax_image: Option<image::DynamicImage>,
     output_braidz: &std::path::Path,
     cal_file_name: &str,
@@ -528,7 +528,7 @@ where
 
     kalmanize_2d(
         point_detection_csv_reader,
-        flydra_csv_temp_dir,
+        braid_csv_temp_dir,
         flytrax_image,
         output_braidz,
         tracking_params,
