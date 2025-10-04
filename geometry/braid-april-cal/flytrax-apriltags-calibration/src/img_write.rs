@@ -10,11 +10,13 @@ pub(crate) struct PerCamRender {
 
 pub(crate) struct PerCamRenderFrame<'a> {
     pub(crate) p: &'a PerCamRender,
-    pub(crate) jpeg_buf: Vec<u8>,
-    pub(crate) reproj: Vec<crate::AprilTagReprojectedPoint<f64>>,
+    pub(crate) jpeg_buf: &'a [u8],
+    pub(crate) reproj: &'a [crate::AprilTagReprojectedPoint<f64>],
 }
 
-pub(crate) fn doit<P: AsRef<std::path::Path>>(
+/// Draw the camera render data to an SVG file, and also save a PNG
+/// rasterization of it.
+pub(crate) fn draw_cam_render_data<P: AsRef<std::path::Path>>(
     out_fname: P,
     cam_render_data: &PerCamRenderFrame<'_>,
 ) -> anyhow::Result<()> {

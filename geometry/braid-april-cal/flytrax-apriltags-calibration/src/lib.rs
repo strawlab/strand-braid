@@ -298,8 +298,6 @@ pub fn save_cal_svg_and_png_images<P: AsRef<Path>>(
         jpeg_buf,
         named_intrinsics,
     } = res;
-    let jpeg_buf = jpeg_buf.clone();
-    let reproj = reproj.clone();
 
     let pcr = img_write::PerCamRender {
         width: named_intrinsics.width,
@@ -307,11 +305,11 @@ pub fn save_cal_svg_and_png_images<P: AsRef<Path>>(
     };
     let pcrf = img_write::PerCamRenderFrame {
         p: &pcr,
-        jpeg_buf,
-        reproj,
+        jpeg_buf: jpeg_buf.as_slice(),
+        reproj: reproj.as_slice(),
     };
 
-    img_write::doit(&out_svg_fname, &pcrf)?;
+    img_write::draw_cam_render_data(&out_svg_fname, &pcrf)?;
     tracing::info!(
         "Saved image for debugging to: {}",
         out_svg_fname.as_ref().display()
