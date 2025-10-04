@@ -8,20 +8,22 @@ async fn test_run_end_to_end() {
     const CALIBRATION_PARAMS_FILENAME: &str = "tests/data/cal1.toml";
     let point_detection_csv_reader = INPUT_CSV.as_bytes();
 
-    let flydra_csv_temp_dir = Some(tempfile::Builder::new().tempdir().unwrap());
+    let braid_csv_temp_dir = tempfile::Builder::new().tempdir().unwrap();
+    let dest_dir = camino::Utf8Path::from_path(braid_csv_temp_dir.path()).unwrap();
 
     // Create unique dir for this test so we do not conflict with other
     // concurrent tests.
     let output_dir = tempfile::Builder::new().tempdir().unwrap();
     // The output .braidz filename:
-    let output_braidz = output_dir.as_ref().join("out.braidz");
+    let output_braidz =
+        camino::Utf8PathBuf::from_path_buf(output_dir.as_ref().join("out.braidz")).unwrap();
 
     let tracking_params_buf = Some(include_str!("data/tracking.toml"));
 
     let row_filters = vec![];
     parse_configs_and_run(
         point_detection_csv_reader,
-        flydra_csv_temp_dir.as_ref(),
+        dest_dir,
         None,
         &output_braidz,
         CALIBRATION_PARAMS_FILENAME,
@@ -42,7 +44,7 @@ async fn test_run_end_to_end() {
     assert!(kalman_estimates_info.trajectories.len() >= 7);
     assert!(kalman_estimates_info.trajectories.len() < 1000);
 
-    flydra_csv_temp_dir.unwrap().close().unwrap();
+    braid_csv_temp_dir.close().unwrap();
     output_dir.close().unwrap();
 }
 
@@ -53,18 +55,20 @@ async fn test_z_values_zero() {
 
     let point_detection_csv_reader = INPUT_CSV.as_bytes();
 
-    let flydra_csv_temp_dir = Some(tempfile::Builder::new().tempdir().unwrap());
+    let braid_csv_temp_dir = tempfile::Builder::new().tempdir().unwrap();
+    let dest_dir = camino::Utf8Path::from_path(braid_csv_temp_dir.path()).unwrap();
 
     // Create unique dir for this test so we do not conflict with other
     // concurrent tests.
     let output_dir = tempfile::Builder::new().tempdir().unwrap();
     // The output .braidz filename:
-    let output_braidz = output_dir.as_ref().join("out.braidz");
+    let output_braidz =
+        camino::Utf8PathBuf::from_path_buf(output_dir.as_ref().join("out.braidz")).unwrap();
 
     let row_filters = vec![RowFilter::InPseudoCalRegion];
     parse_configs_and_run(
         point_detection_csv_reader,
-        flydra_csv_temp_dir.as_ref(),
+        dest_dir,
         None,
         &output_braidz,
         CALIBRATION_PARAMS_FILENAME,
@@ -93,7 +97,7 @@ async fn test_z_values_zero() {
 
     assert!(count >= 1);
 
-    flydra_csv_temp_dir.unwrap().close().unwrap();
+    braid_csv_temp_dir.close().unwrap();
 
     // Delete the temporary directory.
     output_dir.close().unwrap();
@@ -158,9 +162,12 @@ async fn mini_arenas_with_apriltags() -> eyre::Result<()> {
     // concurrent tests.
     let output_dir = tempfile::Builder::new().tempdir().unwrap();
     // The output .braidz filename:
-    let output_braidz = output_dir
-        .as_ref()
-        .join("mini_arenas_with_apriltags.braidz");
+    let output_braidz = camino::Utf8PathBuf::from_path_buf(
+        output_dir
+            .as_ref()
+            .join("mini_arenas_with_apriltags.braidz"),
+    )
+    .unwrap();
 
     let row_filters = vec![];
 
@@ -172,8 +179,8 @@ async fn mini_arenas_with_apriltags() -> eyre::Result<()> {
 
     let eargs = Some(flytrax_csv_to_braidz::ExtrinsicsArgs {
         apriltags_3d_fiducial_coords: APRILTAGS_COORDS_FNAME.into(),
-        flytrax_csv: std::path::PathBuf::from(FLYTRAX_DATA_FNAME),
-        image_filename: std::path::PathBuf::from(FLYTRAX_IMAGE_FNAME),
+        flytrax_csv: camino::Utf8PathBuf::from(FLYTRAX_DATA_FNAME),
+        image_filename: camino::Utf8PathBuf::from(FLYTRAX_IMAGE_FNAME),
     });
 
     let opt2 = braid_offline::KalmanizeOptions {
@@ -183,9 +190,12 @@ async fn mini_arenas_with_apriltags() -> eyre::Result<()> {
 
     let tracking_params_buf = Some(std::fs::read_to_string(TRACKING_PARAMS_FNAME)?);
 
+    let braid_csv_temp_dir = tempfile::Builder::new().tempdir().unwrap();
+    let dest_dir = camino::Utf8Path::from_path(braid_csv_temp_dir.path()).unwrap();
+
     parse_configs_and_run(
         point_detection_csv_reader,
-        None,
+        dest_dir,
         flytrax_image,
         &output_braidz,
         CHECKERBOARD_CAL_FNAME,

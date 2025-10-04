@@ -22,6 +22,7 @@ tokio.workspace = true
 tempfile.workspace = true
 eyre.workspace = true
 image.workspace = true
+camino.workspace = true
 glob.workspace = true
 opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
 

@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use braid_april_cal::*;
 use eyre::{self as anyhow, Context};
@@ -95,7 +95,7 @@ impl SingleCamCalResults {
 
 pub struct ComputeExtrinsicsArgs {
     /// CSV file with April Tags 3D fiducial coordinates.
-    pub apriltags_3d_fiducial_coords: PathBuf,
+    pub apriltags_3d_fiducial_coords: camino::Utf8PathBuf,
 
     /// camera intrinsics.
     pub intrinsics: opencv_ros_camera::RosCameraInfo<f64>,
@@ -104,10 +104,10 @@ pub struct ComputeExtrinsicsArgs {
     ///
     /// This is typically the JPEG saved alongside
     /// the flytrax CSV file.
-    pub image_filename: PathBuf,
+    pub image_filename: camino::Utf8PathBuf,
 
     /// CSV data from the experiment.
-    pub flytrax_csv: PathBuf,
+    pub flytrax_csv: camino::Utf8PathBuf,
 }
 
 pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleCamCalResults> {
@@ -117,30 +117,29 @@ pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleC
         std::fs::read(&cli.apriltags_3d_fiducial_coords).with_context(|| {
             format!(
                 "when reading April Tag 3D coordinates CSV file \"{}\"",
-                cli.apriltags_3d_fiducial_coords.display()
+                cli.apriltags_3d_fiducial_coords
             )
         })?;
     let fiducial_coords = parse_csv::<Fiducial3DCoords>(
-        format!("{}", cli.apriltags_3d_fiducial_coords.display()),
+        format!("{}", cli.apriltags_3d_fiducial_coords),
         &fiducial_coords_buf,
     );
     let fiducial_3d_coords = match fiducial_coords {
         MaybeCsvData::Valid(data) => data.rows().to_vec(),
         MaybeCsvData::ParseFail(e) => {
             anyhow::bail!(
-                "failed parsing file {}: {}",
-                cli.apriltags_3d_fiducial_coords.display(),
-                e
+                "failed parsing file {}: {e}",
+                cli.apriltags_3d_fiducial_coords
             );
         }
         MaybeCsvData::Empty => {
-            anyhow::bail!("empty file {}", cli.apriltags_3d_fiducial_coords.display(),);
+            anyhow::bail!("empty file {}", cli.apriltags_3d_fiducial_coords);
         }
     };
 
     tracing::info!(
         "In fiducial coordinates file {}, got {} fiducial marker(s).",
-        cli.apriltags_3d_fiducial_coords.display(),
+        cli.apriltags_3d_fiducial_coords,
         fiducial_3d_coords.len()
     );
 
@@ -153,11 +152,11 @@ pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleC
 
     let flytrax_header = {
         let point_detection_csv_reader = std::fs::File::open(&cli.flytrax_csv)
-            .with_context(|| format!("opening {}", cli.flytrax_csv.display()))?;
+            .with_context(|| format!("opening {}", cli.flytrax_csv))?;
         let mut point_detection_csv_reader = std::io::BufReader::new(point_detection_csv_reader);
 
         read_csv_commented_header(&mut point_detection_csv_reader)
-            .with_context(|| format!("parsing header from {}", cli.flytrax_csv.display()))?
+            .with_context(|| format!("parsing header from {}", cli.flytrax_csv))?
     };
 
     let camera_name = flytrax_header.camera.model;

@@ -2,7 +2,6 @@
 use std::{
     collections::BTreeMap,
     io::{BufRead, Write},
-    path::{Path, PathBuf},
 };
 
 use eyre as anyhow;
@@ -26,7 +25,7 @@ enum CalibrationType {
 fn load_yaml_calibration(
     _: Option<ExtrinsicsArgs>,
     _calibration_params_buf: &str,
-    _output_braidz: &Path,
+    _output_braidz: &camino::Utf8Path,
 ) -> Result<CalibrationType> {
     anyhow::bail!("Cannot use YAML calibration without apriltags support.");
 }
@@ -35,7 +34,7 @@ fn load_yaml_calibration(
 fn load_yaml_calibration(
     eargs: Option<ExtrinsicsArgs>,
     calibration_params_buf: &str,
-    output_braidz: &Path,
+    output_braidz: &camino::Utf8Path,
 ) -> Result<CalibrationType> {
     let intrinsics: opencv_ros_camera::RosCameraInfo<f64> =
         serde_yaml::from_str(&calibration_params_buf)?;
@@ -80,9 +79,9 @@ fn load_yaml_calibration(
 #[allow(clippy::too_many_arguments)]
 async fn kalmanize_2d<R>(
     mut point_detection_csv_reader: R,
-    braid_csv_temp_dir: Option<&tempfile::TempDir>,
+    braid_csv_dest_dir: &camino::Utf8Path,
     flytrax_image: Option<image::DynamicImage>,
-    output_braidz: &std::path::Path,
+    output_braidz: &camino::Utf8Path,
     tracking_params: TrackingParams,
     cal_file_name: &str,
     row_filters: &[RowFilter],
@@ -125,37 +124,23 @@ where
         images
     };
 
-    let mut owned_temp_dir = None;
-
-    let braid_csv_temp_dir = match braid_csv_temp_dir {
-        Some(x) => x,
-        None => {
-            owned_temp_dir = Some(
-                tempfile::Builder::new()
-                    .prefix("tmp-strand-convert")
-                    .tempdir()?,
-            );
-            owned_temp_dir.as_ref().unwrap()
-        }
-    };
-
     let num_points_converted = convert_flytrax_csv_to_braid_csv_dir(
         cfg,
         recon,
         images,
         point_detection_csv_reader,
         pseudo_cal_params.as_ref(),
-        braid_csv_temp_dir,
+        braid_csv_dest_dir,
         row_filters,
-    )?;
+    )
+    .context("Failed converting Flytrax CSV to Braid CSV")?;
 
     info!("    {} detected points converted.", num_points_converted);
 
     let data_src =
-        braidz_parser::incremental_parser::IncrementalParser::open_dir(braid_csv_temp_dir.path())?;
+        braidz_parser::incremental_parser::IncrementalParser::open_dir(braid_csv_dest_dir)?;
     let data_src = data_src.parse_basics().context(format!(
-        "Failed parsing initial braidz information from {}",
-        braid_csv_temp_dir.path().display()
+        "Failed parsing initial braidz information from {braid_csv_dest_dir}"
     ))?;
 
     let save_performance_histograms = false;
@@ -167,15 +152,11 @@ where
         tracking_params,
         opt2,
         save_performance_histograms,
-        &env!("CARGO_PKG_NAME"),
+        env!("CARGO_PKG_NAME"),
         no_progress,
         None,
     )
     .await?;
-
-    if let Some(t) = owned_temp_dir {
-        t.close()?;
-    }
 
     Ok(())
 }
@@ -198,7 +179,7 @@ fn convert_flytrax_csv_to_braid_csv_dir<R>(
     images: BTreeMap<String, image::DynamicImage>,
     point_detection_csv_reader: R,
     pseudo_cal_params: Option<&PseudoCalParams>,
-    braid_csv_temp_dir: &tempfile::TempDir,
+    braid_csv_dest_dir: &camino::Utf8Path,
     row_filters: &[RowFilter],
 ) -> Result<usize>
 where
@@ -210,8 +191,7 @@ where
     assert_eq!(recon.len(), 1);
 
     // -------------------------------------------------
-    let mut cal_path: std::path::PathBuf = braid_csv_temp_dir.as_ref().to_path_buf();
-    cal_path.push(braid_types::CALIBRATION_XML_FNAME);
+    let cal_path = braid_csv_dest_dir.join(braid_types::CALIBRATION_XML_FNAME);
 
     // let cam_name: String = recon.cams().keys().next().unwrap().clone();
 
@@ -222,8 +202,7 @@ where
     // -------------------------------------------------
     // save cam_info.csv
 
-    let mut csv_path = braid_csv_temp_dir.as_ref().to_path_buf();
-    csv_path.push(braid_types::CAM_INFO_CSV_FNAME);
+    let csv_path = braid_csv_dest_dir.join(braid_types::CAM_INFO_CSV_FNAME);
     let fd = std::fs::File::create(&csv_path)?;
     let mut cam_info_wtr = csv::Writer::from_writer(fd);
 
@@ -241,8 +220,7 @@ where
     // save images/<cam>.png
 
     {
-        let mut image_path = braid_csv_temp_dir.as_ref().to_path_buf();
-        image_path.push(braid_types::IMAGES_DIRNAME);
+        let image_path = braid_csv_dest_dir.join(braid_types::IMAGES_DIRNAME);
         std::fs::create_dir_all(&image_path)?;
 
         for (cam_name, data) in images.iter() {
@@ -256,10 +234,7 @@ where
     // save braid_metadata.yml
 
     {
-        let braid_metadata_path = braid_csv_temp_dir
-            .as_ref()
-            .to_path_buf()
-            .join(braid_types::BRAID_METADATA_YML_FNAME);
+        let braid_metadata_path = braid_csv_dest_dir.join(braid_types::BRAID_METADATA_YML_FNAME);
 
         let metadata = braidz_types::BraidMetadata {
             schema: braid_types::BRAID_SCHEMA, // BraidMetadataSchemaTag
@@ -281,8 +256,7 @@ where
         .comment(Some(b'#'))
         .from_reader(point_detection_csv_reader);
 
-    let mut d2d_path = braid_csv_temp_dir.as_ref().to_path_buf();
-    d2d_path.push(braid_types::DATA2D_DISTORTED_CSV_FNAME);
+    let d2d_path = braid_csv_dest_dir.join(braid_types::DATA2D_DISTORTED_CSV_FNAME);
     let fd = std::fs::File::create(&d2d_path)?;
     let mut writer = csv::Writer::from_writer(fd);
     let mut row_state = RowState::new();
@@ -336,10 +310,7 @@ where
         let dur = ts1_f1.0 - ts0_f0.0;
         let fps = n_frames as f64 / dur;
         let timestamp = strand_datetime_conversion::datetime_to_f64(&cfg.created_at);
-        let textlog_path = braid_csv_temp_dir
-            .as_ref()
-            .to_path_buf()
-            .join(braid_types::TEXTLOG_CSV_FNAME);
+        let textlog_path = braid_csv_dest_dir.join(braid_types::TEXTLOG_CSV_FNAME);
 
         let message = format!("MainBrain running at {} fps, ()", fps);
 
@@ -491,9 +462,9 @@ pub struct PseudoCalParams {
 }
 
 pub struct ExtrinsicsArgs {
-    pub apriltags_3d_fiducial_coords: PathBuf,
-    pub flytrax_csv: PathBuf,
-    pub image_filename: PathBuf,
+    pub apriltags_3d_fiducial_coords: camino::Utf8PathBuf,
+    pub flytrax_csv: camino::Utf8PathBuf,
+    pub image_filename: camino::Utf8PathBuf,
 }
 
 /// Parse the configuration strings and run the kalman tracker
@@ -504,9 +475,9 @@ pub struct ExtrinsicsArgs {
 #[allow(clippy::too_many_arguments)]
 pub async fn parse_configs_and_run<R>(
     point_detection_csv_reader: R,
-    braid_csv_temp_dir: Option<&tempfile::TempDir>,
+    braid_csv_dest_dir: &camino::Utf8Path,
     flytrax_image: Option<image::DynamicImage>,
-    output_braidz: &std::path::Path,
+    output_braidz: &camino::Utf8Path,
     cal_file_name: &str,
     tracking_params_buf: Option<&str>,
     row_filters: &[RowFilter],
@@ -528,7 +499,7 @@ where
 
     kalmanize_2d(
         point_detection_csv_reader,
-        braid_csv_temp_dir,
+        braid_csv_dest_dir,
         flytrax_image,
         output_braidz,
         tracking_params,

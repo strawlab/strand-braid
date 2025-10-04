@@ -52,13 +52,13 @@ lazy_static! {
 struct Cli {
     /// Input CSV file with 2D detections
     #[arg(long = "csv", short = 'c')]
-    flytrax_csv: std::path::PathBuf,
+    flytrax_csv: camino::Utf8PathBuf,
     /// Output file, must end with '.braidz'
     #[arg(long = "output", short = 'o')]
-    output_braidz: Option<std::path::PathBuf>,
+    output_braidz: Option<camino::Utf8PathBuf>,
     /// Tracking parameters TOML file. (Includes `motion_noise_scale`, amongst others.)
     #[arg(long = "tracking-params", short = 't')]
-    tracking_params: Option<std::path::PathBuf>,
+    tracking_params: Option<camino::Utf8PathBuf>,
     /// Calibration parameters file.
     ///
     /// Can either be:
@@ -74,12 +74,12 @@ struct Cli {
     ///   april tag 3D coordinates file must be given to allow solving for camera
     ///   extrinsic parameters.
     #[arg(long = "cal", short = 'p')]
-    calibration_params: std::path::PathBuf,
+    calibration_params: camino::Utf8PathBuf,
 
     /// An april tag 3D coordinates CSV file to allow solving for camera
     /// extrinsic parameters.
     #[arg(long)]
-    apriltags_3d_fiducial_coords: Option<std::path::PathBuf>,
+    apriltags_3d_fiducial_coords: Option<camino::Utf8PathBuf>,
 
     /// Set start frame to start tracking
     #[arg(long)]
@@ -118,15 +118,15 @@ async fn open_files_and_run() -> anyhow::Result<()> {
 
     let cli = Cli::parse();
 
-    let cal_file_name = cli.calibration_params.to_str().unwrap();
+    let cal_file_name = cli.calibration_params.as_str();
 
     let tracking_params_buf = match cli.tracking_params {
         Some(ref fname) => {
-            info!("reading tracking parameters from file {}", fname.display());
+            info!("reading tracking parameters from file {fname}");
             // read the tracking parameters
             let buf = std::fs::read_to_string(fname)
                 .map_err(anyhow::Error::from)
-                .context(format!("loading tracking parameters {}", fname.display()))?;
+                .context(format!("loading tracking parameters {fname}"))?;
             Some(buf)
         }
         None => None,
@@ -161,13 +161,10 @@ async fn open_files_and_run() -> anyhow::Result<()> {
             .prefix(STRAND_CONVERT_PREFIX)
             .tempdir()?
     };
+    let braid_csv_temp_dir_ref = camino::Utf8Path::from_path(braid_csv_temp_dir.path()).unwrap();
 
     info!("strand-cam csv conversion to temporary directory:");
-    info!(
-        "  {} -> {}",
-        cli.flytrax_csv.display(),
-        braid_csv_temp_dir.as_ref().display()
-    );
+    info!("  {} -> {braid_csv_temp_dir_ref}", cli.flytrax_csv);
 
     let output_braidz = match cli.output_braidz {
         Some(op) => op,
@@ -178,7 +175,7 @@ async fn open_files_and_run() -> anyhow::Result<()> {
         .map_err(anyhow::Error::from)
         .context(format!(
             "Could not open point detection csv file: {}",
-            cli.flytrax_csv.display()
+            cli.flytrax_csv
         ))?;
 
     let point_detection_csv_reader = std::io::BufReader::new(data_file);
@@ -188,16 +185,13 @@ async fn open_files_and_run() -> anyhow::Result<()> {
     flytrax_jpeg_fname.set_extension("jpg");
     if flytrax_jpeg_fname.exists() {
         let jpeg_buf = std::fs::read(&flytrax_jpeg_fname)
-            .with_context(|| format!("reading {}", flytrax_jpeg_fname.display()))?;
+            .with_context(|| format!("reading {flytrax_jpeg_fname}"))?;
         flytrax_image = Some(
             image::load_from_memory_with_format(&jpeg_buf, image::ImageFormat::Jpeg)
-                .with_context(|| format!("parsing {}", flytrax_jpeg_fname.display()))?,
+                .with_context(|| format!("parsing {flytrax_jpeg_fname}"))?,
         );
     } else {
-        tracing::warn!(
-            "File {} did not exist - cannot preserve flytrax image.",
-            flytrax_jpeg_fname.display()
-        );
+        tracing::warn!("File {flytrax_jpeg_fname} did not exist - cannot preserve flytrax image.");
     }
 
     let mut filters = Vec::new();
@@ -224,7 +218,7 @@ async fn open_files_and_run() -> anyhow::Result<()> {
 
     parse_configs_and_run(
         point_detection_csv_reader,
-        Some(&braid_csv_temp_dir),
+        braid_csv_temp_dir_ref,
         flytrax_image,
         &output_braidz,
         cal_file_name,

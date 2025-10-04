@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 eyre.workspace = true
 base64.workspace = true
+camino.workspace = true
 clap.workspace = true
 image.workspace = true
 machine-vision-formats.workspace = true
