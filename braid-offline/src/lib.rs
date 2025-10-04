@@ -536,7 +536,7 @@ where
 
             let data_row_frame_iter = AscendingGroupIter::new(sorted_data_iter);
             let mut count = 0;
-            let mut min_frame = std::u64::MAX;
+            let mut min_frame = u64::MAX;
             let mut max_frame = 0;
             for data_frame_rows in data_row_frame_iter {
                 let data_frame_rows: groupby::GroupedRows<i64, Data2dDistortedRow> =
@@ -680,7 +680,7 @@ where
             coord_processor.add_listener(data_tx);
 
             let model_server_future = new_model_server(data_rx, addr);
-            Some(tokio::spawn(async { model_server_future.await }))
+            Some(tokio::spawn(model_server_future))
         }
         None => None,
     };
