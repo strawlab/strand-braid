@@ -178,7 +178,7 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
     tracing::info!("Exported to Rerun RRD file: {}", output.display());
 
     let rec = rrd_logger.close();
-    rec.flush_blocking();
+    rec.flush_blocking()?;
 
     Ok(())
 }

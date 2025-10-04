@@ -190,7 +190,7 @@ pub async fn new_model_server(
             let url = url_str.to_str().unwrap();
             tracing::info!("Streaming data to rerun at {url}");
             re_sdk::RecordingStreamBuilder::new("braid")
-                .connect_grpc_opts(url, None)
+                .connect_grpc_opts(url)
                 .unwrap()
         });
 

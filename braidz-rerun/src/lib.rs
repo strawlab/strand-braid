@@ -602,17 +602,13 @@ impl BraidzLoader {
     fn load_from_archive<R: Read + Seek>(
         &self,
         archive: braidz_parser::BraidzArchive<R>,
-        settings: &re_sdk::DataLoaderSettings,
+        _settings: &re_sdk::DataLoaderSettings,
         tx: std::sync::mpsc::Sender<re_sdk::LoadedData>,
     ) -> Result<(), re_sdk::DataLoaderError> {
-        let store_id = settings
-            .opened_store_id
-            .clone()
-            .unwrap_or_else(|| settings.store_id.clone());
+        // Should we do something with settings like get the store_id?
 
         // Initiate recording to memory store
         let rec = re_sdk::RecordingStreamBuilder::new(env!("CARGO_PKG_NAME"))
-            .store_id(store_id)
             .buffered()
             .map_err(|e| anyhow::anyhow!("failed to create RecordingStream: {e}"))?;
         let memory_store = rec.memory();

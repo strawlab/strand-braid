@@ -1,7 +1,7 @@
+use braid_mvg::DistortedPixel;
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
 use eyre::Context;
-use braid_mvg::DistortedPixel;
 use nalgebra::Point2;
 // use levenberg_marquardt::LeastSquaresProblem;
 use opencv_ros_camera::{NamedIntrinsicParameters, RosCameraInfo, RosOpenCvIntrinsics};
@@ -421,7 +421,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
     let rec = if let Some(rerun_url) = rerun_url {
         tracing::info!("Streaming data to rerun at {rerun_url}");
         let rec = re_sdk::RecordingStreamBuilder::new(env!["CARGO_PKG_NAME"])
-            .connect_grpc_opts(rerun_url, None)?;
+            .connect_grpc_opts(rerun_url)?;
 
         // Log 2D images to rerun
         for (icam_idx, cam_fname) in image_fnames.iter() {
