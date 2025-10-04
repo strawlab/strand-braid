@@ -132,9 +132,35 @@ async fn open_files_and_run() -> anyhow::Result<()> {
         None => None,
     };
 
-    let braid_csv_temp_dir = tempfile::Builder::new()
-        .prefix("strand-convert")
-        .tempdir()?;
+    // This temporary directory will be automatically deleted when it goes out
+    // of scope (although being killed by the OOM killer will not delete it).
+    let braid_csv_temp_dir = {
+        // Prior to creating a new temporary directory, we check for temporary
+        // directories at the same location with the expected pattern and warn
+        // about them. They may be left over from previous runs of this
+        // program that may have been killed by the OOM killer or similar.
+
+        const STRAND_CONVERT_PREFIX: &str = "strand-convert";
+        // Check if we already have temporary directories from previous runs.
+        let old_tempdirs_pattern =
+            tempfile::env::temp_dir().join(format!("{STRAND_CONVERT_PREFIX}*"));
+        // ensure UTF8
+        let old_tempdirs_pattern = old_tempdirs_pattern.into_os_string().into_string().unwrap();
+
+        for entry in glob::glob(&old_tempdirs_pattern)? {
+            let path = entry?;
+            tracing::warn!(
+                "{} exists. This is probably a directory a previous run of this program. \
+                It may be deleted if no longer needed. If your temporary space is filled, \
+                this program may encounter an error when saving temporary output files.",
+                path.display()
+            );
+        }
+
+        tempfile::Builder::new()
+            .prefix(STRAND_CONVERT_PREFIX)
+            .tempdir()?
+    };
 
     info!("strand-cam csv conversion to temporary directory:");
     info!(
