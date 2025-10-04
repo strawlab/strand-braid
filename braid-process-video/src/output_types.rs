@@ -4,13 +4,13 @@ use std::io::Write;
 
 use crate::{output_braidz::BraidStorage, output_video::VideoStorage, PerCamRenderFrame};
 
-pub(crate) enum OutputStorage<'lib> {
-    Video(Box<VideoStorage<'lib>>),
+pub(crate) enum OutputStorage<'lib, 'fonts> {
+    Video(Box<VideoStorage<'lib, 'fonts>>),
     Debug(DebugStorage),
     Braid(BraidStorage),
 }
 
-impl<'lib> OutputStorage<'lib> {
+impl<'lib, 'fonts> OutputStorage<'lib, 'fonts> {
     pub(crate) async fn render_frame(
         &mut self,
         out_fno: usize,

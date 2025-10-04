@@ -7,7 +7,7 @@ use strand_dynamic_frame::DynamicFrameOwned;
 
 use crate::{config::VideoOutputOptions, OutTimepointPerCamera, PerCamRenderFrame};
 
-pub(crate) struct VideoStorage<'lib> {
+pub(crate) struct VideoStorage<'lib, 'fonts> {
     pub(crate) path: std::path::PathBuf,
     pub(crate) mp4_writer: mp4_writer::Mp4Writer<'lib, std::fs::File>,
     /// timestamp of first frame
@@ -21,10 +21,10 @@ pub(crate) struct VideoStorage<'lib> {
     pub(crate) video_options: VideoOutputOptions,
     pub(crate) cum_width: usize,
     pub(crate) cum_height: usize,
-    pub(crate) usvg_opt: usvg::Options,
+    pub(crate) usvg_opt: usvg::Options<'fonts>,
 }
 
-impl<'lib> VideoStorage<'lib> {
+impl<'lib, 'fonts> VideoStorage<'lib, 'fonts> {
     pub(crate) fn new(
         v: &crate::config::VideoOutputConfig,
         output_filename: &std::path::Path,
@@ -104,9 +104,7 @@ impl<'lib> VideoStorage<'lib> {
             .unwrap_or_else(|| crate::DEFAULT_CAMERA_TEXT_STYLE.to_string());
 
         let mut usvg_opt = usvg::Options::default();
-        // Get file's absolute directory.
-        // usvg_opt.resources_dir = std::fs::canonicalize(&args[1]).ok().and_then(|p| p.parent().map(|p| p.to_path_buf()));
-        usvg_opt.fontdb.load_system_fonts();
+        usvg_opt.fontdb_mut().load_system_fonts();
 
         Ok(Self {
             path: output_filename.to_path_buf(),
@@ -289,13 +287,17 @@ impl<'lib> VideoStorage<'lib> {
         };
 
         // Now parse the SVG file.
-        let rtree = usvg::Tree::from_data(&svg_buf, &self.usvg_opt.to_ref())?;
-        // Now render the SVG file to a pixmap.
-        let pixmap_size = rtree.svg_node().size.to_screen_size();
-        let mut pixmap = tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
-        resvg::render(&rtree, usvg::FitTo::Original, pixmap.as_mut()).unwrap();
+        let rtree = usvg::Tree::from_data(&svg_buf, &self.usvg_opt)?;
 
-        let rasterized = crate::tiny_skia_frame::Frame::new(pixmap)?;
+        // Now render the SVG file to a pixmap.
+        let pixmap_size = rtree.size().to_int_size();
+        let mut pixmap =
+            resvg::tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
+        resvg::render(
+            &rtree,
+            resvg::tiny_skia::Transform::default(),
+            &mut pixmap.as_mut(),
+        );
 
         if self.video_options.save_debug_images {
             // Write composited SVG to disk.
@@ -303,14 +305,12 @@ impl<'lib> VideoStorage<'lib> {
             debug_svg_fd.write_all(&svg_buf)?;
 
             // Write rasterized image to disk as PNG.
-            let png_buf = convert_image::frame_to_encoded_buffer(
-                &rasterized,
-                convert_image::EncoderOptions::Png,
-            )?;
-            std::fs::write(format!("frame{:05}.png", out_fno), png_buf)?;
+            let fname = format!("frame{:05}.png", out_fno);
+            pixmap.save_png(&fname)?;
         }
 
         // Save the pixmap into the MP4 file being saved.
+        let rasterized = crate::tiny_skia_frame::Frame::new(pixmap)?;
         let dyframe = DynamicFrameOwned::from_static_ref(&rasterized);
         self.mp4_writer.write_dynamic(&dyframe.borrow(), save_ts)?;
 

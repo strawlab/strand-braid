@@ -3,22 +3,24 @@ use eyre::{self as anyhow};
 use machine_vision_formats::{pixel_format::RGBA8, ImageBuffer, ImageBufferRef, ImageData, Stride};
 
 pub(crate) struct Frame {
-    pixmap: tiny_skia::Pixmap,
+    pixmap: resvg::tiny_skia::Pixmap,
 }
 
 impl Frame {
-    pub(crate) fn new(mut pixmap: tiny_skia::Pixmap) -> anyhow::Result<Self> {
+    pub(crate) fn new(mut pixmap: resvg::tiny_skia::Pixmap) -> anyhow::Result<Self> {
         // This pixel conversion is based on that of
         // tiny_skia::Pixmap::encode_png
         for pixel in pixmap.pixels_mut() {
             let c = pixel.demultiply();
-            *pixel =
-                tiny_skia::PremultipliedColorU8::from_rgba(c.red(), c.green(), c.blue(), c.alpha())
-                    .ok_or_else(|| {
-                        anyhow::anyhow!(
-                            "Could not demultiply pixmap. (Hint: draw a background color.)"
-                        )
-                    })?;
+            *pixel = resvg::tiny_skia::PremultipliedColorU8::from_rgba(
+                c.red(),
+                c.green(),
+                c.blue(),
+                c.alpha(),
+            )
+            .ok_or_else(|| {
+                anyhow::anyhow!("Could not demultiply pixmap. (Hint: draw a background color.)")
+            })?;
         }
 
         Ok(Self { pixmap })

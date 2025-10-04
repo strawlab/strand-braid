@@ -113,29 +113,28 @@ pub(crate) fn doit<P: AsRef<std::path::Path>>(
         fmt_wtr.inner
     };
 
-    let mut usvg_opt = usvg::Options::default();
-    // Get file's absolute directory.
-    // usvg_opt.resources_dir = std::fs::canonicalize(&args[1]).ok().and_then(|p| p.parent().map(|p| p.to_path_buf()));
-    usvg_opt.fontdb.load_system_fonts();
+    let usvg_opt = usvg::Options::default();
 
     // Now parse the SVG file.
-    let rtree = usvg::Tree::from_data(&svg_buf, &usvg_opt.to_ref())?;
+    let rtree = usvg::Tree::from_data(&svg_buf, &usvg_opt)?;
     // Now render the SVG file to a pixmap.
-    let pixmap_size = rtree.svg_node().size.to_screen_size();
-    let mut pixmap = tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
-    resvg::render(&rtree, usvg::FitTo::Original, pixmap.as_mut()).unwrap();
+    let pixmap_size = rtree.size().to_int_size();
+    let mut pixmap =
+        resvg::tiny_skia::Pixmap::new(pixmap_size.width(), pixmap_size.height()).unwrap();
+    resvg::render(
+        &rtree,
+        resvg::tiny_skia::Transform::default(),
+        &mut pixmap.as_mut(),
+    );
 
     // Write composited SVG to disk.
     let mut debug_svg_fd = std::fs::File::create(&out_fname)?;
     debug_svg_fd.write_all(&svg_buf)?;
 
-    // Write rasterized image to disk as PNG.
-    let rasterized = crate::tiny_skia_frame::Frame::new(pixmap)?;
+    // Write image to disk as PNG.
     let mut png_fname = std::path::PathBuf::from(out_fname.as_ref());
     png_fname.set_extension("png");
-    let png_buf =
-        convert_image::frame_to_encoded_buffer(&rasterized, convert_image::EncoderOptions::Png)?;
-    std::fs::write(&png_fname, png_buf)?;
+    pixmap.save_png(&png_fname)?;
     tracing::info!("Saved image for debugging to: {}", png_fname.display());
     Ok(())
 }

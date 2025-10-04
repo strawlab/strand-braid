@@ -14,9 +14,8 @@ nalgebra.workspace = true
 resvg.workspace = true
 serde_yaml.workspace = true
 tagger.workspace = true
-tiny-skia.workspace = true
-usvg.workspace = true
 tracing.workspace = true
+usvg.workspace = true
 
 ads-webasm = { workspace = true, features = ["csv-widget"] }
 ads-apriltag.workspace = true

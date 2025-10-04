@@ -12,7 +12,6 @@ use ads_webasm::components::{parse_csv, MaybeCsvData};
 use apriltag_detection_writer::AprilConfig;
 
 mod img_write;
-mod tiny_skia_frame;
 
 struct AprilTagCoords2D {
     id: i32,

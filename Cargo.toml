@@ -231,7 +231,7 @@ re_types = { version = "0.24", default-features = false }
 re_build_info = { version = "0.24", default-features = false }
 re_build_tools = { version = "0.24", default-features = false }
 rerun = { version = "0.24", default-features = false }
-resvg = "0.19"
+resvg = "0.45"
 rusttype = "0.9.2"
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde-xml-rs = "0.5" # TODO: switch to https://crates.io/crates/quick-xml
@@ -245,7 +245,6 @@ tagger = "4.0"
 tempfile = "3.20.0"
 thiserror = "2.0.11"
 tiff = "0.9.0"
-tiny-skia = "0.6.1"
 tokio = { version = "1", features = ["full"] }
 tokio-serial = { version = "5.4.3" }
 tokio-stream = { version = "0.1.9", features = ["time"] }
@@ -259,7 +258,7 @@ tracing-futures = { version = "0.2.5", features = ["futures-03"] }
 tracing-panic = "0.1.1"
 tracing-test = "0.2.5"
 ttf-firacode = "0.1"
-usvg = { version = "0.19.0", default-features = false }
+usvg = { version = "0.45", default-features = false }
 uuid = { version = "1.7", default-features = false, features = ["serde"] }
 url = "2.5.0"
 wasm-bindgen = "0.2.100"
