@@ -21,3 +21,4 @@ frame-source = { workspace = true, features = ["openh264"] }
 env-tracing-logger.workspace = true
 strand-datetime-conversion.workspace = true
 ffmpeg-rewriter.workspace = true
+ffmpeg-writer.workspace = true
