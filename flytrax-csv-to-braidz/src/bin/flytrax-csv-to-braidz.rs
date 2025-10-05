@@ -48,7 +48,7 @@ lazy_static! {
 }
 
 #[derive(Parser, Debug)]
-#[command(author, version, about, after_help = VAL_HELP.as_str())]
+#[command(author, version=concat!(env!("CARGO_PKG_VERSION"), " (", env!("GIT_HASH"), ")"), about, after_help = VAL_HELP.as_str())]
 struct Cli {
     /// Input CSV file with 2D detections
     #[arg(long = "csv", short = 'c')]
