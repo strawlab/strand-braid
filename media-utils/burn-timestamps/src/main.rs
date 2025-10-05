@@ -27,6 +27,10 @@ struct Cli {
     /// Disable showing progress
     #[arg(short, long, default_value_t)]
     no_progress: bool,
+
+    /// Truncate video after this frame number (0-based, inclusive)
+    #[arg(long)]
+    pub stop_frame: Option<u64>,
 }
 
 #[derive(Default, Debug, Clone, Copy, ValueEnum, PartialEq)]
@@ -104,6 +108,12 @@ fn main() -> Result<()> {
     let mut pb: Option<ProgressBar> = if !cli.no_progress {
         let (lower_bound, _upper_bound) = src.iter().size_hint();
 
+        let lower_bound = if let Some(stop_frame) = cli.stop_frame {
+            lower_bound.min(stop_frame.try_into().unwrap())
+        } else {
+            lower_bound
+        };
+
         // Custom progress bar with space at right end to prevent obscuring last
         // digit with cursor.
         let style =
@@ -145,6 +155,12 @@ fn main() -> Result<()> {
         let dy_im = strand_dynamic_frame::DynamicFrame::from_static_ref(&frame_rgb8);
 
         ffmpeg_wtr.write_dynamic_frame(&dy_im, ts)?;
+
+        if let Some(stop_frame) = cli.stop_frame {
+            if (idx as u64) >= stop_frame {
+                break;
+            }
+        }
     }
 
     ffmpeg_wtr.close()?;
