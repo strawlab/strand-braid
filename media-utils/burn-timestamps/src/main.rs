@@ -4,17 +4,10 @@ use camino::Utf8PathBuf;
 use clap::{Parser, ValueEnum};
 use eyre::{self, Context, Result};
 use indicatif::{ProgressBar, ProgressStyle};
-use serde::{Deserialize, Serialize};
 
 use rusttype::Font;
 
 use font_drawing::stamp_frame;
-
-// TODO: define SrtMsg only once in this codebase.
-#[derive(Serialize, Deserialize)]
-struct SrtMsg {
-    timestamp: chrono::DateTime<chrono::Local>,
-}
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
