@@ -6,7 +6,7 @@ use std::{
 };
 
 use clap::Parser;
-use eyre::{self as anyhow, WrapErr};
+use eyre::WrapErr;
 use indicatif::{ProgressBar, ProgressStyle};
 use ordered_float::NotNan;
 use tracing::{debug, info, warn};
@@ -23,7 +23,7 @@ use flydra2::{
 use groupby::{AscendingGroupIter, BufferedSortIter};
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {
+enum Error {
     #[error("{source}")]
     Io {
         #[from]
@@ -39,8 +39,6 @@ pub enum Error {
         #[from]
         source: braidz_parser::Error,
     },
-    #[error("output filename must end with '.braidz'")]
-    OutputFilenameMustEndInBraidz {},
     #[error("No calibration found")]
     NoCalibrationFound,
     #[error("{source}")]
@@ -211,19 +209,21 @@ pub async fn kalmanize<Q, R>(
     saving_program_name: &str,
     no_progress: bool,
     new_calibration: Option<flydra_mvg::FlydraMultiCameraSystem<f64>>,
-) -> Result<(), Error>
+) -> eyre::Result<()>
 where
     Q: AsRef<Path> + std::fmt::Debug,
     R: 'static + Read + Seek + Send + std::fmt::Debug,
 {
     let mini_arena_debug_image_dir = output_braidz.as_ref().parent().map(PathBuf::from);
     let output_braidz = output_braidz.as_ref();
-    let output_dirname = if output_braidz.extension() == Some(std::ffi::OsStr::new("braidz")) {
+    if output_braidz.extension() != Some(std::ffi::OsStr::new("braidz")) {
+        eyre::bail!("output filename must end with '.braidz'");
+    }
+
+    let output_dirname = {
         let mut output_dirname: PathBuf = output_braidz.to_path_buf();
         output_dirname.set_extension("braid");
         output_dirname
-    } else {
-        return Err(Error::OutputFilenameMustEndInBraidz {});
     };
 
     info!(
@@ -231,6 +231,11 @@ where
         data_src.display(),
         output_dirname.display()
     );
+
+    std::fs::create_dir_all(&output_dirname).context(format!(
+        "creating output directory {}",
+        output_dirname.display()
+    ))?;
 
     let metadata_builder = flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name);
 
@@ -285,7 +290,7 @@ where
                 flydra_mvg::FlydraMultiCameraSystem::from_system(cams, water)
             }
             (None, None) => {
-                return Err(Error::NoCalibrationFound);
+                return Err(Error::NoCalibrationFound.into());
             }
         };
 
@@ -425,7 +430,7 @@ where
                     if current_feature_detect_settings_fname.exists() {
                         use flydra_feature_detector_types::ImPtDetectCfg;
                         let read_settings =
-                            |fname: zip_or_dir::PathLike<_>| -> anyhow::Result<ImPtDetectCfg> {
+                            |fname: zip_or_dir::PathLike<_>| -> eyre::Result<ImPtDetectCfg> {
                                 let mut fd = fname.open()?;
                                 let mut buf = vec![];
                                 fd.read_to_end(&mut buf)?;
@@ -666,7 +671,7 @@ where
             pb.finish_and_clear();
         }
 
-        Ok::<(), anyhow::Error>(())
+        Ok::<(), eyre::Error>(())
     });
 
     let expected_framerate = Some(fps as f32);
@@ -753,7 +758,7 @@ pub fn pick_csvgz_or_csv(csv_path: &Path) -> flydra2::Result<Box<dyn Read>> {
 /// This is our "real" main top-level function but we have some decoration we
 /// need to do in [main], so we name this differently.
 #[tracing::instrument(level = "debug", skip_all)]
-pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
+pub async fn braid_offline_retrack(opt: Cli) -> eyre::Result<()> {
     let data_src =
         braidz_parser::incremental_parser::IncrementalParser::open(opt.data_src.as_path())
             .with_context(|| {
@@ -780,7 +785,7 @@ pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
             let tracking_params: braid_types::TrackingParams = toml::from_str(&buf)?;
             let is_multicam = cam_info.camid2camn.keys().len() > 1;
             if is_multicam == tracking_params.hypothesis_test_params.is_none() {
-                anyhow::bail!(
+                eyre::bail!(
                     "In tracking parameters file \"{}\" for multicamera data, \
                     `hypothesis_test_params` must be set. For single camera data, \
                     it must not be set.",
@@ -797,7 +802,7 @@ pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
                     let num_cams = data_src.basic_info().cam_info.camid2camn.len();
                     match num_cams {
                         0 => {
-                            anyhow::bail!(
+                            eyre::bail!(
                                 "No tracking parameters specified, none found in \
                             data_src, and no default is reasonable because zero cameras present."
                             )
@@ -822,7 +827,7 @@ pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
 
     // Raise an error if outputs exist.
     if output_braidz.exists() {
-        return Err(anyhow::format_err!(
+        return Err(eyre::format_err!(
             "Path {} exists. Will not overwrite.",
             output_braidz.display()
         ));
@@ -834,7 +839,7 @@ pub async fn braid_offline_retrack(opt: Cli) -> anyhow::Result<()> {
         .new_calibration
         .map(|cal_fname| {
             flydra_mvg::FlydraMultiCameraSystem::<f64>::from_path(&cal_fname).with_context(|| {
-                anyhow::anyhow!("while reading calibration file \"{}\"", cal_fname.display())
+                eyre::eyre!("while reading calibration file \"{}\"", cal_fname.display())
             })
         })
         .transpose()?;
