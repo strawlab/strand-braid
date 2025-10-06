@@ -488,7 +488,16 @@ impl Drop for WritingState {
                 "done creating zip file, removing {}",
                 output_dirname.display()
             );
-            std::fs::remove_dir_all(&output_dirname).unwrap();
+            match std::fs::remove_dir_all(&output_dirname) {
+                Ok(()) => {}
+                Err(err) => {
+                    panic!(
+                        "Error removing original directory {}: {}",
+                        output_dirname.display(),
+                        err
+                    );
+                }
+            }
         }
         tracing::debug!("Done writing braidz data to disk.");
     }
