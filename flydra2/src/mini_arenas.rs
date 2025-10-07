@@ -198,6 +198,12 @@ fn annotate_mini_arena_image(
         // Draw april tag detections
         if let Some(detections) = &cfg.april_detections {
             for detection in detections.iter() {
+
+                let id_str = if detection.vertical_flip {
+                    format!("{} (v)", detection.id)
+                } else {
+                    format!("{}", detection.id)
+                };
                 w.elem("text", |d| {
                 d.attr("x", format!("{}", detection.x))?;
                 d.attr("y", format!("{}", detection.y))?;
@@ -209,7 +215,7 @@ fn annotate_mini_arena_image(
                 )?;
                 Ok(())
             })?
-            .build(|w| w.put_raw(format!("{}", detection.id)))?;
+            .build(|w| w.put_raw(id_str))?;
             }
         }
 

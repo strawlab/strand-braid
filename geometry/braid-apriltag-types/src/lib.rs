@@ -12,4 +12,7 @@ pub struct AprilTagCoords2D {
     /// The h12 entry of the homography matrix.
     #[serde(rename = "h12")]
     pub y: f64,
+    /// False for a normal april tag, true for vertically flipped tag.
+    #[serde(default)]
+    pub vertical_flip: bool,
 }

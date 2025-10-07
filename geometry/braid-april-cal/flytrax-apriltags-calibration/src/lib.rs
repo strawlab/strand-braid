@@ -3,7 +3,7 @@ use std::path::Path;
 use braid_april_cal::*;
 use eyre::{self as anyhow, Context};
 use flytrax_io::read_csv_commented_header;
-use machine_vision_formats::pixel_format::Mono8;
+use machine_vision_formats::{pixel_format::Mono8, ImageData};
 use opencv_ros_camera::NamedIntrinsicParameters;
 
 use ads_apriltag as apriltag;
@@ -35,35 +35,84 @@ fn read_apriltags<P: AsRef<std::path::Path>>(
 
     let rgb = convert_image::image_to_rgb8(image)?;
 
-    let dest = convert_image::convert_ref::<_, Mono8>(&rgb)?;
-    let im = apriltag::ImageU8Borrowed::view(&dest);
-    let detections = td.detect(apriltag::ImageU8::inner(&im));
+    let mono8 = convert_image::convert_ref::<_, Mono8>(&rgb)?;
+    let mut flipped_mono8;
+    let mut best_res: Option<Vec<AprilTagCoords2D>> = None;
+    for vertical_flip in [false, true] {
+        let im = if vertical_flip {
+            use machine_vision_formats::{
+                iter::{HasRowChunksExact, HasRowChunksExactMut},
+                ImageData, Stride,
+            };
+            flipped_mono8 = machine_vision_formats::owned::OImage::<Mono8>::zeros(
+                mono8.width(),
+                mono8.height(),
+                mono8.stride(),
+            )
+            .unwrap();
 
-    tracing::info!(
-        "In image file {}, got {} detection(s).",
-        fname.as_ref().display(),
-        detections.len()
-    );
-
-    let res = detections
-        .as_slice()
-        .iter()
-        .map(|det| {
-            // {
-            //     println!("  {{id: {}, center: {:?}}}", det.id(), det.center(),);
-            // }
-
-            let c = det.center();
-            AprilTagCoords2D {
-                id: det.id(),
-                hamming: det.hamming(),
-                x: c[0],
-                y: c[1],
+            for (src_row, dest_row) in mono8
+                .rowchunks_exact()
+                .zip(flipped_mono8.rowchunks_exact_mut().rev())
+            {
+                dest_row.copy_from_slice(src_row);
             }
-        })
-        .collect();
+            apriltag::ImageU8Borrowed::view(&flipped_mono8)
+        } else {
+            apriltag::ImageU8Borrowed::view(&mono8)
+        };
 
-    Ok((res, jpeg_buf))
+        let detections = td.detect(apriltag::ImageU8::inner(&im));
+
+        tracing::info!(
+            "In image file {}, got {} detection(s) with vertical_flip {}.",
+            fname.as_ref().display(),
+            detections.len(),
+            vertical_flip
+        );
+
+        let res: Vec<AprilTagCoords2D> = detections
+            .as_slice()
+            .iter()
+            .map(|det| {
+                // {
+                //     println!("  {{id: {}, center: {:?}}}", det.id(), det.center(),);
+                // }
+
+                let c = det.center();
+                let y = if vertical_flip {
+                    (mono8.height() - 1) as f64 - c[1]
+                } else {
+                    c[1]
+                };
+                AprilTagCoords2D {
+                    id: det.id(),
+                    hamming: det.hamming(),
+                    x: c[0],
+                    y,
+                    vertical_flip,
+                }
+            })
+            .collect();
+
+        if let Some(prev) = &best_res {
+            if res.len() > prev.len() {
+                if !prev.is_empty() {
+                    tracing::warn!(
+                        "Two different sets of AprilTag detections found ({} vs {}), \
+                with vertical_flip true and false. Using the one with more detections.",
+                        prev.len(),
+                        res.len()
+                    );
+                }
+                best_res = Some(res);
+            }
+        } else {
+            best_res = Some(res);
+        }
+    }
+
+    Ok((best_res.unwrap(), jpeg_buf))
 }
 
 #[derive(Debug, Clone)]
@@ -188,15 +237,7 @@ pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleC
 
         let mut per_camera_2d = std::collections::BTreeMap::new();
 
-        let detections2: Vec<_> = detections
-            .iter()
-            .map(|d| AprilTagCoords2D {
-                id: d.id,
-                hamming: d.hamming,
-                x: d.x,
-                y: d.y,
-            })
-            .collect();
+        let detections2 = detections.clone();
 
         per_camera_2d.insert(
             camera_name.clone(),
