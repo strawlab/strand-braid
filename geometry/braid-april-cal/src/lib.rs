@@ -30,7 +30,10 @@ impl<R: RealField> From<AprilTagCorrespondingPoint<R>> for dlt::CorrespondingPoi
     }
 }
 
-fn cam_with_params(orig: &braid_mvg::Camera<f64>, param: &[f64]) -> Result<braid_mvg::Camera<f64>, MyError> {
+fn cam_with_params(
+    orig: &braid_mvg::Camera<f64>,
+    param: &[f64],
+) -> Result<braid_mvg::Camera<f64>, MyError> {
     let this_distortion = opencv_ros_camera::Distortion::from_opencv_vec(Vector5::new(
         param[0], param[1], param[2], param[3], 0.0,
     ));
@@ -468,8 +471,7 @@ pub fn run_sqpnp_or_dlt(src_data: &CalData) -> Result<CalibrationResult, MyError
                 return Err(MyError {
                     cam_name: Some(cam_name.clone()),
                     msg:
-                        "For camera \"{cam_name}\": Need minimum 4 corresponding 3D and 2D points to run SQPnP."
-                            .to_string(),
+                        format!("For camera \"{cam_name}\": Need minimum 4 corresponding 3D and 2D points to run SQPnP."),
                 });
             }
             let known_good_intrinsics = kgi.get(cam_name).unwrap();
