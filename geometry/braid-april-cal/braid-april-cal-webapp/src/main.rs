@@ -16,13 +16,13 @@ use braid_april_cal::*;
 
 pub struct Model {
     fiducial_3d_coords: MaybeCsvData<Fiducial3DCoords>,
-    per_camera_2d: BTreeMap<String, (AprilConfig, CsvData<AprilDetection>)>,
+    per_camera_2d: BTreeMap<String, (AprilConfig, CsvData<braid_apriltag_types::AprilTagCoords2D>)>,
     computed_calibration: Option<CalibrationResult>,
 }
 
 pub enum Msg {
     Fiducial3dCoordsData(MaybeCsvData<Fiducial3DCoords>),
-    DetectionSerializerData(MaybeCsvData<AprilDetection>),
+    DetectionSerializerData(MaybeCsvData<braid_apriltag_types::AprilTagCoords2D>),
     RemoveCamera(String),
     ComputeCal,
     DownloadXmlCal,
@@ -135,7 +135,7 @@ impl Component for Model {
             <h2>{"Input: Automatically detected camera coordinates of April Tag fiducial markers"}</h2>
             <p>{"The file must be a CSV file saved by the April Tag detector of Strand Cam. (Required \
                  columns: id, h02, h12 where (h02,h12) is tag center.)"}</p>
-            <CsvDataField<AprilDetection>
+            <CsvDataField<braid_apriltag_types::AprilTagCoords2D>
                 button_text={"Upload a camera coordinate CSV file."}
                 onfile={ctx.link().callback(Msg::DetectionSerializerData)}
                 />

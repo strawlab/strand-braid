@@ -26,7 +26,7 @@ fn load_yaml_calibration(
     _: Option<ExtrinsicsArgs>,
     _calibration_params_buf: &str,
     _output_braidz: &camino::Utf8Path,
-) -> Result<CalibrationType> {
+) -> Result<(CalibrationType, Vec<braid_apriltag_types::AprilTagCoords2D>)> {
     anyhow::bail!("Cannot use YAML calibration without apriltags support.");
 }
 
@@ -35,7 +35,7 @@ fn load_yaml_calibration(
     eargs: Option<ExtrinsicsArgs>,
     calibration_params_buf: &str,
     output_braidz: &camino::Utf8Path,
-) -> Result<CalibrationType> {
+) -> Result<(CalibrationType, Vec<braid_apriltag_types::AprilTagCoords2D>)> {
     let intrinsics: opencv_ros_camera::RosCameraInfo<f64> =
         serde_yaml::from_str(&calibration_params_buf)?;
     tracing::info!("loaded YAML intrinsics calibration");
@@ -52,6 +52,13 @@ fn load_yaml_calibration(
             intrinsics,
         };
     let single_cam_result = flytrax_apriltags_calibration::compute_extrinsics(&args)?;
+
+    let april_detections = {
+        let x = &single_cam_result.src_data.per_camera_2d;
+        assert_eq!(x.len(), 1, "exactly one camera should be present");
+        let (_, detections) = x.values().next().unwrap();
+        detections.clone()
+    };
 
     if let Some(dest_dir) = output_braidz.parent() {
         std::fs::create_dir_all(dest_dir)?;
@@ -73,7 +80,10 @@ fn load_yaml_calibration(
 
     let full_cal = flydra_mvg::FlydraMultiCameraSystem::<f64>::from_system(system, None);
 
-    Ok(CalibrationType::FullCal(Box::new(full_cal)))
+    Ok((
+        CalibrationType::FullCal(Box::new(full_cal)),
+        april_detections,
+    ))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -96,6 +106,7 @@ where
     let cfg = flytrax_io::read_csv_commented_header(&mut point_detection_csv_reader)?;
 
     let mut pseudo_cal_params = None;
+    let mut april_detections = None;
     tracing::info!("reading calibration parameters from file {}", cal_file_name);
     let calibration_params_buf = std::fs::read_to_string(cal_file_name)
         .with_context(|| format!("reading calibration parameters file \"{}\"", cal_file_name))?;
@@ -110,7 +121,9 @@ where
 
         CalibrationType::SimpleCal(pseudo)
     } else if cal_file_name.ends_with(".yaml") {
-        load_yaml_calibration(eargs, &calibration_params_buf, output_braidz)?
+        let (cal_type, det) = load_yaml_calibration(eargs, &calibration_params_buf, output_braidz)?;
+        april_detections = Some(det);
+        cal_type
     } else {
         anyhow::bail!("unrecognized file extension for calibration: \"{cal_file_name}\"");
     };
@@ -155,6 +168,7 @@ where
     let mini_arena_debug_cfg = Some(flydra2::MiniArenaDebugConfig {
         output_png_path,
         background_image_jpeg_buf: jpeg_buf,
+        april_detections,
     });
 
     braid_offline::kalmanize(

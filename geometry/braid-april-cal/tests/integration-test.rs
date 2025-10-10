@@ -1,5 +1,6 @@
 use ads_webasm::components::{parse_csv, MaybeCsvData};
 use braid_april_cal::*;
+use braid_apriltag_types::AprilTagCoords2D;
 
 use opencv_ros_camera::{NamedIntrinsicParameters, RosCameraInfo};
 
@@ -21,7 +22,7 @@ fn gen_cal() -> CalibrationResult {
     let per_camera_2d = cams_bufs
         .into_iter()
         .map(|buf| {
-            let detections = parse_csv::<AprilDetection>("camera-detections.csv".into(), &buf);
+            let detections = parse_csv::<AprilTagCoords2D>("camera-detections.csv".into(), &buf);
             match detections {
                 MaybeCsvData::Valid(csv_data) => {
                     let datavec = csv_data.rows().to_vec();
@@ -125,7 +126,7 @@ fn solve_pnp_with_prior_intrinsics() -> anyhow::Result<()> {
     let per_camera_2d = cams_bufs
         .into_iter()
         .map(|buf| {
-            let detections = parse_csv::<AprilDetection>("camera-detections.csv".into(), &buf);
+            let detections = parse_csv::<AprilTagCoords2D>("camera-detections.csv".into(), &buf);
             match detections {
                 MaybeCsvData::Valid(csv_data) => {
                     let datavec = csv_data.rows().to_vec();

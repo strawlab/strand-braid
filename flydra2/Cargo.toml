@@ -60,6 +60,7 @@ usvg.workspace = true
 
 braidz-types.workspace = true
 braidz-writer.workspace = true
+braid-apriltag-types.workspace = true
 strand-datetime-conversion.workspace = true
 env-tracing-logger.workspace = true
 braid-mvg = { workspace = true, features = ["rerun-io"] }

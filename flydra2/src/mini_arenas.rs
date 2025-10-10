@@ -69,6 +69,7 @@ pub struct MiniArenaDebugConfig {
     pub output_png_path: camino::Utf8PathBuf,
     /// Background image to use for mini arena images.
     pub background_image_jpeg_buf: Option<Vec<u8>>,
+    pub april_detections: Option<Vec<braid_apriltag_types::AprilTagCoords2D>>,
 }
 
 impl std::fmt::Debug for MiniArenaDebugConfig {
@@ -192,6 +193,24 @@ fn annotate_mini_arena_image(
                 d.attr("opacity", "0.3")?;
                 d.attr("xlink:href", data_url)
             })?;
+        }
+
+        // Draw april tag detections
+        if let Some(detections) = &cfg.april_detections {
+            for detection in detections.iter() {
+                w.elem("text", |d| {
+                d.attr("x", format!("{}", detection.x))?;
+                d.attr("y", format!("{}", detection.y))?;
+                d.attr("text-anchor ", "middle")?;
+                d.attr("dominant-baseline", "middle")?;
+                d.attr(
+                    "style",
+                    "font-family: Arial, Helvetica, sans-serif; font-size: 30px; fill: red;",
+                )?;
+                Ok(())
+            })?
+            .build(|w| w.put_raw(format!("{}", detection.id)))?;
+            }
         }
 
         // Draw mini arena numbers.

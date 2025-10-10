@@ -20,5 +20,6 @@ wasm-logger.workspace = true
 chrono.workspace = true
 
 ads-webasm = { workspace = true, features = ["csv-widget"] }
-braid-april-cal.workspace = true
 apriltag-detection-writer.workspace = true
+braid-april-cal.workspace = true
+braid-apriltag-types.workspace = true

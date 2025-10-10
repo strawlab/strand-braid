@@ -226,7 +226,8 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
                 .with_context(|| format!("while opening file {entry}"))?;
             let icam_idx: u8 = cam_names.len().try_into().unwrap();
 
-            let detections = parse_csv::<AprilDetection>(entry.clone().into_string(), &buf);
+            use braid_apriltag_types::AprilTagCoords2D;
+            let detections = parse_csv::<AprilTagCoords2D>(entry.clone().into_string(), &buf);
             let cam_name = match detections {
                 MaybeCsvData::Valid(csv_data) => {
                     let datavec = csv_data.rows().to_vec();
@@ -255,7 +256,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
                         uvs_per_id
                             .entry(row.id as u32)
                             .or_insert_with(Vec::new)
-                            .push((row.h02, row.h12)); // The (x,y) pixel coord of detection.
+                            .push((row.x, row.y)); // The (x,y) pixel coord of detection.
                     }
 
                     for id in uvs_per_id.keys() {

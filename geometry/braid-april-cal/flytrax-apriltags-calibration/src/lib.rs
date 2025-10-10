@@ -10,15 +10,9 @@ use ads_apriltag as apriltag;
 use ads_webasm::components::{parse_csv, MaybeCsvData};
 
 use apriltag_detection_writer::AprilConfig;
+use braid_apriltag_types::AprilTagCoords2D;
 
 mod img_write;
-
-struct AprilTagCoords2D {
-    id: i32,
-    hamming: i32,
-    x: f64,
-    y: f64,
-}
 
 fn read_apriltags<P: AsRef<std::path::Path>>(
     fname: P,
@@ -81,6 +75,7 @@ pub struct AprilTagReprojectedPoint<R: nalgebra::RealField> {
 
 pub struct SingleCamCalResults {
     cal_result: CalibrationResult,
+    pub src_data: CalData,
     reproj: Vec<AprilTagReprojectedPoint<f64>>,
     jpeg_buf: Vec<u8>,
     named_intrinsics: NamedIntrinsicParameters<f64>,
@@ -195,12 +190,11 @@ pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleC
 
         let detections2: Vec<_> = detections
             .iter()
-            .map(|d| AprilDetection {
-                frame: 0,
+            .map(|d| AprilTagCoords2D {
                 id: d.id,
                 hamming: d.hamming,
-                h02: d.x,
-                h12: d.y,
+                x: d.x,
+                y: d.y,
             })
             .collect();
 
@@ -265,6 +259,7 @@ pub fn compute_extrinsics(cli: &ComputeExtrinsicsArgs) -> anyhow::Result<SingleC
 
     Ok(SingleCamCalResults {
         cal_result,
+        src_data,
         reproj,
         jpeg_buf,
         named_intrinsics,
@@ -278,6 +273,7 @@ pub fn save_cal_result_to_xml<P: AsRef<Path>>(
     let SingleCamCalResults {
         cal_result,
         reproj: _,
+        src_data: _,
         jpeg_buf: _,
         named_intrinsics: _,
     } = res;
@@ -294,6 +290,7 @@ pub fn save_cal_svg_and_png_images<P: AsRef<Path>>(
 ) -> anyhow::Result<()> {
     let SingleCamCalResults {
         cal_result: _,
+        src_data: _,
         reproj,
         jpeg_buf,
         named_intrinsics,

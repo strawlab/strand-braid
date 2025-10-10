@@ -52,6 +52,7 @@ members = [
     "geometry/braid-april-cal/braid-april-cal-cli",
     "geometry/braid-april-cal/braid-april-cal-webapp",
     "geometry/braid-april-cal/flytrax-apriltags-calibration",
+    "geometry/braid-apriltag-types",
     "geometry/braid-mvg",
     "geometry/braid-mvg/mvg-util",
     "geometry/braidz-mcsc",
@@ -123,6 +124,7 @@ members = [
     "write-debian-changelog",
     "zip-or-dir",
     "zip-or-dir/dir2zip",
+    "geometry/braid-apriltag-types",
 ]
 
 exclude = [
@@ -280,6 +282,7 @@ bisection-search = { path = "geometry/refraction/bisection-search" }
 bg-movie-writer = { path = "media-utils/bg-movie-writer" }
 braid = { path = "braid" }
 braid-april-cal = { path = "geometry/braid-april-cal" }
+braid-apriltag-types = { path = "geometry/braid-apriltag-types" }
 braid-config-data = { path = "braid-config-data" }
 braid-http-session = { path = "braid-http-session" }
 braid-offline = { path = "braid-offline" }

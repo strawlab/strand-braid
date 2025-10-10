@@ -11,6 +11,7 @@ use nalgebra::{
 use argmin::core::{CostFunction, Error as ArgminError};
 
 use apriltag_detection_writer::AprilConfig;
+use braid_apriltag_types::AprilTagCoords2D;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AprilTagCorrespondingPoint<R: RealField> {
@@ -121,19 +122,6 @@ pub struct Fiducial3DCoords {
     pub z: f64,
 }
 
-/// For deserializing a detection.
-///
-/// Note that other fields are likely saved (e.g. `h00`), but we just ignore
-/// those as they are not necessary for our purposes here.
-#[derive(Deserialize, Debug, Clone, PartialEq)]
-pub struct AprilDetection {
-    pub frame: u64,
-    pub hamming: i32,
-    pub id: i32,
-    pub h02: f64,
-    pub h12: f64,
-}
-
 pub fn get_apriltag_cfg<R: std::io::Read>(rdr: R) -> Result<AprilConfig, MyError> {
     use std::io::BufRead;
     let buf_reader = std::io::BufReader::new(rdr);
@@ -188,10 +176,9 @@ pub fn get_apriltag_cfg<R: std::io::Read>(rdr: R) -> Result<AprilConfig, MyError
     }
 }
 
-// #[derive(Serialize, Deserialize)]
 pub struct CalData {
     pub fiducial_3d_coords: Vec<Fiducial3DCoords>,
-    pub per_camera_2d: BTreeMap<String, (AprilConfig, Vec<AprilDetection>)>,
+    pub per_camera_2d: BTreeMap<String, (AprilConfig, Vec<AprilTagCoords2D>)>,
     pub known_good_intrinsics: Option<BTreeMap<String, NamedIntrinsicParameters<f64>>>,
 }
 
@@ -229,7 +216,7 @@ struct NoCorresp {
 
 fn gather_points_per_cam(
     object_points: &BTreeMap<u32, [f64; 3]>,
-    cam_data: &[AprilDetection],
+    cam_data: &[braid_apriltag_types::AprilTagCoords2D],
 ) -> Result<Vec<AprilTagCorrespondingPoint<f64>>, NoCorresp> {
     let ids_3d = object_points.keys().map(Clone::clone).collect();
     let mut err = NoCorresp {
@@ -244,7 +231,7 @@ fn gather_points_per_cam(
         uv_per_id
             .entry(row.id as u32)
             .or_insert_with(Vec::new)
-            .push((row.h02, row.h12)); // The (x,y) pixel coord of detection.
+            .push((row.x, row.y)); // The (x,y) pixel coord of detection.
         err.ids_2d.insert(row.id);
     }
 

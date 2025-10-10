@@ -26,6 +26,7 @@ camino.workspace = true
 glob.workspace = true
 opencv-ros-camera = { workspace = true, features = ["serde-serialize"] }
 
+braid-apriltag-types.workspace = true
 strand-datetime-conversion.workspace = true
 env-tracing-logger.workspace = true
 flydra-mvg.workspace = true
