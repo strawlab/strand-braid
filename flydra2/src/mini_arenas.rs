@@ -110,11 +110,11 @@ pub(crate) fn build_mini_arena_images(
 
                     // save debug image of mini arenas.
                     use machine_vision_formats::pixel_format::Mono8;
-                    let frame = machine_vision_formats::owned::OImage::<Mono8>::new(
+                    let frame = machine_vision_formats::image_ref::ImageRef::<Mono8>::new(
                         cam.width().try_into().unwrap(),
                         cam.height().try_into().unwrap(),
                         cam.width(),
-                        mini_arena_image.clone(),
+                        &mini_arena_image,
                     )
                     .unwrap();
                     let png_buf = convert_image::frame_to_encoded_buffer(
