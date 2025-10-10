@@ -209,12 +209,12 @@ pub async fn kalmanize<Q, R>(
     saving_program_name: &str,
     no_progress: bool,
     new_calibration: Option<flydra_mvg::FlydraMultiCameraSystem<f64>>,
+    mini_arena_debug_cfg: Option<flydra2::MiniArenaDebugConfig>,
 ) -> eyre::Result<()>
 where
     Q: AsRef<Path> + std::fmt::Debug,
     R: 'static + Read + Seek + Send + std::fmt::Debug,
 {
-    let mini_arena_debug_image_dir = output_braidz.as_ref().parent().map(PathBuf::from);
     let output_braidz = output_braidz.as_ref();
     if output_braidz.extension() != Some(std::ffi::OsStr::new("braidz")) {
         eyre::bail!("output filename must end with '.braidz'");
@@ -347,7 +347,7 @@ where
             tracking_params,
             save_empty_data2d,
             ignore_latency,
-            mini_arena_debug_image_dir,
+            mini_arena_debug_cfg,
             write_buffer_size_num_messages:
                 braid_config_data::default_write_buffer_size_num_messages(),
         },
@@ -854,6 +854,7 @@ pub async fn braid_offline_retrack(opt: Cli) -> eyre::Result<()> {
         "braid-offline-retrack",
         opt.no_progress,
         calibration,
+        None,
     )
     .await?;
     Ok(())

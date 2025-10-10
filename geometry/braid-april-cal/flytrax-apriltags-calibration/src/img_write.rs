@@ -137,6 +137,9 @@ pub(crate) fn draw_cam_render_data<P: AsRef<std::path::Path>>(
     let mut png_fname = std::path::PathBuf::from(out_fname.as_ref());
     png_fname.set_extension("png");
     pixmap.save_png(&png_fname)?;
-    tracing::info!("Saved image for debugging to: {}", png_fname.display());
+    tracing::info!(
+        "Saved april tag detection image to: {}",
+        png_fname.display()
+    );
     Ok(())
 }

@@ -109,7 +109,7 @@ impl BraidStorage {
                 tracking_params,
                 save_empty_data2d,
                 ignore_latency,
-                mini_arena_debug_image_dir: None,
+                mini_arena_debug_cfg: None,
                 write_buffer_size_num_messages:
                     braid_config_data::default_write_buffer_size_num_messages(),
             },

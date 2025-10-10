@@ -310,10 +310,5 @@ pub fn save_cal_svg_and_png_images<P: AsRef<Path>>(
     };
 
     img_write::draw_cam_render_data(&out_svg_fname, &pcrf)?;
-    tracing::info!(
-        "Saved image for debugging to: {}",
-        out_svg_fname.as_ref().display()
-    );
-
     Ok(())
 }

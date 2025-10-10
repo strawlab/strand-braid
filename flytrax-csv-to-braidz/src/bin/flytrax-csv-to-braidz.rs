@@ -194,13 +194,15 @@ async fn open_files_and_run() -> anyhow::Result<()> {
     let mut flytrax_image = None;
     let mut flytrax_jpeg_fname = cli.flytrax_csv.clone();
     flytrax_jpeg_fname.set_extension("jpg");
+    let mut jpeg_buf = None;
     if flytrax_jpeg_fname.exists() {
-        let jpeg_buf = std::fs::read(&flytrax_jpeg_fname)
+        let jbuf = std::fs::read(&flytrax_jpeg_fname)
             .with_context(|| format!("reading {flytrax_jpeg_fname}"))?;
         flytrax_image = Some(
-            image::load_from_memory_with_format(&jpeg_buf, image::ImageFormat::Jpeg)
+            image::load_from_memory_with_format(&jbuf, image::ImageFormat::Jpeg)
                 .with_context(|| format!("parsing {flytrax_jpeg_fname}"))?,
         );
+        jpeg_buf = Some(jbuf);
     } else {
         tracing::warn!("File {flytrax_jpeg_fname} did not exist - cannot preserve flytrax image.");
     }
@@ -238,6 +240,7 @@ async fn open_files_and_run() -> anyhow::Result<()> {
         cli.no_progress,
         eargs,
         opt2,
+        jpeg_buf,
     )
     .await?;
 

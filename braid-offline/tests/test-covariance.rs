@@ -45,6 +45,7 @@ async fn test_covariance() {
         &format!("{}:{}", file!(), line!()),
         true,
         None,
+        None,
     )
     .await
     .unwrap();

@@ -47,6 +47,7 @@ mod flat_2d;
 mod tracking_core;
 
 mod mini_arenas;
+pub use mini_arenas::MiniArenaDebugConfig;
 
 mod model_server;
 pub use crate::model_server::{new_model_server, SendKalmanEstimatesRow, SendType};
@@ -665,7 +666,7 @@ pub struct CoordProcessorConfig {
     pub tracking_params: TrackingParams,
     pub save_empty_data2d: bool,
     pub ignore_latency: bool,
-    pub mini_arena_debug_image_dir: Option<std::path::PathBuf>,
+    pub mini_arena_debug_cfg: Option<mini_arenas::MiniArenaDebugConfig>,
     pub write_buffer_size_num_messages: usize,
 }
 
@@ -734,7 +735,7 @@ impl CoordProcessor {
             tracking_params,
             save_empty_data2d,
             ignore_latency,
-            mini_arena_debug_image_dir,
+            mini_arena_debug_cfg,
             write_buffer_size_num_messages,
         } = cfg;
 
@@ -747,7 +748,7 @@ impl CoordProcessor {
         let mini_arena_images = mini_arenas::build_mini_arena_images(
             recon.as_ref(),
             &tracking_params.mini_arena_config,
-            mini_arena_debug_image_dir.as_deref(),
+            mini_arena_debug_cfg.as_ref(),
         )?;
 
         let tracking_params: Arc<TrackingParams> = Arc::from(tracking_params);

@@ -479,6 +479,22 @@ pub struct PointWorldFrame<R: RealField + Copy> {
     pub coords: Point3<R>,
 }
 
+impl From<&[f64; 3]> for PointWorldFrame<f64> {
+    fn from(orig: &[f64; 3]) -> Self {
+        PointWorldFrame {
+            coords: Point3::new(orig[0], orig[1], orig[2]),
+        }
+    }
+}
+
+impl From<[f64; 3]> for PointWorldFrame<f64> {
+    fn from(orig: [f64; 3]) -> Self {
+        PointWorldFrame {
+            coords: Point3::new(orig[0], orig[1], orig[2]),
+        }
+    }
+}
+
 impl<R, IN> From<&cam_geom::Points<cam_geom::coordinate_system::WorldFrame, R, U1, IN>>
     for PointWorldFrame<R>
 where

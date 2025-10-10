@@ -348,6 +348,7 @@ async fn run_test(src: &str, untracked_dir: PathBuf) -> anyhow::Result<()> {
         &format!("{}:{}", file!(), line!()),
         true,
         None,
+        None,
     )
     .await?;
     println!("done tracking");

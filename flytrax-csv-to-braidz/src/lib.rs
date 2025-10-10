@@ -88,6 +88,7 @@ async fn kalmanize_2d<R>(
     no_progress: bool,
     eargs: Option<ExtrinsicsArgs>,
     opt2: KalmanizeOptions,
+    jpeg_buf: Option<Vec<u8>>,
 ) -> Result<()>
 where
     R: BufRead,
@@ -145,6 +146,17 @@ where
 
     let save_performance_histograms = false;
 
+    let output_png_path = {
+        let s = output_braidz.as_str();
+        let stripped = s.strip_suffix(".braidz").unwrap().to_string();
+        camino::Utf8PathBuf::from(stripped + "_well_codes.png")
+    };
+
+    let mini_arena_debug_cfg = Some(flydra2::MiniArenaDebugConfig {
+        output_png_path,
+        background_image_jpeg_buf: jpeg_buf,
+    });
+
     braid_offline::kalmanize(
         data_src,
         output_braidz,
@@ -155,6 +167,7 @@ where
         env!("CARGO_PKG_NAME"),
         no_progress,
         None,
+        mini_arena_debug_cfg,
     )
     .await?;
 
@@ -484,6 +497,7 @@ pub async fn parse_configs_and_run<R>(
     no_progress: bool,
     eargs: Option<ExtrinsicsArgs>,
     opt2: KalmanizeOptions,
+    jpeg_buf: Option<Vec<u8>>,
 ) -> Result<()>
 where
     R: BufRead,
@@ -508,6 +522,7 @@ where
         no_progress,
         eargs,
         opt2,
+        jpeg_buf,
     )
     .await
 }

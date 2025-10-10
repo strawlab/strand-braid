@@ -32,6 +32,7 @@ async fn test_run_end_to_end() {
         true,
         None,
         braid_offline::KalmanizeOptions::default(),
+        None,
     )
     .await
     .unwrap();
@@ -77,6 +78,7 @@ async fn test_z_values_zero() {
         true,
         None,
         braid_offline::KalmanizeOptions::default(),
+        None,
     )
     .await
     .unwrap();
@@ -204,6 +206,7 @@ async fn mini_arenas_with_apriltags() -> eyre::Result<()> {
         true,
         eargs,
         opt2,
+        None,
     )
     .await?;
 

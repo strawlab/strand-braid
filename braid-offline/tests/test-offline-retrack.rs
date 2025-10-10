@@ -47,6 +47,7 @@ async fn test_min_two_rays_needed() {
         &format!("{}:{}", file!(), line!()),
         true,
         None,
+        None,
     )
     .await
     .unwrap();
