@@ -132,6 +132,17 @@ async fn open_files_and_run() -> anyhow::Result<()> {
         None => None,
     };
 
+    if cli.apriltags_3d_fiducial_coords.is_some() {
+        if tracking_params_buf.is_none() {
+            anyhow::bail!(
+                "AprilTag coordinates were given without tracking parameters specified. This \
+                is almost certainly a mistake because the tracking parameters include a \
+                specification of mini-arena coordinates which are needed for tracking. \
+                (Hint: if --apriltags-3d-fiducial-coords is given, --tracking-params must also be given.)"
+            );
+        }
+    }
+
     // This temporary directory will be automatically deleted when it goes out
     // of scope (although being killed by the OOM killer will not delete it).
     let braid_csv_temp_dir = {
