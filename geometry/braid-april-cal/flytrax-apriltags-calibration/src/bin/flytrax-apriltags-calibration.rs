@@ -19,7 +19,7 @@ pub struct Cli {
     /// CSV data from the experiment.
     pub flytrax_csv: camino::Utf8PathBuf,
 
-    /// Calibration XML output filename. An SVG debug image will also be saved.
+    /// Calibration XML output filename.
     pub output_xml: camino::Utf8PathBuf,
 }
 
@@ -65,9 +65,12 @@ fn main() -> anyhow::Result<()> {
 
     flytrax_apriltags_calibration::save_cal_result_to_xml(&output_xml, &cal)?;
 
-    let mut out_svg_fname = output_xml.clone();
-    out_svg_fname.set_extension("svg");
-    flytrax_apriltags_calibration::save_cal_svg_and_png_images(out_svg_fname, &cal)?;
+    let output_png_fname = {
+        let s = output_xml.as_str();
+        let stripped = s.strip_suffix(".xml").unwrap().to_string();
+        camino::Utf8PathBuf::from(stripped + "_apriltag_detections.png")
+    };
+    flytrax_apriltags_calibration::save_cal_png_image(output_png_fname, &cal)?;
 
     Ok(())
 }

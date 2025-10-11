@@ -1,5 +1,4 @@
 use eyre as anyhow;
-use std::io::Write;
 
 // This is lightly modified from the version in braid-process-video.
 
@@ -129,17 +128,11 @@ pub(crate) fn draw_cam_render_data<P: AsRef<std::path::Path>>(
         &mut pixmap.as_mut(),
     );
 
-    // Write composited SVG to disk.
-    let mut debug_svg_fd = std::fs::File::create(&out_fname)?;
-    debug_svg_fd.write_all(&svg_buf)?;
-
     // Write image to disk as PNG.
-    let mut png_fname = std::path::PathBuf::from(out_fname.as_ref());
-    png_fname.set_extension("png");
-    pixmap.save_png(&png_fname)?;
+    pixmap.save_png(&out_fname)?;
     tracing::info!(
         "Saved april tag detection image to: {}",
-        png_fname.display()
+        out_fname.as_ref().display()
     );
     Ok(())
 }

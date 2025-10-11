@@ -64,9 +64,13 @@ fn load_yaml_calibration(
         std::fs::create_dir_all(dest_dir)?;
     }
 
-    let mut out_svg_fname = std::path::PathBuf::from(output_braidz);
-    out_svg_fname.set_extension("braidz.svg");
-    flytrax_apriltags_calibration::save_cal_svg_and_png_images(out_svg_fname, &single_cam_result)?;
+    let output_png_fname = {
+        let s = output_braidz.as_str();
+        let stripped = s.strip_suffix(".braidz").unwrap().to_string();
+        camino::Utf8PathBuf::from(stripped + "_apriltag_detections.png")
+    };
+
+    flytrax_apriltags_calibration::save_cal_png_image(output_png_fname, &single_cam_result)?;
 
     let system = single_cam_result.cal_result().cam_system.clone();
 

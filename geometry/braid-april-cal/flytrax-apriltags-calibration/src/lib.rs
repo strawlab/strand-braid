@@ -325,8 +325,8 @@ pub fn save_cal_result_to_xml<P: AsRef<Path>>(
     Ok(())
 }
 
-pub fn save_cal_svg_and_png_images<P: AsRef<Path>>(
-    out_svg_fname: P,
+pub fn save_cal_png_image<P: AsRef<Path>>(
+    out_png_fname: P,
     res: &SingleCamCalResults,
 ) -> anyhow::Result<()> {
     let SingleCamCalResults {
@@ -347,6 +347,6 @@ pub fn save_cal_svg_and_png_images<P: AsRef<Path>>(
         reproj: reproj.as_slice(),
     };
 
-    img_write::draw_cam_render_data(&out_svg_fname, &pcrf)?;
+    img_write::draw_cam_render_data(&out_png_fname, &pcrf)?;
     Ok(())
 }
