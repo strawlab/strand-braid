@@ -24,6 +24,8 @@ impl<T: ArrayDealloc> Zarray<T> {
     unsafe fn from_raw(inner: *mut apriltag_sys::zarray_t) -> Zarray<T> {
         assert!(!inner.is_null());
         assert!((*inner).el_sz == std::mem::size_of::<T>());
+        // Note that we cannot assume the size is non-zero nor that the data
+        // pointer is not null.
 
         Self {
             inner,
@@ -47,7 +49,11 @@ impl<T: ArrayDealloc> Zarray<T> {
     pub fn as_slice(&self) -> &[T] {
         unsafe {
             let ptr = *self.inner;
-            std::slice::from_raw_parts(ptr.data as *mut T, self.len())
+            if self.is_empty() {
+                &[]
+            } else {
+                std::slice::from_raw_parts(ptr.data as *const T, self.len())
+            }
         }
     }
 }
@@ -243,10 +249,16 @@ impl Detector {
     /// Detect points in an image
     pub fn detect(&self, im: &apriltag_sys::image_u8) -> Zarray<Detection> {
         let detections: *mut apriltag_sys::zarray_t = unsafe {
-            let ptr = im as *const apriltag_sys::image_u8;
-            apriltag_sys::apriltag_detector_detect(self.td, ptr as *mut _)
+            let im_orig = im as *const apriltag_sys::image_u8;
+            apriltag_sys::apriltag_detector_detect(self.td, im_orig as *mut _)
         };
-        unsafe { Zarray::from_raw(detections) }
+        let result: Zarray<Detection> = unsafe { Zarray::from_raw(detections) };
+
+        for det in result.as_slice() {
+            debug_assert_eq!(det.center()[0], det.h()[2]);
+            debug_assert_eq!(det.center()[1], det.h()[5]);
+        }
+        result
     }
 }
 
@@ -419,19 +431,20 @@ impl Detection {
     pub fn h(&self) -> &[f64] {
         unsafe { (*(*self.0).H).data.as_slice(9) }
     }
-    pub fn center(&self) -> &[f64] {
+    pub fn center(&self) -> &[f64; 2] {
         unsafe { &(*self.0).c }
     }
 }
 
 impl std::fmt::Debug for Detection {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let d = unsafe { *self.0 };
-        write!(
-            f,
-            "Detection{{id: {}, hamming: {}, decision_margin: {}, c: {:?}, p: {:?}}}",
-            d.id, d.hamming, d.decision_margin, d.c, d.p
-        )
+        f.debug_struct("Detection")
+            .field("id", &self.id())
+            .field("hamming", &self.hamming())
+            .field("decision_margin", &self.decision_margin())
+            .field("center", &self.center())
+            .field("h", &self.h())
+            .finish_non_exhaustive()
     }
 }
 
