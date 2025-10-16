@@ -16,14 +16,14 @@ use std::io::ErrorKind;
 /// want to parse them.
 pub struct TerminateEarlyOnUnexpectedEof<I, T>
 where
-    I: Iterator<Item = std::result::Result<T, csv::Error>>,
+    I: Iterator<Item = Result<T, csv::Error>>,
 {
     inner: I,
 }
 
 impl<I, T> TerminateEarlyOnUnexpectedEof<I, T>
 where
-    I: Iterator<Item = std::result::Result<T, csv::Error>>,
+    I: Iterator<Item = Result<T, csv::Error>>,
 {
     /// create a TerminateEarlyOnUnexpectedEof
     pub fn new(inner: I) -> Self {
@@ -38,9 +38,9 @@ where
 
 impl<I, T> Iterator for TerminateEarlyOnUnexpectedEof<I, T>
 where
-    I: Iterator<Item = std::result::Result<T, csv::Error>>,
+    I: Iterator<Item = Result<T, csv::Error>>,
 {
-    type Item = std::result::Result<T, csv::Error>;
+    type Item = Result<T, csv::Error>;
     fn next(&mut self) -> std::option::Option<<Self as Iterator>::Item> {
         match self.inner.next() {
             Some(Ok(item)) => Some(Ok(item)),
@@ -66,14 +66,14 @@ fn is_early_eof(e: &csv::Error) -> bool {
 /// A trait to wrap an Iterator and terminate without error on UnexpectedEof
 pub trait EarlyEofOk<I, T>
 where
-    I: Iterator<Item = std::result::Result<T, csv::Error>>,
+    I: Iterator<Item = Result<T, csv::Error>>,
 {
     fn early_eof_ok(self) -> TerminateEarlyOnUnexpectedEof<I, T>;
 }
 
 impl<I, T> EarlyEofOk<I, T> for I
 where
-    I: Iterator<Item = std::result::Result<T, csv::Error>>,
+    I: Iterator<Item = Result<T, csv::Error>>,
 {
     fn early_eof_ok(self) -> TerminateEarlyOnUnexpectedEof<I, T> {
         TerminateEarlyOnUnexpectedEof::new(self)
