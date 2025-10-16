@@ -4,7 +4,8 @@ use clap::Parser;
 use eyre::{self, Context, Result};
 use levenberg_marquardt::LeastSquaresProblem;
 use opencv_ros_camera::RosOpenCvIntrinsics;
-use polars::prelude::*;
+use polars::prelude::{ChunkAgg, ChunkVar};
+use polars_io::SerReader;
 use std::{
     collections::BTreeMap,
     fs,
