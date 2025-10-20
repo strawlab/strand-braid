@@ -379,64 +379,86 @@ impl OfflineBraidzRerunLogger {
 
     pub fn log_kalman_estimates(
         &self,
-        kalman_estimates_table: &[braid_types::KalmanEstimatesRow],
+        kalman_estimates_table: Vec<braid_types::KalmanEstimatesRow>,
         log_reprojected_2d: bool,
     ) -> eyre::Result<()> {
-        let mut last_detection_per_obj = BTreeMap::new();
+        let mut by_obj_id: BTreeMap<u32, Vec<_>> = BTreeMap::new();
 
         // iterate through all saved data.
-        for row in kalman_estimates_table.iter() {
-            self.rec
-                .set_time_sequence(FRAMES_TIMELINE, i64::try_from(row.frame.0).unwrap());
-            if let Some(timestamp) = &row.timestamp {
-                self.rec
-                    .set_timestamp_secs_since_epoch(SECONDS_TIMELINE, timestamp.as_f64());
-            }
-            self.rec.log(
-                format!("world/obj_id/{}", row.obj_id),
-                &Points3D::new([(row.x as f32, row.y as f32, row.z as f32)])
-                    .with_labels([format!("{}", row.obj_id)]),
-            )?;
-            last_detection_per_obj.insert(row.obj_id, (row.frame, row.timestamp.clone()));
+        for row in kalman_estimates_table.into_iter() {
+            by_obj_id.entry(row.obj_id).or_default().push(row);
+        }
 
-            if log_reprojected_2d {
-                for (_cam_name, cam_data) in self.by_camname.iter() {
-                    // TODO: how to annotate this with row.obj_id?
-                    let cam_cal = &cam_data.calibration;
-                    let pt3d = braid_mvg::PointWorldFrame {
-                        coords: nalgebra::Point3::new(row.x, row.y, row.z),
-                    };
-                    let labels = vec![format!("{}", row.obj_id)];
-                    if let Some(cam_cal) = cam_cal {
-                        let arch = if cam_data.image_is_undistorted {
-                            let pt2d = cam_cal.project_3d_to_pixel(&pt3d).coords;
-                            Points2D::new([(pt2d[0] as f32, pt2d[1] as f32)]).with_labels(labels)
-                        } else {
-                            let pt2d = cam_cal.project_3d_to_distorted_pixel(&pt3d).coords;
-                            Points2D::new([(pt2d[0] as f32, pt2d[1] as f32)]).with_labels(labels)
+        let empty_position_3d: [(f32, f32, f32); 0] = [];
+        let empty_position_2d: [(f32, f32); 0] = [];
+
+        // now iterate per obj_id.
+        for (obj_id, rows) in by_obj_id.into_iter() {
+            let mut frame_timestamp = None;
+            let labels = vec![format!("{}", obj_id)];
+
+            for row in rows.into_iter() {
+                frame_timestamp = Some((row.frame, row.timestamp.clone()));
+                self.rec
+                    .set_time_sequence(FRAMES_TIMELINE, i64::try_from(row.frame.0).unwrap());
+                if let Some(timestamp) = &row.timestamp {
+                    self.rec
+                        .set_timestamp_secs_since_epoch(SECONDS_TIMELINE, timestamp.as_f64());
+                }
+                self.rec.log(
+                    format!("world/obj_id/{}", row.obj_id),
+                    &Points3D::new([(row.x as f32, row.y as f32, row.z as f32)])
+                        .with_labels(labels.clone()),
+                )?;
+
+                if log_reprojected_2d {
+                    for (_cam_name, cam_data) in self.by_camname.iter() {
+                        let cam_cal = &cam_data.calibration;
+                        let pt3d = braid_mvg::PointWorldFrame {
+                            coords: nalgebra::Point3::new(row.x, row.y, row.z),
                         };
-                        let ent_path = &cam_data.image_ent_path;
-                        self.rec.log(format!("{ent_path}/reproj"), &arch)?;
+                        if let Some(cam_cal) = cam_cal {
+                            let arch = if cam_data.image_is_undistorted {
+                                let pt2d = cam_cal.project_3d_to_pixel(&pt3d).coords;
+                                Points2D::new([(pt2d[0] as f32, pt2d[1] as f32)])
+                                    .with_labels(labels.clone())
+                            } else {
+                                let pt2d = cam_cal.project_3d_to_distorted_pixel(&pt3d).coords;
+                                Points2D::new([(pt2d[0] as f32, pt2d[1] as f32)])
+                                    .with_labels(labels.clone())
+                            };
+                            let ent_path = &cam_data.image_ent_path;
+                            self.rec.log(format!("{ent_path}/reproj/{obj_id}"), &arch)?;
+                        }
                     }
                 }
             }
-        }
 
-        // log end of trajectory - indicate there are no more data for this obj_id
-        let empty_position: [(f32, f32, f32); 0] = [];
-        for (obj_id, (frame, timestamp)) in last_detection_per_obj.iter() {
-            self.rec
-                .set_time_sequence(FRAMES_TIMELINE, i64::try_from(frame.0).unwrap() + 1);
-            if let Some(timestamp) = &timestamp {
-                self.rec.set_timestamp_secs_since_epoch(
-                    SECONDS_TIMELINE,
-                    timestamp.as_f64() + self.inter_frame_interval_f64,
-                );
+            // log end of trajectory - indicate there are no more data for this obj_id
+            if let Some((frame, timestamp)) = frame_timestamp {
+                self.rec
+                    .set_time_sequence(FRAMES_TIMELINE, i64::try_from(frame.0).unwrap() + 1);
+                if let Some(timestamp) = &timestamp {
+                    self.rec.set_timestamp_secs_since_epoch(
+                        SECONDS_TIMELINE,
+                        timestamp.as_f64() + self.inter_frame_interval_f64,
+                    );
+                }
+                self.rec.log(
+                    format!("world/obj_id/{}", obj_id),
+                    &Points3D::new(empty_position_3d),
+                )?;
+
+                if log_reprojected_2d {
+                    for (_cam_name, cam_data) in self.by_camname.iter() {
+                        let ent_path = &cam_data.image_ent_path;
+                        self.rec.log(
+                            format!("{ent_path}/reproj/{obj_id}"),
+                            &Points2D::new(empty_position_2d),
+                        )?;
+                    }
+                }
             }
-            self.rec.log(
-                format!("world/obj_id/{}", obj_id),
-                &Points3D::new(empty_position),
-            )?;
         }
         Ok(())
     }
@@ -511,7 +533,7 @@ pub fn braidz_into_rec<R: Read + Seek>(
     }
 
     // Process 3D kalman estimates
-    if let Some(kalman_estimates_table) = &archive.kalman_estimates_table {
+    if let Some(kalman_estimates_table) = archive.kalman_estimates_table {
         rrd_logger.log_kalman_estimates(kalman_estimates_table, true)?;
     } else {
         rrd_logger.add_empty3d()?;
