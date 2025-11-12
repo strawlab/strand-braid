@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 eyre.workspace = true
-kornia-image = "0.1.8"
+kornia-image = "0.1.10"
 kornia-imgproc = "0.1.8"
 kornia-tensor = "0.1.8"
 machine-vision-formats.workspace = true

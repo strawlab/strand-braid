@@ -60,13 +60,15 @@ pub fn undistort_image(
             let rgb8 = decoded.into_pixel_format::<pixel_format::RGB8>().unwrap();
             let data_u8: &[u8] = rgb8.image_data();
             let data_f32: Vec<f32> = data_u8.iter().map(|x| *x as f32).collect();
-            let image = kornia_image::image::Image::<f32, 3>::new(
+            let image = kornia_image::image::Image::<f32, 3, _>::new(
                 kornia_image::image::ImageSize { width, height },
                 data_f32,
+                kornia_image::allocator::CpuAllocator,
             )?;
-            let mut undistorted_img = kornia_image::image::Image::<f32, 3>::from_size_val(
+            let mut undistorted_img = kornia_image::image::Image::<f32, 3, _>::from_size_val(
                 kornia_image::image::ImageSize { width, height },
                 0.0,
+                kornia_image::allocator::CpuAllocator,
             )?;
             kornia_imgproc::interpolation::remap(
                 &image,
