@@ -449,13 +449,28 @@ fn test_serialized_cookie_store() {
     // Test that we can upgrade `cookie_store` crate without invalidating on-disk stored cookies.
 
     // Load CookieStore from json like we have previously saved to disk.
-    let serialized_json = r#"[{"raw_cookie":"abc=def; Expires=Thu, 20 Nov 2025 12:19:29 GMT","path":["/",false],"domain":{"HostOnly":"127.0.0.1"},"expires":{"AtUtc":"2025-11-20T12:19:29Z"}}]"#;
-    let loaded: cookie_store::CookieStore = serde_json::from_str(serialized_json).unwrap();
+    let serialized_json1 = r#"[{"raw_cookie":"abc=def; Expires="#;
+    let expires = chrono::Utc::now()
+        .checked_add_signed(chrono::Duration::days(365))
+        .unwrap();
+    let expires_str1 = expires.format("%a, %d %b %Y %H:%M:%S GMT").to_string();
+    // e.g. "Thu, 20 Nov 2025 12:19:29 GMT"
+    let serialized_json2 =
+        r#"","path":["/",false],"domain":{"HostOnly":"127.0.0.1"},"expires":{"AtUtc":""#;
+    // e.g. "2025-11-20T12:19:29Z"
+    let expires_str2 = expires.format("%Y-%m-%dT%H:%M:%SZ").to_string();
+    let serialized_json3 = r#""}}]"#;
+    let serialized_json = format!(
+        "{}{}{}{}{}",
+        serialized_json1, expires_str1, serialized_json2, expires_str2, serialized_json3
+    );
+    let loaded: cookie_store::CookieStore = serde_json::from_str(&serialized_json).unwrap();
 
     // What do we expect?
     let expected = {
         let mut expected = cookie_store::CookieStore::new(None);
-        let cookie_str = "abc=def; Expires=Thu, 20 Nov 2025 12:19:29 GMT";
+        let cookie_str1 = "abc=def; Expires=";
+        let cookie_str = format!("{}{}", cookie_str1, expires_str1);
         let request_url = "http://127.0.0.1/".try_into().unwrap();
 
         let cookie = cookie_store::Cookie::parse(cookie_str, &request_url).unwrap();
