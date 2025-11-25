@@ -11,7 +11,7 @@ fn test_detect_standard_41h12() {
     // raw_td.debug = 1;
     raw_td.quad_decimate = 2.0;
     raw_td.quad_sigma = 0.0;
-    raw_td.refine_edges = 1;
+    raw_td.refine_edges = true;
     raw_td.decode_sharpening = 0.25;
 
     let file_buf = include_bytes!("frame1.jpg");
@@ -48,7 +48,7 @@ fn test_detect_standard_36h11() {
     let raw_td = td.as_mut();
     raw_td.quad_decimate = 2.0;
     raw_td.quad_sigma = 0.0;
-    raw_td.refine_edges = 1;
+    raw_td.refine_edges = true;
     raw_td.decode_sharpening = 0.25;
 
     let file_buf = include_bytes!("frame1.jpg");

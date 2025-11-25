@@ -25,7 +25,7 @@ fn read_apriltags<P: AsRef<std::path::Path>>(
     // raw_td.debug = 1;
     raw_td.quad_decimate = 2.0;
     raw_td.quad_sigma = 0.0;
-    raw_td.refine_edges = 1;
+    raw_td.refine_edges = true;
     raw_td.decode_sharpening = 0.25;
 
     let jpeg_buf =

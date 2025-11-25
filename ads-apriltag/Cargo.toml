@@ -7,7 +7,7 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-apriltag-sys = "0.3"
+apriltag-sys = "0.4"
 machine-vision-formats.workspace = true
 
 [dev-dependencies]

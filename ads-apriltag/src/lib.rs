@@ -429,7 +429,7 @@ impl Detection {
         unsafe { (*self.0).decision_margin }
     }
     pub fn h(&self) -> &[f64] {
-        unsafe { (*(*self.0).H).data.as_slice(9) }
+        unsafe { std::slice::from_raw_parts((*(*self.0).H).data, 9) }
     }
     pub fn center(&self) -> &[f64; 2] {
         unsafe { &(*self.0).c }
