@@ -37,7 +37,6 @@ pub struct SingleCameraCalibration<R: RealField + serde::Serialize> {
     /// Only values of None or Some(1.0) are supported.
     #[serde(default, skip_serializing)]
     pub scale_factor: Option<R>,
-    #[serde(serialize_with = "serialize_non_linear_parameters")]
     pub non_linear_parameters: FlydraDistortionModel<R>,
 }
 
@@ -70,6 +69,21 @@ fn is_zero<R: RealField>(val: &R) -> bool {
     val == &zero
 }
 
+/// Adds indentation to all lines except the first.
+///
+/// This is a hack to make the XML output look nicer.
+fn extra_indent(s: String, prefix: &str) -> String {
+    let mut v = Vec::new();
+    for (i, line) in s.lines().enumerate() {
+        if i == 0 {
+            v.push(line.to_string());
+        } else {
+            v.push(format!("{prefix}{line}"));
+        }
+    }
+    v.join("\n")
+}
+
 pub(crate) fn serialize_recon<R>(
     recon: &FlydraReconstructor<R>,
 ) -> std::result::Result<String, serde_xml_rs::Error>
@@ -80,12 +94,22 @@ where
 
     // changes to this should update BraidMetadataSchemaTag
 
-    // TODO: indent nicely within each camera.
-
-    let v: Result<Vec<String>, serde_xml_rs::Error> =
-        recon.cameras.iter().map(serde_xml_rs::to_string).collect();
+    let prefix = "    ";
+    let s = serde_xml_rs::SerdeXml::new().emitter(
+        xml::EmitterConfig::new()
+            .write_document_declaration(false)
+            .perform_indent(true),
+    );
+    let v: Result<Vec<String>, serde_xml_rs::Error> = recon
+        .cameras
+        .iter()
+        .map(|item| match s.clone().to_string(&item) {
+            Ok(st) => Ok(extra_indent(st, prefix)),
+            Err(e) => Err(e),
+        })
+        .collect();
     let v: Vec<String> = v?;
-    let v_indented: Vec<String> = v.iter().map(|s| format!("    {s}")).collect();
+    let v_indented: Vec<String> = v.iter().map(|s| format!("{prefix}{s}")).collect();
     let cams_buf = v_indented.join("\n");
 
     let mut v = vec!["<multi_camera_reconstructor>".to_string()];
@@ -99,25 +123,6 @@ where
     v.push("</multi_camera_reconstructor>\n".to_string());
     let buf = v.join("\n");
     Ok(buf)
-}
-
-fn serialize_non_linear_parameters<S, R>(
-    m: &FlydraDistortionModel<R>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-    R: RealField + Serialize,
-{
-    let buf = serde_xml_rs::to_string(m).expect("serialize FlydraDistortionModel");
-
-    let strip_start = "<FlydraDistortionModel>";
-    let strip_end = "</FlydraDistortionModel>";
-    assert!(buf.starts_with(strip_start));
-    assert!(buf.ends_with(strip_end));
-    let bufptr = &buf[0..(buf.len() - strip_end.len())];
-    let bufptr = &bufptr[strip_start.len()..];
-    serializer.serialize_str(bufptr)
 }
 
 #[rustfmt::skip]
