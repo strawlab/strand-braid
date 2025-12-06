@@ -108,6 +108,12 @@ impl From<braid_mvg::MvgError> for MyError {
     }
 }
 
+impl From<std::string::FromUtf8Error> for MyError {
+    fn from(orig: std::string::FromUtf8Error) -> MyError {
+        MyError::new(format!("FromUtf8Error: {}", orig))
+    }
+}
+
 impl std::fmt::Display for MyError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(f, "{}", self.msg)
@@ -190,7 +196,7 @@ pub struct CalibrationResult {
 }
 
 impl CalibrationResult {
-    pub fn to_flydra_xml(&self) -> Result<Vec<u8>, MyError> {
+    pub fn to_flydra_xml(&self) -> Result<String, MyError> {
         let flydra_cal =
             flydra_mvg::FlydraMultiCameraSystem::<f64>::from_system(self.cam_system.clone(), None);
 
@@ -198,7 +204,8 @@ impl CalibrationResult {
         flydra_cal
             .to_flydra_xml(&mut xml_buf)
             .expect("to_flydra_xml");
-        Ok(xml_buf)
+        let xml_str = String::from_utf8(xml_buf)?;
+        Ok(xml_str)
     }
 
     pub fn to_pymvg_json(&self) -> Result<Vec<u8>, MyError> {

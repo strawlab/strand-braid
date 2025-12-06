@@ -84,7 +84,7 @@ impl Component for Model {
             Msg::DownloadXmlCal => {
                 if let Some(ref cal) = self.computed_calibration {
                     let buf = cal.to_flydra_xml().unwrap();
-                    download_file(&buf, "braid-calibration.xml"); // TODO: set filename to date/time?
+                    download_file(buf.as_bytes(), "braid-calibration.xml"); // TODO: set filename to date/time?
                 }
             }
             Msg::DownloadPymvgCal => {

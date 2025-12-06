@@ -63,11 +63,11 @@ fn gen_cal() -> CalibrationResult {
 fn test_calibration_xml() {
     let cal_result = gen_cal();
 
-    let xml_buf = cal_result.to_flydra_xml().unwrap();
+    let xml_str = cal_result.to_flydra_xml().unwrap();
 
     use flydra_mvg::FlydraMultiCameraSystem;
     let loaded: FlydraMultiCameraSystem<f64> =
-        FlydraMultiCameraSystem::from_flydra_xml(xml_buf.as_slice()).unwrap();
+        FlydraMultiCameraSystem::from_flydra_xml(xml_str.as_bytes()).unwrap();
     if loaded.has_refractive_boundary() {
         todo!("test XML calibration with water.");
     }
