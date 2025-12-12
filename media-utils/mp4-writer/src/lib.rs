@@ -21,7 +21,7 @@ use machine_vision_formats::image_ref::ImageRefMut;
 use strand_cam_remote_control::{H264Metadata, Mp4RecordingConfig, H264_METADATA_UUID};
 #[cfg(feature = "nv-encode")]
 use tracing::info;
-use tracing::{debug, error, trace};
+use tracing::{debug, trace};
 
 use strand_dynamic_frame::DynamicFrame;
 
