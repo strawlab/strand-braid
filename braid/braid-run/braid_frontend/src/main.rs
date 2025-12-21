@@ -3,8 +3,6 @@ use std::{
     fmt::{self, Debug, Display, Formatter},
 };
 
-use serde::{Deserialize, Serialize};
-
 use gloo_events::EventListener;
 use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
@@ -19,23 +17,6 @@ use yew::{html, Component, Context, Event, Html};
 use yew_tincture::components::{Button, CheckboxLabel, TypedInput, TypedInputStorage};
 
 use ads_webasm::components::{RecordingPathWidget, ReloadButton};
-
-// -----------------------------------------------------------------------------
-
-#[derive(Debug, Serialize, Deserialize)]
-struct MyError {}
-
-impl From<std::num::ParseIntError> for MyError {
-    fn from(_orig: std::num::ParseIntError) -> MyError {
-        MyError {}
-    }
-}
-
-impl std::fmt::Display for MyError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "err")
-    }
-}
 
 // -----------------------------------------------------------------------------
 
