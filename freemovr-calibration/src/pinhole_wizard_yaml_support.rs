@@ -155,13 +155,6 @@ impl PinholeCalib for SimplePinholeNoFile {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
-struct TexCoord {
-    u: f64,
-    v: f64,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(deny_unknown_fields)]
 pub struct WorldCoord {
     x: f64,
     y: f64,
