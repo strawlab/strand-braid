@@ -552,7 +552,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
                 .collect();
             rec.log(
                 "/",
-                &re_types::archetypes::Points3D::new(&pts).with_labels(self.labels3d.clone()),
+                &re_sdk_types::archetypes::Points3D::new(&pts).with_labels(self.labels3d.clone()),
             )
             .unwrap();
 
@@ -597,9 +597,12 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
                 if allow_rerun_undistorted {
                     // TODO: confirm that `intrinsics_linear` is equal to
                     // `cam.intrinsics()`. Probably it won't be while 2499 is open.
-                    let pinhole =
-                        braid_mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(&intrinsics_linear, *w, *h)
-                            .unwrap();
+                    let pinhole = braid_mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(
+                        &intrinsics_linear,
+                        *w,
+                        *h,
+                    )
+                    .unwrap();
                     rec.log(raw_path.as_str(), &pinhole).unwrap();
                 }
                 let cam_linear = cam_geom::Camera::new(intrinsics_linear, extrinsics.clone());
@@ -643,14 +646,14 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
                 let ent_path = format!("{raw_path}/predicted");
                 rec.log(
                     ent_path.as_str(),
-                    &re_types::archetypes::Points2D::new(&xy).with_labels(labels),
+                    &re_sdk_types::archetypes::Points2D::new(&xy).with_labels(labels),
                 )
                 .unwrap();
 
                 let ent_path = format!("{raw_path}/delta");
                 rec.log(
                     ent_path.as_str(),
-                    &re_types::archetypes::Arrows2D::from_vectors(vecs).with_origins(xy),
+                    &re_sdk_types::archetypes::Arrows2D::from_vectors(vecs).with_origins(xy),
                 )
                 .unwrap();
             }

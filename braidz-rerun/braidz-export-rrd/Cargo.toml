@@ -8,8 +8,8 @@ clap.workspace = true
 eyre.workspace = true
 
 tracing.workspace = true
-re_types.workspace = true
 re_sdk.workspace = true
+re_sdk_types.workspace = true
 
 rayon = "1.9.0"
 

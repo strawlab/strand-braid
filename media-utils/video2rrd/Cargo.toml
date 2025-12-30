@@ -11,8 +11,8 @@ serde_yaml.workspace = true
 eyre.workspace = true
 tracing.workspace = true
 re_chunk.workspace = true
-re_types = { workspace = true, features = ["image", "video"] }
 re_sdk.workspace = true
+re_sdk_types = { workspace = true, features = ["image", "video"] }
 image.workspace = true
 regex.workspace = true
 machine-vision-formats.workspace = true

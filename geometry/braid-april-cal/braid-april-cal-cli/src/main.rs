@@ -448,7 +448,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
                         undistort_image::undistort_image(decoded.borrow(), &undist_cache)?;
                     let opts = convert_image::EncoderOptions::Png;
                     let png_buf = undistorted.borrow().to_encoded_buffer(opts)?;
-                    let im = re_types::archetypes::EncodedImage::from_file_contents(png_buf);
+                    let im = re_sdk_types::archetypes::EncodedImage::from_file_contents(png_buf);
                     rec.log_static(ent_path, &im)?;
                 } else {
                     eyre::bail!("cannot undistort image because no intrinsics specified");
@@ -488,7 +488,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             let ent_path = format!("{path_base}/{DETECT_NAME}");
             rec.log_static(
                 ent_path.as_str(),
-                &re_types::archetypes::Points2D::new(&xy).with_labels(labels),
+                &re_sdk_types::archetypes::Points2D::new(&xy).with_labels(labels),
             )
             .unwrap();
         }
@@ -506,7 +506,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             .collect();
         rec.log(
             "/",
-            &re_types::archetypes::Points3D::new(&pts).with_labels(labels3d.clone()),
+            &re_sdk_types::archetypes::Points3D::new(&pts).with_labels(labels3d.clone()),
         )
         .unwrap();
     }
@@ -823,9 +823,11 @@ fn show_reproj_matrix(
     Ok(())
 }
 
-fn to_rr_image<P: AsRef<Utf8Path>>(fname: P) -> eyre::Result<re_types::archetypes::EncodedImage> {
+fn to_rr_image<P: AsRef<Utf8Path>>(
+    fname: P,
+) -> eyre::Result<re_sdk_types::archetypes::EncodedImage> {
     let contents = std::fs::read(fname.as_ref())?;
-    Ok(re_types::archetypes::EncodedImage::from_file_contents(
+    Ok(re_sdk_types::archetypes::EncodedImage::from_file_contents(
         contents,
     ))
 }

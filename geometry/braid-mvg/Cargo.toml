@@ -18,7 +18,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 cam-geom.workspace = true
 opencv-ros-camera.workspace = true
-re_types = { workspace = true, optional = true, features = ["glam"] }
+re_sdk_types = { workspace = true, optional = true, features = ["glam"] }
 
 [dev-dependencies]
 num-iter.workspace = true
@@ -26,10 +26,10 @@ approx.workspace = true
 dlt.workspace = true
 eyre.workspace = true
 re_sdk.workspace = true
-re_types.workspace = true
+re_sdk_types.workspace = true
 
 [features]
-rerun-io = ["dep:re_types"]
+rerun-io = ["dep:re_sdk_types"]
 
 [package.metadata.docs.rs]
 all-features = true

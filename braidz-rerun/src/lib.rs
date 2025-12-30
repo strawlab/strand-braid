@@ -4,7 +4,7 @@ use braidz_types::camera_name_from_filename;
 use eyre::{OptionExt, WrapErr};
 use frame_source::{ImageData, Timestamp};
 use mp4_writer::Mp4Writer;
-use re_types::{
+use re_sdk_types::{
     archetypes::{EncodedImage, Pinhole, Points2D, Points3D},
     components::PinholeProjection,
     external::anyhow,

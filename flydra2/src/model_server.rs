@@ -268,13 +268,16 @@ pub async fn new_model_server(
                             }
                             (SendType::Birth(row), _tdpt) | (SendType::Update(row), _tdpt) => {
                                 let obj_id = format!("/obj/{}", row.obj_id);
-                                let position = re_types::datatypes::Vec3D::new(
+                                let position = re_sdk_types::datatypes::Vec3D::new(
                                     row.x as f32,
                                     row.y as f32,
                                     row.z as f32,
                                 );
-                                rec.log(obj_id, &re_types::archetypes::Points3D::new([position]))
-                                    .unwrap();
+                                rec.log(
+                                    obj_id,
+                                    &re_sdk_types::archetypes::Points3D::new([position]),
+                                )
+                                .unwrap();
                             }
                             (SendType::Death(obj_id), _tdpt) => {
                                 // log end of trajectory - indicate there are no more data for this obj_id
@@ -282,7 +285,7 @@ pub async fn new_model_server(
                                 let empty_position: [(f32, f32, f32); 0] = [];
                                 rec.log(
                                     obj_id,
-                                    &re_types::archetypes::Points3D::new(empty_position),
+                                    &re_sdk_types::archetypes::Points3D::new(empty_position),
                                 )
                                 .unwrap();
                             }

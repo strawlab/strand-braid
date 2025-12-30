@@ -9,8 +9,8 @@ rust-version = "1.85"
 eyre.workspace = true
 
 tracing.workspace = true
-re_types.workspace = true
 re_sdk = { workspace = true, features = ["data_loaders"] }
+re_sdk_types.workspace = true
 
 image.workspace = true
 opencv-ros-camera.workspace = true

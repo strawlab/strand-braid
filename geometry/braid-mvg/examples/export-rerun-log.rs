@@ -28,7 +28,7 @@ fn main() -> eyre::Result<()> {
         .column_iter()
         .map(|v| [v.x as f32, v.y as f32, v.z as f32])
         .collect();
-    rec.log("/", &re_types::archetypes::Points3D::new(&positions))?;
+    rec.log("/", &re_sdk_types::archetypes::Points3D::new(&positions))?;
 
     // Create camera
     let cc = Vector3::new(3.0, 2.0, 1.0);
@@ -81,7 +81,7 @@ fn main() -> eyre::Result<()> {
         .collect();
     rec.log(
         "/world/camera/cam1/raw",
-        &re_types::archetypes::Points2D::new(&points2d),
+        &re_sdk_types::archetypes::Points2D::new(&points2d),
     )?;
 
     Ok(())

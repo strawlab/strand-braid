@@ -50,8 +50,8 @@ tower-http = { workspace = true, optional = true }
 tower-serve-static = { workspace = true, optional = true }
 include_dir = { workspace = true, optional = true }
 approx.workspace = true
-re_types.workspace = true
 re_sdk.workspace = true
+re_sdk_types.workspace = true
 resvg.workspace = true
 tagger.workspace = true
 cam-geom.workspace = true

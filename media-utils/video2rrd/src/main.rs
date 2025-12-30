@@ -61,7 +61,7 @@ struct Opt {
 fn to_rr_image(
     im: ImageData,
     undist_cache: &undistort_image::UndistortionCache,
-) -> eyre::Result<re_types::archetypes::EncodedImage> {
+) -> eyre::Result<re_sdk_types::archetypes::EncodedImage> {
     let decoded = match im {
         ImageData::Decoded(decoded) => decoded,
         _ => eyre::bail!("image not decoded"),
@@ -73,7 +73,7 @@ fn to_rr_image(
     let contents = to_save
         .borrow()
         .to_encoded_buffer(convert_image::EncoderOptions::Jpeg(80))?;
-    Ok(re_types::archetypes::EncodedImage::from_file_contents(
+    Ok(re_sdk_types::archetypes::EncodedImage::from_file_contents(
         contents,
     ))
 }
@@ -296,14 +296,14 @@ fn main() -> eyre::Result<()> {
         } else {
             tracing::info!("Saving video to RRD");
         }
-        let video_asset = re_types::archetypes::AssetVideo::from_file_path(&opt.input).unwrap();
+        let video_asset = re_sdk_types::archetypes::AssetVideo::from_file_path(&opt.input).unwrap();
         rec.log_static(entity_path.as_str(), &video_asset)?;
         let frame_timestamps_nanos =
-            re_types::archetypes::AssetVideo::read_frame_timestamps_nanos(&video_asset)?;
+            re_sdk_types::archetypes::AssetVideo::read_frame_timestamps_nanos(&video_asset)?;
         let video_timestamps_nanos = frame_timestamps_nanos
             .iter()
             .copied()
-            .map(re_types::components::VideoTimestamp::from_nanos)
+            .map(re_sdk_types::components::VideoTimestamp::from_nanos)
             .collect::<Vec<_>>();
         let absolute_nanos: Vec<i64> = absolute_timestamps.iter().map(get_timestamp).collect();
         let time_column =
@@ -311,7 +311,7 @@ fn main() -> eyre::Result<()> {
         rec.send_columns(
             entity_path,
             [time_column],
-            re_types::archetypes::VideoFrameReference::update_fields()
+            re_sdk_types::archetypes::VideoFrameReference::update_fields()
                 .with_many_timestamp(video_timestamps_nanos)
                 .columns_of_unit_batches()?,
         )?;

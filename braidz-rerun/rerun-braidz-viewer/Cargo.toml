@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-re_types.workspace = true
 re_sdk.workspace = true
+re_sdk_types.workspace = true
 re_build_info.workspace = true
 rerun = { workspace = true, features = ["run", "native_viewer", "default"] }
 
