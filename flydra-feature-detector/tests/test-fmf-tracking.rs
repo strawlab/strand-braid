@@ -27,11 +27,14 @@ async fn track_fmf() -> anyhow::Result<()> {
         None,
     )?;
 
+    // Buffer all frames first to exclude IO from timing of processing.
+    let buffered_frames: Vec<_> = Result::from_iter(reader)?;
+
     let start = std::time::Instant::now();
     let mut count = 0;
     let mut n_pts = 0;
-    for (fno, res_frame_ts) in reader.enumerate() {
-        let (frame, timestamp) = res_frame_ts?;
+    for (fno, res_frame_ts) in buffered_frames.into_iter().enumerate() {
+        let (frame, timestamp) = res_frame_ts;
         let ufmf_state = UfmfState::Stopped;
 
         let maybe_found = ft.process_new_frame(
