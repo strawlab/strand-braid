@@ -607,4 +607,80 @@ mod tests {
         assert_eq!(spatial_moment_01(&im), 448.0);
         assert_eq!(spatial_moment_10(&im), 360.0);
     }
+
+    #[test]
+    fn test_wide_image_moments_simd() {
+        // Test very wide image to check case where temporary u16 wide vector would overflow.
+        const STRIDE: usize = 10000;
+        const W: usize = 9000;
+        const H: usize = 20;
+        // Use maximum value to maximize potential chance of overflow.
+        let mut image_data = vec![u8::MAX; STRIDE * H];
+
+        // Put some other values in the first row of the buffer but outside the
+        // width to test that strides are working correctly.
+        image_data[W + 23] = 0;
+        image_data[W + 24] = 0;
+
+        let im = machine_vision_formats::owned::OImage::new(W as u32, H as u32, STRIDE, image_data)
+            .unwrap();
+
+        // computed the expected value.
+        let expected: f64 = H as f64 * u8::MAX as f64 * W as f64;
+        assert_eq!(
+            spatial_moment(&im, Power::Zero, Power::Zero) as f64,
+            expected
+        );
+        assert_eq!(
+            spatial_moment_00(&im),
+            spatial_moment(&im, Power::Zero, Power::Zero)
+        );
+        assert_eq!(spatial_moment_00(&im) as f64, expected);
+        assert_eq!(
+            spatial_moment_01(&im),
+            spatial_moment(&im, Power::Zero, Power::One)
+        );
+        assert_eq!(
+            spatial_moment_10(&im),
+            spatial_moment(&im, Power::One, Power::Zero)
+        );
+    }
+
+    #[test]
+    fn test_tall_image_moments_simd() {
+        // Test very wide image to check case where temporary u16 wide vector would overflow.
+        const STRIDE: usize = 32;
+        const W: usize = 20;
+        const H: usize = 10000;
+        // Use maximum value to maximize potential chance of overflow.
+        let mut image_data = vec![u8::MAX; STRIDE * H];
+
+        // Put some other values in the first row of the buffer but outside the
+        // width to test that strides are working correctly.
+        image_data[W + 3] = 0;
+        image_data[W + 4] = 0;
+
+        let im = machine_vision_formats::owned::OImage::new(W as u32, H as u32, STRIDE, image_data)
+            .unwrap();
+
+        // computed the expected value.
+        let expected: f64 = H as f64 * u8::MAX as f64 * W as f64;
+        assert_eq!(
+            spatial_moment(&im, Power::Zero, Power::Zero) as f64,
+            expected
+        );
+        assert_eq!(
+            spatial_moment_00(&im),
+            spatial_moment(&im, Power::Zero, Power::Zero)
+        );
+        assert_eq!(spatial_moment_00(&im) as f64, expected);
+        assert_eq!(
+            spatial_moment_01(&im),
+            spatial_moment(&im, Power::Zero, Power::One)
+        );
+        assert_eq!(
+            spatial_moment_10(&im),
+            spatial_moment(&im, Power::One, Power::Zero)
+        );
+    }
 }
