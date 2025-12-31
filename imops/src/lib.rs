@@ -26,11 +26,11 @@ enum Power {
 }
 
 #[inline]
-fn mypow(x: u32, exp: Power) -> f32 {
+fn mypow(x: u32, exp: Power) -> f64 {
     match exp {
         Power::Zero => 1.0,
-        Power::One => x as f32,
-        Power::Two => x as f32 * x as f32,
+        Power::One => x as f64,
+        Power::Two => x as f64 * x as f64,
     }
 }
 
@@ -51,16 +51,16 @@ fn spatial_moment<IM>(im: &IM, m_ord: Power, n_ord: Power) -> f32
 where
     IM: HasRowChunksExact<Mono8>,
 {
-    let mut accum: f32 = 0.0;
+    let mut accum: f64 = 0.0;
 
     let chunk_iter = im.rowchunks_exact();
 
     for (row, rowdata) in chunk_iter.enumerate() {
         for (col, element) in rowdata.iter().enumerate() {
-            accum += mypow(row as u32, n_ord) * mypow(col as u32, m_ord) * *element as f32;
+            accum += mypow(row as u32, n_ord) * mypow(col as u32, m_ord) * *element as f64;
         }
     }
-    accum
+    accum as f32
 }
 
 /// Compute spatial image moment 0,0
@@ -76,7 +76,7 @@ where
     {
         use std::simd::f32x8;
 
-        let mut accum: f32 = 0.0;
+        let mut accum: f64 = 0.0;
 
         let full_data = im.image_data();
         let datalen = im.height() as usize * im.stride();
@@ -90,20 +90,20 @@ where
             let (prefix_data, main_row_data, remainder_data) = rowdata.as_simd::<8_usize>();
 
             for x in prefix_data {
-                accum += *x as f32;
+                accum += *x as f64;
             }
 
             let mut rowsum = f32x8::splat(0.0);
             for x in main_row_data {
                 rowsum += x.cast(); // converts u8 to f32
             }
-            accum += rowsum.reduce_sum();
+            accum += rowsum.reduce_sum() as f64;
 
             for x in remainder_data {
-                accum += *x as f32;
+                accum += *x as f64;
             }
         }
-        accum
+        accum as f32
     }
 
     #[cfg(not(feature = "simd"))]
@@ -123,7 +123,7 @@ where
 {
     #[cfg(feature = "simd")]
     {
-        let mut accum: f32 = 0.0;
+        let mut accum: f64 = 0.0;
         use std::simd::f32x8;
 
         let full_data = im.image_data();
@@ -138,7 +138,7 @@ where
             let (prefix_data, main_row_data, remainder_data) = rowdata.as_simd::<8_usize>();
 
             for x in prefix_data {
-                accum += *x as f32 * row as f32;
+                accum += *x as f64 * row as f64;
             }
 
             let mut rowsum = f32x8::splat(0.0);
@@ -146,13 +146,13 @@ where
             for x in main_row_data {
                 rowsum += x.cast() * rowvec; // converts u8 to f32
             }
-            accum += rowsum.reduce_sum();
+            accum += rowsum.reduce_sum() as f64;
 
             for x in remainder_data {
-                accum += *x as f32 * row as f32;
+                accum += *x as f64 * row as f64;
             }
         }
-        accum
+        accum as f32
     }
 
     #[cfg(not(feature = "simd"))]
@@ -172,10 +172,10 @@ where
 {
     #[cfg(feature = "simd")]
     {
-        let mut accum: f32 = 0.0;
-        use std::simd::f32x8;
+        let mut accum: f64 = 0.0;
+        use std::simd::f64x4;
 
-        let col_offset = f32x8::from_array([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0]);
+        let col_offset = f64x4::from_array([0.0, 1.0, 2.0, 3.0]);
 
         let full_data = im.image_data();
         let datalen = im.height() as usize * im.stride();
@@ -186,27 +186,27 @@ where
             // trim from stride to width
             let rowdata = &rowdata[..im.width() as usize];
 
-            let (prefix_data, main_row_data, remainder_data) = rowdata.as_simd::<8_usize>();
+            let (prefix_data, main_row_data, remainder_data) = rowdata.as_simd::<4_usize>();
 
             for (col, x) in prefix_data.iter().enumerate() {
-                accum += *x as f32 * col as f32;
+                accum += *x as f64 * col as f64;
             }
 
             let start_idx = prefix_data.len();
-            let mut rowsum = f32x8::splat(0.0);
-            for (col_div_8, x) in main_row_data.iter().enumerate() {
-                let col = f32x8::splat((col_div_8 * 8 + start_idx) as f32) + col_offset;
+            let mut rowsum = f64x4::splat(0.0);
+            for (col_div_4, x) in main_row_data.iter().enumerate() {
+                let col = f64x4::splat((col_div_4 * 4 + start_idx) as f64) + col_offset;
                 rowsum += x.cast() * col;
             }
-            accum += rowsum.reduce_sum();
+            accum += rowsum.reduce_sum() as f64;
 
-            let start_idx = prefix_data.len() + main_row_data.len() * 8;
+            let start_idx = prefix_data.len() + main_row_data.len() * 4;
             for (i, x) in remainder_data.iter().enumerate() {
                 let col = i + start_idx;
-                accum += *x as f32 * col as f32;
+                accum += *x as f64 * col as f64;
             }
         }
-        accum
+        accum as f32
     }
 
     #[cfg(not(feature = "simd"))]
