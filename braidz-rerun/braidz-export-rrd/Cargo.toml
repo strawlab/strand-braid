@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 clap.workspace = true
 eyre.workspace = true
+camino.workspace = true
 
 tracing.workspace = true
 re_sdk.workspace = true

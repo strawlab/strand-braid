@@ -1,18 +1,17 @@
+use camino::Utf8PathBuf;
 use clap::{Parser, ValueEnum};
 use eyre::WrapErr;
 use rayon::prelude::*;
-
-use std::path::PathBuf;
 
 #[derive(Default, Debug, Parser)]
 #[command(about, long_about = None)]
 struct Opt {
     /// Output rrd filename. Defaults to "<INPUT>.rrd"
     #[arg(short, long)]
-    output: Option<PathBuf>,
+    output: Option<Utf8PathBuf>,
 
     /// Input filenames (.braidz and .mp4 files)
-    inputs: Vec<PathBuf>,
+    inputs: Vec<Utf8PathBuf>,
 
     /// Should "linearized" (undistorted) MP4s be made from the original MP4s?
     ///
@@ -78,12 +77,12 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
     inputs.remove(&input_braidz);
 
     let archive = braidz_parser::braidz_parse_path(&input_braidz)
-        .with_context(|| format!("Parsing file {}", input_braidz.display()))?;
+        .with_context(|| format!("Parsing file {input_braidz}"))?;
 
     let output = output.unwrap_or_else(|| {
         let mut output = input_braidz.as_os_str().to_owned();
         output.push(".rrd");
-        output.into()
+        Utf8PathBuf::from_os_string(output).unwrap()
     });
 
     // Exclude expected output (e.g. from prior run) from inputs.
@@ -109,7 +108,7 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
     // Initiate recording
     let rec = re_sdk::RecordingStreamBuilder::new(env!("CARGO_PKG_NAME"))
         .save(&output)
-        .with_context(|| format!("Creating output file {}", output.display()))?;
+        .with_context(|| format!("Creating output file {output}"))?;
 
     let have_image_data = !mp4_inputs.is_empty();
     let rrd_logger = braidz_rerun::braidz_into_rec(archive, rec, have_image_data)?;
@@ -120,27 +119,19 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
         .par_iter()
         .try_for_each(|mp4_filename| {
             let my_mp4_writer = if opt.export_linearized_mp4s {
-                let linearized_mp4_output: PathBuf = {
+                let linearized_mp4_output = {
                     let output = mp4_filename.as_os_str().to_owned();
                     let output = output.to_str().unwrap().to_string();
                     let o2 = output.trim_end_matches(".mp4");
                     let output_ref: &std::ffi::OsStr = o2.as_ref();
                     let mut output = output_ref.to_os_string();
                     output.push(braidz_rerun::UNDIST_NAME);
-                    output.into()
+                    Utf8PathBuf::from_os_string(output).unwrap()
                 };
 
-                tracing::info!(
-                    "linearize (undistort) {} -> {}",
-                    mp4_filename.display(),
-                    linearized_mp4_output.display()
-                );
-                let out_fd = std::fs::File::create(&linearized_mp4_output).with_context(|| {
-                    format!(
-                        "Creating MP4 output file {}",
-                        linearized_mp4_output.display()
-                    )
-                })?;
+                tracing::info!("linearize (undistort) {mp4_filename} -> {linearized_mp4_output}");
+                let out_fd = std::fs::File::create(&linearized_mp4_output)
+                    .with_context(|| format!("Creating MP4 output file {linearized_mp4_output}"))?;
 
                 let codec = if opt.encoder == Encoder::OpenH264 {
                     #[cfg(feature = "openh264-encode")]
@@ -171,11 +162,12 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
                 None
             };
 
-            let mp4_filename = mp4_filename.to_str().unwrap();
+            let mp4_filename = mp4_filename.as_std_path().to_str().unwrap();
             rrd_logger.log_video(mp4_filename, my_mp4_writer)?;
             Ok::<(), eyre::ErrReport>(())
         })?;
-    tracing::info!("Exported to Rerun RRD file: {}", output.display());
+    let re_version = re_sdk::build_info().version;
+    tracing::info!("Exported to Rerun {re_version} RRD file: {output}");
 
     let rec = rrd_logger.close();
     rec.flush_blocking()?;
