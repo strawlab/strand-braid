@@ -151,7 +151,7 @@ test_flydra2:
 
 test_crates_rust_stable:
   dependencies: []
-  image: rust:1.88
+  image: rust:1.93
   script:
     # Fail on any compiler warnings.
     - export RUSTFLAGS="-D warnings"
@@ -281,12 +281,12 @@ test_crates_rust_stable:
 
 test_crates_rust_nightly:
   dependencies: []
-  image: rust:1.88
+  image: rust:1.93
   script:
     - export RUSTFLAGS="-D warnings"
 
     # Use known good nightly
-    - rustup update --no-self-update nightly-2025-02-14
+    - rustup update --no-self-update nightly-2026-01-24
 
     # Test imops with nightly features
     - cd $CI_PROJECT_DIR/imops
@@ -294,7 +294,7 @@ test_crates_rust_nightly:
 
     # Test fastfreeimage
     - cd $CI_PROJECT_DIR/fastfreeimage
-    - cargo +nightly-2025-02-14 test --features portsimd
+    - cargo +nightly-2026-01-24 test --features portsimd
     - cd ..
 
 test_flydra_feature_detector:
@@ -358,7 +358,7 @@ led-box-standalone-ubuntu2004-deb:
 
 build-freemovr-calibration:
   dependencies: []
-  image: rust:1.88
+  image: rust:1.93
   script:
     - export RUSTFLAGS="-D warnings"
     - cd freemovr-calibration/freemovr-calibration-cli
@@ -374,7 +374,7 @@ build-freemovr-calibration:
 
 build-freemovr-calibration-webapp:
   dependencies: []
-  image: rust:1.88
+  image: rust:1.93
   script:
     - export RUSTFLAGS="-D warnings"
     - export CARGO_HOME="$CI_PROJECT_DIR/.cargo-proj"
@@ -796,7 +796,7 @@ fmf-cli:
 
 braid-webapps:
   dependencies: []
-  image: rust:1.88
+  image: rust:1.93
   script:
     - export CARGO_HOME="$CI_PROJECT_DIR/.cargo-proj"
     - export RUSTFLAGS="-D warnings"
@@ -854,7 +854,7 @@ braid-run-binary:
     name: "braid-run-binary-${CI_COMMIT_SHA}"
 
 led-box-linux:
-  image: rust:1.88
+  image: rust:1.93
   dependencies: []
   script:
     - _packaging/setup-ubuntu-apt-proxy.sh
@@ -873,7 +873,7 @@ led-box-linux:
 
 led-box-firmware:
   dependencies: []
-  image: rust:1.88
+  image: rust:1.93
   script:
     - rustc --version
     - cd led-box/led-box-firmware
@@ -1093,7 +1093,7 @@ build_simple:
 
 test_user_guide:
   dependencies: []
-  image: rust:1.88
+  image: rust:1.93
   script:
     - cd strand-braid-user/users-guide
     - curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.18/mdbook-v0.4.18-x86_64-unknown-linux-gnu.tar.gz | tar -xz
