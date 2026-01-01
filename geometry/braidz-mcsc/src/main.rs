@@ -417,7 +417,8 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
     };
 
     let rec = if let Some(rerun_url) = rerun_url {
-        tracing::info!("Streaming data to rerun at {rerun_url}");
+        let re_version = re_sdk::build_info().version;
+        tracing::info!("Streaming data to rerun {re_version} at {rerun_url}");
         Some(
             re_sdk::RecordingStreamBuilder::new(env!["CARGO_PKG_NAME"])
                 .connect_grpc_opts(rerun_url)?,
