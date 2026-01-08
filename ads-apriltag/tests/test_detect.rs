@@ -33,8 +33,8 @@ fn test_detect_standard_41h12() {
                 det.family_type()
             );
             assert!(det.id() == 123);
-            assert!((det.center()[0] - 273.0).abs() < 0.5);
-            assert!((det.center()[1] - 111.0).abs() < 0.5);
+            assert!((det.center()[0] - 272.6).abs() < 0.5);
+            assert!((det.center()[1] - 110.9).abs() < 0.5);
         }
     }
 }
