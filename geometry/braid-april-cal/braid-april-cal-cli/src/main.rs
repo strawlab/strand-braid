@@ -72,6 +72,10 @@ struct Cli {
     #[arg(long)]
     rerun_url: Option<String>,
 
+    /// Log data to rerun viewer to this RRD file.
+    #[arg(long)]
+    rerun_save: Option<Utf8PathBuf>,
+
     /// Force rerun to show original, distorted camera coordinates. Because
     /// Rerun does not currently support distorted camera models this option
     /// disables use of several rerun features.
@@ -139,6 +143,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         bundle_adjustment,
         rerun,
         mut rerun_url,
+        rerun_save,
         bundle_adjustment_min_cams_per_point,
         do_new_triangulation,
         bundle_adjustment_model_type,
@@ -419,11 +424,27 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         rerun_url = Some(format!("rerun+http://{socket_addr}/proxy"));
     };
 
-    let rec = if let Some(rerun_url) = rerun_url {
+    match (&rerun_url, &rerun_save) {
+        (Some(_), Some(_)) => {
+            eyre::bail!("Cannot specify both --rerun-url and --rerun-save options.");
+        }
+        _ => {}
+    }
+
+    let rec = if rerun_url.is_some() || rerun_save.is_some() {
         let re_version = re_sdk::build_info().version;
-        tracing::info!("Streaming data to rerun {re_version} at {rerun_url}");
-        let rec = re_sdk::RecordingStreamBuilder::new(env!["CARGO_PKG_NAME"])
-            .connect_grpc_opts(rerun_url)?;
+        // TODO: allow saving to file.
+
+        let builder = re_sdk::RecordingStreamBuilder::new(env!["CARGO_PKG_NAME"]);
+        let rec = if let Some(rerun_url) = &rerun_url {
+            tracing::info!("Streaming data to rerun {re_version} at {rerun_url}");
+            assert!(rerun_save.is_none());
+            builder.connect_grpc_opts(rerun_url)?
+        } else {
+            let rerun_save = rerun_save.unwrap();
+            tracing::info!("saving data to rerun {re_version} at {rerun_save}");
+            builder.save(rerun_save)?
+        };
 
         // Log 2D images to rerun
         for (icam_idx, cam_fname) in image_fnames.iter() {
