@@ -61,7 +61,7 @@ impl<'a> CostFunction for CalibProblem<'a> {
 
     fn cost(&self, param: &Self::Param) -> Result<Self::Output, ArgminError> {
         let this_cam = cam_with_params(&self.linear_cam, param).unwrap();
-        let mean_dist = compute_mean_reproj_dist(&this_cam, &self.points);
+        let mean_dist = compute_mean_reproj_dist(&this_cam, self.points);
         Ok(mean_dist)
         // Ok(self.my_cost(&p).unwrap())
     }
@@ -446,7 +446,7 @@ pub fn run_sqpnp_or_dlt(src_data: &CalData) -> Result<CalibrationResult, MyError
     let mut cam_points = BTreeMap::new();
 
     if src_data.per_camera_2d.is_empty() {
-        return Err(MyError::new(format!("No camera has 2D detections.")));
+        return Err(MyError::new("No camera has 2D detections.".to_string()));
     }
 
     for (cam_name, all_cam_data) in src_data.per_camera_2d.iter() {
@@ -498,7 +498,7 @@ pub fn run_sqpnp_or_dlt(src_data: &CalData) -> Result<CalibrationResult, MyError
         };
 
         let CamSolution { final_cam, points } = sln;
-        let mean_dist = compute_mean_reproj_dist(&final_cam, &points);
+        let mean_dist = compute_mean_reproj_dist(&final_cam, points);
 
         cams.insert(cam_name.clone(), final_cam);
         mean_reproj_dist.insert(cam_name.clone(), mean_dist);
