@@ -197,36 +197,40 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         let im = apriltag::ImageU8Borrowed::view(&decoded_mono8);
         let detections = td.detect(apriltag::ImageU8::inner(&im));
 
+        if wtr.is_none() {
+            let create_file = if cli.force {
+                std::fs::File::create
+            } else {
+                std::fs::File::create_new
+            };
+
+            let mut fd = create_file(&csv_output_fname)
+                .with_context(|| format!("when creating {csv_output_fname}"))?;
+            let april_config = if let Some(cam_name) = &cli.cam_name {
+                Some(apriltag_detection_writer::AprilConfig {
+                    created_at: chrono::Local::now(),
+                    camera_name: cam_name.clone(),
+                    camera_width_pixels: y4m_frame.width.try_into().unwrap(),
+                    camera_height_pixels: y4m_frame.height.try_into().unwrap(),
+                })
+            } else {
+                None
+            };
+
+            apriltag_detection_writer::write_header(&mut fd, april_config.as_ref())?;
+            wtr = Some(csv::Writer::from_writer(fd));
+        }
+
         if !detections.is_empty() {
-            if wtr.is_none() {
-                let create_file = if cli.force {
-                    std::fs::File::create
-                } else {
-                    std::fs::File::create_new
-                };
-
-                let mut fd = create_file(&csv_output_fname)
-                    .with_context(|| format!("when creating {csv_output_fname}"))?;
-                let april_config = if let Some(cam_name) = &cli.cam_name {
-                    Some(apriltag_detection_writer::AprilConfig {
-                        created_at: chrono::Local::now(),
-                        camera_name: cam_name.clone(),
-                        camera_width_pixels: y4m_frame.width.try_into().unwrap(),
-                        camera_height_pixels: y4m_frame.height.try_into().unwrap(),
-                    })
-                } else {
-                    None
-                };
-
-                apriltag_detection_writer::write_header(&mut fd, april_config.as_ref())?;
-                wtr = Some(csv::Writer::from_writer(fd));
-            }
-
             for det in detections.as_slice().iter() {
                 let atd: DetectionSerializer = to_serializer(det, frame); //, time_microseconds);
                 wtr.as_mut().unwrap().serialize(atd)?;
             }
         }
+    }
+
+    if wtr.is_none() {
+        eyre::bail!("No frames analyzed.");
     }
 
     ffmpeg_child.kill()?;
