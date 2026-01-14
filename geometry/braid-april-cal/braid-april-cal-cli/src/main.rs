@@ -95,6 +95,7 @@ fn main() -> eyre::Result<()> {
     perform_calibration(opt)
 }
 
+#[derive(Default)]
 struct LineBuf {
     buf: Vec<String>,
 }
@@ -116,14 +117,6 @@ impl LineBuf {
     fn push(&mut self, line: String) {
         println!("{}", line);
         self.buf.push(line);
-    }
-}
-
-impl Default for LineBuf {
-    fn default() -> Self {
-        Self {
-            buf: Default::default(),
-        }
     }
 }
 
@@ -375,17 +368,14 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         for (id, (u, v)) in observed_per_id.iter() {
             for_triangulation
                 .entry(*id)
-                .or_insert_with(|| Vec::new())
+                .or_insert_with(Vec::new)
                 .push((cam_name, u, v));
         }
     }
 
     // Gather data for bundle adjustment
     for (icam_idx, cam_name) in cam_names.iter().enumerate() {
-        let intrinsics = known_good_intrinsics
-            .as_ref()
-            .map(|x| x.get(cam_name))
-            .flatten();
+        let intrinsics = known_good_intrinsics.as_ref().and_then(|x| x.get(cam_name));
         for (id, (u, v)) in observed_per_cam.get(cam_name).unwrap().iter() {
             if let Some(cams) = cams_per_id.get(id) {
                 // Only save selected data for bundle adjustment.
@@ -393,7 +383,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
                     if undistort_prior_to_bundle_adj {
                         if let Some(intrin) = &intrinsics {
                             let dist = cam_geom::Pixels {
-                                data: nalgebra::RowVector2::<f64>::new(*u as f64, *v as f64),
+                                data: nalgebra::RowVector2::<f64>::new(*u, *v),
                             };
                             let undist = intrin.intrinsics.undistort(&dist).data;
                             observed.push(undist[(0, 0)]);
@@ -424,11 +414,8 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         rerun_url = Some(format!("rerun+http://{socket_addr}/proxy"));
     };
 
-    match (&rerun_url, &rerun_save) {
-        (Some(_), Some(_)) => {
-            eyre::bail!("Cannot specify both --rerun-url and --rerun-save options.");
-        }
-        _ => {}
+    if let (Some(_), Some(_)) = (&rerun_url, &rerun_save) {
+        eyre::bail!("Cannot specify both --rerun-url and --rerun-save options.");
     }
 
     let rec = if rerun_url.is_some() || rerun_save.is_some() {
@@ -451,10 +438,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             let cam_name = cam_names[usize::from(*icam_idx)].as_str();
             let ent_path = format!("{RR_CAM_BASE_PATH}/{cam_name}/raw");
             if allow_rerun_undistortion {
-                let intrinsics = known_good_intrinsics
-                    .as_ref()
-                    .map(|x| x.get(cam_name))
-                    .flatten();
+                let intrinsics = known_good_intrinsics.as_ref().and_then(|x| x.get(cam_name));
                 if let Some(intrinsics) = intrinsics {
                     let undist_cache = undistort_image::UndistortionCache::new(
                         &intrinsics.intrinsics,
@@ -462,7 +446,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
                         intrinsics.height,
                     )?;
 
-                    let image = image::open(&cam_fname)?;
+                    let image = image::open(cam_fname)?;
                     let rgb8 = convert_image::image_to_rgb8(image).unwrap();
                     let decoded = DynamicFrameOwned::from_static(rgb8);
                     let undistorted =
@@ -486,10 +470,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             let mut labels = vec![];
             for (id, uv) in observed_per_id_this_cam.iter() {
                 if allow_rerun_undistortion {
-                    let intrinsics = known_good_intrinsics
-                        .as_ref()
-                        .map(|x| x.get(cam_name))
-                        .flatten();
+                    let intrinsics = known_good_intrinsics.as_ref().and_then(|x| x.get(cam_name));
                     if let Some(i) = intrinsics {
                         let distorted =
                             cam_geom::Pixels::new(nalgebra::Vector2::new(uv.0, uv.1).transpose());
