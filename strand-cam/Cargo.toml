@@ -12,7 +12,7 @@ path = "src/strand-cam.rs"
 
 [dependencies]
 async-change-tracker.workspace = true
-qrcodegen.workspace = true
+qrcode.workspace = true
 csv = { workspace = true, optional = true }
 libflate = { workspace = true, optional = true }
 env-tracing-logger.workspace = true

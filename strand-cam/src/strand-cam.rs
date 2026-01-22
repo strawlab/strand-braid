@@ -414,28 +414,21 @@ async fn check_version(
     Ok(())
 }
 
-fn display_qr_url(url: &str) {
-    use qrcodegen::{QrCode, QrCodeEcc};
+fn display_qr_url(url: &str) -> Result<()> {
+    use qrcode::render::unicode;
+    use qrcode::QrCode;
     use std::io::stdout;
 
-    let qr = QrCode::encode_text(url, QrCodeEcc::Low).unwrap();
+    let qr = QrCode::new(url)?;
+
+    let image = qr.render::<unicode::Dense1x2>().build();
 
     let stdout = stdout();
     let mut stdout_handle = stdout.lock();
-    writeln!(stdout_handle).expect("write failed");
-    for y in 0..qr.size() {
-        write!(stdout_handle, " ").expect("write failed");
-        for x in 0..qr.size() {
-            write!(
-                stdout_handle,
-                "{}",
-                if qr.get_module(x, y) { "██" } else { "  " }
-            )
-            .expect("write failed");
-        }
-        writeln!(stdout_handle).expect("write failed");
-    }
-    writeln!(stdout_handle).expect("write failed");
+    writeln!(stdout_handle)?;
+    stdout_handle.write_all(image.as_bytes())?;
+    writeln!(stdout_handle)?;
+    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -2130,7 +2123,7 @@ where
             info!(" * predicted URL {url}");
             if !braid_types::is_loopback(url) {
                 println!("QR code for {url}");
-                display_qr_url(&format!("{url}"));
+                display_qr_url(&format!("{url}"))?;
             }
         }
     }

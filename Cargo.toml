@@ -225,7 +225,7 @@ parry3d-f64 = "0.23"
 pin-project = "1.0.11"
 preferences-serde1 = "2.0.0"
 pretty-print-nalgebra = "0.1.0"
-qrcodegen = "1.4"
+qrcode = "0.14.1"
 regex = "1.10.3"
 re_chunk = { version = "0.28", default-features = false }
 re_sdk = { version = "0.28", default-features = false }
