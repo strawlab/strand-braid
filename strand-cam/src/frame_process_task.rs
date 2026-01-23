@@ -1664,7 +1664,7 @@ fn calc_braid_timestamp(
     device_clock_model: Option<&strand_cam_bui_types::ClockModel>,
     local_and_cam_time0: Option<&(u64, u64)>,
 ) -> Option<FlydraFloatTimestampLocal<braid_types::Triggerbox>> {
-    let (device_timestamp, _block_id) = extract_backend_data(&frame);
+    let (device_timestamp, _block_id) = extract_backend_data(frame);
     match &trigger_type {
         Some(TriggerType::TriggerboxV1(_)) | Some(TriggerType::FakeSync(_)) => {
             braid_types::triggerbox_time(

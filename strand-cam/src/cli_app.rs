@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{arg, FromArgMatches};
+use clap::FromArgMatches;
 
 use clap::{Arg, ArgAction, Args};
 
