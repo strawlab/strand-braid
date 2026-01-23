@@ -25,7 +25,7 @@ fn compute_strand_cam_args(
     camera: &BraidCameraConfig,
     mainbrain_internal_addr: &BuiServerAddrInfo,
 ) -> Result<Vec<String>> {
-    let urls = strand_bui_backend_session::build_urls(&mainbrain_internal_addr)?;
+    let urls = strand_bui_backend_session::build_urls(mainbrain_internal_addr)?;
     let url = urls
         .first()
         .ok_or_else(|| eyre::eyre!("need at least one URL"))?;
