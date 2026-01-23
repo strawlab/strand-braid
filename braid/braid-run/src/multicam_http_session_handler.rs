@@ -5,8 +5,8 @@ use std::{
 };
 use tracing::{debug, error, info, warn};
 
-use strand_bui_backend_session::HttpSession;
 use braid_types::{BuiServerInfo, RawCamName};
+use strand_bui_backend_session::HttpSession;
 use strand_cam_storetype::CallbackType;
 
 /// Keeps HTTP sessions for all connected cameras.
@@ -60,7 +60,8 @@ impl StrandCamHttpSessionHandler {
         );
 
         let result =
-            strand_bui_backend_session::create_session(&bui_server_addr_info, self.jar.clone()).await;
+            strand_bui_backend_session::create_session(&bui_server_addr_info, self.jar.clone())
+                .await;
         let session = match result {
             Ok(session) => {
                 let mut name_to_session = self.name_to_session.write().unwrap();
