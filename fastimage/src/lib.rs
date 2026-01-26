@@ -203,15 +203,13 @@ impl<D> FastImageData<D>
 where
     D: PixelType,
 {
-    /// Allocate uninitialized memory. Unsafe because the memory contents are not defined.
+    /// Allocate memory.
     fn empty(
         value: D,
         width_pixels: ipp_ctypes::c_int,
         height_pixels: ipp_ctypes::c_int,
     ) -> Result<Self> {
-        // TODO: use aligned alloc in rust rather than IPP allocator.
-        // See https://github.com/rust-lang/rust/issues/32838#issuecomment-313843020
-        // Layout::from_size_align
+        // TODO: use aligned alloc in rust e.g. `Layout::from_size_align`.
 
         let (dest_stride, data) = {
             let w = width_pixels as usize;
