@@ -140,7 +140,7 @@ mod simd_generic {
 
 pub struct FastImageData<D>
 where
-    D: 'static,
+    D: PixelType,
 {
     data_phantom: PhantomData<D>,
     data: *mut u8,
@@ -150,7 +150,7 @@ where
     layout: std::alloc::Layout,
 }
 
-unsafe impl<D> Send for FastImageData<D> where D: 'static {}
+unsafe impl<D> Send for FastImageData<D> where D: PixelType {}
 
 fn _test_fast_image_data_is_send() {
     // Compile-time test to ensure FastImageData implements Send trait.
@@ -160,7 +160,7 @@ fn _test_fast_image_data_is_send() {
 
 impl<D> FastImageData<D>
 where
-    D: 'static + Copy,
+    D: PixelType,
 {
     fn zeros(width_pixels: ipp_ctypes::c_int, height_pixels: ipp_ctypes::c_int) -> Result<Self> {
         let min_row_size_bytes = width_pixels as usize * std::mem::size_of::<D>();
@@ -192,7 +192,7 @@ where
 
 impl<D> FastImageData<D>
 where
-    D: 'static + Copy + PartialEq,
+    D: PixelType,
 {
     pub fn new(
         width_pixels: ipp_ctypes::c_int,
@@ -212,7 +212,7 @@ where
 
 impl<D> Drop for FastImageData<D>
 where
-    D: 'static,
+    D: PixelType,
 {
     fn drop(&mut self) {
         if !self.data.is_null() {
@@ -224,7 +224,7 @@ where
 
 impl<D> PartialEq for FastImageData<D>
 where
-    D: 'static + Copy + PartialEq,
+    D: PixelType,
 {
     fn eq(&self, rhs: &Self) -> bool {
         fi_equal(self, rhs)
@@ -277,7 +277,7 @@ impl FastImageData<f32> {
 
 impl<D> std::fmt::Debug for FastImageData<D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType + std::fmt::Debug,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(
@@ -298,7 +298,7 @@ where
 
 impl<D> FastImage for FastImageData<D>
 where
-    D: Copy + PartialEq,
+    D: PixelType,
 {
     type D = D;
 
@@ -326,7 +326,7 @@ where
 
 impl<D> FastImage for &FastImageData<D>
 where
-    D: Copy + PartialEq,
+    D: PixelType,
 {
     type D = D;
 
@@ -354,7 +354,7 @@ where
 
 impl<D> MutableFastImage for FastImageData<D>
 where
-    D: Copy + PartialEq,
+    D: PixelType,
 {
     #[inline]
     fn raw_mut_ptr(&mut self) -> *mut Self::D {
@@ -375,7 +375,7 @@ where
 /// A view into existing image data.
 pub struct FastImageView<'a, D>
 where
-    D: 'static + Copy,
+    D: PixelType,
 {
     data: &'a [D],
     stride: ipp_ctypes::c_int,
@@ -428,7 +428,7 @@ impl<'a> FastImageView<'a, u8> {
 
 impl<D> FastImage for FastImageView<'_, D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType,
 {
     type D = D;
 
@@ -455,7 +455,7 @@ where
 
 impl<D> std::fmt::Debug for FastImageView<'_, D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType + std::fmt::Debug,
 {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(
@@ -473,7 +473,7 @@ where
 
 impl<D> FastImage for &FastImageView<'_, D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType + std::fmt::Debug,
 {
     type D = D;
 
@@ -505,7 +505,7 @@ where
 /// A mutable view into existing image data.
 pub struct MutableFastImageView<'a, D>
 where
-    D: 'static + Copy,
+    D: PixelType,
 {
     data: &'a mut [D],
     stride: ipp_ctypes::c_int,
@@ -552,7 +552,7 @@ impl<'a> MutableFastImageView<'a, u8> {
 
 impl<D> FastImage for MutableFastImageView<'_, D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType + std::fmt::Debug,
 {
     type D = D;
 
@@ -579,7 +579,7 @@ where
 
 impl<D> FastImage for &MutableFastImageView<'_, D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType + std::fmt::Debug,
 {
     type D = D;
 
@@ -606,7 +606,7 @@ where
 
 impl<D> MutableFastImage for MutableFastImageView<'_, D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType + std::fmt::Debug,
 {
     #[inline]
     fn raw_mut_ptr(&mut self) -> *mut Self::D {
@@ -621,7 +621,7 @@ where
 
 impl<D> std::fmt::Debug for MutableFastImageView<'_, D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType + std::fmt::Debug,
 {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(
@@ -837,13 +837,24 @@ fn test_padded_chunks_short_mut() {
     }
 }
 
+pub trait PixelType: 'static + Copy + PartialEq {
+    type PIXFMT;
+}
+
+impl PixelType for u8 {
+    type PIXFMT = machine_vision_formats::pixel_format::Mono8;
+}
+impl PixelType for f32 {
+    type PIXFMT = machine_vision_formats::pixel_format::Mono32f;
+}
+
 // ------------------------------
 // FastImage
 // ------------------------------
 
 pub trait FastImage {
     /// Pixel data type (e.g. [u8] or [f32])
-    type D: 'static + Copy;
+    type D: PixelType;
 
     /// Get the raw data for the entire image, including padding.
     fn image_slice(&self) -> &[Self::D];
@@ -895,7 +906,7 @@ pub trait FastImage {
 /// Check if two FastImages have same size and values.
 pub fn fi_equal<D, SRC1, SRC2>(self_: SRC1, other: SRC2) -> bool
 where
-    D: std::cmp::PartialEq,
+    D: PixelType,
     SRC1: FastImage<D = D>,
     SRC2: FastImage<D = D>,
 {
@@ -915,8 +926,9 @@ where
     true
 }
 
-impl machine_vision_formats::ImageData<machine_vision_formats::pixel_format::Mono8>
-    for &dyn FastImage<D = u8>
+impl<D> machine_vision_formats::ImageData<D::PIXFMT> for &dyn FastImage<D = D>
+where
+    D: PixelType,
 {
     fn width(&self) -> u32 {
         self.size().width as u32
@@ -924,24 +936,21 @@ impl machine_vision_formats::ImageData<machine_vision_formats::pixel_format::Mon
     fn height(&self) -> u32 {
         self.size().height as u32
     }
-    fn buffer_ref(
-        &self,
-    ) -> machine_vision_formats::ImageBufferRef<'_, machine_vision_formats::pixel_format::Mono8>
-    {
-        machine_vision_formats::ImageBufferRef::new(self.image_slice())
+    fn buffer_ref(&self) -> machine_vision_formats::ImageBufferRef<'_, D::PIXFMT> {
+        machine_vision_formats::ImageBufferRef::new(unsafe {
+            std::mem::transmute(self.image_slice())
+        })
     }
-    fn buffer(
-        self,
-    ) -> machine_vision_formats::ImageBuffer<machine_vision_formats::pixel_format::Mono8> {
+    fn buffer(self) -> machine_vision_formats::ImageBuffer<D::PIXFMT> {
         // Ideally we would just move the data, but that is tricky here. So we copy.
-        let data = self.image_slice().to_vec();
+        let data = unsafe { std::mem::transmute::<_, &[u8]>(self.image_slice()) }.to_vec();
         machine_vision_formats::ImageBuffer::new(data)
     }
 }
 
 impl<D> machine_vision_formats::Stride for &dyn FastImage<D = D>
 where
-    D: 'static + Copy,
+    D: PixelType,
 {
     fn stride(&self) -> usize {
         FastImage::stride(*self) as usize

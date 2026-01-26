@@ -2,7 +2,7 @@ use anyhow::Result;
 
 use fastfreeimage::{
     ripp, CompareOp, FastImage, FastImageData, FastImageView, MomentState, MutableFastImage,
-    MutableFastImageView,
+    MutableFastImageView, PixelType,
 };
 
 trait BackCompat<S> {
@@ -11,7 +11,7 @@ trait BackCompat<S> {
 
 impl<S, D> BackCompat<S> for MutableFastImageView<'_, D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType + std::fmt::Debug,
     S: FastImage<D = D>,
 {
     fn all_equal(&self, other: S) -> bool {
@@ -21,7 +21,7 @@ where
 
 impl<S, D> BackCompat<S> for FastImageView<'_, D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType + std::fmt::Debug,
     S: FastImage<D = D>,
 {
     fn all_equal(&self, other: S) -> bool {
@@ -31,7 +31,7 @@ where
 
 impl<S, D> BackCompat<S> for FastImageData<D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType + std::fmt::Debug,
     S: FastImage<D = D>,
 {
     fn all_equal(&self, other: S) -> bool {
@@ -263,7 +263,7 @@ fn test_compare() -> Result<()> {
 
 #[test]
 fn test_image_slice() -> Result<()> {
-    fn inner<D: 'static + Copy + PartialEq>(value: D) -> Result<()> {
+    fn inner<D: PixelType>(value: D) -> Result<()> {
         let w = 5;
         let h = 6;
         let im0: FastImageData<D> = FastImageData::<D>::new(w, h, value)?;
@@ -277,7 +277,7 @@ fn test_image_slice() -> Result<()> {
 
 #[test]
 fn test_valid_row_iter() -> Result<()> {
-    fn inner<D: 'static + Copy + PartialEq>(value: D) -> Result<()> {
+    fn inner<D: PixelType>(value: D) -> Result<()> {
         let w = 5;
         let h = 6;
         let im0: FastImageData<D> = FastImageData::<D>::new(w, h, value)?;
