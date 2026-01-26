@@ -216,9 +216,9 @@ where
         let (dest_stride, data) = {
             let w = width_pixels as usize;
             let h = height_pixels as usize;
-            let len = w * h * 1;
+            let len = w * h;
             let data = vec![value; len].into_boxed_slice();
-            let stride = w * 1 * std::mem::size_of::<D>();
+            let stride = w * std::mem::size_of::<D>();
             (stride as ipp_ctypes::c_int, data)
         };
 
@@ -336,7 +336,7 @@ where
     }
 }
 
-impl<'a, D> FastImage for &'a FastImageData<D>
+impl<D> FastImage for &FastImageData<D>
 where
     D: PixelType,
 {
@@ -358,9 +358,9 @@ where
     }
 }
 
-impl<'a, D> PrivateFastImage for &'a FastImageData<D> where D: PixelType {}
+impl<D> PrivateFastImage for &FastImageData<D> where D: PixelType {}
 
-impl<'a, D> FastImage for &'a mut FastImageData<D>
+impl<D> FastImage for &mut FastImageData<D>
 where
     D: PixelType,
 {
@@ -392,7 +392,7 @@ where
     }
 }
 
-impl<'a, D> MutableFastImage for &'a mut FastImageData<D>
+impl<D> MutableFastImage for &mut FastImageData<D>
 where
     D: PixelType,
 {
@@ -699,7 +699,7 @@ pub trait FastImage {
     #[inline]
     fn image_slice(&self) -> &[Self::D] {
         let n_elements =
-            (self.stride() as usize * self.height() as usize * 1) / std::mem::size_of::<Self::D>();
+            (self.stride() as usize * self.height() as usize) / std::mem::size_of::<Self::D>();
         unsafe { std::slice::from_raw_parts(self.raw_ptr(), n_elements) }
     }
 
@@ -714,7 +714,7 @@ pub trait FastImage {
                                                          // Get pointer of type <Self::D> to start of row.
         let row_start_ptr = unsafe { raw_bytes_ptr.add(row_start) } as *const Self::D;
         // Make a slice of it.
-        unsafe { std::slice::from_raw_parts(row_start_ptr, (self.width() * 1) as usize) }
+        unsafe { std::slice::from_raw_parts(row_start_ptr, self.width() as usize) }
     }
 
     /// Get the raw data for a pixel.
@@ -1527,9 +1527,9 @@ where
     }
     // check row-by row
     for (self_row, other_row) in self_
-        .valid_row_iter(&self_.size())
+        .valid_row_iter(self_.size())
         .unwrap()
-        .zip(other.valid_row_iter(&self_.size()).unwrap())
+        .zip(other.valid_row_iter(self_.size()).unwrap())
     {
         if self_row != other_row {
             return false;
