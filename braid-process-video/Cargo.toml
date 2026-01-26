@@ -27,12 +27,13 @@ csv.workspace = true
 tracing-panic.workspace = true
 nalgebra.workspace = true
 indicatif.workspace = true
+ipp-sys = { workspace = true, optional = true }
 
 braidz-parser.workspace = true
 braidz-types.workspace = true
 strand-cam-remote-control.workspace = true
 env-tracing-logger.workspace = true
-flydra-feature-detector = { workspace = true, features = ["do_not_use_ipp"] }
+flydra-feature-detector.workspace = true
 flydra-pt-detect-cfg.workspace = true
 mp4-writer = { workspace = true, features = ["openh264-encode", "nv-encode"] }
 braid-config-data.workspace = true
@@ -49,3 +50,9 @@ frame-source = { workspace = true, features = ["openh264"] }
 [dev-dependencies]
 download-verify.workspace = true
 serde_json.workspace = true
+
+[features]
+default = ["do_not_use_ipp"]
+
+do_not_use_ipp = ["flydra-feature-detector/do_not_use_ipp"]
+use_ipp = ["flydra-feature-detector/use_ipp"]
