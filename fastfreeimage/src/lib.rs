@@ -1,11 +1,10 @@
 //! Provides fast image analysis operations
 #![cfg_attr(feature = "portsimd", feature(portable_simd))]
 
-use std::marker::PhantomData;
 pub use std::os::raw as ipp_ctypes;
 
 /// SIMD vector width, in bytes. Also used for alignment.
-const VECWIDTH: usize = 32;
+const VECWIDTH: usize = aligned_vec::CACHELINE_ALIGN;
 #[cfg(feature = "portsimd")]
 use std::simd::{cmp::SimdPartialOrd, u8x32};
 
@@ -142,15 +141,11 @@ pub struct FastImageData<D>
 where
     D: PixelType,
 {
-    data_phantom: PhantomData<D>,
-    data: *mut u8,
+    data: aligned_vec::ABox<[D]>,
     stride_bytes: ipp_ctypes::c_int,
     strided_total_n_pixels: usize,
     size: FastImageSize,
-    layout: std::alloc::Layout,
 }
-
-unsafe impl<D> Send for FastImageData<D> where D: PixelType {}
 
 fn _test_fast_image_data_is_send() {
     // Compile-time test to ensure FastImageData implements Send trait.
@@ -167,17 +162,6 @@ where
         height_pixels: ipp_ctypes::c_int,
         value: D,
     ) -> Result<Self> {
-        let mut result = Self::empty(width_pixels, height_pixels)?;
-        let size = result.size;
-        for row in result.valid_row_iter_mut(&size)? {
-            for el in row {
-                *el = value;
-            }
-        }
-        Ok(result)
-    }
-
-    fn empty(width_pixels: ipp_ctypes::c_int, height_pixels: ipp_ctypes::c_int) -> Result<Self> {
         let min_row_size_bytes = width_pixels as usize * std::mem::size_of::<D>();
         let mut n_simd_vectors_per_row = min_row_size_bytes / VECWIDTH;
         if n_simd_vectors_per_row * VECWIDTH < min_row_size_bytes {
@@ -187,35 +171,16 @@ where
         let stride_bytes = n_simd_vectors_per_row * VECWIDTH;
         let n_pixels_per_row = stride_bytes / std::mem::size_of::<D>();
         debug_assert_eq!(n_pixels_per_row * std::mem::size_of::<D>(), stride_bytes);
-        let size = stride_bytes * height_pixels as usize;
 
-        let layout = std::alloc::Layout::from_size_align(size, VECWIDTH)?;
-
-        let data = unsafe { std::alloc::alloc(layout) };
-        if data.is_null() {
-            std::alloc::handle_alloc_error(layout);
-        }
+        let data = aligned_vec::avec![value; n_pixels_per_row*height_pixels as usize];
+        let data = data.into_boxed_slice();
 
         Ok(Self {
-            data_phantom: PhantomData,
             data,
             stride_bytes: stride_bytes as i32,
             strided_total_n_pixels: n_pixels_per_row * height_pixels as usize,
             size: FastImageSize::new(width_pixels, height_pixels),
-            layout,
         })
-    }
-}
-
-impl<D> Drop for FastImageData<D>
-where
-    D: PixelType,
-{
-    fn drop(&mut self) {
-        if !self.data.is_null() {
-            unsafe { std::alloc::dealloc(self.data, self.layout) };
-            self.data = std::ptr::null_mut();
-        }
     }
 }
 
@@ -274,22 +239,14 @@ impl FastImageData<f32> {
 
 impl<D> std::fmt::Debug for FastImageData<D>
 where
-    D: PixelType + std::fmt::Debug,
+    D: PixelType,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        writeln!(
-            f,
-            "FastImageData (width: {}, height: {}, layout {:?}, stride {:?}, addr {:?})",
-            self.size.width,
-            self.size.height,
-            self.layout,
-            self.stride(),
-            self.data
-        )?;
-        for (i, row) in self.valid_row_iter(&self.size).unwrap().enumerate() {
-            writeln!(f, "  row {i} slice: {row:?}")?;
-        }
-        Ok(())
+        f.debug_struct("FastImageData")
+            .field("width", &self.size.width)
+            .field("height", &self.size.height)
+            .field("stride", &self.stride())
+            .finish_non_exhaustive()
     }
 }
 
@@ -301,7 +258,7 @@ where
 
     #[inline]
     fn raw_ptr(&self) -> *const Self::D {
-        self.data as *const Self::D
+        core::ptr::from_ref(&self.data.as_ref()[0])
     }
 
     #[inline]
@@ -329,7 +286,7 @@ where
 
     #[inline]
     fn raw_ptr(&self) -> *const Self::D {
-        self.data as *const Self::D
+        core::ptr::from_ref(&self.data.as_ref()[0])
     }
 
     #[inline]
@@ -355,7 +312,7 @@ where
 {
     #[inline]
     fn raw_mut_ptr(&mut self) -> *mut Self::D {
-        self.data as *mut Self::D
+        core::ptr::from_mut(&mut self.data.as_mut()[0])
     }
 
     #[inline]
