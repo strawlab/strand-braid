@@ -73,12 +73,6 @@ pub const APP_INFO: AppInfo = AppInfo {
     author: "AndrewStraw",
 };
 
-#[cfg(all(
-    not(feature = "flydra_feat_detect"),
-    feature = "flydra-feature-detector"
-))]
-compile_error!("do not enable 'flydra-feature-detector' except with 'flydra_feat_detect' feature");
-
 #[cfg(feature = "imtrack-absdiff")]
 pub use flydra_pt_detect_cfg::default_absdiff as default_im_pt_detect;
 #[cfg(feature = "imtrack-dark-circle")]

@@ -156,7 +156,7 @@ flydratrax = [
 ]
 
 # build with the flydra-feature-detector
-flydra_feat_detect = ["flydra-feature-detector"]
+flydra_feat_detect = ["dep:flydra-feature-detector"]
 
 use_ipp = ["flydra-feature-detector?/use_ipp"]
 do_not_use_ipp = ["flydra-feature-detector?/do_not_use_ipp"]
