@@ -177,7 +177,7 @@ macro_rules! itry {
 
 pub struct FastImageData<D>
 where
-    D: 'static + Copy,
+    D: PixelType,
 {
     data: Box<[D]>,
     stride: ipp_ctypes::c_int,
@@ -186,7 +186,7 @@ where
 
 impl<D> PartialEq for FastImageData<D>
 where
-    D: 'static + Copy + PartialEq,
+    D: PixelType,
 {
     fn eq(&self, rhs: &Self) -> bool {
         fi_equal(self, rhs)
@@ -201,7 +201,7 @@ fn _test_partial_eq() {
 
 impl<D> FastImageData<D>
 where
-    D: 'static + Copy + num_traits::Zero,
+    D: PixelType,
 {
     /// Allocate uninitialized memory. Unsafe because the memory contents are not defined.
     fn empty(
@@ -298,7 +298,7 @@ impl FastImageData<f32> {
 
 impl<D> std::fmt::Debug for FastImageData<D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType + std::fmt::Debug,
 {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(
@@ -316,7 +316,7 @@ where
 
 impl<D> FastImage for FastImageData<D>
 where
-    D: Copy + PartialEq,
+    D: PixelType,
 {
     type D = D;
 
@@ -338,7 +338,7 @@ where
 
 impl<'a, D> FastImage for &'a FastImageData<D>
 where
-    D: Copy + PartialEq,
+    D: PixelType,
 {
     type D = D;
 
@@ -358,11 +358,11 @@ where
     }
 }
 
-impl<'a, D> PrivateFastImage for &'a FastImageData<D> where D: Copy + PartialEq {}
+impl<'a, D> PrivateFastImage for &'a FastImageData<D> where D: PixelType {}
 
 impl<'a, D> FastImage for &'a mut FastImageData<D>
 where
-    D: Copy + PartialEq,
+    D: PixelType,
 {
     type D = D;
 
@@ -384,7 +384,7 @@ where
 
 impl<D> MutableFastImage for FastImageData<D>
 where
-    D: Copy + PartialEq,
+    D: PixelType,
 {
     #[inline]
     fn raw_mut_ptr(&mut self) -> *mut <FastImageData<D> as FastImage>::D {
@@ -394,7 +394,7 @@ where
 
 impl<'a, D> MutableFastImage for &'a mut FastImageData<D>
 where
-    D: Copy + PartialEq,
+    D: PixelType,
 {
     #[inline]
     fn raw_mut_ptr(&mut self) -> *mut <FastImageData<D> as FastImage>::D {
@@ -408,7 +408,7 @@ where
 
 pub struct FastImageView<'a, D>
 where
-    D: 'static + Copy,
+    D: PixelType,
 {
     data: &'a [D],
     stride: ipp_ctypes::c_int,
@@ -461,7 +461,7 @@ impl<'a> FastImageView<'a, u8> {
 
 impl<'a, D> FastImage for FastImageView<'a, D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType,
 {
     type D = D;
 
@@ -483,7 +483,7 @@ where
 
 impl<'a, D> std::fmt::Debug for FastImageView<'a, D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType + std::fmt::Debug,
 {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(
@@ -552,7 +552,7 @@ impl<'a> MutableFastImageView<'a, u8> {
 
 impl<'a, D> FastImage for MutableFastImageView<'a, D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType,
 {
     type D = D;
 
@@ -574,7 +574,7 @@ where
 
 impl<'a, D> MutableFastImage for MutableFastImageView<'a, D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType,
 {
     #[inline]
     fn raw_mut_ptr(&mut self) -> *mut Self::D {
@@ -584,7 +584,7 @@ where
 
 impl<'a, D> std::fmt::Debug for MutableFastImageView<'a, D>
 where
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
+    D: PixelType + std::fmt::Debug,
 {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
         writeln!(
@@ -661,12 +661,23 @@ fn test_padded_chunks_mut() {
     }
 }
 
+pub trait PixelType: 'static + Copy + PartialEq {
+    type PIXFMT;
+}
+
+impl PixelType for u8 {
+    type PIXFMT = machine_vision_formats::pixel_format::Mono8;
+}
+impl PixelType for f32 {
+    type PIXFMT = machine_vision_formats::pixel_format::Mono32f;
+}
+
 // ------------------------------
 // FastImage
 // ------------------------------
 
 pub trait FastImage {
-    type D: 'static + Copy + PartialEq;
+    type D: PixelType;
 
     fn raw_ptr(&self) -> *const Self::D;
     /// Get the image stride in number of bytes.

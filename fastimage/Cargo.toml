@@ -9,6 +9,7 @@ rust-version = "1.76"
 ipp-sys.workspace = true
 thiserror.workspace = true
 num-traits.workspace = true
+machine-vision-formats.workspace = true
 
 [dev-dependencies]
 itertools.workspace = true
