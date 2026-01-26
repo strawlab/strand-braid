@@ -1,8 +1,6 @@
 use std::path::PathBuf;
 
-use clap::FromArgMatches;
-
-use clap::{Arg, ArgAction, Args};
+use clap::{Arg, ArgAction, Args, FromArgMatches};
 
 use crate::{run_strand_cam_app, BraidArgs, StandaloneArgs, StandaloneOrBraid, StrandCamArgs};
 
