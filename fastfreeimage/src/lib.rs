@@ -162,7 +162,22 @@ impl<D> FastImageData<D>
 where
     D: PixelType,
 {
-    fn zeros(width_pixels: ipp_ctypes::c_int, height_pixels: ipp_ctypes::c_int) -> Result<Self> {
+    pub fn new(
+        width_pixels: ipp_ctypes::c_int,
+        height_pixels: ipp_ctypes::c_int,
+        value: D,
+    ) -> Result<Self> {
+        let mut result = Self::empty(width_pixels, height_pixels)?;
+        let size = result.size;
+        for row in result.valid_row_iter_mut(&size)? {
+            for el in row {
+                *el = value;
+            }
+        }
+        Ok(result)
+    }
+
+    fn empty(width_pixels: ipp_ctypes::c_int, height_pixels: ipp_ctypes::c_int) -> Result<Self> {
         let min_row_size_bytes = width_pixels as usize * std::mem::size_of::<D>();
         let mut n_simd_vectors_per_row = min_row_size_bytes / VECWIDTH;
         if n_simd_vectors_per_row * VECWIDTH < min_row_size_bytes {
@@ -176,8 +191,10 @@ where
 
         let layout = std::alloc::Layout::from_size_align(size, VECWIDTH)?;
 
-        let data = unsafe { std::alloc::alloc_zeroed(layout) };
-        assert_ne!(data, std::ptr::null_mut());
+        let data = unsafe { std::alloc::alloc(layout) };
+        if data.is_null() {
+            std::alloc::handle_alloc_error(layout);
+        }
 
         Ok(Self {
             data_phantom: PhantomData,
@@ -187,26 +204,6 @@ where
             size: FastImageSize::new(width_pixels, height_pixels),
             layout,
         })
-    }
-}
-
-impl<D> FastImageData<D>
-where
-    D: PixelType,
-{
-    pub fn new(
-        width_pixels: ipp_ctypes::c_int,
-        height_pixels: ipp_ctypes::c_int,
-        value: D,
-    ) -> Result<Self> {
-        let mut result = Self::zeros(width_pixels, height_pixels)?;
-        let size = result.size;
-        for row in result.valid_row_iter_mut(&size)? {
-            for el in row {
-                *el = value;
-            }
-        }
-        Ok(result)
     }
 }
 
