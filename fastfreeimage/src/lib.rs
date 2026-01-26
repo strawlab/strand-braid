@@ -806,6 +806,16 @@ impl PixelType for f32 {
 // FastImage
 // ------------------------------
 
+/// This trait allows working with image data with stride and size information.
+///
+/// It is conceptually similar to [machine_vision_formats::ImageStride]. There
+/// are a few differences however:
+/// * [Self::valid_row_iter] takes size information.
+/// * [Self::stride], [Self::width], and [Self::height] return
+///   [ipp_ctypes::c_int].
+///
+/// This trait was originally implemented to wrap Intel IPP image data
+/// structures.
 pub trait FastImage {
     /// Pixel data type (e.g. [u8] or [f32])
     type D: PixelType;
