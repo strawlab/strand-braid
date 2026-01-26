@@ -164,7 +164,6 @@ impl TrackingState {
 
     fn do_work<S1, S2>(
         &mut self,
-        // corrected_framenumber: usize,
         raw_im_full: &S1,
         cfg: &ImPtDetectCfg,
         maybe_mask_image: Option<&S2>,
@@ -814,21 +813,7 @@ impl FlydraFeatureDetector {
                     state.frames_since_background_update += 1;
                 }
                 // The following can take 40+ msec? e.g. 2018-08-29T08:41:19.582785551Z
-                let points = if let Some(ref mask_image) = self.mask_image {
-                    state.do_work(
-                        //corrected_frame,
-                        &raw_im_full,
-                        &self.cfg,
-                        Some(mask_image),
-                    )?
-                } else {
-                    state.do_work::<_, FastImageData<Chan1, u8>>(
-                        // corrected_frame,
-                        &raw_im_full,
-                        &self.cfg,
-                        None,
-                    )?
-                };
+                let points = state.do_work(&raw_im_full, &self.cfg, self.mask_image.as_ref())?;
 
                 let radius = self.cfg.feature_window_size;
                 let point_data: Vec<_> = points
