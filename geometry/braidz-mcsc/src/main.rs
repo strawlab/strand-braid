@@ -451,10 +451,24 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
     );
     let args = vec![gocal_abs.as_os_str(), config_arg.as_ref()];
     let current_dir = gocal_abs.parent().unwrap();
-    if !std::process::Command::new("octave")
-        .args(args)
+    const PROGRAM: &str = "octave";
+
+    if !std::process::Command::new(PROGRAM)
+        .args(&["--version"])
+        .status()
+        .with_context(|| format!("While checking version of {PROGRAM:?}"))?
+        .success()
+    {
+        eyre::bail!("octave version check failed");
+    }
+
+    if !std::process::Command::new(PROGRAM)
+        .args(&args)
         .current_dir(current_dir)
-        .status()?
+        .status()
+        .with_context(|| {
+            format!("While running {PROGRAM:?} with args {args:?} in dir {current_dir:?}")
+        })?
         .success()
     {
         eyre::bail!("octave failed");
