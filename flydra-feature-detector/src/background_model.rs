@@ -9,24 +9,24 @@ use machine_vision_formats::{self as formats, ImageData, Stride};
 use strand_dynamic_frame::{DynamicFrame, DynamicFrameOwned};
 
 use fastim_mod::{
-    ripp, Chan1, CompareOp, FastImage, FastImageData, FastImageRegion, FastImageView, RoundMode,
+    ripp, CompareOp, FastImage, FastImageData, FastImageRegion, FastImageView, RoundMode,
 };
 
 type ToWorker = (DynamicFrameOwned, DateTime<Utc>, ImPtDetectCfg);
 type FromWorker = (
-    FastImageData<Chan1, f32>,
-    FastImageData<Chan1, f32>,
-    FastImageData<Chan1, u8>,
-    FastImageData<Chan1, u8>,
+    FastImageData<f32>,
+    FastImageData<f32>,
+    FastImageData<u8>,
+    FastImageData<u8>,
     FastImageRegion,
     chrono::DateTime<chrono::Utc>,
 );
 
 pub(crate) struct BackgroundModel {
-    pub(crate) mean_background: FastImageData<Chan1, f32>,
-    pub(crate) mean_im: FastImageData<Chan1, u8>,
-    pub(crate) mean_squared_im: FastImageData<Chan1, f32>,
-    pub(crate) cmp_im: FastImageData<Chan1, u8>,
+    pub(crate) mean_background: FastImageData<f32>,
+    pub(crate) mean_im: FastImageData<u8>,
+    pub(crate) mean_squared_im: FastImageData<f32>,
+    pub(crate) cmp_im: FastImageData<u8>,
     pub(crate) current_roi: FastImageRegion,
     // pub(crate) complete_stamp: (chrono::DateTime<chrono::Utc>, usize),
     pub(crate) complete_stamp: chrono::DateTime<chrono::Utc>,
@@ -44,14 +44,14 @@ impl BackgroundModel {
     /// Allocate new BackgroundModel
     pub(crate) fn new<S>(
         raw_im_full: &S,
-        running_mean: FastImageData<Chan1, f32>,
-        mean_squared_im: FastImageData<Chan1, f32>,
+        running_mean: FastImageData<f32>,
+        mean_squared_im: FastImageData<f32>,
         cfg: &ImPtDetectCfg,
         pixel_format: formats::PixFmt,
         complete_stamp: chrono::DateTime<chrono::Utc>,
     ) -> Result<Self>
     where
-        S: FastImage<C = Chan1, D = u8>,
+        S: FastImage<D = u8>,
     {
         let mean_im = FastImageData::copy_from_32f8u_c1(&running_mean, RoundMode::Near)?;
         let (w, h) = (mean_im.width(), mean_im.height());
@@ -64,7 +64,7 @@ impl BackgroundModel {
             mean_background: running_mean,
             mean_squared_im,
             mean_im,
-            cmp_im: FastImageData::<Chan1, u8>::new(w, h, 0)?,
+            cmp_im: FastImageData::<u8>::new(w, h, 0)?,
             current_roi: current_roi.clone(),
         };
 
@@ -194,10 +194,10 @@ impl BackgroundModel {
 }
 
 struct BackgroundModelWorker {
-    mean_background: FastImageData<Chan1, f32>,
-    mean_im: FastImageData<Chan1, u8>,
-    mean_squared_im: FastImageData<Chan1, f32>,
-    cmp_im: FastImageData<Chan1, u8>,
+    mean_background: FastImageData<f32>,
+    mean_im: FastImageData<u8>,
+    mean_squared_im: FastImageData<f32>,
+    cmp_im: FastImageData<u8>,
     current_roi: FastImageRegion,
 }
 
@@ -205,7 +205,7 @@ impl BackgroundModelWorker {
     /// Update background model for new image
     fn do_bg_update<S>(&mut self, raw_im_full: &S, cfg: &ImPtDetectCfg) -> Result<()>
     where
-        S: FastImage<C = Chan1, D = u8>,
+        S: FastImage<D = u8>,
     {
         let (w, h) = (self.current_roi.width(), self.current_roi.height());
 
@@ -235,7 +235,7 @@ impl BackgroundModelWorker {
         ripp::sqr_32f_c1ir(&mut mean2, self.current_roi.size())?;
 
         // std2 = mean_squared_im - mean2
-        let mut std2 = FastImageData::<Chan1, f32>::new(w, h, 0.0)?;
+        let mut std2 = FastImageData::<f32>::new(w, h, 0.0)?;
         ripp::sub_32f_c1r(
             &mean2,
             &self.mean_squared_im,
@@ -244,13 +244,13 @@ impl BackgroundModelWorker {
         )?;
 
         // running_stdframe = self.cfg.n_sigma * sqrt(|std2|)
-        let mut running_stdframe = FastImageData::<Chan1, f32>::new(w, h, 0.0)?;
+        let mut running_stdframe = FastImageData::<f32>::new(w, h, 0.0)?;
         ripp::abs_32f_c1r(&std2, &mut running_stdframe, self.current_roi.size())?;
         ripp::sqrt_32f_c1ir(&mut running_stdframe, self.current_roi.size())?;
         ripp::mul_c_32f_c1ir(cfg.n_sigma, &mut running_stdframe, self.current_roi.size())?;
 
         // now we do hack, erm, heuristic for bright points, which aren't gaussian.
-        let mut noisy_pixels_mask = FastImageData::<Chan1, u8>::new(w, h, 0)?;
+        let mut noisy_pixels_mask = FastImageData::<u8>::new(w, h, 0)?;
         ripp::compare_c_8u_c1r(
             &self.mean_im,
             cfg.bright_non_gaussian_cutoff,
