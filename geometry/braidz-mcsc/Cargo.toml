@@ -24,7 +24,7 @@ include_dir.workspace = true
 zip.workspace = true
 nalgebra.workspace = true
 camino.workspace = true
-re_sdk.workspace = true
+re_sdk = {workspace = true, optional = true}
 levenberg-marquardt.workspace = true
 cam-geom.workspace = true
 approx.workspace = true
@@ -40,3 +40,6 @@ braid-mvg.workspace = true
 
 [dev-dependencies]
 download-verify.workspace = true
+
+[features]
+with-rerun = ["dep:re_sdk", "bundle-adj/with-rerun"]

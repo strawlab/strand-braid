@@ -13,8 +13,8 @@ serde_yaml.workspace = true
 tracing.workspace = true
 camino.workspace = true
 levenberg-marquardt.workspace = true
-re_sdk.workspace = true
-re_sdk_types.workspace = true
+re_sdk = { workspace = true, optional = true }
+re_sdk_types = { workspace = true, optional = true }
 opencv-ros-camera.workspace = true
 convert-image.workspace = true
 image.workspace = true
@@ -36,3 +36,6 @@ tempfile.workspace = true
 zip.workspace = true
 download-verify.workspace = true
 tracing-test.workspace = true
+
+[features]
+with-rerun = ["dep:re_sdk", "dep:re_sdk_types", "bundle-adj/with-rerun"]

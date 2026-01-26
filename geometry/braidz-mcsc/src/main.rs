@@ -51,13 +51,25 @@ struct Cli {
     #[arg(long, value_enum, default_value_t)]
     bundle_adjustment_intrinsics_source: BAIntrinsicsSource,
 
+    #[cfg(feature = "with-rerun")]
     /// Log data to rerun viewer at this socket address. (The typical address is
     /// "127.0.0.1:9876".) DEPRECATED. Use `rerun_url` instead.
     #[arg(long, hide = true)]
     rerun: Option<String>,
 
+    #[cfg(not(feature = "with-rerun"))]
+    /// Disabled. To enable, recompile with the `with-rerun` feature.
+    #[arg(long, hide = true)]
+    rerun: Option<String>,
+
+    #[cfg(feature = "with-rerun")]
     /// Log data to rerun viewer at this URL. (A typical url is
     /// "rerun+http://127.0.0.1:9876/proxy\".)
+    #[arg(long)]
+    rerun_url: Option<String>,
+
+    #[cfg(not(feature = "with-rerun"))]
+    /// Disabled. To enable, recompile with the `with-rerun` feature.
     #[arg(long)]
     rerun_url: Option<String>,
 }
@@ -416,6 +428,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
         opt.rerun_url
     };
 
+    #[cfg(feature = "with-rerun")]
     let rec = if let Some(rerun_url) = rerun_url {
         let re_version = re_sdk::build_info().version;
         tracing::info!("Streaming data to rerun {re_version} at {rerun_url}");
@@ -425,6 +438,11 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
         )
     } else {
         None
+    };
+
+    #[cfg(not(feature = "with-rerun"))]
+    if rerun_url.is_some() {
+        eyre::bail!("rerun URL specified but binary not compiled with `with-rerun` feature.");
     };
 
     let config_arg = format!(
@@ -625,8 +643,20 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
             print_reproj_and_params(&mcsc_system, &points0, &visibility, &observations)?;
 
             let ba = bundle_adj::BundleAdjuster::new(
-                observed, cam_idx, pt_idx, cam_names, cam_dims, cams0, points0, labels3d,
-                model_type, rec, false,
+                observed,
+                cam_idx,
+                pt_idx,
+                cam_names,
+                #[cfg(feature = "with-rerun")]
+                cam_dims,
+                cams0,
+                points0,
+                labels3d,
+                model_type,
+                #[cfg(feature = "with-rerun")]
+                rec,
+                #[cfg(feature = "with-rerun")]
+                false,
             )?;
             (visibility, observations, ba, start_ba_system)
         };

@@ -1,23 +1,23 @@
 use braid_mvg::DistortedPixel;
-use camino::{Utf8Path, Utf8PathBuf};
+use camino::Utf8PathBuf;
 use clap::Parser;
 use eyre::Context;
 use nalgebra::Point2;
-// use levenberg_marquardt::LeastSquaresProblem;
 use opencv_ros_camera::{NamedIntrinsicParameters, RosCameraInfo, RosOpenCvIntrinsics};
 use std::{
     collections::{BTreeMap, BTreeSet},
     io::Write,
-    net::ToSocketAddrs,
 };
-use strand_dynamic_frame::DynamicFrameOwned;
 
 use ads_webasm::components::{MaybeCsvData, parse_csv};
 use braid_april_cal::*;
+#[cfg(feature = "with-rerun")]
 use bundle_adj::RR_CAM_BASE_PATH;
 
+#[cfg(feature = "with-rerun")]
 const RERUN_2499_OPEN: bool = true; // https://github.com/rerun-io/rerun/issues/2499
 
+#[cfg(feature = "with-rerun")]
 const DETECT_NAME: &str = "detect";
 
 #[derive(Parser, Debug, Default)]
@@ -62,20 +62,24 @@ struct Cli {
     #[arg(long, value_enum, default_value_t)]
     bundle_adjustment_model_type: bundle_adj::ModelType,
 
+    #[cfg(feature = "with-rerun")]
     /// Log data to rerun viewer at this socket address. (The typical address is
     /// "127.0.0.1:9876".) DEPRECATED. Use rerun_url instead.
     #[arg(long, hide = true)]
     rerun: Option<String>,
 
+    #[cfg(feature = "with-rerun")]
     /// Log data to rerun viewer at this URL. (A typical url is
     /// "rerun+http://127.0.0.1:9876/proxy\".)
     #[arg(long)]
     rerun_url: Option<String>,
 
+    #[cfg(feature = "with-rerun")]
     /// Log data to rerun viewer to this RRD file.
     #[arg(long)]
     rerun_save: Option<Utf8PathBuf>,
 
+    #[cfg(feature = "with-rerun")]
     /// Force rerun to show original, distorted camera coordinates. Because
     /// Rerun does not currently support distorted camera models this option
     /// disables use of several rerun features.
@@ -134,12 +138,16 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         image_dir,
         output_xml,
         bundle_adjustment,
+        #[cfg(feature = "with-rerun")]
         rerun,
+        #[cfg(feature = "with-rerun")]
         mut rerun_url,
+        #[cfg(feature = "with-rerun")]
         rerun_save,
         bundle_adjustment_min_cams_per_point,
         do_new_triangulation,
         bundle_adjustment_model_type,
+        #[cfg(feature = "with-rerun")]
         force_rerun_distorted,
     } = cli;
 
@@ -347,13 +355,18 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         observed_per_cam
     };
 
+    #[cfg(feature = "with-rerun")]
     let allow_rerun_undistortion = !force_rerun_distorted && RERUN_2499_OPEN;
 
     // If we are using Rerun and rerun does not support distortion, we eliminate
     // all distortion prior to sending to bundle-adjust. This is because
     // bundle-adjust sends data to rerun.
+    #[cfg(feature = "with-rerun")]
     let undistort_prior_to_bundle_adj = allow_rerun_undistortion && rerun.is_some();
+    #[cfg(not(feature = "with-rerun"))]
+    let undistort_prior_to_bundle_adj = false;
 
+    #[cfg(feature = "with-rerun")]
     if undistort_prior_to_bundle_adj {
         tracing::warn!(
             "Rerun does not currently support lens distortion. All images and \
@@ -404,21 +417,27 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         }
     }
 
+    #[cfg(feature = "with-rerun")]
     if let Some(socket_addr_str) = rerun {
         tracing::warn!("'--rerun' CLI argument is deprecated in favor of '--rerun-url'.");
         if rerun_url.is_some() {
             eyre::bail!("Cannot set both rerun and rerun_url CLI args.");
         }
+        use std::net::ToSocketAddrs;
         let mut addrs_iter = socket_addr_str.to_socket_addrs()?;
         let socket_addr = addrs_iter.next().unwrap();
         rerun_url = Some(format!("rerun+http://{socket_addr}/proxy"));
     };
 
+    #[cfg(feature = "with-rerun")]
     if let (Some(_), Some(_)) = (&rerun_url, &rerun_save) {
         eyre::bail!("Cannot specify both --rerun-url and --rerun-save options.");
     }
 
+    #[cfg(feature = "with-rerun")]
     let rec = if rerun_url.is_some() || rerun_save.is_some() {
+        use strand_dynamic_frame::DynamicFrameOwned;
+
         let re_version = re_sdk::build_info().version;
         // TODO: allow saving to file.
 
@@ -500,6 +519,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         None
     };
 
+    #[cfg(feature = "with-rerun")]
     if let Some(rec) = &rec {
         // Log 3D points.
         let pts: Vec<[f32; 3]> = fiducial_3d_coords
@@ -604,12 +624,15 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             cam_idx,
             pt_idx,
             cam_names.clone(),
+            #[cfg(feature = "with-rerun")]
             cam_dims,
             cams0,
             points0.clone(),
             labels3d,
             model_type,
+            #[cfg(feature = "with-rerun")]
             rec,
+            #[cfg(feature = "with-rerun")]
             force_rerun_distorted,
         )?
     };
@@ -825,7 +848,8 @@ fn show_reproj_matrix(
     Ok(())
 }
 
-fn to_rr_image<P: AsRef<Utf8Path>>(
+#[cfg(feature = "with-rerun")]
+fn to_rr_image<P: AsRef<camino::Utf8Path>>(
     fname: P,
 ) -> eyre::Result<re_sdk_types::archetypes::EncodedImage> {
     let contents = std::fs::read(fname.as_ref())?;

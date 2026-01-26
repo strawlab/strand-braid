@@ -59,11 +59,11 @@ test_crates:
 
     # Test bundle-adj
     - cd $CI_PROJECT_DIR/geometry/bundle-adj
-    - cargo test --release
+    - cargo test --release --features with-rerun
 
     # Test braid-april-cal-cli
     - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-cli
-    - cargo test --release -- --nocapture
+    - cargo test --release --features with-rerun -- --nocapture
 
     # Test flytrax-apriltags-calibration
     - cd $CI_PROJECT_DIR/geometry/braid-april-cal/flytrax-apriltags-calibration
@@ -707,7 +707,7 @@ slow-tests:
     - ./package-mcsc-zip.sh
 
     - cd $CI_PROJECT_DIR/geometry/braidz-mcsc
-    - cargo test --release -- --include-ignored
+    - cargo test --release --features with-rerun -- --include-ignored
 
     - cd $CI_PROJECT_DIR/braid-process-video
     - cargo test --release -- --include-ignored
@@ -729,7 +729,7 @@ extra-programs:
     - cp $CI_PROJECT_DIR/target/release/align-calibration $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-cli
-    - cargo build --release
+    - cargo build --release --features with-rerun
     - cp $CI_PROJECT_DIR/target/release/braid-april-cal-cli $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/braidz-rerun/braidz-export-rrd
@@ -768,7 +768,7 @@ braidz-mcsc:
     - ./package-mcsc-zip.sh
 
     - cd $CI_PROJECT_DIR/geometry/braidz-mcsc
-    - cargo build --release
+    - cargo build --release --features with-rerun
     - cp $CI_PROJECT_DIR/target/release/braidz-mcsc $CI_PROJECT_DIR/build
   artifacts:
     paths:
@@ -834,7 +834,7 @@ braid-run-binary:
 
     # build braid-run
     - cd $CI_PROJECT_DIR/braid/braid-run
-    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features bundle_files,tracing/release_max_level_debug --release
+    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features bundle_files,with-rerun,tracing/release_max_level_debug --release
     - ldd -v $CI_PROJECT_DIR/target/release/braid-run
     - cp ../../target/release/braid-run $CI_PROJECT_DIR/build
 

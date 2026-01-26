@@ -1,4 +1,6 @@
+#[cfg(feature = "with-rerun")]
 use flydra_mvg::FlydraMultiCameraSystem;
+#[cfg(feature = "with-rerun")]
 use num_traits::Float;
 use std::sync::{Arc, RwLock};
 use tracing::{debug, info};
@@ -186,23 +188,37 @@ pub async fn new_model_server(
         let app_state = app_state2;
 
         const ENV_KEY: &str = "RERUN_VIEWER_URL";
-        let rec = std::env::var_os(ENV_KEY).map(|url_str| {
-            let url = url_str.to_str().unwrap();
-            let re_version = re_sdk::build_info().version;
-            tracing::info!("Streaming data to rerun {re_version} at {url}");
-            re_sdk::RecordingStreamBuilder::new("braid")
-                .connect_grpc_opts(url)
-                .unwrap()
-        });
 
-        if rec.is_none() {
-            tracing::info!(
-                "No Rerun viewer address specified with environment variable \
-            \"{ENV_KEY}\", not logging data to Rerun. (Hint: the Rerun Viewer \
-                listens by default at \"rerun+http://127.0.0.1:9876/proxy\".)"
+        #[cfg(feature = "with-rerun")]
+        let rec = {
+            let rec = std::env::var_os(ENV_KEY).map(|url_str| {
+                let url = url_str.to_str().unwrap();
+                let re_version = re_sdk::build_info().version;
+                tracing::info!("Streaming data to rerun {re_version} at {url}");
+                re_sdk::RecordingStreamBuilder::new("braid")
+                    .connect_grpc_opts(url)
+                    .unwrap()
+            });
+
+            if rec.is_none() {
+                tracing::info!(
+                    "No Rerun viewer address specified with environment variable \
+                \"{ENV_KEY}\", not logging data to Rerun. (Hint: the Rerun Viewer \
+                    listens by default at \"rerun+http://127.0.0.1:9876/proxy\".)"
+                );
+            }
+            rec
+        };
+
+        #[cfg(not(feature = "with-rerun"))]
+        if std::env::var_os(ENV_KEY).is_some() {
+            tracing::warn!(
+                "Rerun support not compiled in, cannot stream to Rerun viewer. \
+                Rebuild with the \"with-rerun\" feature enabled."
             );
         }
 
+        #[cfg(feature = "with-rerun")]
         let mut did_show_rerun_warning = false;
 
         // Wait for the next update time to arrive ...
@@ -217,6 +233,7 @@ pub async fn new_model_server(
                     }
                     send_msg(data, &app_state).await?;
 
+                    #[cfg(feature = "with-rerun")]
                     if let Some(rec) = &rec {
                         match data {
                             (SendType::CalibrationFlydraXml(calib_xml), _tdpt) => {
@@ -313,6 +330,7 @@ pub async fn new_model_server(
     Ok(())
 }
 
+#[cfg(feature = "with-rerun")]
 // makes ExtrinsicParameters<F> into ExtrinsicParameters<f64>
 fn extrinsics_f64<F: nalgebra::RealField + Float>(
     e: &cam_geom::ExtrinsicParameters<F>,

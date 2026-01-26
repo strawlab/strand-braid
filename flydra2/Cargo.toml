@@ -50,8 +50,8 @@ tower-http = { workspace = true, optional = true }
 tower-serve-static = { workspace = true, optional = true }
 include_dir = { workspace = true, optional = true }
 approx.workspace = true
-re_sdk.workspace = true
-re_sdk_types.workspace = true
+re_sdk = {workspace = true, optional = true }
+re_sdk_types = {workspace = true, optional = true }
 resvg.workspace = true
 tagger.workspace = true
 cam-geom.workspace = true
@@ -63,7 +63,7 @@ braidz-writer.workspace = true
 braid-apriltag-types.workspace = true
 strand-datetime-conversion.workspace = true
 env-tracing-logger.workspace = true
-braid-mvg = { workspace = true, features = ["rerun-io"] }
+braid-mvg.workspace = true
 flydra-mvg.workspace = true
 strand-http-video-streaming-types.workspace = true
 braid-types.workspace = true
@@ -85,3 +85,5 @@ bundle_files = ["tower-serve-static", "include_dir"]
 serve_files = ["tower-http"]
 
 braid = []
+
+with-rerun = ["braid-mvg/rerun-io", "dep:re_sdk", "dep:re_sdk_types"]

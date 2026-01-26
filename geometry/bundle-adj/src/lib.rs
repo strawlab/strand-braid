@@ -1,4 +1,6 @@
-use nalgebra::{self as na, Dyn, Owned, UnitQuaternion};
+#[cfg(feature = "with-rerun")]
+use nalgebra::UnitQuaternion;
+use nalgebra::{self as na, Dyn, Owned};
 use num_traits::Float;
 use opencv_ros_camera::RosOpenCvIntrinsics;
 
@@ -68,13 +70,20 @@ pub struct BundleAdjuster<F: na::RealField + Float> {
 
     /// Names of the cameras,
     cam_names: Vec<String>,
+
+    #[cfg(feature = "with-rerun")]
+    rerun: BundleAdjusterRerun,
+}
+
+#[cfg(feature = "with-rerun")]
+#[derive(Clone)]
+struct BundleAdjusterRerun {
     cam_dims: Vec<(usize, usize)>,
 
     /// rerun viewer
     rec: Option<re_sdk::RecordingStream>,
     did_show_rerun_warning: bool,
     rr_tick: i64,
-
     force_rerun_distorted: bool,
 }
 
@@ -160,13 +169,13 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
         cam_idx: Vec<NCamsType>,
         pt_idx: Vec<usize>,
         cam_names: Vec<String>,
-        cam_dims: Vec<(usize, usize)>,
+        #[cfg(feature = "with-rerun")] cam_dims: Vec<(usize, usize)>,
         cams0: Vec<cam_geom::Camera<F, RosOpenCvIntrinsics<F>>>,
         points0: na::Matrix3xX<F>,
         labels3d: Vec<String>,
         model_type: ModelType,
-        rec: Option<re_sdk::RecordingStream>,
-        force_rerun_distorted: bool,
+        #[cfg(feature = "with-rerun")] rec: Option<re_sdk::RecordingStream>,
+        #[cfg(feature = "with-rerun")] force_rerun_distorted: bool,
     ) -> Result<Self> {
         // println!("observed:\n{}", observed.transpose());
         // dbg!(&cam_idx);
@@ -193,6 +202,7 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
         if cams0.len() != cam_names.len() {
             return Err(Error::InconsistentData("cam_names shape"));
         }
+        #[cfg(feature = "with-rerun")]
         if cams0.len() != cam_dims.len() {
             return Err(Error::InconsistentData("cam_dims shape"));
         }
@@ -263,16 +273,20 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
             cam_idx,
             pt_idx,
             cam_names,
-            cam_dims,
+
             cams: cams0.to_vec(),
             points: points0,
             labels3d,
             params_cache: params_cache.clone(),
             fixed_params,
-            rec,
-            did_show_rerun_warning: false,
-            rr_tick: 0,
-            force_rerun_distorted,
+            #[cfg(feature = "with-rerun")]
+            rerun: BundleAdjusterRerun {
+                cam_dims,
+                rec,
+                did_show_rerun_warning: false,
+                rr_tick: 0,
+                force_rerun_distorted,
+            },
         };
         // call once to log initial data to rerun
         levenberg_marquardt::LeastSquaresProblem::set_params(&mut myself, &params_cache);
@@ -458,6 +472,7 @@ fn test_fxcy_extrinsics_only() {
     }
 }
 
+#[cfg(feature = "with-rerun")]
 // makes ExtrinsicParameters<F> into ExtrinsicParameters<f64>
 fn extrinsics_f64<F: na::RealField + Float>(
     e: &cam_geom::ExtrinsicParameters<F>,
@@ -482,6 +497,7 @@ fn extrinsics_f64<F: na::RealField + Float>(
     cam_geom::ExtrinsicParameters::from_rotation_and_camcenter(rotation, camcenter)
 }
 
+#[cfg(feature = "with-rerun")]
 #[test]
 fn test_extrinsics_f64() {
     let rotation: UnitQuaternion<f64> = UnitQuaternion::from_quaternion(na::Quaternion {
@@ -504,11 +520,14 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
     type JacobianStorage = Owned<F, Dyn, Dyn>;
 
     fn set_params(&mut self, x: &na::DVector<F>) {
-        let allow_rerun_undistorted = !self.force_rerun_distorted;
-        if let Some(rec) = &self.rec {
-            rec.set_time_sequence("tick", self.rr_tick);
-        }
-        self.rr_tick += 1;
+        #[cfg(feature = "with-rerun")]
+        let allow_rerun_undistorted = {
+            if let Some(rec) = &self.rerun.rec {
+                rec.set_time_sequence("tick", self.rerun.rr_tick);
+            }
+            self.rerun.rr_tick += 1;
+            !self.rerun.force_rerun_distorted
+        };
 
         let num_cam_params = self.model_type.info().num_cam_params();
         let num_fixed_params = self.model_type.info().num_fixed_params;
@@ -538,7 +557,8 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
 
         let points = na::Matrix3xX::from_column_slice(point_params);
 
-        if let Some(rec) = &self.rec {
+        #[cfg(feature = "with-rerun")]
+        if let Some(rec) = &self.rerun.rec {
             // Log points.
             let pts: Vec<[f32; 3]> = points
                 .column_iter()
@@ -560,7 +580,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
             for ((cam, cam_name), cam_dims) in cams
                 .iter()
                 .zip(self.cam_names.iter())
-                .zip(self.cam_dims.iter())
+                .zip(self.rerun.cam_dims.iter())
             {
                 // Log pinhole in rerun 3D space.
                 use braid_mvg::rerun_io::AsRerunTransform3D;
@@ -577,9 +597,9 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
                 let i = cam.intrinsics();
                 if allow_rerun_undistorted && !i.distortion.is_linear() {
                     // Drop distortions to log to rerun. See https://github.com/rerun-io/rerun/issues/2499
-                    if !self.did_show_rerun_warning {
+                    if !self.rerun.did_show_rerun_warning {
                         tracing::warn!("Not showing distortions in rerun. See https://github.com/rerun-io/rerun/issues/2499");
-                        self.did_show_rerun_warning = true;
+                        self.rerun.did_show_rerun_warning = true;
                     }
                 }
                 if i.skew().to_f64().unwrap().abs() > 1e-15 {
@@ -681,7 +701,10 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
             let predicted = cam.world_to_pixel(&pts).data.transpose();
             let diff = obs - predicted;
             if false {
-                dbg!(self.rr_tick);
+                #[cfg(feature = "with-rerun")]
+                {
+                    dbg!(self.rerun.rr_tick);
+                }
                 dbg!(pt_idx);
                 let cam_name = &self.cam_names[usize(*cam_idx)];
                 dbg!(cam_name);
@@ -1903,6 +1926,7 @@ mod test {
             .enumerate()
             .map(|(i, _cam)| format!("Cam {i}"))
             .collect();
+        #[cfg(feature = "with-rerun")]
         let cam_dims = cams.iter().map(|_cam| (640, 480)).collect();
 
         let mut observed_raw = vec![];
@@ -1929,12 +1953,15 @@ mod test {
             cam_idx,
             pt_idx,
             cam_names,
+            #[cfg(feature = "with-rerun")]
             cam_dims,
             cams,
             points,
             labels3d,
             ModelType::OpenCV5,
+            #[cfg(feature = "with-rerun")]
             None,
+            #[cfg(feature = "with-rerun")]
             false,
         )
         .unwrap();

@@ -74,3 +74,5 @@ default = ["bundle_files"]
 # BUI frontend. must pick one of the following two:
 bundle_files = ["flydra2/bundle_files", "tower-serve-static", "include_dir"]
 serve_files = ["flydra2/serve_files"]
+
+with-rerun = ["flydra2/with-rerun"]
