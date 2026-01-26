@@ -93,9 +93,9 @@ mod simd_generic {
         size: &FastImageSize,
     ) -> Result<()>
     where
-        S1: FastImage<D = u8, C = Chan1>,
-        S2: FastImage<D = u8, C = Chan1>,
-        D: MutableFastImage<D = u8, C = Chan1>,
+        S1: FastImage<D = u8>,
+        S2: FastImage<D = u8>,
+        D: MutableFastImage<D = u8>,
     {
         let chunk_iter1 = src1.valid_row_iter(size)?;
         let chunk_iter2 = src2.valid_row_iter(size)?;
@@ -134,45 +134,14 @@ mod simd_generic {
     }
 }
 
-#[derive(PartialEq)]
-pub enum Chan1 {}
-// #[derive(PartialEq)]
-// pub enum Chan3 {}
-// #[derive(PartialEq)]
-// pub enum AChan4 {}
-
-pub trait ChanTrait {
-    fn channels() -> u8;
-}
-
-impl ChanTrait for Chan1 {
-    #[inline]
-    fn channels() -> u8 {
-        1
-    }
-}
-// impl ChanTrait for Chan3 {
-//     #[inline]
-//     fn channels() -> u8 {
-//         3
-//     }
-// }
-// impl ChanTrait for AChan4 {
-//     #[inline]
-//     fn channels() -> u8 {
-//         4
-//     }
-// }
-
 // ------------------------------
 // FastImageData
 // ------------------------------
 
-pub struct FastImageData<C, D>
+pub struct FastImageData<D>
 where
     D: 'static,
 {
-    channel_phantom: PhantomData<C>,
     data_phantom: PhantomData<D>,
     data: *mut u8,
     stride_bytes: ipp_ctypes::c_int,
@@ -181,17 +150,16 @@ where
     layout: std::alloc::Layout,
 }
 
-unsafe impl<C, D> Send for FastImageData<C, D> where D: 'static {}
+unsafe impl<D> Send for FastImageData<D> where D: 'static {}
 
 fn _test_fast_image_data_is_send() {
     // Compile-time test to ensure FastImageData implements Send trait.
     fn implements<T: Send>() {}
-    implements::<FastImageData<Chan1, u8>>();
+    implements::<FastImageData<u8>>();
 }
 
-impl<C, D> FastImageData<C, D>
+impl<D> FastImageData<D>
 where
-    C: 'static + ChanTrait,
     D: 'static + Copy,
 {
     fn zeros(width_pixels: ipp_ctypes::c_int, height_pixels: ipp_ctypes::c_int) -> Result<Self> {
@@ -212,7 +180,6 @@ where
         assert_ne!(data, std::ptr::null_mut());
 
         Ok(Self {
-            channel_phantom: PhantomData,
             data_phantom: PhantomData,
             data,
             stride_bytes: stride_bytes as i32,
@@ -223,9 +190,8 @@ where
     }
 }
 
-impl<C, D> FastImageData<C, D>
+impl<D> FastImageData<D>
 where
-    C: 'static + ChanTrait,
     D: 'static + Copy + PartialEq,
 {
     pub fn new(
@@ -244,7 +210,7 @@ where
     }
 }
 
-impl<C, D> Drop for FastImageData<C, D>
+impl<D> Drop for FastImageData<D>
 where
     D: 'static,
 {
@@ -256,9 +222,8 @@ where
     }
 }
 
-impl<C, D> PartialEq for FastImageData<C, D>
+impl<D> PartialEq for FastImageData<D>
 where
-    C: 'static + ChanTrait + PartialEq,
     D: 'static + Copy + PartialEq,
 {
     fn eq(&self, rhs: &Self) -> bool {
@@ -266,10 +231,10 @@ where
     }
 }
 
-impl FastImageData<Chan1, u8> {
+impl FastImageData<u8> {
     pub fn copy_from_8u_c1<S>(src: &S) -> Result<Self>
     where
-        S: FastImage<C = Chan1, D = u8>,
+        S: FastImage<D = u8>,
     {
         let mut data = Self::new(src.width(), src.height(), 0)?;
         let size = *data.size();
@@ -279,7 +244,7 @@ impl FastImageData<Chan1, u8> {
 
     pub fn copy_from_32f8u_c1<S>(src: &S, round_mode: RoundMode) -> Result<Self>
     where
-        S: FastImage<C = Chan1, D = f32>,
+        S: FastImage<D = f32>,
     {
         let mut data = Self::new(src.width(), src.height(), 0)?;
         let size = *data.size();
@@ -288,10 +253,10 @@ impl FastImageData<Chan1, u8> {
     }
 }
 
-impl FastImageData<Chan1, f32> {
+impl FastImageData<f32> {
     pub fn copy_from_8u32f_c1<S>(src: &S) -> Result<Self>
     where
-        S: FastImage<C = Chan1, D = u8>,
+        S: FastImage<D = u8>,
     {
         let mut data = Self::new(src.width(), src.height(), 0.0)?;
         let size = *data.size();
@@ -301,7 +266,7 @@ impl FastImageData<Chan1, f32> {
 
     pub fn copy_from_32f_c1<S>(src: &S) -> Result<Self>
     where
-        S: FastImage<C = Chan1, D = f32>,
+        S: FastImage<D = f32>,
     {
         let mut data = Self::new(src.width(), src.height(), 0.0)?;
         let size = *data.size();
@@ -310,9 +275,8 @@ impl FastImageData<Chan1, f32> {
     }
 }
 
-impl<C, D> std::fmt::Debug for FastImageData<C, D>
+impl<D> std::fmt::Debug for FastImageData<D>
 where
-    C: ChanTrait,
     D: 'static + Copy + std::fmt::Debug + PartialEq,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -332,13 +296,11 @@ where
     }
 }
 
-impl<C, D> FastImage for FastImageData<C, D>
+impl<D> FastImage for FastImageData<D>
 where
-    C: ChanTrait,
     D: Copy + PartialEq,
 {
     type D = D;
-    type C = C;
 
     #[inline]
     fn raw_ptr(&self) -> *const Self::D {
@@ -362,13 +324,11 @@ where
     }
 }
 
-impl<C, D> FastImage for &FastImageData<C, D>
+impl<D> FastImage for &FastImageData<D>
 where
-    C: ChanTrait,
     D: Copy + PartialEq,
 {
     type D = D;
-    type C = C;
 
     #[inline]
     fn raw_ptr(&self) -> *const Self::D {
@@ -392,9 +352,8 @@ where
     }
 }
 
-impl<C, D> MutableFastImage for FastImageData<C, D>
+impl<D> MutableFastImage for FastImageData<D>
 where
-    C: ChanTrait,
     D: Copy + PartialEq,
 {
     #[inline]
@@ -413,19 +372,18 @@ where
 // FastImageView
 // ------------------------------
 
-pub struct FastImageView<'a, C, D>
+/// A view into existing image data.
+pub struct FastImageView<'a, D>
 where
-    C: ChanTrait,
     D: 'static + Copy,
 {
-    channel_phantom: PhantomData<C>,
     data: &'a [D],
     stride: ipp_ctypes::c_int,
     size: FastImageSize,
 }
 
-impl<'a> FastImageView<'a, Chan1, u8> {
-    pub fn view<S: FastImage<D = u8, C = Chan1>>(src: &'a S) -> Self {
+impl<'a> FastImageView<'a, u8> {
+    pub fn view<S: FastImage<D = u8>>(src: &'a S) -> Self {
         FastImageView::view_raw(
             src.image_slice(),
             src.stride(),
@@ -435,10 +393,7 @@ impl<'a> FastImageView<'a, Chan1, u8> {
         .unwrap()
     }
 
-    pub fn view_region<S: FastImage<D = u8, C = Chan1>>(
-        src: &'a S,
-        roi: &FastImageRegion,
-    ) -> Result<Self> {
+    pub fn view_region<S: FastImage<D = u8>>(src: &'a S, roi: &FastImageRegion) -> Result<Self> {
         let i0 =
             roi.left_bottom.y() as usize * src.stride() as usize + roi.left_bottom.x() as usize;
         FastImageView::view_raw(
@@ -461,7 +416,6 @@ impl<'a> FastImageView<'a, Chan1, u8> {
         let min_size = (height - 1) * strideu + width;
         if data.len() >= min_size {
             Ok(Self {
-                channel_phantom: PhantomData,
                 data,
                 stride,
                 size: FastImageSize::new(width_pixels, height_pixels),
@@ -472,13 +426,11 @@ impl<'a> FastImageView<'a, Chan1, u8> {
     }
 }
 
-impl<C, D> FastImage for FastImageView<'_, C, D>
+impl<D> FastImage for FastImageView<'_, D>
 where
-    C: 'static + ChanTrait,
     D: 'static + Copy + std::fmt::Debug + PartialEq,
 {
     type D = D;
-    type C = C;
 
     #[inline]
     fn raw_ptr(&self) -> *const Self::D {
@@ -501,9 +453,8 @@ where
     }
 }
 
-impl<C, D> std::fmt::Debug for FastImageView<'_, C, D>
+impl<D> std::fmt::Debug for FastImageView<'_, D>
 where
-    C: 'static + ChanTrait,
     D: 'static + Copy + std::fmt::Debug + PartialEq,
 {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -520,13 +471,11 @@ where
     }
 }
 
-impl<C, D> FastImage for &FastImageView<'_, C, D>
+impl<D> FastImage for &FastImageView<'_, D>
 where
-    C: 'static + ChanTrait,
     D: 'static + Copy + std::fmt::Debug + PartialEq,
 {
     type D = D;
-    type C = C;
 
     #[inline]
     fn raw_ptr(&self) -> *const Self::D {
@@ -553,24 +502,23 @@ where
 // MutableFastImageView
 // ------------------------------
 
-pub struct MutableFastImageView<'a, C, D>
+/// A mutable view into existing image data.
+pub struct MutableFastImageView<'a, D>
 where
-    C: ChanTrait,
     D: 'static + Copy,
 {
-    channel_phantom: PhantomData<C>,
     data: &'a mut [D],
     stride: ipp_ctypes::c_int,
     size: FastImageSize,
 }
 
-impl<'a> MutableFastImageView<'a, Chan1, u8> {
-    pub fn view<S: MutableFastImage<D = u8, C = Chan1>>(src: &'a mut S) -> Self {
+impl<'a> MutableFastImageView<'a, u8> {
+    pub fn view<S: MutableFastImage<D = u8>>(src: &'a mut S) -> Self {
         let (stride, width, height) = (src.stride(), src.width(), src.height());
         MutableFastImageView::view_raw(src.image_slice_mut(), stride, width, height).unwrap()
     }
 
-    pub fn view_region<S: MutableFastImage<D = u8, C = Chan1>>(
+    pub fn view_region<S: MutableFastImage<D = u8>>(
         src: &'a mut S,
         roi: &FastImageRegion,
     ) -> Result<Self> {
@@ -592,7 +540,6 @@ impl<'a> MutableFastImageView<'a, Chan1, u8> {
         let min_size = (height - 1) * strideu + width;
         if data.len() >= min_size {
             Ok(Self {
-                channel_phantom: PhantomData,
                 data,
                 stride,
                 size: FastImageSize::new(width_pixels, height_pixels),
@@ -603,13 +550,11 @@ impl<'a> MutableFastImageView<'a, Chan1, u8> {
     }
 }
 
-impl<C, D> FastImage for MutableFastImageView<'_, C, D>
+impl<D> FastImage for MutableFastImageView<'_, D>
 where
-    C: 'static + ChanTrait,
     D: 'static + Copy + std::fmt::Debug + PartialEq,
 {
     type D = D;
-    type C = C;
 
     #[inline]
     fn raw_ptr(&self) -> *const Self::D {
@@ -632,13 +577,11 @@ where
     }
 }
 
-impl<C, D> FastImage for &MutableFastImageView<'_, C, D>
+impl<D> FastImage for &MutableFastImageView<'_, D>
 where
-    C: 'static + ChanTrait,
     D: 'static + Copy + std::fmt::Debug + PartialEq,
 {
     type D = D;
-    type C = C;
 
     #[inline]
     fn raw_ptr(&self) -> *const Self::D {
@@ -661,9 +604,8 @@ where
     }
 }
 
-impl<C, D> MutableFastImage for MutableFastImageView<'_, C, D>
+impl<D> MutableFastImage for MutableFastImageView<'_, D>
 where
-    C: 'static + ChanTrait,
     D: 'static + Copy + std::fmt::Debug + PartialEq,
 {
     #[inline]
@@ -677,9 +619,8 @@ where
     }
 }
 
-impl<C, D> std::fmt::Debug for MutableFastImageView<'_, C, D>
+impl<D> std::fmt::Debug for MutableFastImageView<'_, D>
 where
-    C: 'static + ChanTrait,
     D: 'static + Copy + std::fmt::Debug + PartialEq,
 {
     fn fmt(&self, fmt: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -903,8 +844,6 @@ fn test_padded_chunks_short_mut() {
 pub trait FastImage {
     /// Pixel data type (e.g. [u8] or [f32])
     type D: 'static + Copy;
-    /// Number of channels (e.g. [Chan1])
-    type C: ChanTrait;
 
     /// Get the raw data for the entire image, including padding.
     fn image_slice(&self) -> &[Self::D];
@@ -954,11 +893,11 @@ pub trait FastImage {
 }
 
 /// Check if two FastImages have same size and values.
-pub fn fi_equal<D, C, SRC1, SRC2>(self_: SRC1, other: SRC2) -> bool
+pub fn fi_equal<D, SRC1, SRC2>(self_: SRC1, other: SRC2) -> bool
 where
     D: std::cmp::PartialEq,
-    SRC1: FastImage<D = D, C = C>,
-    SRC2: FastImage<D = D, C = C>,
+    SRC1: FastImage<D = D>,
+    SRC2: FastImage<D = D>,
 {
     if self_.size() != other.size() {
         return false;
@@ -977,7 +916,7 @@ where
 }
 
 impl machine_vision_formats::ImageData<machine_vision_formats::pixel_format::Mono8>
-    for &dyn FastImage<D = u8, C = Chan1>
+    for &dyn FastImage<D = u8>
 {
     fn width(&self) -> u32 {
         self.size().width as u32
@@ -1000,9 +939,8 @@ impl machine_vision_formats::ImageData<machine_vision_formats::pixel_format::Mon
     }
 }
 
-impl<C, D> machine_vision_formats::Stride for &dyn FastImage<C = C, D = D>
+impl<D> machine_vision_formats::Stride for &dyn FastImage<D = D>
 where
-    C: 'static + ChanTrait,
     D: 'static + Copy,
 {
     fn stride(&self) -> usize {
@@ -1163,8 +1101,8 @@ pub mod ripp {
 
     pub fn copy_8u_c1r<SRC, DST>(src: &SRC, dest: &mut DST, size: &FastImageSize) -> Result<()>
     where
-        SRC: FastImage<D = u8, C = Chan1>,
-        DST: MutableFastImage<D = u8, C = Chan1>,
+        SRC: FastImage<D = u8>,
+        DST: MutableFastImage<D = u8>,
     {
         for (src_row, dest_row) in src
             .valid_row_iter(size)?
@@ -1179,8 +1117,8 @@ pub mod ripp {
 
     pub fn copy_32f_c1r<SRC, DST>(src: &SRC, dest: &mut DST, size: &FastImageSize) -> Result<()>
     where
-        SRC: FastImage<D = f32, C = Chan1>,
-        DST: MutableFastImage<D = f32, C = Chan1>,
+        SRC: FastImage<D = f32>,
+        DST: MutableFastImage<D = f32>,
     {
         for (src_row, dest_row) in src
             .valid_row_iter(size)?
@@ -1195,8 +1133,8 @@ pub mod ripp {
 
     pub fn convert_8u32f_c1r<S, D>(src: &S, dest: &mut D, size: &FastImageSize) -> Result<()>
     where
-        S: FastImage<D = u8, C = Chan1>,
-        D: MutableFastImage<D = f32, C = Chan1>,
+        S: FastImage<D = u8>,
+        D: MutableFastImage<D = f32>,
     {
         for (src_row, dest_row) in src
             .valid_row_iter(size)?
@@ -1216,8 +1154,8 @@ pub mod ripp {
         round_mode: RoundMode,
     ) -> Result<()>
     where
-        SRC: FastImage<D = f32, C = Chan1>,
-        DST: MutableFastImage<D = u8, C = Chan1>,
+        SRC: FastImage<D = f32>,
+        DST: MutableFastImage<D = u8>,
     {
         for (src_row, dest_row) in src
             .valid_row_iter(size)?
@@ -1240,8 +1178,8 @@ pub mod ripp {
         cmp_op: CompareOp,
     ) -> Result<()>
     where
-        SRC: FastImage<D = u8, C = Chan1>,
-        DST: MutableFastImage<D = u8, C = Chan1>,
+        SRC: FastImage<D = u8>,
+        DST: MutableFastImage<D = u8>,
     {
         for (src_row, dest_row) in src
             .valid_row_iter(size)?
@@ -1263,7 +1201,7 @@ pub mod ripp {
 
     pub fn min_indx_8u_c1r<S>(src: &S, size: &FastImageSize) -> Result<(u8, Point)>
     where
-        S: FastImage<D = u8, C = Chan1>,
+        S: FastImage<D = u8>,
     {
         let mut value = 255;
         let mut loc = Point::new(0, 0);
@@ -1282,7 +1220,7 @@ pub mod ripp {
 
     pub fn max_indx_8u_c1r<S>(src: &S, size: &FastImageSize) -> Result<(u8, Point)>
     where
-        S: FastImage<D = u8, C = Chan1>,
+        S: FastImage<D = u8>,
     {
         let mut max_all = 0;
         let mut loc = Point::new(0, 0);
@@ -1324,7 +1262,7 @@ pub mod ripp {
         cmp_op: CompareOp,
     ) -> Result<()>
     where
-        SRCDST: MutableFastImage<D = u8, C = Chan1>,
+        SRCDST: MutableFastImage<D = u8>,
     {
         const SIMD_SIZE: usize = 32;
         match cmp_op {
@@ -1376,9 +1314,9 @@ pub mod ripp {
         scale_factor: ipp_ctypes::c_int,
     ) -> Result<()>
     where
-        S1: FastImage<D = u8, C = Chan1>,
-        S2: FastImage<D = u8, C = Chan1>,
-        D: MutableFastImage<D = u8, C = Chan1>,
+        S1: FastImage<D = u8>,
+        S2: FastImage<D = u8>,
+        D: MutableFastImage<D = u8>,
     {
         if scale_factor != 0 {
             return Err(Error::NotImplemented);
@@ -1404,9 +1342,9 @@ pub mod ripp {
         size: &FastImageSize,
     ) -> Result<()>
     where
-        S1: FastImage<D = f32, C = Chan1>,
-        S2: FastImage<D = f32, C = Chan1>,
-        D: MutableFastImage<D = f32, C = Chan1>,
+        S1: FastImage<D = f32>,
+        S2: FastImage<D = f32>,
+        D: MutableFastImage<D = f32>,
     {
         for ((im1_row, im2_row), dest_row) in src1
             .valid_row_iter(size)?
@@ -1422,8 +1360,8 @@ pub mod ripp {
 
     pub fn abs_32f_c1r<S, D>(src: &S, dest: &mut D, size: &FastImageSize) -> Result<()>
     where
-        S: FastImage<D = f32, C = Chan1>,
-        D: MutableFastImage<D = f32, C = Chan1>,
+        S: FastImage<D = f32>,
+        D: MutableFastImage<D = f32>,
     {
         for (src_row, dest_row) in src
             .valid_row_iter(size)?
@@ -1438,7 +1376,7 @@ pub mod ripp {
 
     pub fn sqrt_32f_c1ir<SRCDST>(src_dest: &mut SRCDST, size: &FastImageSize) -> Result<()>
     where
-        SRCDST: MutableFastImage<D = f32, C = Chan1>,
+        SRCDST: MutableFastImage<D = f32>,
     {
         for srcdest_row in src_dest.valid_row_iter_mut(size)? {
             for srcdest in srcdest_row.iter_mut() {
@@ -1450,7 +1388,7 @@ pub mod ripp {
 
     pub fn mul_c_32f_c1ir<SD>(k: f32, src_dest: &mut SD, size: &FastImageSize) -> Result<()>
     where
-        SD: MutableFastImage<D = f32, C = Chan1>,
+        SD: MutableFastImage<D = f32>,
     {
         for srcdest_row in src_dest.valid_row_iter_mut(size)? {
             for srcdest in srcdest_row.iter_mut() {
@@ -1471,9 +1409,9 @@ pub mod ripp {
         size: &FastImageSize,
     ) -> Result<()>
     where
-        S1: FastImage<D = u8, C = Chan1>,
-        S2: FastImage<D = u8, C = Chan1>,
-        D: MutableFastImage<D = u8, C = Chan1>,
+        S1: FastImage<D = u8>,
+        S2: FastImage<D = u8>,
+        D: MutableFastImage<D = u8>,
     {
         for ((im1_row, im2_row), dest_row) in src1
             .valid_row_iter(size)?
@@ -1494,8 +1432,8 @@ pub mod ripp {
         alpha: f32,
     ) -> Result<()>
     where
-        SRC: FastImage<D = u8, C = Chan1>,
-        SRCDST: MutableFastImage<D = f32, C = Chan1>,
+        SRC: FastImage<D = u8>,
+        SRCDST: MutableFastImage<D = f32>,
     {
         let one_minus_alpha = 1.0 - alpha;
         for (src_row, src_dst_row) in src
@@ -1516,8 +1454,8 @@ pub mod ripp {
         alpha: f32,
     ) -> Result<()>
     where
-        SRC: FastImage<D = f32, C = Chan1>,
-        SRCDST: MutableFastImage<D = f32, C = Chan1>,
+        SRC: FastImage<D = f32>,
+        SRCDST: MutableFastImage<D = f32>,
     {
         let one_minus_alpha = 1.0 - alpha;
         for (src_row, src_dst_row) in src
@@ -1533,12 +1471,12 @@ pub mod ripp {
 
     pub fn moments_8u_c1r<S>(src: &S, size: &FastImageSize, result: &mut MomentState) -> Result<()>
     where
-        S: FastImage<D = u8, C = Chan1>,
+        S: FastImage<D = u8>,
     {
         let roi = FastImageRegion::new(Point::new(0, 0), *size);
 
         let im_view1 = FastImageView::view_region(src, &roi);
-        let im_view: &dyn FastImage<C = Chan1, D = u8> = &im_view1?;
+        let im_view: &dyn FastImage<D = u8> = &im_view1?;
 
         result.results = Some(imops::calculate_moments(&im_view));
         Ok(())
@@ -1546,7 +1484,7 @@ pub mod ripp {
 
     pub fn set_8u_c1r<DST>(value: u8, dest: &mut DST, size: &FastImageSize) -> Result<()>
     where
-        DST: MutableFastImage<D = u8, C = Chan1>,
+        DST: MutableFastImage<D = u8>,
     {
         for dest_row in dest.valid_row_iter_mut(size)? {
             for dest_el in dest_row.iter_mut() {
@@ -1558,7 +1496,7 @@ pub mod ripp {
 
     pub fn set_32f_c1r<DST>(value: f32, dest: &mut DST, size: &FastImageSize) -> Result<()>
     where
-        DST: MutableFastImage<D = f32, C = Chan1>,
+        DST: MutableFastImage<D = f32>,
     {
         for dest_row in dest.valid_row_iter_mut(size)? {
             for dest_el in dest_row.iter_mut() {
@@ -1570,8 +1508,8 @@ pub mod ripp {
 
     pub fn set_8u_c1mr<D, M>(value: u8, dest: &mut D, size: &FastImageSize, mask: &M) -> Result<()>
     where
-        D: MutableFastImage<D = u8, C = Chan1>,
-        M: FastImage<D = u8, C = Chan1>,
+        D: MutableFastImage<D = u8>,
+        M: FastImage<D = u8>,
     {
         for (mask_row, dest_row) in mask
             .valid_row_iter(size)?
@@ -1588,7 +1526,7 @@ pub mod ripp {
 
     pub fn sqr_32f_c1ir<SRCDST>(src_dest: &mut SRCDST, size: &FastImageSize) -> Result<()>
     where
-        SRCDST: MutableFastImage<D = f32, C = Chan1>,
+        SRCDST: MutableFastImage<D = f32>,
     {
         for srcdest_row in src_dest.valid_row_iter_mut(size)? {
             for srcdest in srcdest_row.iter_mut() {
