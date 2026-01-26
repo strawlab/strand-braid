@@ -143,7 +143,6 @@ where
 {
     data: aligned_vec::ABox<[D]>,
     stride_bytes: ipp_ctypes::c_int,
-    strided_total_n_pixels: usize,
     size: FastImageSize,
 }
 
@@ -178,7 +177,6 @@ where
         Ok(Self {
             data,
             stride_bytes: stride_bytes as i32,
-            strided_total_n_pixels: n_pixels_per_row * height_pixels as usize,
             size: FastImageSize::new(width_pixels, height_pixels),
         })
     }
@@ -243,9 +241,8 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("FastImageData")
-            .field("width", &self.size.width)
-            .field("height", &self.size.height)
-            .field("stride", &self.stride())
+            .field("size", &self.size)
+            .field("stride_bytes", &self.stride_bytes)
             .finish_non_exhaustive()
     }
 }
@@ -263,8 +260,7 @@ where
 
     #[inline]
     fn image_slice(&self) -> &[Self::D] {
-        let typed_ptr = self.raw_ptr();
-        unsafe { std::slice::from_raw_parts(typed_ptr, self.strided_total_n_pixels) }
+        self.data.as_ref()
     }
 
     #[inline]
@@ -291,8 +287,7 @@ where
 
     #[inline]
     fn image_slice(&self) -> &[Self::D] {
-        let typed_ptr = self.raw_ptr();
-        unsafe { std::slice::from_raw_parts(typed_ptr, self.strided_total_n_pixels) }
+        self.data.as_ref()
     }
 
     #[inline]
@@ -317,8 +312,7 @@ where
 
     #[inline]
     fn image_slice_mut(&mut self) -> &mut [Self::D] {
-        let typed_ptr = self.raw_mut_ptr();
-        unsafe { std::slice::from_raw_parts_mut(typed_ptr, self.strided_total_n_pixels) }
+        self.data.as_mut()
     }
 }
 
@@ -902,12 +896,12 @@ where
     }
     fn buffer_ref(&self) -> machine_vision_formats::ImageBufferRef<'_, D::PIXFMT> {
         machine_vision_formats::ImageBufferRef::new(unsafe {
-            std::mem::transmute(self.image_slice())
+            std::mem::transmute::<&[D], &[u8]>(self.image_slice())
         })
     }
     fn buffer(self) -> machine_vision_formats::ImageBuffer<D::PIXFMT> {
         // Ideally we would just move the data, but that is tricky here. So we copy.
-        let data = unsafe { std::mem::transmute::<_, &[u8]>(self.image_slice()) }.to_vec();
+        let data = unsafe { std::mem::transmute::<&[D], &[u8]>(self.image_slice()) }.to_vec();
         machine_vision_formats::ImageBuffer::new(data)
     }
 }
