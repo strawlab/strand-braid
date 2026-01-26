@@ -14,8 +14,6 @@ use plotters::{
 };
 use plotters_canvas::CanvasBackend;
 
-use serde::{Deserialize, Serialize};
-
 use web_sys::{self, console::log_1};
 
 use ads_webasm::components::file_input::FileInput;
@@ -42,23 +40,6 @@ pub struct ValidBraidzFile {
 impl Default for MaybeValidBraidzFile {
     fn default() -> Self {
         MaybeValidBraidzFile::NotLoaded
-    }
-}
-
-// -----------------------------------------------------------------------------
-
-#[derive(Debug, Serialize, Deserialize)]
-struct MyError {}
-
-impl From<std::num::ParseIntError> for MyError {
-    fn from(_orig: std::num::ParseIntError) -> MyError {
-        MyError {}
-    }
-}
-
-impl std::fmt::Display for MyError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "err")
     }
 }
 
