@@ -8,7 +8,7 @@ extern crate criterion;
 use criterion::Criterion;
 use itertools::multizip;
 
-use fastimage::{ipp_ctypes, ripp, Chan1, FastImage, FastImageData};
+use fastimage::{ipp_ctypes, ripp, FastImage, FastImageData};
 
 fn absdiff_8u_v2(img1: &[u8], img2: &[u8], output: &mut [u8]) {
     // see V2 of https://stackoverflow.com/a/35779655/1633026
@@ -37,10 +37,10 @@ fn bench_abs_diff_8u_c1r(c: &mut Criterion) {
 
     const W: ipp_ctypes::c_int = 1280;
     const H: ipp_ctypes::c_int = 1024;
-    let im10 = FastImageData::<Chan1, u8>::new(W, H, 10).unwrap();
-    let im9 = FastImageData::<Chan1, u8>::new(W, H, 9).unwrap();
+    let im10 = FastImageData::<u8>::new(W, H, 10).unwrap();
+    let im9 = FastImageData::<u8>::new(W, H, 9).unwrap();
 
-    let mut im_dest = FastImageData::<Chan1, u8>::new(W, H, 0).unwrap();
+    let mut im_dest = FastImageData::<u8>::new(W, H, 0).unwrap();
 
     let size = *im_dest.size();
     c.bench_function("abs_diff_8u_c1r", move |b| {

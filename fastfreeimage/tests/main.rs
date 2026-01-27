@@ -1,41 +1,38 @@
 use anyhow::Result;
 
 use fastfreeimage::{
-    ripp, Chan1, ChanTrait, CompareOp, FastImage, FastImageData, FastImageView, MomentState,
-    MutableFastImage, MutableFastImageView,
+    ripp, CompareOp, FastImage, FastImageData, FastImageView, MomentState, MutableFastImage,
+    MutableFastImageView, PixelType,
 };
 
 trait BackCompat<S> {
     fn all_equal(&self, other: S) -> bool;
 }
 
-impl<S, D, C> BackCompat<S> for MutableFastImageView<'_, C, D>
+impl<S, D> BackCompat<S> for MutableFastImageView<'_, D>
 where
-    C: 'static + ChanTrait,
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
-    S: FastImage<D = D, C = C>,
+    D: PixelType + std::fmt::Debug,
+    S: FastImage<D = D>,
 {
     fn all_equal(&self, other: S) -> bool {
         fastfreeimage::fi_equal(self, other)
     }
 }
 
-impl<S, D, C> BackCompat<S> for FastImageView<'_, C, D>
+impl<S, D> BackCompat<S> for FastImageView<'_, D>
 where
-    C: 'static + ChanTrait,
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
-    S: FastImage<D = D, C = C>,
+    D: PixelType + std::fmt::Debug,
+    S: FastImage<D = D>,
 {
     fn all_equal(&self, other: S) -> bool {
         fastfreeimage::fi_equal(self, other)
     }
 }
 
-impl<S, D, C> BackCompat<S> for FastImageData<C, D>
+impl<S, D> BackCompat<S> for FastImageData<D>
 where
-    C: 'static + ChanTrait,
-    D: 'static + Copy + std::fmt::Debug + PartialEq,
-    S: FastImage<D = D, C = C>,
+    D: PixelType + std::fmt::Debug,
+    S: FastImage<D = D>,
 {
     fn all_equal(&self, other: S) -> bool {
         fastfreeimage::fi_equal(self, other)
@@ -46,7 +43,7 @@ where
 fn test_new_u8() -> Result<()> {
     let w = 5;
     let h = 6;
-    let im10 = FastImageData::<Chan1, u8>::new(w, h, 10)?;
+    let im10 = FastImageData::<u8>::new(w, h, 10)?;
     assert!(im10.pixel_slice(4, 3) == [10]);
     Ok(())
 }
@@ -55,7 +52,7 @@ fn test_new_u8() -> Result<()> {
 fn test_my_image_f32() -> Result<()> {
     let w = 6;
     let h = 7;
-    let mut im10 = FastImageData::<Chan1, f32>::new(w, h, 10.0)?;
+    let mut im10 = FastImageData::<f32>::new(w, h, 10.0)?;
     println!("im10 {:?}", im10);
     assert!(im10.pixel_slice(4, 3) == [10.0]);
 
@@ -68,7 +65,7 @@ fn test_my_image_f32() -> Result<()> {
 fn test_view() -> Result<()> {
     let w = 10;
     let h = 10;
-    let mut im10 = FastImageData::<Chan1, u8>::new(w, h, 0)?;
+    let mut im10 = FastImageData::<u8>::new(w, h, 0)?;
 
     // fill array with useful pattern
     for row in 0..h as usize {
@@ -94,7 +91,7 @@ fn test_view() -> Result<()> {
     }
 
     let value = 123;
-    let result_im = FastImageData::<Chan1, u8>::new(3, 4, value)?;
+    let result_im = FastImageData::<u8>::new(3, 4, value)?;
 
     {
         // check contents of ROI for MutableFastImageView
@@ -124,7 +121,7 @@ fn test_view() -> Result<()> {
 fn test_end_of_roi() -> Result<()> {
     let w = 10;
     let h = 10;
-    let mut im10 = FastImageData::<Chan1, u8>::new(w, h, 0)?;
+    let mut im10 = FastImageData::<u8>::new(w, h, 0)?;
 
     // fill array with useful pattern
     for row in 0..h as usize {
@@ -150,7 +147,7 @@ fn test_end_of_roi() -> Result<()> {
     }
 
     let value = 123;
-    let result_im = FastImageData::<Chan1, u8>::new(3, 4, value)?;
+    let result_im = FastImageData::<u8>::new(3, 4, value)?;
 
     {
         // check contents of ROI for MutableFastImageView
@@ -178,20 +175,20 @@ fn test_end_of_roi() -> Result<()> {
 
 #[test]
 fn test_mask() -> Result<()> {
-    let mut im_dest = FastImageData::<Chan1, u8>::new(3, 4, 123)?;
+    let mut im_dest = FastImageData::<u8>::new(3, 4, 123)?;
     let size = *im_dest.size();
 
     {
-        let im123 = FastImageData::<Chan1, u8>::new(3, 4, 123)?;
+        let im123 = FastImageData::<u8>::new(3, 4, 123)?;
 
-        let im0 = FastImageData::<Chan1, u8>::new(3, 4, 0)?;
+        let im0 = FastImageData::<u8>::new(3, 4, 0)?;
         ripp::set_8u_c1mr(22, &mut im_dest, &size, &im0)?;
         assert!(im_dest.all_equal(&im123));
     }
 
     {
-        let im1 = FastImageData::<Chan1, u8>::new(3, 4, 1)?;
-        let im22 = FastImageData::<Chan1, u8>::new(3, 4, 22)?;
+        let im1 = FastImageData::<u8>::new(3, 4, 1)?;
+        let im22 = FastImageData::<u8>::new(3, 4, 22)?;
         ripp::set_8u_c1mr(22, &mut im_dest, &size, &im1)?;
         assert!(im_dest.all_equal(&im22));
     }
@@ -202,12 +199,12 @@ fn test_mask() -> Result<()> {
 fn test_sub() -> Result<()> {
     let w = 5;
     let h = 6;
-    let im10 = FastImageData::<Chan1, u8>::new(w, h, 10)?;
-    let im9 = FastImageData::<Chan1, u8>::new(w, h, 9)?;
-    let im1 = FastImageData::<Chan1, u8>::new(w, h, 1)?;
-    let im0 = FastImageData::<Chan1, u8>::new(w, h, 0)?;
+    let im10 = FastImageData::<u8>::new(w, h, 10)?;
+    let im9 = FastImageData::<u8>::new(w, h, 9)?;
+    let im1 = FastImageData::<u8>::new(w, h, 1)?;
+    let im0 = FastImageData::<u8>::new(w, h, 0)?;
 
-    let mut im_dest = FastImageData::<Chan1, u8>::new(w, h, 0)?;
+    let mut im_dest = FastImageData::<u8>::new(w, h, 0)?;
 
     let size = *im_dest.size();
 
@@ -239,10 +236,10 @@ fn test_sub() -> Result<()> {
 fn test_compare() -> Result<()> {
     let w = 5;
     let h = 6;
-    let im10 = FastImageData::<Chan1, u8>::new(w, h, 10)?;
-    let im0 = FastImageData::<Chan1, u8>::new(w, h, 0)?;
-    let im255 = FastImageData::<Chan1, u8>::new(w, h, 255)?;
-    let mut im_dest = FastImageData::<Chan1, u8>::new(w, h, 99)?;
+    let im10 = FastImageData::<u8>::new(w, h, 10)?;
+    let im0 = FastImageData::<u8>::new(w, h, 0)?;
+    let im255 = FastImageData::<u8>::new(w, h, 255)?;
+    let mut im_dest = FastImageData::<u8>::new(w, h, 99)?;
     let size = *im_dest.size();
 
     {
@@ -266,10 +263,10 @@ fn test_compare() -> Result<()> {
 
 #[test]
 fn test_image_slice() -> Result<()> {
-    fn inner<D: 'static + Copy + PartialEq>(value: D) -> Result<()> {
+    fn inner<D: PixelType>(value: D) -> Result<()> {
         let w = 5;
         let h = 6;
-        let im0: FastImageData<Chan1, D> = FastImageData::<Chan1, D>::new(w, h, value)?;
+        let im0: FastImageData<D> = FastImageData::<D>::new(w, h, value)?;
         assert!(im0.image_slice().len() >= (w * h) as usize);
         Ok(())
     }
@@ -280,10 +277,10 @@ fn test_image_slice() -> Result<()> {
 
 #[test]
 fn test_valid_row_iter() -> Result<()> {
-    fn inner<D: 'static + Copy + PartialEq>(value: D) -> Result<()> {
+    fn inner<D: PixelType>(value: D) -> Result<()> {
         let w = 5;
         let h = 6;
-        let im0: FastImageData<Chan1, D> = FastImageData::<Chan1, D>::new(w, h, value)?;
+        let im0: FastImageData<D> = FastImageData::<D>::new(w, h, value)?;
         let mut n_rows = 0;
         for row in im0.valid_row_iter(im0.size())? {
             n_rows += 1;
@@ -302,10 +299,10 @@ fn test_abs_diff_small() -> Result<()> {
     // This tests strides, padding, etc.
     let w = 5;
     let h = 6;
-    let im10 = FastImageData::<Chan1, u8>::new(w, h, 10)?;
-    let im9 = FastImageData::<Chan1, u8>::new(w, h, 9)?;
-    let im1 = FastImageData::<Chan1, u8>::new(w, h, 1)?;
-    let im0 = FastImageData::<Chan1, u8>::new(w, h, 0)?;
+    let im10 = FastImageData::<u8>::new(w, h, 10)?;
+    let im9 = FastImageData::<u8>::new(w, h, 9)?;
+    let im1 = FastImageData::<u8>::new(w, h, 1)?;
+    let im0 = FastImageData::<u8>::new(w, h, 0)?;
 
     assert_ne!(im0, im1);
     assert_ne!(im0, im9);
@@ -315,7 +312,7 @@ fn test_abs_diff_small() -> Result<()> {
     assert_eq!(im9, im9);
     assert_eq!(im10, im10);
 
-    let mut im_dest = FastImageData::<Chan1, u8>::new(w, h, 0)?;
+    let mut im_dest = FastImageData::<u8>::new(w, h, 0)?;
 
     let size = *im_dest.size();
 
@@ -338,10 +335,10 @@ fn test_abs_diff_size() -> Result<()> {
     // This tests strides, padding, etc.
     let w = 10;
     let h = 10;
-    let im10 = FastImageData::<Chan1, u8>::new(w, h, 10)?;
-    let im9 = FastImageData::<Chan1, u8>::new(w, h, 9)?;
-    let im1 = FastImageData::<Chan1, u8>::new(w, h, 1)?;
-    let im0 = FastImageData::<Chan1, u8>::new(w, h, 0)?;
+    let im10 = FastImageData::<u8>::new(w, h, 10)?;
+    let im9 = FastImageData::<u8>::new(w, h, 9)?;
+    let im1 = FastImageData::<u8>::new(w, h, 1)?;
+    let im0 = FastImageData::<u8>::new(w, h, 0)?;
 
     assert_ne!(im0, im1);
     assert_ne!(im0, im9);
@@ -351,7 +348,7 @@ fn test_abs_diff_size() -> Result<()> {
     assert_eq!(im9, im9);
     assert_eq!(im10, im10);
 
-    let mut im_dest = FastImageData::<Chan1, u8>::new(w, h, 0)?;
+    let mut im_dest = FastImageData::<u8>::new(w, h, 0)?;
 
     let size = *im_dest.size();
 
@@ -382,10 +379,10 @@ fn test_abs_diff_large() -> Result<()> {
     let w = 1280;
     let h = 1024;
 
-    let im10 = FastImageData::<Chan1, u8>::new(w, h, 10)?;
-    let im9 = FastImageData::<Chan1, u8>::new(w, h, 9)?;
-    let im1 = FastImageData::<Chan1, u8>::new(w, h, 1)?;
-    let im0 = FastImageData::<Chan1, u8>::new(w, h, 0)?;
+    let im10 = FastImageData::<u8>::new(w, h, 10)?;
+    let im9 = FastImageData::<u8>::new(w, h, 9)?;
+    let im1 = FastImageData::<u8>::new(w, h, 1)?;
+    let im0 = FastImageData::<u8>::new(w, h, 0)?;
 
     assert_ne!(im0, im1);
     assert_ne!(im0, im9);
@@ -395,7 +392,7 @@ fn test_abs_diff_large() -> Result<()> {
     assert_eq!(im9, im9);
     assert_eq!(im10, im10);
 
-    let mut im_dest = FastImageData::<Chan1, u8>::new(w, h, 0)?;
+    let mut im_dest = FastImageData::<u8>::new(w, h, 0)?;
 
     let size = *im_dest.size();
 
@@ -415,42 +412,42 @@ fn test_add_weighted_in_place() -> Result<()> {
     let w = 5;
     let h = 6;
     {
-        let mut im_dest = FastImageData::<Chan1, f32>::new(w, h, 12.0)?;
-        let im4 = FastImageData::<Chan1, u8>::new(w, h, 4)?;
+        let mut im_dest = FastImageData::<f32>::new(w, h, 12.0)?;
+        let im4 = FastImageData::<u8>::new(w, h, 4)?;
 
         ripp::add_weighted_8u32f_c1ir(&im4, &mut im_dest, im4.size(), 0.25)?;
 
-        let im10 = FastImageData::<Chan1, f32>::new(w, h, 10.0)?;
+        let im10 = FastImageData::<f32>::new(w, h, 10.0)?;
         assert!(im_dest.all_equal(im10));
     }
 
     {
-        let mut im_dest = FastImageData::<Chan1, f32>::new(w, h, 4.0)?;
-        let im0 = FastImageData::<Chan1, u8>::new(w, h, 0)?;
+        let mut im_dest = FastImageData::<f32>::new(w, h, 4.0)?;
+        let im0 = FastImageData::<u8>::new(w, h, 0)?;
 
         ripp::add_weighted_8u32f_c1ir(&im0, &mut im_dest, im0.size(), 0.25)?;
 
-        let im3 = FastImageData::<Chan1, f32>::new(w, h, 3.0)?;
+        let im3 = FastImageData::<f32>::new(w, h, 3.0)?;
         assert!(im_dest.all_equal(im3));
     }
 
     {
-        let mut im_dest = FastImageData::<Chan1, f32>::new(w, h, 0.0)?;
-        let im4 = FastImageData::<Chan1, u8>::new(w, h, 4)?;
+        let mut im_dest = FastImageData::<f32>::new(w, h, 0.0)?;
+        let im4 = FastImageData::<u8>::new(w, h, 4)?;
 
         ripp::add_weighted_8u32f_c1ir(&im4, &mut im_dest, im4.size(), 0.25)?;
 
-        let im1 = FastImageData::<Chan1, f32>::new(w, h, 1.0)?;
+        let im1 = FastImageData::<f32>::new(w, h, 1.0)?;
         assert!(im_dest.all_equal(im1));
     }
 
     {
-        let mut im_dest = FastImageData::<Chan1, f32>::new(w, h, 12.0)?;
-        let im4 = FastImageData::<Chan1, f32>::new(w, h, 4.0)?;
+        let mut im_dest = FastImageData::<f32>::new(w, h, 12.0)?;
+        let im4 = FastImageData::<f32>::new(w, h, 4.0)?;
 
         ripp::add_weighted_32f_c1ir(&im4, &mut im_dest, im4.size(), 0.25)?;
 
-        let im10 = FastImageData::<Chan1, f32>::new(w, h, 10.0)?;
+        let im10 = FastImageData::<f32>::new(w, h, 10.0)?;
         assert!(im_dest.all_equal(im10));
     }
     Ok(())
@@ -461,7 +458,7 @@ fn test_min_max() -> Result<()> {
     let w = 20;
     let h = 20;
 
-    let mut im = FastImageData::<Chan1, u8>::new(w, h, 10)?;
+    let mut im = FastImageData::<u8>::new(w, h, 10)?;
     im.pixel_slice_mut(4, 3)[0] = 20;
     im.pixel_slice_mut(14, 13)[0] = 9;
 
@@ -494,7 +491,7 @@ fn eigen_2x2_real(a: f64, b: f64, c: f64, d: f64) -> Result<(f64, f64, f64, f64)
 fn test_threshold_val_8u_c1ir() -> Result<()> {
     let w = 5;
     let h = 1;
-    let mut im = FastImageData::<Chan1, u8>::new(w, h, 0)?;
+    let mut im = FastImageData::<u8>::new(w, h, 0)?;
     im.pixel_slice_mut(0, 0)[0] = 20;
     im.pixel_slice_mut(0, 1)[0] = 21;
     im.pixel_slice_mut(0, 2)[0] = 22;
@@ -504,7 +501,7 @@ fn test_threshold_val_8u_c1ir() -> Result<()> {
     let size = &im.size().clone();
     ripp::threshold_val_8u_c1ir(&mut im, size, 22, 0, CompareOp::Less)?;
 
-    let mut expected = FastImageData::<Chan1, u8>::new(w, h, 0)?;
+    let mut expected = FastImageData::<u8>::new(w, h, 0)?;
     expected.pixel_slice_mut(0, 0)[0] = 0;
     expected.pixel_slice_mut(0, 1)[0] = 0;
     expected.pixel_slice_mut(0, 2)[0] = 22;
@@ -518,7 +515,7 @@ fn test_threshold_val_8u_c1ir() -> Result<()> {
 fn test_get_orientation() -> Result<()> {
     let w = 20;
     let h = 20;
-    let mut im = FastImageData::<Chan1, u8>::new(w, h, 0)?;
+    let mut im = FastImageData::<u8>::new(w, h, 0)?;
 
     let expected_slope = 1.618; // TODO actually check that this has a slope of ~1.618
     im.pixel_slice_mut(4, 3)[0] = 1;
@@ -579,8 +576,7 @@ macro_rules! gen_test_alloc {
             let ws = vec![1, 2, 3, 31, 32, 33, 62, 63, 64, 65, 66];
             let h = 10;
             for w in ws.iter() {
-                let im =
-                    fastfreeimage::FastImageData::<Chan1, $ty>::new(*w, h, $pixel_val).unwrap();
+                let im = fastfreeimage::FastImageData::<$ty>::new(*w, h, $pixel_val).unwrap();
                 println!("width: {}, stride: {}", w, im.stride());
 
                 // Test the value of the last valid element.

@@ -39,6 +39,7 @@ members = [
     "camera/vimba",
     "event-stream-types",
     "fastfreeimage",
+    "fastimage",
     "flydra-feature-detector",
     "flydra-feature-detector/flydra-feature-detector-types",
     "flydra-feature-detector/flydra-pt-detect-cfg",

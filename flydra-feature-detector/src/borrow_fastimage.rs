@@ -44,12 +44,11 @@ where
     }
 }
 
-pub(crate) fn borrow_fi<C, D, FMT>(
-    fid: &fastim_mod::FastImageData<C, D>,
+pub(crate) fn borrow_fi<D, FMT>(
+    fid: &fastim_mod::FastImageData<D>,
 ) -> Result<BorrowedFrame<'_, FMT>>
 where
-    C: fastim_mod::ChanTrait,
-    D: Copy + num_traits::Zero + PartialEq,
+    D: fastim_mod::PixelType,
     FMT: Clone,
 {
     let stride = fid.stride() as usize;

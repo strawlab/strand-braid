@@ -22,7 +22,7 @@ use chrono::{DateTime, Utc};
 use std::fs::File;
 
 use fastim_mod::{
-    ipp_ctypes, ripp, AlgorithmHint, Chan1, CompareOp, FastImage, FastImageData, FastImageRegion,
+    ipp_ctypes, ripp, AlgorithmHint, CompareOp, FastImage, FastImageData, FastImageRegion,
     FastImageSize, FastImageView, MomentState, MutableFastImage, MutableFastImageView,
 };
 
@@ -113,8 +113,8 @@ impl PointInfo {
 struct TrackingState {
     background: BackgroundModel,
     moments: MomentState,
-    absdiff_im: FastImageData<Chan1, u8>,
-    cmpdiff_im: FastImageData<Chan1, u8>,
+    absdiff_im: FastImageData<u8>,
+    cmpdiff_im: FastImageData<u8>,
     frames_since_background_update: u32,
 }
 
@@ -133,14 +133,14 @@ impl TrackingState {
     /// Allocate new TrackingState
     fn new<S>(
         raw_im_full: &S,
-        running_mean: FastImageData<Chan1, f32>,
-        mean_squared_im: FastImageData<Chan1, f32>,
+        running_mean: FastImageData<f32>,
+        mean_squared_im: FastImageData<f32>,
         cfg: &ImPtDetectCfg,
         pixel_format: formats::PixFmt,
         complete_stamp: chrono::DateTime<chrono::Utc>,
     ) -> Result<Self>
     where
-        S: FastImage<C = Chan1, D = u8>,
+        S: FastImage<D = u8>,
     {
         let (w, h) = (running_mean.width(), running_mean.height());
 
@@ -156,8 +156,8 @@ impl TrackingState {
         Ok(Self {
             moments: MomentState::new(AlgorithmHint::Fast)?,
             background,
-            absdiff_im: FastImageData::<Chan1, u8>::new(w, h, 0)?,
-            cmpdiff_im: FastImageData::<Chan1, u8>::new(w, h, 0)?,
+            absdiff_im: FastImageData::<u8>::new(w, h, 0)?,
+            cmpdiff_im: FastImageData::<u8>::new(w, h, 0)?,
             frames_since_background_update: 0,
         })
     }
@@ -169,8 +169,8 @@ impl TrackingState {
         maybe_mask_image: Option<&S2>,
     ) -> Result<Vec<PointInfo>>
     where
-        S1: FastImage<D = u8, C = Chan1>,
-        S2: FastImage<D = u8, C = Chan1>,
+        S1: FastImage<D = u8>,
+        S2: FastImage<D = u8>,
     {
         let mut all_points_found = Vec::new();
 
@@ -391,8 +391,8 @@ enum BackgroundAcquisitionState {
 
 struct StartupState {
     n_frames: usize,
-    running_mean: FastImageData<Chan1, f32>,
-    mean_squared_im: FastImageData<Chan1, f32>, // "running_sumsq" in realtime_image_analysis
+    running_mean: FastImageData<f32>,
+    mean_squared_im: FastImageData<f32>, // "running_sumsq" in realtime_image_analysis
 }
 
 impl std::fmt::Debug for StartupState {
@@ -426,7 +426,7 @@ pub struct FlydraFeatureDetector {
     roi_sz: FastImageSize,
     #[allow(dead_code)]
     last_sent_raw_image_time: std::time::Instant,
-    mask_image: Option<FastImageData<Chan1, u8>>,
+    mask_image: Option<FastImageData<u8>>,
     background_update_state: BackgroundAcquisitionState, // command from UI "take a new bg image"
     acquisition_histogram: AcquisitionHistogram,
     acquisition_duration_allowed_imprecision_msec: Option<f64>,
@@ -721,10 +721,9 @@ impl FlydraFeatureDetector {
                 panic!("unreachable");
             }
             BackgroundAcquisitionState::Initialization => {
-                let running_mean = FastImageData::<Chan1, f32>::copy_from_8u32f_c1(&raw_im_full)?;
+                let running_mean = FastImageData::<f32>::copy_from_8u32f_c1(&raw_im_full)?;
 
-                let mut mean_squared_im =
-                    FastImageData::<Chan1, f32>::copy_from_8u32f_c1(&raw_im_full)?;
+                let mut mean_squared_im = FastImageData::<f32>::copy_from_8u32f_c1(&raw_im_full)?;
                 ripp::sqr_32f_c1ir(&mut mean_squared_im, &self.roi_sz)?;
 
                 let startup_state = StartupState {
@@ -777,14 +776,10 @@ impl FlydraFeatureDetector {
                 }
             }
             BackgroundAcquisitionState::ClearToValue(value) => {
-                let running_mean = FastImageData::<Chan1, f32>::new(
-                    raw_im_full.width(),
-                    raw_im_full.height(),
-                    value,
-                )?;
+                let running_mean =
+                    FastImageData::<f32>::new(raw_im_full.width(), raw_im_full.height(), value)?;
 
-                let mut mean_squared_im =
-                    FastImageData::<Chan1, f32>::copy_from_32f_c1(&running_mean)?;
+                let mut mean_squared_im = FastImageData::<f32>::copy_from_32f_c1(&running_mean)?;
                 ripp::sqr_32f_c1ir(&mut mean_squared_im, &self.roi_sz)?;
 
                 let complete_stamp = timestamp_utc;
@@ -866,16 +861,12 @@ impl FlydraFeatureDetector {
     }
 }
 
-pub fn compute_mask_image(
-    roi_sz: &FastImageSize,
-    shape: &Shape,
-) -> Result<FastImageData<Chan1, u8>> {
+pub fn compute_mask_image(roi_sz: &FastImageSize, shape: &Shape) -> Result<FastImageData<u8>> {
     // mask_image
     let mask_value = 255;
     let use_value = 0;
 
-    let mut mask_image =
-        FastImageData::<Chan1, u8>::new(roi_sz.width(), roi_sz.height(), use_value)?;
+    let mut mask_image = FastImageData::<u8>::new(roi_sz.width(), roi_sz.height(), use_value)?;
     let size = *mask_image.size();
     let mask_row_iter = mask_image.valid_row_iter_mut(&size)?;
 
@@ -942,7 +933,7 @@ fn test_mask_polygon() -> anyhow::Result<()> {
     });
     let mask = compute_mask_image(&roi_sz, &shape)?;
     let expected = {
-        let mut full = FastImageData::<_, u8>::new(12, 8, 255)?;
+        let mut full = FastImageData::<u8>::new(12, 8, 255)?;
         for row in 1..7 {
             for col in 1..11 {
                 full.pixel_slice_mut(row, col)[0] = 0;
@@ -964,7 +955,7 @@ fn test_mask_circle() -> anyhow::Result<()> {
     });
     let mask = compute_mask_image(&roi_sz, &shape)?;
     let expected = {
-        let mut full = FastImageData::<_, u8>::new(13, 9, 255)?;
+        let mut full = FastImageData::<u8>::new(13, 9, 255)?;
         for row in [0, 8] {
             for col in 4..9 {
                 full.pixel_slice_mut(row, col)[0] = 0;
@@ -1004,7 +995,7 @@ fn test_mask_multiple_circles() -> anyhow::Result<()> {
     let shape = Shape::MultipleCircles(circles);
     let mask = compute_mask_image(&roi_sz, &shape)?;
     let expected = {
-        let mut full = FastImageData::<_, u8>::new(8, 3, 255)?;
+        let mut full = FastImageData::<u8>::new(8, 3, 255)?;
         let row = 1;
         for col in [2, 6] {
             full.pixel_slice_mut(row, col)[0] = 0;
