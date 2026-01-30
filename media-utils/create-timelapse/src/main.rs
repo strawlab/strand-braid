@@ -89,7 +89,7 @@ impl<'a> frame_source::h264_source::H264Preparser for MyPreParser<'a> {
                     )
                 })?;
                 let mut my_mp4_writer =
-                    mp4_writer::Mp4Writer::new(out_fd, self.mp4_cfg.clone().unwrap())?;
+                    mp4_writer::Mp4Writer::new(out_fd, self.mp4_cfg.clone().unwrap(), None)?;
                 my_mp4_writer.set_first_sps_pps(
                     self.sps.as_ref().map(|x| x.0.clone()),
                     self.pps.as_ref().map(|x| x.0.clone()),

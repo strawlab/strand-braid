@@ -12,6 +12,6 @@ h264-reader.workspace = true
 chrono.workspace = true
 
 strand-cam-remote-control.workspace = true
-mp4-writer.workspace = true
+mp4-writer = { workspace = true, features = ["nv-encode"] }
 frame-source.workspace = true
 env-tracing-logger.workspace = true
