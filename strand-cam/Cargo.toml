@@ -81,7 +81,7 @@ lstsq.workspace = true
 opencv-ros-camera.workspace = true
 approx = { workspace = true, optional = true }
 byteorder.workspace = true
-target = "2.0.0"
+target.workspace = true
 hyper-util.workspace = true
 http-body-util.workspace = true
 tower.workspace = true
