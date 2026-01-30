@@ -26,8 +26,6 @@ use fastim_mod::{
     FastImageSize, FastImageView, MomentState, MutableFastImage, MutableFastImageView,
 };
 
-use formats::{pixel_format::Mono32f, Stride};
-
 use braid_types::{FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, RawCamName};
 use strand_dynamic_frame::DynamicFrame;
 use ufmf::UFMFWriter;
@@ -407,6 +405,7 @@ fn save_bg_data(
     ufmf_writer: &mut ufmf::UFMFWriter<std::fs::File>,
     state_background: &background_model::BackgroundModel,
 ) -> Result<()> {
+    use formats::pixel_format::Mono32f;
     let ts = state_background.complete_stamp;
     let mean: BorrowedFrame<Mono32f> = borrow_fi(&state_background.mean_background)?;
     let sumsq: BorrowedFrame<Mono32f> = borrow_fi(&state_background.mean_squared_im)?;
@@ -679,8 +678,6 @@ impl FlydraFeatureDetector {
             }
         };
 
-        use machine_vision_formats::ImageData;
-
         let frame_ref = orig_frame;
         let frame = frame_ref
             .into_pixel_format::<formats::pixel_format::Mono8>()
@@ -688,12 +685,7 @@ impl FlydraFeatureDetector {
         let pixel_format =
             machine_vision_formats::pixel_format::pixfmt::<formats::pixel_format::Mono8>().unwrap();
 
-        let raw_im_full = FastImageView::view_raw(
-            frame.image_data(),
-            frame.stride() as ipp_ctypes::c_int,
-            frame.width() as ipp_ctypes::c_int,
-            frame.height() as ipp_ctypes::c_int,
-        )?;
+        let raw_im_full = frame;
 
         if raw_im_full.size() != self.roi_sz {
             return Err(Error::ImageSizeChanged);

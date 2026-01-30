@@ -1,16 +1,14 @@
-use crate::{errors::Error, fastim_mod, ipp_ctypes, Result};
+use crate::{errors::Error, fastim_mod, Result};
 
 use tracing::{debug, error};
 
 use chrono::{DateTime, Utc};
 use flydra_feature_detector_types::ImPtDetectCfg;
-use machine_vision_formats::{self as formats, ImageData, Stride};
+use machine_vision_formats as formats;
 
 use strand_dynamic_frame::{DynamicFrame, DynamicFrameOwned};
 
-use fastim_mod::{
-    ripp, CompareOp, FastImage, FastImageData, FastImageRegion, FastImageView, RoundMode,
-};
+use fastim_mod::{ripp, CompareOp, FastImage, FastImageData, FastImageRegion, RoundMode};
 
 type ToWorker = (DynamicFrameOwned, DateTime<Utc>, ImPtDetectCfg);
 type FromWorker = (
@@ -95,14 +93,7 @@ impl BackgroundModel {
                         .into_pixel_format::<formats::pixel_format::Mono8>()
                         .unwrap();
 
-                    let raw_im_full = FastImageView::view_raw(
-                        frame.image_data(),
-                        frame.stride() as ipp_ctypes::c_int,
-                        frame.width() as ipp_ctypes::c_int,
-                        frame.height() as ipp_ctypes::c_int,
-                    )
-                    .expect("view full raw image");
-
+                    let raw_im_full = frame;
                     worker.do_bg_update(&raw_im_full, &cfg).expect("bg update");
 
                     let running_mean =

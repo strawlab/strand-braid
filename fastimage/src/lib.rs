@@ -435,7 +435,7 @@ impl<'a> FastImageView<'a, u8> {
         )
     }
 
-    pub fn view_raw(
+    fn view_raw(
         data: &'a [u8],
         stride: ipp_ctypes::c_int,
         width_pixels: ipp_ctypes::c_int,
@@ -526,7 +526,7 @@ impl<'a> MutableFastImageView<'a, u8> {
         MutableFastImageView::view_raw(&mut data[i0..], stride, roi.size.width(), roi.size.height())
     }
 
-    pub fn view_raw(
+    fn view_raw(
         data: &'a mut [u8],
         stride: ipp_ctypes::c_int,
         width_pixels: ipp_ctypes::c_int,
@@ -1512,6 +1512,34 @@ impl std::fmt::Debug for IppVersion {
 }
 
 // ----
+
+impl<IM> FastImage for IM
+where
+    IM: machine_vision_formats::ImageStride<machine_vision_formats::pixel_format::Mono8>,
+{
+    type D = u8;
+
+    fn image_slice(&self) -> &[u8] {
+        machine_vision_formats::ImageData::image_data(self)
+    }
+
+    fn raw_ptr(&self) -> *const u8 {
+        self.image_slice().as_ptr()
+    }
+
+    fn stride(&self) -> ipp_ctypes::c_int {
+        machine_vision_formats::Stride::stride(self)
+            .try_into()
+            .unwrap()
+    }
+
+    fn size(&self) -> FastImageSize {
+        FastImageSize::new(
+            machine_vision_formats::ImageData::width(self) as ipp_ctypes::c_int,
+            machine_vision_formats::ImageData::height(self) as ipp_ctypes::c_int,
+        )
+    }
+}
 
 /// Check if two FastImages have same size and values.
 fn fi_equal<D, SRC1, SRC2>(self_: SRC1, other: SRC2) -> bool
