@@ -112,20 +112,19 @@ mod simd_generic {
         for ((rowdata_im1, rowdata_im2), outdata) in chunk_iter1.zip(chunk_iter2).zip(outchunk_iter)
         {
             {
-                let (prefix_data1, main_row_data1, remainder_data1) = rowdata_im1.as_simd();
-                let (prefix_data2, main_row_data2, remainder_data2) = rowdata_im2.as_simd();
-                let (prefix_outdata, main_row_outdata, remainder_outdata) = outdata.as_simd_mut();
-                scalar_adsdiff(prefix_data1, prefix_data2, prefix_outdata);
+                let mut im1_chunk_iter = rowdata_im1.chunks_exact(32);
+                let mut im2_chunk_iter = rowdata_im2.chunks_exact(32);
+                let mut out_chunk_iter = outdata.chunks_exact_mut(32);
 
-                for ((a, b), c) in main_row_data1
-                    .iter()
-                    .zip(main_row_data2.iter())
-                    .zip(main_row_outdata.iter_mut())
+                for ((a,b), c) in (&mut im1_chunk_iter).zip(&mut im2_chunk_iter).zip(&mut out_chunk_iter)
                 {
-                    *c = absdiff_u8x32(*a, *b);
+                    let vec_im1 = u8x32::from_slice(a);
+                    let vec_im2 = u8x32::from_slice(b);
+                    let out_vec = absdiff_u8x32(vec_im1, vec_im2);
+                    c.copy_from_slice(&out_vec.to_array());
                 }
 
-                scalar_adsdiff(remainder_data1, remainder_data2, remainder_outdata);
+                scalar_adsdiff(im1_chunk_iter.remainder(), im2_chunk_iter.remainder(), out_chunk_iter.into_remainder());
             }
         }
 
