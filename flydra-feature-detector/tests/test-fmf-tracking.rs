@@ -5,7 +5,7 @@ const URL_BASE: &str = "https://strawlab-cdn.com/assets";
 const SHA256SUM: &str = "8c9733b7741ae6c0dbe9bd5595db17d0c8eeede743736aac3bf51e55b372f3d9";
 
 #[tokio::test]
-async fn track_fmf() -> anyhow::Result<()> {
+async fn track_fmf() -> eyre::Result<()> {
     let _ = env_logger::builder().is_test(true).try_init();
 
     download_verify::download_verify(

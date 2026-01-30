@@ -7,7 +7,7 @@ fn init() {
 }
 
 #[tokio::test]
-async fn track_small() -> anyhow::Result<()> {
+async fn track_small() -> eyre::Result<()> {
     // At some point, I was having trouble tracking small frames, so I wrote
     // this test.
 
@@ -41,7 +41,7 @@ async fn track_small() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn track_moving_stride() -> anyhow::Result<()> {
+async fn track_moving_stride() -> eyre::Result<()> {
     // Test with stride not equal width and moving point.
     const W: u32 = 31;
     const STRIDE: usize = 32;

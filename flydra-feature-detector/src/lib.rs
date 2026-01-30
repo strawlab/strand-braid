@@ -918,7 +918,7 @@ pub fn compute_mask_image(roi_sz: FastImageSize, shape: &Shape) -> Result<FastIm
 }
 
 #[test]
-fn test_mask_polygon() -> anyhow::Result<()> {
+fn test_mask_polygon() -> eyre::Result<()> {
     let roi_sz = FastImageSize::new(12, 8);
     let shape = Shape::Polygon(strand_http_video_streaming_types::PolygonParams {
         points: vec![(1.0, 1.0), (10.0, 1.0), (10.0, 6.0), (1.0, 6.0)],
@@ -938,7 +938,7 @@ fn test_mask_polygon() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_mask_circle() -> anyhow::Result<()> {
+fn test_mask_circle() -> eyre::Result<()> {
     let roi_sz = FastImageSize::new(13, 9);
     let shape = Shape::Circle(strand_http_video_streaming_types::CircleParams {
         center_x: 6,
@@ -970,7 +970,7 @@ fn test_mask_circle() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_mask_multiple_circles() -> anyhow::Result<()> {
+fn test_mask_multiple_circles() -> eyre::Result<()> {
     let roi_sz = FastImageSize::new(8, 3);
     let circles = vec![
         strand_http_video_streaming_types::CircleParams {
