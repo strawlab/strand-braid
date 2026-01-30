@@ -262,6 +262,28 @@ fn test_compare() -> Result<()> {
 }
 
 #[test]
+fn test_set_masked() -> Result<()> {
+    for w in [1, 2, 3, 31, 32, 33, 127, 128, 129, 511, 512, 513] {
+        for h in [1, 2, 3] {
+            // mask all zeros
+            let mask0 = FastImageData::<u8>::new(w, h, 0)?;
+            let mut dest = FastImageData::<u8>::new(w, h, 123)?;
+            let sz = dest.size();
+            ripp::set_8u_c1mr(2, &mut dest, sz, &mask0)?;
+            assert!(dest.all_equal(&FastImageData::<u8>::new(w, h, 123)?));
+
+            // mask all 0xFF
+            let mask1 = FastImageData::<u8>::new(w, h, 0xFF)?;
+            let mut dest = FastImageData::<u8>::new(w, h, 123)?;
+            let sz = dest.size();
+            ripp::set_8u_c1mr(2, &mut dest, sz, &mask1)?;
+            assert!(dest.all_equal(&FastImageData::<u8>::new(w, h, 2)?));
+        }
+    }
+    Ok(())
+}
+
+#[test]
 fn test_image_slice() -> Result<()> {
     fn inner<D: PixelType>(value: D) -> Result<()> {
         let w = 5;
@@ -331,44 +353,147 @@ fn test_abs_diff_small() -> Result<()> {
 }
 
 #[test]
-fn test_abs_diff_size() -> Result<()> {
-    // This tests strides, padding, etc.
+fn test_image_view_zero_height() -> Result<()> {
     let w = 10;
     let h = 10;
-    let im10 = FastImageData::<u8>::new(w, h, 10)?;
-    let im9 = FastImageData::<u8>::new(w, h, 9)?;
-    let im1 = FastImageData::<u8>::new(w, h, 1)?;
-    let im0 = FastImageData::<u8>::new(w, h, 0)?;
 
-    assert_ne!(im0, im1);
-    assert_ne!(im0, im9);
-    assert_ne!(im0, im10);
-    assert_eq!(im0, im0);
-    assert_eq!(im1, im1);
-    assert_eq!(im9, im9);
-    assert_eq!(im10, im10);
+    let mut im10 = FastImageData::<u8>::new(w, h, 10)?;
+    let sz = fastfreeimage::FastImageSize::new(w, 0);
+    let roi = fastfreeimage::FastImageRegion::new(fastfreeimage::Point::new(0, 0), sz);
 
-    let mut im_dest = FastImageData::<u8>::new(w, h, 0)?;
+    {
+        let zero_height = fastfreeimage::FastImageView::view_region(&im10, &roi)?;
+        assert_eq!(zero_height.size().height(), 0);
+    }
 
-    let size = im_dest.size();
+    {
+        let zero_height = fastfreeimage::MutableFastImageView::view_region(&mut im10, &roi)?;
+        assert_eq!(zero_height.size().height(), 0);
+    }
+    Ok(())
+}
 
-    ripp::abs_diff_8u_c1r(&im10, &im9, &mut im_dest, size)?;
-    assert_eq!(im_dest, im1);
-    dbg!(&im_dest);
+#[test]
+fn test_abs_diff_size() -> Result<()> {
+    // This tests strides, padding, etc.
+    for w in [3, 10, 11, 31, 32, 33, 127, 128, 129, 254, 255, 256, 257] {
+        for h in [3, 5, 10, 500, 1000] {
+            println!("size test 1 w: {w}, h: {h}");
+            let im10 = FastImageData::<u8>::new(w, h, 10)?;
+            let im9 = FastImageData::<u8>::new(w, h, 9)?;
+            let im1 = FastImageData::<u8>::new(w, h, 1)?;
+            let im0 = FastImageData::<u8>::new(w, h, 0)?;
 
-    let roi = fastfreeimage::FastImageSize::new(2, 2);
-    ripp::abs_diff_8u_c1r(&im9, &im1, &mut im_dest, roi)?;
-    dbg!(&im_dest);
+            assert_ne!(im0, im1);
+            assert_ne!(im0, im9);
+            assert_ne!(im0, im10);
+            assert_eq!(im0, im0);
+            assert_eq!(im1, im1);
+            assert_eq!(im9, im9);
+            assert_eq!(im10, im10);
 
-    assert_eq!(im_dest.pixel_slice(0, 0)[0], 8);
-    assert_eq!(im_dest.pixel_slice(0, 1)[0], 8);
-    assert_eq!(im_dest.pixel_slice(1, 0)[0], 8);
-    assert_eq!(im_dest.pixel_slice(1, 1)[0], 8);
-    assert_eq!(im_dest.pixel_slice(0, 2)[0], 1);
-    assert_eq!(im_dest.pixel_slice(1, 2)[0], 1);
-    assert_eq!(im_dest.pixel_slice(2, 0)[0], 1);
-    assert_eq!(im_dest.pixel_slice(2, 1)[0], 1);
-    assert_eq!(im_dest.pixel_slice(2, 2)[0], 1);
+            let mut im_dest = FastImageData::<u8>::new(w, h, 0)?;
+
+            let size = im_dest.size();
+
+            ripp::abs_diff_8u_c1r(&im10, &im9, &mut im_dest, size)?;
+            assert_eq!(im_dest, im1);
+
+            let roi = fastfreeimage::FastImageSize::new(2, 2);
+            ripp::abs_diff_8u_c1r(&im9, &im1, &mut im_dest, roi)?;
+
+            assert_eq!(im_dest.pixel_slice(0, 0)[0], 8);
+            assert_eq!(im_dest.pixel_slice(0, 1)[0], 8);
+            assert_eq!(im_dest.pixel_slice(1, 0)[0], 8);
+            assert_eq!(im_dest.pixel_slice(1, 1)[0], 8);
+            assert_eq!(im_dest.pixel_slice(0, 2)[0], 1);
+            assert_eq!(im_dest.pixel_slice(1, 2)[0], 1);
+            assert_eq!(im_dest.pixel_slice(2, 0)[0], 1);
+            assert_eq!(im_dest.pixel_slice(2, 1)[0], 1);
+            assert_eq!(im_dest.pixel_slice(2, 2)[0], 1);
+        }
+    }
+
+    for w in [4, 10, 11, 31, 32, 33, 127, 128, 129, 254, 255, 256, 257] {
+        for h in [4, 5, 10, 500, 1000] {
+            // Now perform absdiff with two different sized images.
+            let im10 = FastImageData::<u8>::new(w, h, 10)?;
+            let im9 = FastImageData::<u8>::new(4, 4, 9)?;
+
+            let sz = fastfreeimage::FastImageSize::new(4, 4);
+
+            let mut im_dest = FastImageData::<u8>::new(w, h, 123)?;
+            println!("size test 2 w: {w}, h: {h}");
+            ripp::abs_diff_8u_c1r(&im9, &im10, &mut im_dest, sz)?;
+
+            // test the result.
+            let roi = fastfreeimage::FastImageRegion::new(fastfreeimage::Point::new(0, 0), sz);
+            assert_eq!(
+                fastfreeimage::FastImageView::view_region(&im_dest, &roi)?,
+                FastImageView::view(&FastImageData::<u8>::new(4, 4, 1)?)
+            );
+
+            // TODO: test other regions
+
+            // Now swap the order.
+            let mut im_dest = FastImageData::<u8>::new(w, h, 123)?;
+            ripp::abs_diff_8u_c1r(&im10, &im9, &mut im_dest, sz)?;
+
+            // test the result.
+            let roi = fastfreeimage::FastImageRegion::new(fastfreeimage::Point::new(0, 0), sz);
+            assert_eq!(
+                fastfreeimage::FastImageView::view_region(&im_dest, &roi)?,
+                FastImageView::view(&FastImageData::<u8>::new(4, 4, 1)?)
+            );
+
+            // TODO: test other regions
+        }
+    }
+
+    for w in [10, 255, 256, 257] {
+        for h in [5, 10, 500, 1000] {
+            println!("alignment test w: {w}, h: {h}");
+            // Now perform absdiff while messing with alignment. Specifically,
+            // we want one of the inputs aligned on SIMD boundaries and the
+            // other not. Since FastImageData always allocates on SIMD
+            // boundaries, we take a view which is not aligned.
+            let mut im10 = FastImageData::<u8>::new(w, h, 10)?;
+            let im9 = FastImageData::<u8>::new(4, 4, 9)?;
+
+            let sz = fastfreeimage::FastImageSize::new(4, 4);
+
+            let mut im_dest = FastImageData::<u8>::new(w, h, 123)?;
+
+            // Here is the unaligned view.
+            let roi = fastfreeimage::FastImageRegion::new(fastfreeimage::Point::new(3, 1), sz);
+            let im10_view = fastfreeimage::FastImageView::view_region(&mut im10, &roi)?;
+            let mut im_dest_view =
+                fastfreeimage::MutableFastImageView::view_region(&mut im_dest, &roi)?;
+
+            ripp::abs_diff_8u_c1r(&im9, &im10_view, &mut im_dest_view, sz)?;
+
+            // test the result.
+            // let roi = fastfreeimage::FastImageRegion::new(fastfreeimage::Point::new(0, 0), sz);
+            assert_eq!(
+                im_dest_view,
+                MutableFastImageView::view(&mut FastImageData::<u8>::new(4, 4, 1)?)
+            );
+
+            // TODO: test other regions
+
+            // // Now swap the order.
+            // let mut im_dest = FastImageData::<u8>::new(w, h, 123)?;
+            // ripp::abs_diff_8u_c1r(&im10, &im9, &mut im_dest, &sz)?;
+
+            // // test the result.
+            // let roi = fastfreeimage::FastImageRegion::new(fastfreeimage::Point::new(0, 0), sz);
+            // assert_eq!(
+            //     fastfreeimage::FastImageView::view_region(&im_dest, &roi)?,
+            //     FastImageView::view(&FastImageData::<u8>::new(4, 4, 1)?)
+            // );
+        }
+    }
+
     Ok(())
 }
 
@@ -489,25 +614,67 @@ fn eigen_2x2_real(a: f64, b: f64, c: f64, d: f64) -> Result<(f64, f64, f64, f64)
 
 #[test]
 fn test_threshold_val_8u_c1ir() -> Result<()> {
-    let w = 5;
-    let h = 1;
-    let mut im = FastImageData::<u8>::new(w, h, 0)?;
-    im.pixel_slice_mut(0, 0)[0] = 20;
-    im.pixel_slice_mut(0, 1)[0] = 21;
-    im.pixel_slice_mut(0, 2)[0] = 22;
-    im.pixel_slice_mut(0, 3)[0] = 23;
-    im.pixel_slice_mut(0, 4)[0] = 24;
+    for w in [5, 6, 7, 31, 32, 33, 127, 128, 129, 511, 512, 513] {
+        for h in [1, 5] {
+            let mut im = FastImageData::<u8>::new(w, h, 0)?;
+            im.pixel_slice_mut(0, 0)[0] = 20;
+            im.pixel_slice_mut(0, 1)[0] = 21;
+            im.pixel_slice_mut(0, 2)[0] = 22;
+            im.pixel_slice_mut(0, 3)[0] = 23;
+            im.pixel_slice_mut(0, 4)[0] = 24;
 
-    let size = im.size().clone();
-    ripp::threshold_val_8u_c1ir(&mut im, size, 22, 0, CompareOp::Less)?;
+            // less than
+            let mut im2 = im.clone();
+            let size = im.size().clone();
+            ripp::threshold_val_8u_c1ir(&mut im2, size, 22, 0, CompareOp::Less)?;
 
-    let mut expected = FastImageData::<u8>::new(w, h, 0)?;
-    expected.pixel_slice_mut(0, 0)[0] = 0;
-    expected.pixel_slice_mut(0, 1)[0] = 0;
-    expected.pixel_slice_mut(0, 2)[0] = 22;
-    expected.pixel_slice_mut(0, 3)[0] = 23;
-    expected.pixel_slice_mut(0, 4)[0] = 24;
-    assert!(im.all_equal(expected));
+            let mut expected = FastImageData::<u8>::new(w, h, 0)?;
+            expected.pixel_slice_mut(0, 0)[0] = 0;
+            expected.pixel_slice_mut(0, 1)[0] = 0;
+            expected.pixel_slice_mut(0, 2)[0] = 22;
+            expected.pixel_slice_mut(0, 3)[0] = 23;
+            expected.pixel_slice_mut(0, 4)[0] = 24;
+            assert!(im2.all_equal(expected));
+
+            let mut im2 = im.clone();
+            let size = fastfreeimage::FastImageSize::new(5, 1);
+            ripp::threshold_val_8u_c1ir(&mut im2, size, 22, 123, CompareOp::Less)?;
+
+            let mut expected = FastImageData::<u8>::new(w, h, 0)?;
+            expected.pixel_slice_mut(0, 0)[0] = 123;
+            expected.pixel_slice_mut(0, 1)[0] = 123;
+            expected.pixel_slice_mut(0, 2)[0] = 22;
+            expected.pixel_slice_mut(0, 3)[0] = 23;
+            expected.pixel_slice_mut(0, 4)[0] = 24;
+            assert!(im2.all_equal(expected));
+
+            // greater than
+            let mut im2 = im.clone();
+            let size = im.size().clone();
+            ripp::threshold_val_8u_c1ir(&mut im2, size, 22, 0, CompareOp::Greater)?;
+
+            let mut expected = FastImageData::<u8>::new(w, h, 0)?;
+            expected.pixel_slice_mut(0, 0)[0] = 20;
+            expected.pixel_slice_mut(0, 1)[0] = 21;
+            expected.pixel_slice_mut(0, 2)[0] = 22;
+            expected.pixel_slice_mut(0, 3)[0] = 0;
+            expected.pixel_slice_mut(0, 4)[0] = 0;
+            assert!(im2.all_equal(expected));
+
+            let mut im2 = im.clone();
+            let size = fastfreeimage::FastImageSize::new(5, 1);
+            ripp::threshold_val_8u_c1ir(&mut im2, size, 22, 123, CompareOp::Greater)?;
+
+            let mut expected = FastImageData::<u8>::new(w, h, 0)?;
+            expected.pixel_slice_mut(0, 0)[0] = 20;
+            expected.pixel_slice_mut(0, 1)[0] = 21;
+            expected.pixel_slice_mut(0, 2)[0] = 22;
+            expected.pixel_slice_mut(0, 3)[0] = 123;
+            expected.pixel_slice_mut(0, 4)[0] = 123;
+            assert!(im2.all_equal(expected));
+        }
+    }
+
     Ok(())
 }
 

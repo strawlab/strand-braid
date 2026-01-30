@@ -19,7 +19,7 @@ pub const COMPILED_WITH_SIMD_SUPPORT: bool = false;
 
 pub type Result<M> = std::result::Result<M, Error>;
 
-#[derive(thiserror::Error, Debug)]
+#[derive(thiserror::Error, Debug, PartialEq)]
 pub enum Error {
     #[error("SizeError")]
     SizeError,
@@ -136,6 +136,7 @@ mod simd_generic {
 // FastImageData
 // ------------------------------
 
+#[derive(Clone)]
 pub struct FastImageData<D>
 where
     D: PixelType,
@@ -315,6 +316,43 @@ where
     }
 }
 
+#[test]
+fn test_image_view_size() -> Result<()> {
+    // Create a 3x3 image with a stride of 10 bytes
+    let data = aligned_vec::avec![42; 30 as usize];
+    let data = data.into_boxed_slice();
+    let mut im = FastImageData::<u8> {
+        data,
+        stride_bytes: 10,
+        size: FastImageSize::new(3, 3),
+    };
+
+    // Check that the image was created correctly.
+    assert_eq!(im, FastImageData::new(3, 3, 42)?);
+
+    // Test normal view
+    let sz = FastImageSize::new(3, 3);
+    let roi = FastImageRegion::new(Point::new(0, 0), sz);
+    let im_view = FastImageView::view_region(&im, &roi)?;
+    assert!(fi_equal(im_view, FastImageData::new(3, 3, 42)?));
+    let im_view = MutableFastImageView::view_region(&mut im, &roi)?;
+    assert!(fi_equal(im_view, FastImageData::new(3, 3, 42)?));
+
+    // Now test a view in which the source has enough bytes but not the correct shape.
+    let sz = FastImageSize::new(10, 3);
+    let roi = FastImageRegion::new(Point::new(0, 0), sz);
+    assert_eq!(
+        FastImageView::view_region(&im, &roi),
+        Err(Error::ROISizeError)
+    );
+    assert_eq!(
+        MutableFastImageView::view_region(&mut im, &roi),
+        Err(Error::ROISizeError)
+    );
+
+    Ok(())
+}
+
 // ------------------------------
 // FastImageView
 // ------------------------------
@@ -327,6 +365,15 @@ where
     data: &'a [D],
     stride: ipp_ctypes::c_int,
     size: FastImageSize,
+}
+
+impl<'a, D> PartialEq for FastImageView<'a, D>
+where
+    D: PixelType + std::fmt::Debug,
+{
+    fn eq(&self, rhs: &Self) -> bool {
+        fi_equal(self, rhs)
+    }
 }
 
 impl<'a> FastImageView<'a, u8> {
@@ -457,6 +504,15 @@ where
     data: &'a mut [D],
     stride: ipp_ctypes::c_int,
     size: FastImageSize,
+}
+
+impl<'a, D> PartialEq for MutableFastImageView<'a, D>
+where
+    D: PixelType + std::fmt::Debug,
+{
+    fn eq(&self, rhs: &Self) -> bool {
+        fi_equal(self, rhs)
+    }
 }
 
 impl<'a> MutableFastImageView<'a, u8> {
