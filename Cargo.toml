@@ -270,6 +270,7 @@ wasm-bindgen = "0.2.100"
 web-sys = "0.3.77"
 wasm-bindgen-futures = "0.4.50"
 wasm-logger = "0.2.0"
+wide = { version = "1.2", default-features = false }
 xml = "1.0"
 y4m = { git = "https://github.com/astraw/y4m", rev = "6992473b73838c84cb659387b21d2ab2ebe94766" }
 yew = { version = "0.22.0", features = ["csr"] }

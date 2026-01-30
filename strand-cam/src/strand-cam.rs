@@ -1111,12 +1111,6 @@ where
     let target_feature_string = target::features().join(", ");
     info!("Compiled with features: {}", target_feature_string);
 
-    if !imops::COMPILED_WITH_SIMD_SUPPORT {
-        warn!(
-            "Package 'imops' was not compiled with simd support. Image processing with imops will be slow."
-        );
-    }
-
     let requested_camera_name = match &args.standalone_or_braid {
         StandaloneOrBraid::Standalone(args) => args.camera_name.clone(),
         StandaloneOrBraid::Braid(args) => Some(args.camera_name.clone()),

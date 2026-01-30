@@ -1,22 +1,15 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(feature = "simd", feature(portable_simd))]
 
+/// The `simd` feature is now deprecated because SIMD is always enabled.
 #[cfg(feature = "simd")]
-use std::simd::{
-    cmp::{SimdPartialEq, SimdPartialOrd},
-    num::{SimdFloat, SimdUint},
-};
+const THE_SIMD_FEATURE_IS_DEPRECATED__SIMD_IS_NOW_ALWAYS_ENABLED: () = ();
 
 // The public functions are `#[inline]` because I have found with the benchmarks
 // in this crate that this results in significant speedups.
 
-use machine_vision_formats::{iter::HasRowChunksExact, pixel_format::Mono8, ImageMutData};
-
-#[cfg(feature = "simd")]
-pub const COMPILED_WITH_SIMD_SUPPORT: bool = true;
-
-#[cfg(not(feature = "simd"))]
-pub const COMPILED_WITH_SIMD_SUPPORT: bool = false;
+use machine_vision_formats::{
+    iter::HasRowChunksExact, iter::HasRowChunksExactMut, pixel_format::Mono8, ImageMutData,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Power {
@@ -65,145 +58,131 @@ where
 
 /// Compute spatial image moment 0,0
 ///
-/// Panics: panics if the image data is smaller than stride*height and if stride
-/// is smaller than width.
+/// Panics: panics on image shape or stride problems.
 #[inline]
 pub fn spatial_moment_00<IM>(im: &IM) -> f32
 where
     IM: HasRowChunksExact<Mono8>,
 {
-    #[cfg(feature = "simd")]
-    {
-        use std::simd::f32x8;
+    let mut accum: f64 = 0.0;
 
-        let mut accum: f64 = 0.0;
+    let chunk_iter = im.rowchunks_exact();
 
-        let chunk_iter = im.rowchunks_exact();
+    for rowdata in chunk_iter {
+        // trim from stride to width
+        let rowdata = &rowdata[..im.width() as usize];
 
-        for rowdata in chunk_iter {
-            // trim from stride to width
-            let rowdata = &rowdata[..im.width() as usize];
+        let (head, body, tail): (&[u8], &[wide::u8x16], &[u8]) =
+            wide::AlignTo::simd_align_to(rowdata);
 
-            let (prefix_data, main_row_data, remainder_data) = rowdata.as_simd::<8_usize>();
-
-            for x in prefix_data {
-                accum += *x as f64;
-            }
-
-            let mut rowsum = f32x8::splat(0.0);
-            for x in main_row_data {
-                rowsum += x.cast(); // converts u8 to f32
-            }
-            accum += rowsum.reduce_sum() as f64;
-
-            for x in remainder_data {
-                accum += *x as f64;
-            }
+        for x in head {
+            accum += *x as f64;
         }
-        accum as f32
-    }
 
-    #[cfg(not(feature = "simd"))]
-    {
-        spatial_moment(im, Power::Zero, Power::Zero)
+        let mut tmpsum: wide::u16x16 = wide::u16x16::ZERO;
+        for (i, x) in body.iter().enumerate() {
+            if i % 256 == 0 {
+                // prevent overflow of u16 accumulator
+                for xi in tmpsum.as_array() {
+                    accum += *xi as f64;
+                }
+                tmpsum = wide::u16x16::ZERO;
+            }
+            let wide_x = wide::u16x16::from(*x);
+            tmpsum += wide_x;
+        }
+        for xi in tmpsum.as_array() {
+            accum += *xi as f64;
+        }
+
+        for x in tail {
+            accum += *x as f64;
+        }
     }
+    accum as f32
 }
 
 /// Compute spatial image moment 0,1
 ///
-/// Panics: panics if the image data is smaller than stride*height and if stride
-/// is smaller than width.
+/// Panics: panics on image shape or stride problems.
 #[inline]
 pub fn spatial_moment_01<IM>(im: &IM) -> f32
 where
     IM: HasRowChunksExact<Mono8>,
 {
-    #[cfg(feature = "simd")]
-    {
-        let mut accum: f64 = 0.0;
-        use std::simd::f32x8;
+    let mut accum: f64 = 0.0;
+    use wide::f32x8;
 
-        let chunk_iter = im.rowchunks_exact();
+    let chunk_iter = im.rowchunks_exact();
 
-        for (row, rowdata) in chunk_iter.enumerate() {
-            // trim from stride to width
-            let rowdata = &rowdata[..im.width() as usize];
+    for (row, rowdata) in chunk_iter.enumerate() {
+        // trim from stride to width
+        let rowdata = &rowdata[..im.width() as usize];
 
-            let (prefix_data, main_row_data, remainder_data) = rowdata.as_simd::<8_usize>();
+        let mut row_chunk_iter = rowdata.chunks_exact(8);
 
-            for x in prefix_data {
-                accum += *x as f64 * row as f64;
-            }
-
-            let mut rowsum = f32x8::splat(0.0);
-            let rowvec = f32x8::splat(row as f32);
-            for x in main_row_data {
-                rowsum += x.cast() * rowvec; // converts u8 to f32
-            }
-            accum += rowsum.reduce_sum() as f64;
-
-            for x in remainder_data {
-                accum += *x as f64 * row as f64;
-            }
+        let mut rowsum = f32x8::splat(0.0);
+        let rowvec = f32x8::splat(row as f32);
+        for x in &mut row_chunk_iter {
+            let x = f32x8::new([
+                x[0] as f32,
+                x[1] as f32,
+                x[2] as f32,
+                x[3] as f32,
+                x[4] as f32,
+                x[5] as f32,
+                x[6] as f32,
+                x[7] as f32,
+            ]);
+            rowsum += x * rowvec;
         }
-        accum as f32
-    }
+        accum += rowsum.reduce_add() as f64;
 
-    #[cfg(not(feature = "simd"))]
-    {
-        spatial_moment(im, Power::Zero, Power::One)
+        for x in row_chunk_iter.remainder() {
+            accum += *x as f64 * row as f64;
+        }
     }
+    accum as f32
 }
 
 /// Compute spatial image moment 1,0
 ///
-/// Panics: panics if the image data is smaller than stride*height and if stride
-/// is smaller than width.
+/// Panics: panics on image shape or stride problems.
 #[inline]
 pub fn spatial_moment_10<IM>(im: &IM) -> f32
 where
     IM: HasRowChunksExact<Mono8>,
 {
-    #[cfg(feature = "simd")]
-    {
-        let mut accum: f64 = 0.0;
-        use std::simd::f64x4;
+    let mut accum: f64 = 0.0;
+    use wide::f64x4;
 
-        let col_offset = f64x4::from_array([0.0, 1.0, 2.0, 3.0]);
+    let col_offset = f64x4::new([0.0, 1.0, 2.0, 3.0]);
 
-        let chunk_iter = im.rowchunks_exact();
+    let chunk_iter = im.rowchunks_exact();
 
-        for rowdata in chunk_iter {
-            // trim from stride to width
-            let rowdata = &rowdata[..im.width() as usize];
+    let start_idx = im.width() as usize / 4 * 4;
 
-            let (prefix_data, main_row_data, remainder_data) = rowdata.as_simd::<4_usize>();
+    for rowdata in chunk_iter {
+        // trim from stride to width
+        let rowdata = &rowdata[..im.width() as usize];
 
-            for (col, x) in prefix_data.iter().enumerate() {
-                accum += *x as f64 * col as f64;
-            }
+        let mut row_chunk_iter = rowdata.chunks_exact(4);
 
-            let start_idx = prefix_data.len();
-            let mut rowsum = f64x4::splat(0.0);
-            for (col_div_4, x) in main_row_data.iter().enumerate() {
-                let col = f64x4::splat((col_div_4 * 4 + start_idx) as f64) + col_offset;
-                rowsum += x.cast() * col;
-            }
-            accum += rowsum.reduce_sum() as f64;
-
-            let start_idx = prefix_data.len() + main_row_data.len() * 4;
-            for (i, x) in remainder_data.iter().enumerate() {
-                let col = i + start_idx;
-                accum += *x as f64 * col as f64;
-            }
+        let mut rowsum = f64x4::splat(0.0);
+        for (col_div_4, x) in (&mut row_chunk_iter).enumerate() {
+            let x = f64x4::new([x[0] as f64, x[1] as f64, x[2] as f64, x[3] as f64]);
+            let col = f64x4::splat((col_div_4 * 4) as f64) + col_offset;
+            rowsum += x * col;
         }
-        accum as f32
-    }
 
-    #[cfg(not(feature = "simd"))]
-    {
-        spatial_moment(im, Power::One, Power::Zero)
+        accum += rowsum.reduce_add() as f64;
+
+        for (i, x) in row_chunk_iter.remainder().iter().enumerate() {
+            let col = i + start_idx;
+            accum += *x as f64 * col as f64;
+        }
     }
+    accum as f32
 }
 
 #[derive(Debug)]
@@ -256,20 +235,15 @@ where
 ///
 /// Currently implemented only for `MONO8` pixel formats.
 ///
-/// Panics: panics if the image data is smaller than stride*height and if stride
-/// is smaller than width.
+/// Panics: panics on image shape or stride problems.
 #[inline]
 pub fn clip_low<IM>(mut im: IM, low: u8) -> IM
 where
     IM: HasRowChunksExact<Mono8> + ImageMutData<Mono8>,
 {
-    let stride = im.stride();
     let width = im.width() as usize;
 
-    let datalen = im.height() as usize * stride;
-    let full_data = &mut *im.buffer_mut_ref().data;
-    let data = &mut full_data[..datalen];
-    let chunk_iter = data.chunks_exact_mut(stride);
+    let chunk_iter = im.rowchunks_exact_mut();
 
     #[inline]
     fn scalar_clip_low(scalar_data: &mut [u8], low: u8) {
@@ -280,9 +254,8 @@ where
         }
     }
 
-    #[cfg(feature = "simd")]
     {
-        use std::simd::u8x32;
+        use wide::u8x32;
 
         let low_vec = u8x32::splat(low);
 
@@ -290,23 +263,19 @@ where
             // trim from stride to width
             let rowdata = &mut rowdata[..width];
 
-            let (prefix_data, main_row_data, remainder_data) = rowdata.as_simd_mut();
-            scalar_clip_low(prefix_data, low);
+            let (head, body, tail): (&mut [u8], &mut [wide::u8x32], &mut [u8]) =
+                wide::AlignTo::simd_align_to_mut(rowdata);
 
-            for y in main_row_data.iter_mut() {
+            scalar_clip_low(head, low);
+
+            for y in body {
                 *y = u8x32::max(*y, low_vec);
             }
 
-            scalar_clip_low(remainder_data, low);
+            scalar_clip_low(tail, low);
         }
     }
 
-    #[cfg(not(feature = "simd"))]
-    {
-        for rowdata in chunk_iter {
-            scalar_clip_low(&mut rowdata[..width], low);
-        }
-    }
     im
 }
 
@@ -324,21 +293,14 @@ pub enum CmpOp {
 ///
 /// Currently implemented only for `MONO8` pixel formats.
 ///
-/// Panics: panics if the image data is smaller than stride*height and if stride
-/// is smaller than width.
+/// Panics: panics on image shape or stride problems.
 #[inline]
 pub fn threshold<IM>(mut im: IM, op: CmpOp, thresh: u8, a: u8, b: u8) -> IM
 where
     IM: HasRowChunksExact<Mono8> + ImageMutData<Mono8>,
 {
-    let stride = im.stride();
     let width = im.width() as usize;
-
-    let datalen = im.height() as usize * stride;
-    let full_data = im.buffer_mut_ref();
-
-    let data = &mut full_data.data[..datalen];
-    let chunk_iter = data.chunks_exact_mut(stride);
+    let chunk_iter = im.rowchunks_exact_mut();
 
     #[inline]
     fn scalar_cmp(scalar_data: &mut [u8], thresh: u8, a: u8, b: u8, op: CmpOp) {
@@ -363,50 +325,44 @@ where
         }
     }
 
-    #[cfg(feature = "simd")]
-    {
-        use std::simd::u8x32;
+    use wide::u8x32;
 
-        let avec = u8x32::splat(a);
-        let bvec = u8x32::splat(b);
-        let thresh_vec = u8x32::splat(thresh);
+    let avec = u8x32::splat(a);
+    let bvec = u8x32::splat(b);
+    let thresh_vec = u8x32::splat(thresh);
 
-        for rowdata in chunk_iter {
-            // trim from stride to width
-            let rowdata = &mut rowdata[..width];
+    for rowdata in chunk_iter {
+        // trim from stride to width
+        let rowdata = &mut rowdata[..width];
 
-            let (prefix_data, main_row_data, remainder_data) = rowdata.as_simd_mut();
+        let (head, body, tail): (&mut [u8], &mut [wide::u8x32], &mut [u8]) =
+            wide::AlignTo::simd_align_to_mut(rowdata);
 
-            scalar_cmp(prefix_data, thresh, a, b, op);
+        scalar_cmp(head, thresh, a, b, op);
 
-            for y in main_row_data.iter_mut() {
-                let indicator = match op {
-                    CmpOp::LessThan => y.simd_lt(thresh_vec),
-                    CmpOp::LessEqual => y.simd_le(thresh_vec),
-                    CmpOp::Equal => y.simd_eq(thresh_vec),
-                    CmpOp::GreaterEqual => y.simd_ge(thresh_vec),
-                    CmpOp::GreaterThan => y.simd_gt(thresh_vec),
-                };
-                // The Select trait was introduced in https://github.com/rust-lang/portable-simd/pull/482
-                use std::simd::Select; // need recent nightly, e.g. 2026-01-23 works
-                *y = indicator.select(avec, bvec);
-            }
-
-            scalar_cmp(remainder_data, thresh, a, b, op);
+        for y in body.iter_mut() {
+            use wide::{CmpEq, CmpGe, CmpGt, CmpLe, CmpLt};
+            let indicator = match op {
+                CmpOp::LessThan => y.simd_lt(thresh_vec),
+                CmpOp::LessEqual => y.simd_le(thresh_vec),
+                CmpOp::Equal => y.simd_eq(thresh_vec),
+                CmpOp::GreaterEqual => y.simd_ge(thresh_vec),
+                CmpOp::GreaterThan => y.simd_gt(thresh_vec),
+            };
+            *y = indicator.blend(avec, bvec);
         }
+
+        scalar_cmp(tail, thresh, a, b, op);
     }
 
-    #[cfg(not(feature = "simd"))]
-    {
-        for rowdata in chunk_iter {
-            scalar_cmp(&mut rowdata[..width], thresh, a, b, op);
-        }
-    }
     im
 }
 
+#[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
+
+    use std::u8;
 
     use super::*;
 
@@ -435,6 +391,14 @@ mod tests {
         let im = clip_low(im, 42);
 
         let image_data: Vec<u8> = im.into();
+
+        for row in 0..ALLOC_H {
+            print!("row {row:2}: ");
+            for col in 0..STRIDE {
+                print!("{:3} ", image_data[row * STRIDE + col]);
+            }
+            println!();
+        }
 
         assert_eq!(image_data[0], 42);
         assert_eq!(image_data[(H - 1) * STRIDE + (W - 1)], 42);

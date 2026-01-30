@@ -233,6 +233,7 @@ test_crates_rust_stable:
 
     # Test imops
     - cd imops
+    - cargo test --no-default-features
     - cargo test
     - cargo test --no-default-features --features std
     - cargo build --no-default-features --target thumbv7em-none-eabihf
@@ -303,24 +304,6 @@ test_crates_rust_stable:
     - cd media-utils/frame-source
     - cargo test --features openh264
     - cd ../..
-
-test_crates_rust_nightly:
-  dependencies: []
-  image: rust:1.93
-  script:
-    - export RUSTFLAGS="-D warnings"
-
-    # Use known good nightly
-    - rustup update --no-self-update nightly-2026-02-02
-
-    # Test imops with nightly features
-    - cd $CI_PROJECT_DIR/imops
-    - cargo +nightly-2026-02-02 test --no-default-features --features std,simd
-
-    # Test fastfreeimage
-    - cd $CI_PROJECT_DIR/fastfreeimage
-    - cargo +nightly-2026-02-02 test --features portsimd
-    - cd ..
 
 test_flydra_feature_detector:
   dependencies: []
@@ -551,7 +534,7 @@ strand-cam-pylon-binary:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
 
     - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-pylon
     - $CI_PROJECT_DIR/target/release/strand-cam-pylon --version
@@ -590,7 +573,7 @@ strand-cam-vimba-binary:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C codegen-units=1"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
 
     - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-vimba
     - $CI_PROJECT_DIR/target/release/strand-cam-vimba --version
@@ -649,7 +632,7 @@ strand-cam-flydratrax-pylon-binary:
       IPP_STATIC=1
       RUSTFLAGS="$RUSTFLAGS -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp tracing/release_max_level_debug" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial strand-cam/flydra_feat_detect strand-cam/use_ipp tracing/release_max_level_debug" --release
 
     - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui
     - $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui --version

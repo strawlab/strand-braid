@@ -6,6 +6,7 @@ edition = "2024"
 
 [dependencies]
 machine-vision-formats.workspace = true
+wide.workspace = true
 
 [dev-dependencies]
 criterion = "0.5"
@@ -17,7 +18,7 @@ criterion = "0.5"
 default = ["std"]
 std = ["machine-vision-formats/std"]
 
-# This feature currently requires nightly but gives 5x-10x speedups.
+# This feature now does nothing and is here only for backwards compatibility.
 simd = []
 
 [[bench]]

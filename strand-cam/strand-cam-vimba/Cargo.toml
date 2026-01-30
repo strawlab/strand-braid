@@ -10,7 +10,6 @@ tracing.workspace = true
 
 ipp-sys = { workspace = true, optional = true }
 
-imops = { workspace = true, optional = true }
 ci2-async.workspace = true
 ci2-vimba.workspace = true
 

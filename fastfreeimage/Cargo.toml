@@ -3,12 +3,14 @@ name = "fastfreeimage"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+rust-version = "1.88"
 
 [dependencies]
 thiserror.workspace = true
 imops = { path = "../imops" }
 machine-vision-formats.workspace = true
 aligned-vec = "0.6.4"
+wide.workspace = true
 
 [dev-dependencies]
 itertools.workspace = true
@@ -17,8 +19,8 @@ approx.workspace = true
 anyhow.workspace = true
 
 [features]
-# Use portable_simd from rust nightly
-portsimd = ["imops/simd"]
+# This feature now does nothing and is here only for backwards compatibility.
+portsimd = []
 
 [[bench]]
 name = "bench"

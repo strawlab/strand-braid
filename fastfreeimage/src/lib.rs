@@ -1,18 +1,11 @@
-//! Provides fast image analysis operations
-#![cfg_attr(feature = "portsimd", feature(portable_simd))]
+/// The `portsimd` feature is now deprecated because SIMD is always enabled.
+#[cfg(feature = "portsimd")]
+const THE_PORTSIMD_FEATURE_IS_DEPRECATED__SIMD_IS_NOW_ALWAYS_ENABLED: () = ();
 
 pub use std::os::raw as ipp_ctypes;
 
 /// SIMD vector width, in bytes. Also used for alignment.
 const VECWIDTH: usize = aligned_vec::CACHELINE_ALIGN;
-#[cfg(feature = "portsimd")]
-use std::simd::{cmp::SimdPartialOrd, u8x32};
-
-#[cfg(feature = "portsimd")]
-pub const COMPILED_WITH_SIMD_SUPPORT: bool = true;
-
-#[cfg(not(feature = "portsimd"))]
-pub const COMPILED_WITH_SIMD_SUPPORT: bool = false;
 
 // ---------------------------
 // errors
@@ -40,27 +33,18 @@ pub enum Error {
 
 // ---------------------------
 
-#[cfg(feature = "portsimd")]
-#[inline]
-fn absdiff_u8x32(im1: u8x32, im2: u8x32) -> u8x32 {
-    // see V6 of https://stackoverflow.com/a/35779655/1633026
-
-    let one = u8x32::splat(1);
-    let two = u8x32::splat(2);
-
-    let a = im1 - im2;
-    let b_mask_i8 = im1.simd_lt(im2); // 0 false, -1 true
-    let b: u8x32 = unsafe { std::mem::transmute(b_mask_i8) }; // 0 false, 255 true
-    let b = b * two; // 0 false, 254 true
-    let b = b + one; // 1 false, 255 true
-
-    a * b
+#[inline(always)]
+fn absdiff_u8x32(im1: wide::u8x32, im2: wide::u8x32) -> wide::u8x32 {
+    let diff1 = im1.saturating_sub(im2);
+    let diff2 = im2.saturating_sub(im1);
+    use core::ops::BitOr;
+    diff1.bitor(diff2)
 }
 
-#[cfg(feature = "portsimd")]
 #[test]
 fn test_absdiff_u8x32() {
-    use u8x32;
+    use wide::u8x32;
+
     let val = u8x32::splat;
 
     assert_eq!(absdiff_u8x32(val(0), val(0)), val(0));
@@ -79,63 +63,6 @@ fn test_absdiff_u8x32() {
 
     assert_eq!(absdiff_u8x32(val(254), val(1)), val(253));
     assert_eq!(absdiff_u8x32(val(1), val(254)), val(253));
-}
-
-#[cfg(feature = "portsimd")]
-mod simd_generic {
-    use super::*;
-
-    pub fn abs_diff_8u_c1r<S1, S2, D>(
-        src1: &S1,
-        src2: &S2,
-        dest: &mut D,
-        size: FastImageSize,
-    ) -> Result<()>
-    where
-        S1: FastImage<D = u8>,
-        S2: FastImage<D = u8>,
-        D: MutableFastImage<D = u8>,
-    {
-        let chunk_iter1 = src1.valid_row_iter(size)?;
-        let chunk_iter2 = src2.valid_row_iter(size)?;
-        let outchunk_iter = dest.valid_row_iter_mut(size)?;
-
-        #[inline]
-        fn scalar_adsdiff(aa: &[u8], bb: &[u8], cc: &mut [u8]) {
-            debug_assert_eq!(aa.len(), bb.len());
-            debug_assert_eq!(aa.len(), cc.len());
-            for ((a, b), c) in aa.iter().zip(bb).zip(cc.iter_mut()) {
-                *c = (*a as i16 - *b as i16).unsigned_abs() as u8;
-            }
-        }
-
-        for ((rowdata_im1, rowdata_im2), outdata) in chunk_iter1.zip(chunk_iter2).zip(outchunk_iter)
-        {
-            {
-                let mut im1_chunk_iter = rowdata_im1.chunks_exact(32);
-                let mut im2_chunk_iter = rowdata_im2.chunks_exact(32);
-                let mut out_chunk_iter = outdata.chunks_exact_mut(32);
-
-                for ((a, b), c) in (&mut im1_chunk_iter)
-                    .zip(&mut im2_chunk_iter)
-                    .zip(&mut out_chunk_iter)
-                {
-                    let vec_im1 = u8x32::from_slice(a);
-                    let vec_im2 = u8x32::from_slice(b);
-                    let out_vec = absdiff_u8x32(vec_im1, vec_im2);
-                    c.copy_from_slice(&out_vec.to_array());
-                }
-
-                scalar_adsdiff(
-                    im1_chunk_iter.remainder(),
-                    im2_chunk_iter.remainder(),
-                    out_chunk_iter.into_remainder(),
-                );
-            }
-        }
-
-        Ok(())
-    }
 }
 
 // ------------------------------
@@ -1335,6 +1262,82 @@ pub mod ripp {
         Ok((max_all, loc))
     }
 
+    #[inline]
+    fn threshold_val_8u_c1ir_lt<SRCDST>(
+        src_dest: &mut SRCDST,
+        size: FastImageSize,
+        threshold: u8,
+        value: u8,
+    ) -> Result<()>
+    where
+        SRCDST: MutableFastImage<D = u8>,
+    {
+        #[inline]
+        fn scalar_threshlt(data: &mut [u8], threshold: u8, value: u8) {
+            for v in data.iter_mut() {
+                if *v < threshold {
+                    *v = value;
+                }
+            }
+        }
+
+        let threshold_vec = wide::u8x32::splat(threshold);
+        let value_vec = wide::u8x32::splat(value);
+
+        for srcdest_row in src_dest.valid_row_iter_mut(size)? {
+            let (head, body, tail): (&mut [u8], &mut [wide::u8x32], &mut [u8]) =
+                wide::AlignTo::simd_align_to_mut(srcdest_row);
+
+            scalar_threshlt(head, threshold, value);
+
+            for body_vec in body.iter_mut() {
+                let mask = wide::CmpLt::simd_lt(*body_vec, threshold_vec);
+                *body_vec = mask.blend(value_vec, *body_vec);
+            }
+
+            scalar_threshlt(tail, threshold, value);
+        }
+        Ok(())
+    }
+
+    #[inline]
+    fn threshold_val_8u_c1ir_gt<SRCDST>(
+        src_dest: &mut SRCDST,
+        size: FastImageSize,
+        threshold: u8,
+        value: u8,
+    ) -> Result<()>
+    where
+        SRCDST: MutableFastImage<D = u8>,
+    {
+        #[inline]
+        fn scalar_threshgt(data: &mut [u8], threshold: u8, value: u8) {
+            for v in data.iter_mut() {
+                if *v > threshold {
+                    *v = value;
+                }
+            }
+        }
+
+        let threshold_vec = wide::u8x32::splat(threshold);
+        let value_vec = wide::u8x32::splat(value);
+
+        for srcdest_row in src_dest.valid_row_iter_mut(size)? {
+            let (head, body, tail): (&mut [u8], &mut [wide::u8x32], &mut [u8]) =
+                wide::AlignTo::simd_align_to_mut(srcdest_row);
+
+            scalar_threshgt(head, threshold, value);
+
+            for body_vec in body.iter_mut() {
+                let mask = wide::CmpGt::simd_gt(*body_vec, threshold_vec);
+                *body_vec = mask.blend(value_vec, *body_vec);
+            }
+
+            scalar_threshgt(tail, threshold, value);
+        }
+        Ok(())
+    }
+
     pub fn threshold_val_8u_c1ir<SRCDST>(
         src_dest: &mut SRCDST,
         size: FastImageSize,
@@ -1345,44 +1348,10 @@ pub mod ripp {
     where
         SRCDST: MutableFastImage<D = u8>,
     {
-        const SIMD_SIZE: usize = 32;
         match cmp_op {
-            CompareOp::Less => {
-                for srcdest_row in src_dest.valid_row_iter_mut(size)? {
-                    let mut my_iter = srcdest_row.chunks_exact_mut(SIMD_SIZE);
-                    for srcdest_chunk in my_iter.by_ref() {
-                        for srcdest in srcdest_chunk.iter_mut() {
-                            if *srcdest < threshold {
-                                *srcdest = value;
-                            }
-                        }
-                    }
-                    for srcdest in my_iter.into_remainder() {
-                        if *srcdest < threshold {
-                            *srcdest = value;
-                        }
-                    }
-                }
-            }
-            CompareOp::Greater => {
-                for srcdest_row in src_dest.valid_row_iter_mut(size)? {
-                    let mut my_iter = srcdest_row.chunks_exact_mut(SIMD_SIZE);
-                    for srcdest_chunk in my_iter.by_ref() {
-                        for srcdest in srcdest_chunk.iter_mut() {
-                            if *srcdest > threshold {
-                                *srcdest = value;
-                            }
-                        }
-                    }
-                    for srcdest in my_iter.into_remainder() {
-                        if *srcdest > threshold {
-                            *srcdest = value;
-                        }
-                    }
-                }
-            }
+            CompareOp::Less => threshold_val_8u_c1ir_lt(src_dest, size, threshold, value),
+            CompareOp::Greater => threshold_val_8u_c1ir_gt(src_dest, size, threshold, value),
         }
-        Ok(())
     }
 
     /// Subtract `src1` from `src2` and put results in `dest`.
@@ -1407,7 +1376,26 @@ pub mod ripp {
             .zip(src2.valid_row_iter(size)?)
             .zip(dest.valid_row_iter_mut(size)?)
         {
-            for ((i1, i2), out) in im1_row.iter().zip(im2_row.iter()).zip(dest_row.iter_mut()) {
+            let (im1_row_chunks, im1_row_remainder) = im1_row.as_chunks::<32>();
+            let (im2_row_chunks, im2_row_remainder) = im2_row.as_chunks::<32>();
+            let (out_row_chunks, out_row_remainder) = dest_row.as_chunks_mut::<32>();
+
+            for ((a_chunk, b_chunk), c_chunk) in im1_row_chunks
+                .iter()
+                .zip(im2_row_chunks.iter())
+                .zip(out_row_chunks.iter_mut())
+            {
+                // Unaligned loads to SIMD
+                let a_vec = wide::u8x32::new(*a_chunk);
+                let b_vec = wide::u8x32::new(*b_chunk);
+                c_chunk.copy_from_slice(b_vec.saturating_sub(a_vec).as_array());
+            }
+
+            for ((i1, i2), out) in im1_row_remainder
+                .iter()
+                .zip(im2_row_remainder.iter())
+                .zip(out_row_remainder.iter_mut())
+            {
                 *out = i2.saturating_sub(*i1);
             }
         }
@@ -1479,10 +1467,6 @@ pub mod ripp {
         Ok(())
     }
 
-    #[cfg(feature = "portsimd")]
-    pub use super::simd_generic::abs_diff_8u_c1r;
-
-    #[cfg(not(feature = "portsimd"))]
     pub fn abs_diff_8u_c1r<S1, S2, D>(
         src1: &S1,
         src2: &S2,
@@ -1494,15 +1478,49 @@ pub mod ripp {
         S2: FastImage<D = u8>,
         D: MutableFastImage<D = u8>,
     {
-        for ((im1_row, im2_row), dest_row) in src1
-            .valid_row_iter(size)?
-            .zip(src2.valid_row_iter(size)?)
-            .zip(dest.valid_row_iter_mut(size)?)
-        {
-            for ((i1, i2), out) in im1_row.iter().zip(im2_row.iter()).zip(dest_row.iter_mut()) {
-                *out = (*i1 as i16 - *i2 as i16).unsigned_abs() as u8;
+        let chunk_iter1 = src1.valid_row_iter(size)?;
+        let chunk_iter2 = src2.valid_row_iter(size)?;
+        let outchunk_iter = dest.valid_row_iter_mut(size)?;
+
+        #[inline]
+        fn scalar_adsdiff(aa: &[u8], bb: &[u8], cc: &mut [u8]) {
+            for ((a, b), c) in aa.iter().zip(bb).zip(cc.iter_mut()) {
+                *c = (*a as i16 - *b as i16).unsigned_abs() as u8;
             }
         }
+
+        for ((rowdata_im1, rowdata_im2), outdata) in chunk_iter1.zip(chunk_iter2).zip(outchunk_iter)
+        {
+            let (im1_row_chunks, im1_row_remainder) = rowdata_im1.as_chunks::<32>();
+            let (im2_row_chunks, im2_row_remainder) = rowdata_im2.as_chunks::<32>();
+            let (out_row_chunks, out_row_remainder) = outdata.as_chunks_mut::<32>();
+            assert_eq!(
+                im1_row_chunks.len(),
+                im2_row_chunks.len(),
+                "Mismatched chunk lengths"
+            );
+            assert_eq!(
+                im1_row_chunks.len(),
+                out_row_chunks.len(),
+                "Mismatched chunk lengths"
+            );
+
+            {
+                for ((a_chunk, b_chunk), c_chunk) in im1_row_chunks
+                    .iter()
+                    .zip(im2_row_chunks.iter())
+                    .zip(out_row_chunks.iter_mut())
+                {
+                    // Unaligned loads to SIMD
+                    let a_vec = wide::u8x32::new(*a_chunk);
+                    let b_vec = wide::u8x32::new(*b_chunk);
+                    c_chunk.copy_from_slice(absdiff_u8x32(a_vec, b_vec).as_array());
+                }
+            }
+
+            scalar_adsdiff(im1_row_remainder, im2_row_remainder, out_row_remainder);
+        }
+
         Ok(())
     }
 
@@ -1592,15 +1610,38 @@ pub mod ripp {
         D: MutableFastImage<D = u8>,
         M: FastImage<D = u8>,
     {
+        #[inline]
+        fn scalar_blend(maskv: &[u8], value: u8, bb: &mut [u8]) {
+            debug_assert_eq!(maskv.len(), bb.len());
+            for (mask, b) in maskv.iter().zip(bb.iter_mut()) {
+                debug_assert!(*mask == 0 || *mask == 0xFF);
+                *b = if *mask != 0 { value } else { *b };
+            }
+        }
+
+        let value_vec = wide::u8x32::splat(value);
+
         for (mask_row, dest_row) in mask
             .valid_row_iter(size)?
             .zip(dest.valid_row_iter_mut(size)?)
         {
-            for (mask_el, dest_el) in mask_row.iter().zip(dest_row.iter_mut()) {
-                if *mask_el != 0 {
-                    *dest_el = value
+            let (mask_row_chunks, mask_row_remainder) = mask_row.as_chunks::<32>();
+            let (dest_row_chunks, dest_row_remainder) = dest_row.as_chunks_mut::<32>();
+
+            {
+                for (mask_chunk, dest_chunk) in
+                    mask_row_chunks.iter().zip(&mut dest_row_chunks.iter_mut())
+                {
+                    // Unaligned loads to SIMD
+                    let mask_vec = wide::u8x32::new(*mask_chunk);
+                    let dest_vec = wide::u8x32::new(*dest_chunk);
+
+                    let result_vec = mask_vec.blend(value_vec, dest_vec);
+                    dest_chunk.copy_from_slice(result_vec.as_array());
                 }
             }
+
+            scalar_blend(mask_row_remainder, value, dest_row_remainder);
         }
         Ok(())
     }
