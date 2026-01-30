@@ -168,6 +168,7 @@ const fn calc_min_buf_size(w: u32, h: u32, stride: usize, pixfmt: PixFmt) -> usi
 /// // Get dimensions
 /// println!("Size: {}x{}", frame.width(), frame.height());
 /// ```
+#[derive(Clone)]
 pub struct DynamicFrame<'a> {
     width: u32,
     height: u32,
@@ -184,6 +185,25 @@ pub struct DynamicFrameOwned {
     stride: usize,
     pixfmt: PixFmt,
     buf: Vec<u8>,
+}
+
+/// A copy-on-write dynamic frame that can be either borrowed or owned.
+pub enum CowDynamicFrame<'a> {
+    /// A borrowed dynamic frame.
+    Borrowed(DynamicFrame<'a>),
+    /// An owned dynamic frame.
+    Owned(DynamicFrameOwned),
+}
+
+impl CowDynamicFrame<'_> {
+    /// Return a borrowed view of this frame as a [`DynamicFrame`].
+    #[must_use]
+    pub fn borrow(&self) -> DynamicFrame<'_> {
+        match self {
+            CowDynamicFrame::Borrowed(f) => f.clone(),
+            CowDynamicFrame::Owned(f) => f.borrow(),
+        }
+    }
 }
 
 impl std::fmt::Debug for DynamicFrameOwned {
