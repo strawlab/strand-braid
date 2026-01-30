@@ -232,6 +232,30 @@ fn test_sub() -> Result<()> {
     Ok(())
 }
 
+#[cfg(test)]
+trait Display {
+    fn display(&self) -> String;
+}
+
+#[cfg(test)]
+impl<D> Display for FastImageData<D>
+where
+    D: PixelType + std::fmt::Display,
+{
+    fn display(&self) -> String {
+        let mut s = String::new();
+        s.push_str(&format!("{}x{} image\n", self.width(), self.height()));
+        for row in 0..self.height() as usize {
+            s.push_str(&format!("row {row}: "));
+            for col in 0..self.width() as usize {
+                s.push_str(&format!("{:3} ", self.pixel_slice(row, col)[0]));
+            }
+            s.push('\n');
+        }
+        s
+    }
+}
+
 #[test]
 fn test_compare() -> Result<()> {
     let w = 5;
@@ -243,19 +267,19 @@ fn test_compare() -> Result<()> {
     let size = im_dest.size();
 
     {
-        println!("im_dest {:?}", im_dest);
+        println!("im_dest {im_dest:?} {}", im_dest.display());
         ripp::compare_c_8u_c1r(&im10, 10, &mut im_dest, size, CompareOp::Greater)?;
-        println!("im_dest {:?}", im_dest);
-        println!("im0 {:?}", im0);
+        println!("im_dest {im_dest:?} {}", im_dest.display());
+        println!("im0 {im0:?} {}", im0.display());
         assert!(im_dest.all_equal(&im0));
     }
 
     {
         println!("-----");
-        println!("im_dest {:?}", im_dest);
+        println!("im_dest {im_dest:?} {}", im_dest.display());
         ripp::compare_c_8u_c1r(&im10, 9, &mut im_dest, size, CompareOp::Greater)?;
-        println!("im_dest {:?}", im_dest);
-        println!("im255 {:?}", im255);
+        println!("im_dest {im_dest:?} {}", im_dest.display());
+        println!("im255 {im255:?} {}", im255.display());
         assert!(im_dest.all_equal(&im255));
     }
     Ok(())
