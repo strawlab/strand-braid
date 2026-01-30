@@ -235,6 +235,11 @@ test_crates_rust_stable:
     - cargo bench --no-run
     - cd ..
 
+    # Test fastfreeimage
+    - cd $CI_PROJECT_DIR/fastfreeimage
+    - cargo test
+    - cd ..
+
     # Test braidz-parser
     - cd braidz-parser
     - cargo test
