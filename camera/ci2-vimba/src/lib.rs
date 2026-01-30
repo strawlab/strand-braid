@@ -338,12 +338,6 @@ impl<'a> ci2::CameraModule for &'a WrappedModule {
     }
 }
 
-lazy_static::lazy_static! {
-    static ref FRAME_INFO: VimbaFrameInfo = VimbaFrameInfo {};
-}
-
-struct VimbaFrameInfo {}
-
 #[derive(Debug)]
 pub struct VimbaCameraInfo {
     name: String,
