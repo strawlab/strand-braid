@@ -39,6 +39,7 @@ download-verify.workspace = true
 env_logger.workspace = true
 flydra-pt-detect-cfg.workspace = true
 eyre.workspace = true
+target.workspace = true
 
 [features]
 use_ipp = ["fastimage", "dep:ipp-sys"]
