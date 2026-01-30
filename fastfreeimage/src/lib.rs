@@ -390,6 +390,11 @@ impl<'a> FastImageView<'a, u8> {
     pub fn view_region<S: FastImage<D = u8>>(src: &'a S, roi: &FastImageRegion) -> Result<Self> {
         let i0 =
             roi.left_bottom.y() as usize * src.stride() as usize + roi.left_bottom.x() as usize;
+        if roi.left_bottom.y() + roi.size.height() > src.height()
+            || roi.left_bottom.x() + roi.size.width() > src.width()
+        {
+            return Err(Error::ROISizeError);
+        }
         FastImageView::view_raw(
             &src.image_slice()[i0..],
             src.stride(),
@@ -407,15 +412,23 @@ impl<'a> FastImageView<'a, u8> {
         let width: usize = width_pixels.try_into().unwrap();
         let height: usize = height_pixels.try_into().unwrap();
         let strideu: usize = stride.try_into().unwrap();
-        let min_size = (height - 1) * strideu + width;
-        if data.len() >= min_size {
+        if height == 0 {
             Ok(Self {
-                data,
+                data: &data[..0],
                 stride,
                 size: FastImageSize::new(width_pixels, height_pixels),
             })
         } else {
-            Err(Error::ROISizeError)
+            let min_size = (height - 1) * strideu + width;
+            if data.len() >= min_size {
+                Ok(Self {
+                    data: &data[..min_size],
+                    stride,
+                    size: FastImageSize::new(width_pixels, height_pixels),
+                })
+            } else {
+                Err(Error::ROISizeError)
+            }
         }
     }
 }
@@ -525,6 +538,11 @@ impl<'a> MutableFastImageView<'a, u8> {
         src: &'a mut S,
         roi: &FastImageRegion,
     ) -> Result<Self> {
+        if roi.left_bottom.y() + roi.size.height() > src.height()
+            || roi.left_bottom.x() + roi.size.width() > src.width()
+        {
+            return Err(Error::ROISizeError);
+        }
         let stride = src.stride();
         let i0 = roi.left_bottom.y() as usize * stride as usize + roi.left_bottom.x() as usize;
         let data = src.image_slice_mut();
@@ -540,15 +558,23 @@ impl<'a> MutableFastImageView<'a, u8> {
         let width: usize = width_pixels.try_into().unwrap();
         let height: usize = height_pixels.try_into().unwrap();
         let strideu: usize = stride.try_into().unwrap();
-        let min_size = (height - 1) * strideu + width;
-        if data.len() >= min_size {
+        if height == 0 {
             Ok(Self {
-                data,
+                data: &mut data[..0],
                 stride,
                 size: FastImageSize::new(width_pixels, height_pixels),
             })
         } else {
-            Err(Error::ROISizeError)
+            let min_size = (height - 1) * strideu + width;
+            if data.len() >= min_size {
+                Ok(Self {
+                    data: &mut data[..min_size],
+                    stride,
+                    size: FastImageSize::new(width_pixels, height_pixels),
+                })
+            } else {
+                Err(Error::ROISizeError)
+            }
         }
     }
 }
