@@ -1263,10 +1263,10 @@ pub mod ripp {
             for (src_el, dest_el) in src_row.iter().zip(dest_row.iter_mut()) {
                 match cmp_op {
                     CompareOp::Less => {
-                        *dest_el = if *src_el < value { 255 } else { 0 };
+                        *dest_el = if *src_el < value { 0xFF } else { 0 };
                     }
                     CompareOp::Greater => {
-                        *dest_el = if *src_el > value { 255 } else { 0 };
+                        *dest_el = if *src_el > value { 0xFF } else { 0 };
                     }
                 }
             }

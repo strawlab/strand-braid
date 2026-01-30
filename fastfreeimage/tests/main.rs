@@ -187,7 +187,7 @@ fn test_mask() -> Result<()> {
     }
 
     {
-        let im1 = FastImageData::<u8>::new(3, 4, 1)?;
+        let im1 = FastImageData::<u8>::new(3, 4, 0xFF)?;
         let im22 = FastImageData::<u8>::new(3, 4, 22)?;
         ripp::set_8u_c1mr(22, &mut im_dest, size, &im1)?;
         assert!(im_dest.all_equal(&im22));
