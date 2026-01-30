@@ -78,10 +78,7 @@ where
 
         let mut accum: f64 = 0.0;
 
-        let full_data = im.image_data();
-        let datalen = im.height() as usize * im.stride();
-        let data = &full_data[..datalen];
-        let chunk_iter = data.chunks_exact(im.stride());
+        let chunk_iter = im.rowchunks_exact();
 
         for rowdata in chunk_iter {
             // trim from stride to width
@@ -126,10 +123,7 @@ where
         let mut accum: f64 = 0.0;
         use std::simd::f32x8;
 
-        let full_data = im.image_data();
-        let datalen = im.height() as usize * im.stride();
-        let data = &full_data[..datalen];
-        let chunk_iter = data.chunks_exact(im.stride());
+        let chunk_iter = im.rowchunks_exact();
 
         for (row, rowdata) in chunk_iter.enumerate() {
             // trim from stride to width
@@ -177,10 +171,7 @@ where
 
         let col_offset = f64x4::from_array([0.0, 1.0, 2.0, 3.0]);
 
-        let full_data = im.image_data();
-        let datalen = im.height() as usize * im.stride();
-        let data = &full_data[..datalen];
-        let chunk_iter = data.chunks_exact(im.stride());
+        let chunk_iter = im.rowchunks_exact();
 
         for rowdata in chunk_iter {
             // trim from stride to width
