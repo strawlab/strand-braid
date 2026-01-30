@@ -87,7 +87,7 @@ fn test_view() -> Result<()> {
         assert!(im10_view.pixel_slice(3, 0)[0] == 82);
         assert!(im10_view.pixel_slice(3, 1)[0] == 83);
         assert!(im10_view.pixel_slice(3, 2)[0] == 84);
-        assert!(im10_view.size() == &roi_sz);
+        assert!(im10_view.size() == roi_sz);
     }
 
     let value = 123;
@@ -102,9 +102,9 @@ fn test_view() -> Result<()> {
         assert!(im10_view.pixel_slice(3, 0)[0] == 82);
         assert!(im10_view.pixel_slice(3, 1)[0] == 83);
         assert!(im10_view.pixel_slice(3, 2)[0] == 84);
-        assert!(im10_view.size() == &roi_sz);
+        assert!(im10_view.size() == roi_sz);
         // set contents of ROI
-        ripp::set_8u_c1r(value, &mut im10_view, &roi_sz)?;
+        ripp::set_8u_c1r(value, &mut im10_view, roi_sz)?;
         // check contents of ROI after set
         assert!(im10_view.all_equal(&result_im));
     }
@@ -143,7 +143,7 @@ fn test_end_of_roi() -> Result<()> {
         assert!(im10_view.pixel_slice(3, 0)[0] == 97);
         assert!(im10_view.pixel_slice(3, 1)[0] == 98);
         assert!(im10_view.pixel_slice(3, 2)[0] == 99);
-        assert!(im10_view.size() == &roi_sz);
+        assert!(im10_view.size() == roi_sz);
     }
 
     let value = 123;
@@ -158,9 +158,9 @@ fn test_end_of_roi() -> Result<()> {
         assert!(im10_view.pixel_slice(3, 0)[0] == 97);
         assert!(im10_view.pixel_slice(3, 1)[0] == 98);
         assert!(im10_view.pixel_slice(3, 2)[0] == 99);
-        assert!(im10_view.size() == &roi_sz);
+        assert!(im10_view.size() == roi_sz);
         // set contents of ROI
-        ripp::set_8u_c1r(value, &mut im10_view, &roi_sz)?;
+        ripp::set_8u_c1r(value, &mut im10_view, roi_sz)?;
         // check contents of ROI after set
         assert!(im10_view.all_equal(&result_im));
     }
@@ -176,20 +176,20 @@ fn test_end_of_roi() -> Result<()> {
 #[test]
 fn test_mask() -> Result<()> {
     let mut im_dest = FastImageData::<u8>::new(3, 4, 123)?;
-    let size = *im_dest.size();
+    let size = im_dest.size();
 
     {
         let im123 = FastImageData::<u8>::new(3, 4, 123)?;
 
         let im0 = FastImageData::<u8>::new(3, 4, 0)?;
-        ripp::set_8u_c1mr(22, &mut im_dest, &size, &im0)?;
+        ripp::set_8u_c1mr(22, &mut im_dest, size, &im0)?;
         assert!(im_dest.all_equal(&im123));
     }
 
     {
         let im1 = FastImageData::<u8>::new(3, 4, 1)?;
         let im22 = FastImageData::<u8>::new(3, 4, 22)?;
-        ripp::set_8u_c1mr(22, &mut im_dest, &size, &im1)?;
+        ripp::set_8u_c1mr(22, &mut im_dest, size, &im1)?;
         assert!(im_dest.all_equal(&im22));
     }
     Ok(())
@@ -206,17 +206,17 @@ fn test_sub() -> Result<()> {
 
     let mut im_dest = FastImageData::<u8>::new(w, h, 0)?;
 
-    let size = *im_dest.size();
+    let size = im_dest.size();
 
     println!("im10 {:?}", im10);
     println!("im9 {:?}", im9);
 
-    ripp::sub_8u_c1rsfs(&im9, &im10, &mut im_dest, &size, 0)?;
+    ripp::sub_8u_c1rsfs(&im9, &im10, &mut im_dest, size, 0)?;
     println!("im_dest {:?}", im_dest);
     println!("im1 {:?}", im1);
     assert!(im_dest.all_equal(&im1));
 
-    ripp::sub_8u_c1rsfs(&im10, &im9, &mut im_dest, &size, 0)?;
+    ripp::sub_8u_c1rsfs(&im10, &im9, &mut im_dest, size, 0)?;
     println!("im_dest {:?}", im_dest);
     println!("im1 {:?}", im1);
     assert!(im_dest.all_equal(&im0));
@@ -225,7 +225,7 @@ fn test_sub() -> Result<()> {
     let im10_view = FastImageView::view(&im10);
     let mut im_dest_view = MutableFastImageView::view(&mut im_dest);
 
-    ripp::sub_8u_c1rsfs(&im9_view, &im10_view, &mut im_dest_view, &size, 0)?;
+    ripp::sub_8u_c1rsfs(&im9_view, &im10_view, &mut im_dest_view, size, 0)?;
     println!("im_dest {:?}", im_dest_view);
     println!("im1 {:?}", im1);
     assert!(im_dest_view.all_equal(im1));
@@ -240,11 +240,11 @@ fn test_compare() -> Result<()> {
     let im0 = FastImageData::<u8>::new(w, h, 0)?;
     let im255 = FastImageData::<u8>::new(w, h, 255)?;
     let mut im_dest = FastImageData::<u8>::new(w, h, 99)?;
-    let size = *im_dest.size();
+    let size = im_dest.size();
 
     {
         println!("im_dest {:?}", im_dest);
-        ripp::compare_c_8u_c1r(&im10, 10, &mut im_dest, &size, CompareOp::Greater)?;
+        ripp::compare_c_8u_c1r(&im10, 10, &mut im_dest, size, CompareOp::Greater)?;
         println!("im_dest {:?}", im_dest);
         println!("im0 {:?}", im0);
         assert!(im_dest.all_equal(&im0));
@@ -253,7 +253,7 @@ fn test_compare() -> Result<()> {
     {
         println!("-----");
         println!("im_dest {:?}", im_dest);
-        ripp::compare_c_8u_c1r(&im10, 9, &mut im_dest, &size, CompareOp::Greater)?;
+        ripp::compare_c_8u_c1r(&im10, 9, &mut im_dest, size, CompareOp::Greater)?;
         println!("im_dest {:?}", im_dest);
         println!("im255 {:?}", im255);
         assert!(im_dest.all_equal(&im255));
@@ -314,18 +314,18 @@ fn test_abs_diff_small() -> Result<()> {
 
     let mut im_dest = FastImageData::<u8>::new(w, h, 0)?;
 
-    let size = *im_dest.size();
+    let size = im_dest.size();
 
-    ripp::abs_diff_8u_c1r(&im10, &im9, &mut im_dest, &size)?;
+    ripp::abs_diff_8u_c1r(&im10, &im9, &mut im_dest, size)?;
     assert_eq!(im_dest, im1);
 
-    ripp::abs_diff_8u_c1r(&im9, &im10, &mut im_dest, &size)?;
+    ripp::abs_diff_8u_c1r(&im9, &im10, &mut im_dest, size)?;
     assert_eq!(im_dest, im1);
 
-    ripp::abs_diff_8u_c1r(&im9, &im9, &mut im_dest, &size)?;
+    ripp::abs_diff_8u_c1r(&im9, &im9, &mut im_dest, size)?;
     assert_eq!(im_dest, im0);
 
-    ripp::abs_diff_8u_c1r(&im10, &im10, &mut im_dest, &size)?;
+    ripp::abs_diff_8u_c1r(&im10, &im10, &mut im_dest, size)?;
     assert_eq!(im_dest, im0);
     Ok(())
 }
@@ -350,14 +350,14 @@ fn test_abs_diff_size() -> Result<()> {
 
     let mut im_dest = FastImageData::<u8>::new(w, h, 0)?;
 
-    let size = *im_dest.size();
+    let size = im_dest.size();
 
-    ripp::abs_diff_8u_c1r(&im10, &im9, &mut im_dest, &size)?;
+    ripp::abs_diff_8u_c1r(&im10, &im9, &mut im_dest, size)?;
     assert_eq!(im_dest, im1);
     dbg!(&im_dest);
 
     let roi = fastfreeimage::FastImageSize::new(2, 2);
-    ripp::abs_diff_8u_c1r(&im9, &im1, &mut im_dest, &roi)?;
+    ripp::abs_diff_8u_c1r(&im9, &im1, &mut im_dest, roi)?;
     dbg!(&im_dest);
 
     assert_eq!(im_dest.pixel_slice(0, 0)[0], 8);
@@ -394,15 +394,15 @@ fn test_abs_diff_large() -> Result<()> {
 
     let mut im_dest = FastImageData::<u8>::new(w, h, 0)?;
 
-    let size = *im_dest.size();
+    let size = im_dest.size();
 
-    ripp::abs_diff_8u_c1r(&im10, &im9, &mut im_dest, &size)?;
+    ripp::abs_diff_8u_c1r(&im10, &im9, &mut im_dest, size)?;
     assert_eq!(im1, im_dest);
 
-    ripp::abs_diff_8u_c1r(&im9, &im10, &mut im_dest, &size)?;
+    ripp::abs_diff_8u_c1r(&im9, &im10, &mut im_dest, size)?;
     assert_eq!(im1, im_dest);
 
-    ripp::abs_diff_8u_c1r(&im9, &im9, &mut im_dest, &size)?;
+    ripp::abs_diff_8u_c1r(&im9, &im9, &mut im_dest, size)?;
     assert_eq!(im0, im_dest);
     Ok(())
 }
@@ -498,7 +498,7 @@ fn test_threshold_val_8u_c1ir() -> Result<()> {
     im.pixel_slice_mut(0, 3)[0] = 23;
     im.pixel_slice_mut(0, 4)[0] = 24;
 
-    let size = &im.size().clone();
+    let size = im.size().clone();
     ripp::threshold_val_8u_c1ir(&mut im, size, 22, 0, CompareOp::Less)?;
 
     let mut expected = FastImageData::<u8>::new(w, h, 0)?;

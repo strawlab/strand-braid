@@ -89,7 +89,7 @@ mod simd_generic {
         src1: &S1,
         src2: &S2,
         dest: &mut D,
-        size: &FastImageSize,
+        size: FastImageSize,
     ) -> Result<()>
     where
         S1: FastImage<D = u8>,
@@ -196,8 +196,8 @@ impl FastImageData<u8> {
         S: FastImage<D = u8>,
     {
         let mut data = Self::new(src.width(), src.height(), 0)?;
-        let size = *data.size();
-        ripp::copy_8u_c1r(src, &mut data, &size)?;
+        let size = data.size();
+        ripp::copy_8u_c1r(src, &mut data, size)?;
         Ok(data)
     }
 
@@ -206,8 +206,8 @@ impl FastImageData<u8> {
         S: FastImage<D = f32>,
     {
         let mut data = Self::new(src.width(), src.height(), 0)?;
-        let size = *data.size();
-        ripp::convert_32f8u_c1r(src, &mut data, &size, round_mode)?;
+        let size = data.size();
+        ripp::convert_32f8u_c1r(src, &mut data, size, round_mode)?;
         Ok(data)
     }
 }
@@ -218,8 +218,8 @@ impl FastImageData<f32> {
         S: FastImage<D = u8>,
     {
         let mut data = Self::new(src.width(), src.height(), 0.0)?;
-        let size = *data.size();
-        ripp::convert_8u32f_c1r(src, &mut data, &size)?;
+        let size = data.size();
+        ripp::convert_8u32f_c1r(src, &mut data, size)?;
         Ok(data)
     }
 
@@ -228,8 +228,8 @@ impl FastImageData<f32> {
         S: FastImage<D = f32>,
     {
         let mut data = Self::new(src.width(), src.height(), 0.0)?;
-        let size = *data.size();
-        ripp::copy_32f_c1r(src, &mut data, &size)?;
+        let size = data.size();
+        ripp::copy_32f_c1r(src, &mut data, size)?;
         Ok(data)
     }
 }
@@ -268,8 +268,8 @@ where
     }
 
     #[inline]
-    fn size(&self) -> &FastImageSize {
-        &self.size
+    fn size(&self) -> FastImageSize {
+        self.size
     }
 }
 
@@ -295,8 +295,8 @@ where
     }
 
     #[inline]
-    fn size(&self) -> &FastImageSize {
-        &self.size
+    fn size(&self) -> FastImageSize {
+        self.size
     }
 }
 
@@ -395,8 +395,8 @@ where
     }
 
     #[inline]
-    fn size(&self) -> &FastImageSize {
-        &self.size
+    fn size(&self) -> FastImageSize {
+        self.size
     }
 }
 
@@ -411,7 +411,7 @@ where
             self.width(),
             self.height()
         )?;
-        for (i, row) in self.valid_row_iter(&self.size).unwrap().enumerate() {
+        for (i, row) in self.valid_row_iter(self.size).unwrap().enumerate() {
             writeln!(fmt, "  row {i} slice: {row:?}")?;
         }
         Ok(())
@@ -440,8 +440,8 @@ where
     }
 
     #[inline]
-    fn size(&self) -> &FastImageSize {
-        &self.size
+    fn size(&self) -> FastImageSize {
+        self.size
     }
 }
 
@@ -519,8 +519,8 @@ where
     }
 
     #[inline]
-    fn size(&self) -> &FastImageSize {
-        &self.size
+    fn size(&self) -> FastImageSize {
+        self.size
     }
 }
 
@@ -546,8 +546,8 @@ where
     }
 
     #[inline]
-    fn size(&self) -> &FastImageSize {
-        &self.size
+    fn size(&self) -> FastImageSize {
+        self.size
     }
 }
 
@@ -577,7 +577,7 @@ where
             self.width(),
             self.height()
         )?;
-        for (i, row) in self.valid_row_iter(&self.size).unwrap().enumerate() {
+        for (i, row) in self.valid_row_iter(self.size).unwrap().enumerate() {
             writeln!(fmt, "  row {i} slice: {row:?}")?;
         }
         Ok(())
@@ -833,11 +833,11 @@ pub trait FastImage {
     }
 
     /// Get the image size in number of pixels.
-    fn size(&self) -> &FastImageSize;
+    fn size(&self) -> FastImageSize;
 
     /// Iterate over elements in each image row. Returns valid slices.
     #[inline]
-    fn valid_row_iter(&self, size: &FastImageSize) -> Result<ValidChunksExact<'_, Self::D>> {
+    fn valid_row_iter(&self, size: FastImageSize) -> Result<ValidChunksExact<'_, Self::D>> {
         if size.width() > self.size().width() || size.height > self.size().height() {
             return Err(Error::SizeError);
         }
@@ -924,7 +924,7 @@ pub trait MutableFastImage: FastImage {
     #[inline]
     fn valid_row_iter_mut(
         &mut self,
-        size: &FastImageSize,
+        size: FastImageSize,
     ) -> Result<ValidChunksExactMut<'_, Self::D>> {
         if size.width() > self.size().width() || size.height() > self.size().height() {
             return Err(Error::SizeError);
@@ -1015,8 +1015,8 @@ impl FastImageRegion {
     }
 
     #[inline]
-    pub fn size(&self) -> &FastImageSize {
-        &self.size
+    pub fn size(&self) -> FastImageSize {
+        self.size
     }
 }
 
@@ -1065,7 +1065,7 @@ fn test_rounding() {
 pub mod ripp {
     use super::*;
 
-    pub fn copy_8u_c1r<SRC, DST>(src: &SRC, dest: &mut DST, size: &FastImageSize) -> Result<()>
+    pub fn copy_8u_c1r<SRC, DST>(src: &SRC, dest: &mut DST, size: FastImageSize) -> Result<()>
     where
         SRC: FastImage<D = u8>,
         DST: MutableFastImage<D = u8>,
@@ -1081,7 +1081,7 @@ pub mod ripp {
         Ok(())
     }
 
-    pub fn copy_32f_c1r<SRC, DST>(src: &SRC, dest: &mut DST, size: &FastImageSize) -> Result<()>
+    pub fn copy_32f_c1r<SRC, DST>(src: &SRC, dest: &mut DST, size: FastImageSize) -> Result<()>
     where
         SRC: FastImage<D = f32>,
         DST: MutableFastImage<D = f32>,
@@ -1097,7 +1097,7 @@ pub mod ripp {
         Ok(())
     }
 
-    pub fn convert_8u32f_c1r<S, D>(src: &S, dest: &mut D, size: &FastImageSize) -> Result<()>
+    pub fn convert_8u32f_c1r<S, D>(src: &S, dest: &mut D, size: FastImageSize) -> Result<()>
     where
         S: FastImage<D = u8>,
         D: MutableFastImage<D = f32>,
@@ -1116,7 +1116,7 @@ pub mod ripp {
     pub fn convert_32f8u_c1r<SRC, DST>(
         src: &SRC,
         dest: &mut DST,
-        size: &FastImageSize,
+        size: FastImageSize,
         round_mode: RoundMode,
     ) -> Result<()>
     where
@@ -1140,7 +1140,7 @@ pub mod ripp {
         src: &SRC,
         value: u8,
         dest: &mut DST,
-        size: &FastImageSize,
+        size: FastImageSize,
         cmp_op: CompareOp,
     ) -> Result<()>
     where
@@ -1165,7 +1165,7 @@ pub mod ripp {
         Ok(())
     }
 
-    pub fn min_indx_8u_c1r<S>(src: &S, size: &FastImageSize) -> Result<(u8, Point)>
+    pub fn min_indx_8u_c1r<S>(src: &S, size: FastImageSize) -> Result<(u8, Point)>
     where
         S: FastImage<D = u8>,
     {
@@ -1184,7 +1184,7 @@ pub mod ripp {
         Ok((value, loc))
     }
 
-    pub fn max_indx_8u_c1r<S>(src: &S, size: &FastImageSize) -> Result<(u8, Point)>
+    pub fn max_indx_8u_c1r<S>(src: &S, size: FastImageSize) -> Result<(u8, Point)>
     where
         S: FastImage<D = u8>,
     {
@@ -1222,7 +1222,7 @@ pub mod ripp {
 
     pub fn threshold_val_8u_c1ir<SRCDST>(
         src_dest: &mut SRCDST,
-        size: &FastImageSize,
+        size: FastImageSize,
         threshold: u8,
         value: u8,
         cmp_op: CompareOp,
@@ -1276,7 +1276,7 @@ pub mod ripp {
         src1: &S1,
         src2: &S2,
         dest: &mut D,
-        size: &FastImageSize,
+        size: FastImageSize,
         scale_factor: ipp_ctypes::c_int,
     ) -> Result<()>
     where
@@ -1305,7 +1305,7 @@ pub mod ripp {
         src1: &S1,
         src2: &S2,
         dest: &mut D,
-        size: &FastImageSize,
+        size: FastImageSize,
     ) -> Result<()>
     where
         S1: FastImage<D = f32>,
@@ -1324,7 +1324,7 @@ pub mod ripp {
         Ok(())
     }
 
-    pub fn abs_32f_c1r<S, D>(src: &S, dest: &mut D, size: &FastImageSize) -> Result<()>
+    pub fn abs_32f_c1r<S, D>(src: &S, dest: &mut D, size: FastImageSize) -> Result<()>
     where
         S: FastImage<D = f32>,
         D: MutableFastImage<D = f32>,
@@ -1340,7 +1340,7 @@ pub mod ripp {
         Ok(())
     }
 
-    pub fn sqrt_32f_c1ir<SRCDST>(src_dest: &mut SRCDST, size: &FastImageSize) -> Result<()>
+    pub fn sqrt_32f_c1ir<SRCDST>(src_dest: &mut SRCDST, size: FastImageSize) -> Result<()>
     where
         SRCDST: MutableFastImage<D = f32>,
     {
@@ -1352,7 +1352,7 @@ pub mod ripp {
         Ok(())
     }
 
-    pub fn mul_c_32f_c1ir<SD>(k: f32, src_dest: &mut SD, size: &FastImageSize) -> Result<()>
+    pub fn mul_c_32f_c1ir<SD>(k: f32, src_dest: &mut SD, size: FastImageSize) -> Result<()>
     where
         SD: MutableFastImage<D = f32>,
     {
@@ -1372,7 +1372,7 @@ pub mod ripp {
         src1: &S1,
         src2: &S2,
         dest: &mut D,
-        size: &FastImageSize,
+        size: FastImageSize,
     ) -> Result<()>
     where
         S1: FastImage<D = u8>,
@@ -1394,7 +1394,7 @@ pub mod ripp {
     pub fn add_weighted_8u32f_c1ir<SRC, SRCDST>(
         src: &SRC,
         src_dst: &mut SRCDST,
-        size: &FastImageSize,
+        size: FastImageSize,
         alpha: f32,
     ) -> Result<()>
     where
@@ -1416,7 +1416,7 @@ pub mod ripp {
     pub fn add_weighted_32f_c1ir<SRC, SRCDST>(
         src: &SRC,
         src_dst: &mut SRCDST,
-        size: &FastImageSize,
+        size: FastImageSize,
         alpha: f32,
     ) -> Result<()>
     where
@@ -1435,11 +1435,11 @@ pub mod ripp {
         Ok(())
     }
 
-    pub fn moments_8u_c1r<S>(src: &S, size: &FastImageSize, result: &mut MomentState) -> Result<()>
+    pub fn moments_8u_c1r<S>(src: &S, size: FastImageSize, result: &mut MomentState) -> Result<()>
     where
         S: FastImage<D = u8>,
     {
-        let roi = FastImageRegion::new(Point::new(0, 0), *size);
+        let roi = FastImageRegion::new(Point::new(0, 0), size);
 
         let im_view1 = FastImageView::view_region(src, &roi);
         let im_view: &dyn FastImage<D = u8> = &im_view1?;
@@ -1448,7 +1448,7 @@ pub mod ripp {
         Ok(())
     }
 
-    pub fn set_8u_c1r<DST>(value: u8, dest: &mut DST, size: &FastImageSize) -> Result<()>
+    pub fn set_8u_c1r<DST>(value: u8, dest: &mut DST, size: FastImageSize) -> Result<()>
     where
         DST: MutableFastImage<D = u8>,
     {
@@ -1460,7 +1460,7 @@ pub mod ripp {
         Ok(())
     }
 
-    pub fn set_32f_c1r<DST>(value: f32, dest: &mut DST, size: &FastImageSize) -> Result<()>
+    pub fn set_32f_c1r<DST>(value: f32, dest: &mut DST, size: FastImageSize) -> Result<()>
     where
         DST: MutableFastImage<D = f32>,
     {
@@ -1472,7 +1472,7 @@ pub mod ripp {
         Ok(())
     }
 
-    pub fn set_8u_c1mr<D, M>(value: u8, dest: &mut D, size: &FastImageSize, mask: &M) -> Result<()>
+    pub fn set_8u_c1mr<D, M>(value: u8, dest: &mut D, size: FastImageSize, mask: &M) -> Result<()>
     where
         D: MutableFastImage<D = u8>,
         M: FastImage<D = u8>,
@@ -1490,7 +1490,7 @@ pub mod ripp {
         Ok(())
     }
 
-    pub fn sqr_32f_c1ir<SRCDST>(src_dest: &mut SRCDST, size: &FastImageSize) -> Result<()>
+    pub fn sqr_32f_c1ir<SRCDST>(src_dest: &mut SRCDST, size: FastImageSize) -> Result<()>
     where
         SRCDST: MutableFastImage<D = f32>,
     {

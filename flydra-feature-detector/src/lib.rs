@@ -313,14 +313,14 @@ impl TrackingState {
                 // Set anything less than clear_despeckle_thresh to zero
                 ripp::threshold_val_8u_c1ir(
                     &mut absdiff_im_roi2_view,
-                    &roi2_sz,
+                    roi2_sz,
                     clear_despeckle_thresh,
                     0,
                     CompareOp::Less,
                 )?;
 
                 {
-                    ripp::moments_8u_c1r(&absdiff_im_roi2_view, &roi2_sz, &mut self.moments)?;
+                    ripp::moments_8u_c1r(&absdiff_im_roi2_view, roi2_sz, &mut self.moments)?;
                     let mu00 = self.moments.spatial(0, 0, 0, &origin)?;
 
                     if mu00 == 0.0 {
@@ -372,7 +372,7 @@ impl TrackingState {
                     };
                 }
 
-                ripp::set_8u_c1r(0, &mut absdiff_im_roi2_view, &roi2_sz)?;
+                ripp::set_8u_c1r(0, &mut absdiff_im_roi2_view, roi2_sz)?;
             }
         }
         Ok(all_points_found)
@@ -597,7 +597,7 @@ impl FlydraFeatureDetector {
             sender.try_send(self.cfg.clone()).unwrap();
         }
 
-        self.mask_image = Some(compute_mask_image(&self.roi_sz, &self.cfg.valid_region)?);
+        self.mask_image = Some(compute_mask_image(self.roi_sz, &self.cfg.valid_region)?);
         Ok(())
     }
 
@@ -695,7 +695,7 @@ impl FlydraFeatureDetector {
             frame.height() as ipp_ctypes::c_int,
         )?;
 
-        if *raw_im_full.size() != self.roi_sz {
+        if raw_im_full.size() != self.roi_sz {
             return Err(Error::ImageSizeChanged);
         }
 
@@ -724,7 +724,7 @@ impl FlydraFeatureDetector {
                 let running_mean = FastImageData::<f32>::copy_from_8u32f_c1(&raw_im_full)?;
 
                 let mut mean_squared_im = FastImageData::<f32>::copy_from_8u32f_c1(&raw_im_full)?;
-                ripp::sqr_32f_c1ir(&mut mean_squared_im, &self.roi_sz)?;
+                ripp::sqr_32f_c1ir(&mut mean_squared_im, self.roi_sz)?;
 
                 let startup_state = StartupState {
                     n_frames: 1,
@@ -742,16 +742,16 @@ impl FlydraFeatureDetector {
                 ripp::add_weighted_8u32f_c1ir(
                     &raw_im_full,
                     &mut startup_state.running_mean,
-                    &self.roi_sz,
+                    self.roi_sz,
                     1.0 / NUM_BG_START_IMAGES as f32,
                 )?;
 
                 let mut this_squared = FastImageData::copy_from_8u32f_c1(&raw_im_full)?;
-                ripp::sqr_32f_c1ir(&mut this_squared, &self.roi_sz)?;
+                ripp::sqr_32f_c1ir(&mut this_squared, self.roi_sz)?;
                 ripp::add_weighted_32f_c1ir(
                     &this_squared,
                     &mut startup_state.mean_squared_im,
-                    &self.roi_sz,
+                    self.roi_sz,
                     1.0 / NUM_BG_START_IMAGES as f32,
                 )?;
 
@@ -780,7 +780,7 @@ impl FlydraFeatureDetector {
                     FastImageData::<f32>::new(raw_im_full.width(), raw_im_full.height(), value)?;
 
                 let mut mean_squared_im = FastImageData::<f32>::copy_from_32f_c1(&running_mean)?;
-                ripp::sqr_32f_c1ir(&mut mean_squared_im, &self.roi_sz)?;
+                ripp::sqr_32f_c1ir(&mut mean_squared_im, self.roi_sz)?;
 
                 let complete_stamp = timestamp_utc;
 
@@ -861,14 +861,14 @@ impl FlydraFeatureDetector {
     }
 }
 
-pub fn compute_mask_image(roi_sz: &FastImageSize, shape: &Shape) -> Result<FastImageData<u8>> {
+pub fn compute_mask_image(roi_sz: FastImageSize, shape: &Shape) -> Result<FastImageData<u8>> {
     // mask_image
     let mask_value = 255;
     let use_value = 0;
 
     let mut mask_image = FastImageData::<u8>::new(roi_sz.width(), roi_sz.height(), use_value)?;
-    let size = *mask_image.size();
-    let mask_row_iter = mask_image.valid_row_iter_mut(&size)?;
+    let size = mask_image.size();
+    let mask_row_iter = mask_image.valid_row_iter_mut(size)?;
 
     match shape {
         Shape::Everything => {
@@ -931,7 +931,7 @@ fn test_mask_polygon() -> anyhow::Result<()> {
     let shape = Shape::Polygon(strand_http_video_streaming_types::PolygonParams {
         points: vec![(1.0, 1.0), (10.0, 1.0), (10.0, 6.0), (1.0, 6.0)],
     });
-    let mask = compute_mask_image(&roi_sz, &shape)?;
+    let mask = compute_mask_image(roi_sz, &shape)?;
     let expected = {
         let mut full = FastImageData::<u8>::new(12, 8, 255)?;
         for row in 1..7 {
@@ -953,7 +953,7 @@ fn test_mask_circle() -> anyhow::Result<()> {
         center_y: 4,
         radius: 5,
     });
-    let mask = compute_mask_image(&roi_sz, &shape)?;
+    let mask = compute_mask_image(roi_sz, &shape)?;
     let expected = {
         let mut full = FastImageData::<u8>::new(13, 9, 255)?;
         for row in [0, 8] {
@@ -993,7 +993,7 @@ fn test_mask_multiple_circles() -> anyhow::Result<()> {
         },
     ];
     let shape = Shape::MultipleCircles(circles);
-    let mask = compute_mask_image(&roi_sz, &shape)?;
+    let mask = compute_mask_image(roi_sz, &shape)?;
     let expected = {
         let mut full = FastImageData::<u8>::new(8, 3, 255)?;
         let row = 1;

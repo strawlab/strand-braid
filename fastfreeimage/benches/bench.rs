@@ -43,9 +43,9 @@ fn bench_abs_diff_8u_c1r(c: &mut Criterion) {
     let mut im_dest =
         FastImageData::<u8>::new(W as ipp_ctypes::c_int, H as ipp_ctypes::c_int, 0).unwrap();
 
-    let size = *im_dest.size();
+    let size = im_dest.size();
     c.bench_function("abs_diff_8u_c1r", move |b| {
-        b.iter(|| ripp::abs_diff_8u_c1r(&im10, &im9, &mut im_dest, &size).unwrap())
+        b.iter(|| ripp::abs_diff_8u_c1r(&im10, &im9, &mut im_dest, size).unwrap())
     });
 }
 
@@ -53,18 +53,18 @@ fn bench_max_indx_8u_c1r(c: &mut Criterion) {
     let im10 =
         FastImageData::<u8>::new(W as ipp_ctypes::c_int, H as ipp_ctypes::c_int, 10).unwrap();
 
-    let size = *im10.size();
+    let size = im10.size();
     c.bench_function("max_indx_8u_c1r", move |b| {
-        b.iter(|| ripp::max_indx_8u_c1r(&im10, &size).unwrap())
+        b.iter(|| ripp::max_indx_8u_c1r(&im10, size).unwrap())
     });
 }
 
 fn bench_threshold_val_8u_c1ir(c: &mut Criterion) {
     let mut im10 =
         FastImageData::<u8>::new(W as ipp_ctypes::c_int, H as ipp_ctypes::c_int, 10).unwrap();
-    let size = *im10.size();
+    let size = im10.size();
     c.bench_function("threshold_val_8u_c1ir", move |b| {
-        b.iter(|| ripp::threshold_val_8u_c1ir(&mut im10, &size, 9, 255, CompareOp::Less).unwrap())
+        b.iter(|| ripp::threshold_val_8u_c1ir(&mut im10, size, 9, 255, CompareOp::Less).unwrap())
     });
 }
 
@@ -72,9 +72,9 @@ fn bench_set_8u_c1mr(c: &mut Criterion) {
     let mut dest =
         FastImageData::<u8>::new(W as ipp_ctypes::c_int, H as ipp_ctypes::c_int, 10).unwrap();
     let mask = FastImageData::<u8>::new(W as ipp_ctypes::c_int, H as ipp_ctypes::c_int, 0).unwrap();
-    let size = *dest.size();
+    let size = dest.size();
     c.bench_function("set_8u_c1mr", move |b| {
-        b.iter(|| ripp::set_8u_c1mr(20, &mut dest, &size, &mask).unwrap())
+        b.iter(|| ripp::set_8u_c1mr(20, &mut dest, size, &mask).unwrap())
     });
 }
 
