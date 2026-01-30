@@ -58,7 +58,7 @@ fn test_nested_names() -> anyhow::Result<()> {
     let mut zipw = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
     let walkdir = walkdir::WalkDir::new(&output_root);
     let mut file_iter = walkdir.into_iter().map(|x| x.unwrap());
-    zip_dir(
+    zip_dir::<_, _, ()>(
         &mut file_iter,
         output_root,
         &mut zipw,
