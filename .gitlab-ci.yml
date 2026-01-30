@@ -545,7 +545,7 @@ strand-cam-pylon-binary:
       OPENCV_STATIC=1
       PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig
       IPP_STATIC=1
-      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
+      RUSTFLAGS="$RUSTFLAGS -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
 
@@ -584,7 +584,7 @@ strand-cam-vimba-binary:
       OPENCV_STATIC=1
       PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig
       IPP_STATIC=1
-      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1"
+      RUSTFLAGS="$RUSTFLAGS -C codegen-units=1"
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
 
@@ -643,7 +643,7 @@ strand-cam-flydratrax-pylon-binary:
       OPENCV_STATIC=1
       PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
       IPP_STATIC=1
-      RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
+      RUSTFLAGS="$RUSTFLAGS -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial imops/simd strand-cam/flydra_feat_detect strand-cam/use_ipp tracing/release_max_level_debug" --release
 
@@ -865,7 +865,7 @@ braid-run-binary:
 
     # build braid-run
     - cd $CI_PROJECT_DIR/braid/braid-run
-    - RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features bundle_files,with-rerun,tracing/release_max_level_debug --release
+    - RUSTFLAGS="$RUSTFLAGS -C codegen-units=1" NUM_JOBS=2 cargo build --no-default-features --features bundle_files,with-rerun,tracing/release_max_level_debug --release
     - ldd -v $CI_PROJECT_DIR/target/release/braid-run
     - cp ../../target/release/braid-run $CI_PROJECT_DIR/build
 
@@ -894,7 +894,7 @@ led-box-linux:
     - export RUSTFLAGS="-D warnings"
 
     - cd $CI_PROJECT_DIR/led-box/led-box
-    - NUM_JOBS=2 RUSTFLAGS="$RUSTFLAGS -C target-cpu=sandybridge -C codegen-units=1" cargo build --release
+    - NUM_JOBS=2 RUSTFLAGS="$RUSTFLAGS -C codegen-units=1" cargo build --release
     - mkdir -p $CI_PROJECT_DIR/build
     - cp $CI_PROJECT_DIR/target/release/led-box $CI_PROJECT_DIR/build/led-box
   artifacts:
