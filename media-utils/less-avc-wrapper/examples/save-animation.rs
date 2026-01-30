@@ -1,4 +1,4 @@
-// Copyright 2022-2023 Andrew D. Straw.
+// Copyright 2022-2026 Andrew D. Straw.
 use font_drawing::stamp_frame;
 use machine_vision_formats::{
     image_ref::ImageRef,
@@ -6,6 +6,7 @@ use machine_vision_formats::{
     pixel_format::{Mono8, RGB8},
     ImageMutStride, Stride,
 };
+use strand_dynamic_frame::{CowDynamicFrame, DynamicFrame, DynamicFrameOwned};
 use tracing::info;
 
 use rusttype::Font;
@@ -62,8 +63,9 @@ fn main() -> eyre::Result<()> {
                     count += 1;
 
                     let opts = convert_image::EncoderOptions::Png;
+                    let trimmed;
 
-                    match *format_str {
+                    let to_write = match *format_str {
                         "mono8" => {
                             // if png_buf.is_none() {
                             //     png_buf = Some(convert_image::frame_to_encoded_buffer(&frame, opts)?);
@@ -87,11 +89,11 @@ fn main() -> eyre::Result<()> {
                                     Some(convert_image::frame_to_encoded_buffer(&trimmed, opts)?);
                             }
 
-                            my_h264_writer.write(&trimmed)?;
+                            CowDynamicFrame::Owned(DynamicFrameOwned::from_static(trimmed))
                         }
                         "rgb8" => {
                             let out_size_bytes = frame.stride() * final_height as usize;
-                            let trimmed = ImageRef::<RGB8>::new(
+                            trimmed = ImageRef::<RGB8>::new(
                                 final_width,
                                 final_height,
                                 frame.stride(),
@@ -103,12 +105,13 @@ fn main() -> eyre::Result<()> {
                                     Some(convert_image::frame_to_encoded_buffer(&trimmed, opts)?);
                             }
 
-                            my_h264_writer.write(&trimmed)?;
+                            CowDynamicFrame::Borrowed(DynamicFrame::from_static_ref(&trimmed))
                         }
                         _ => {
                             panic!("unknown format");
                         }
-                    }
+                    };
+                    my_h264_writer.write_dynamic(&to_write.borrow())?;
                 }
 
                 if let Some(png_buf) = png_buf {
