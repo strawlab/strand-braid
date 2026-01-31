@@ -5,11 +5,27 @@ cache:
   key: there-is-no-cache
   policy: pull
 
-# At some point, we should do: cargo test --all
+check_workspace:
+  # This is basically what rust analyzer does.
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  dependencies: []
+  script:
+    - export RUSTFLAGS="-D warnings"
 
-# lapack notes for the future:
-#   Ubuntu 16.04     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential libgfortran-5-dev liblapack-dev libblas-dev
-#   Debian (jessie?) - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl build-essential libgfortran-6-dev liblapack-dev libblas-dev
+    # Install prerequisites
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg libopencv-dev
+    - cd $CI_PROJECT_DIR
+    - _packaging/install-pylon-linux.sh
+
+    # Build frontends for strand-cam and braid so the final step below also compiles.
+    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
+    - cd $CI_PROJECT_DIR/braid/braid-run/braid_frontend && time ./build.sh
+    - cd $CI_PROJECT_DIR/geometry/mcsc-structs && ./package-mcsc-zip.sh
+
+    # Finally, do a cargo check on the whole workspace to make sure all crates
+    # compile with default features.
+    - cd $CI_PROJECT_DIR
+    - cargo check --workspace --all-targets
 
 test_crates:
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
