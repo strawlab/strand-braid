@@ -1,3 +1,9 @@
+[workspace]
+# It is important that this crate is not part of the higher level strand-braid
+# workspace because this crate dependencies at build-time on IPP whereas we
+# don't want o pull that into strand-braid. By making this new workspace, just
+# for fastimage, we prevent fastimage being part of the higher level workspace.
+
 [package]
 name = "fastimage"
 version = "0.1.0"
@@ -6,15 +12,15 @@ edition = "2021"
 rust-version = "1.76"
 
 [dependencies]
-ipp-sys.workspace = true
-thiserror.workspace = true
-num-traits.workspace = true
-machine-vision-formats.workspace = true
+ipp-sys = "0.4.4"
+thiserror = "1"
+num-traits = "0.2"
+machine-vision-formats = { version = "0.1.7", default-features = false }
 
 [dev-dependencies]
-itertools.workspace = true
+itertools = "0.10"
 criterion = "0.5"
-approx.workspace = true
+approx = "0.5"
 
 [features]
 default = ["simd-sse2"]
