@@ -9,10 +9,9 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y cpio libudev-dev zlib1g-dev pk
 ORIG_DIR=`pwd`
 echo $ORIG_DIR
 
-# Install nightly Rust. Use specific "known good" version of nightly because
-# occasionally breakage happens.
+# Install Rust.
 cd /tmp
-curl -O --show-error --fail --silent https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && chmod a+x rustup-init && ./rustup-init -y --default-toolchain nightly-2026-02-02
+curl -O --show-error --fail --silent https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && chmod a+x rustup-init && ./rustup-init -y
 
 if [[ -f "$HOME/.cargo/env" ]]; then
     # Put rust on the path (otherwise, it was probably in /usr/bin and on the path anyway).
