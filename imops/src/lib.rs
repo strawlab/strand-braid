@@ -387,6 +387,8 @@ where
                     CmpOp::GreaterEqual => y.simd_ge(thresh_vec),
                     CmpOp::GreaterThan => y.simd_gt(thresh_vec),
                 };
+                // The Select trait was introduced in https://github.com/rust-lang/portable-simd/pull/482
+                use std::simd::Select; // need recent nightly, e.g. 2026-01-23 works
                 *y = indicator.select(avec, bvec);
             }
 

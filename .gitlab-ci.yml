@@ -634,6 +634,7 @@ strand-cam-flydratrax-pylon-binary:
     - _packaging/setup-ubuntu-ipp.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export RUSTFLAGS="-D warnings"
+    - rustc --version
 
     - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon-gui
 
