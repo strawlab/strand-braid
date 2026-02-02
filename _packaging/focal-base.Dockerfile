@@ -4,9 +4,9 @@
 # Build with:
 #    docker build --platform linux/amd64 -f _packaging/focal-base.Dockerfile --progress=plain .
 # Tag with:
-#    docker tag <the_sha1_hash_of_the_image> gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+#    docker tag <the_sha1_hash_of_the_image> gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
 # Push with:
-#    docker push gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+#    docker push gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
 FROM ubuntu:focal
 
 # Although this is redundant with _packaging/setup-ubuntu-base.sh, we do it here to put it in the docker cache.
