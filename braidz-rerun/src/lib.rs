@@ -580,7 +580,7 @@ impl re_data_loader::DataLoader for BraidzLoader {
         &self,
         settings: &re_sdk::DataLoaderSettings,
         filepath: std::path::PathBuf,
-        tx: std::sync::mpsc::Sender<re_sdk::LoadedData>,
+        tx: re_sdk::external::re_log::Sender<re_sdk::LoadedData>,
     ) -> Result<(), re_sdk::DataLoaderError> {
         self.ensure_path(&filepath)?;
 
@@ -597,7 +597,7 @@ impl re_data_loader::DataLoader for BraidzLoader {
         settings: &re_sdk::DataLoaderSettings,
         filepath: std::path::PathBuf,
         contents: std::borrow::Cow<'_, [u8]>,
-        tx: std::sync::mpsc::Sender<re_sdk::LoadedData>,
+        tx: re_sdk::external::re_log::Sender<re_sdk::LoadedData>,
     ) -> Result<(), re_sdk::DataLoaderError> {
         self.ensure_path(&filepath)?;
         let rdr = std::io::Cursor::new(contents);
@@ -631,7 +631,7 @@ impl BraidzLoader {
         &self,
         archive: braidz_parser::BraidzArchive<R>,
         _settings: &re_sdk::DataLoaderSettings,
-        tx: std::sync::mpsc::Sender<re_sdk::LoadedData>,
+        tx: re_sdk::external::re_log::Sender<re_sdk::LoadedData>,
     ) -> Result<(), re_sdk::DataLoaderError> {
         // Should we do something with settings like get the store_id?
 
