@@ -924,6 +924,66 @@ led-box-firmware:
 # -------
 
 # build the final downloadable .deb
+strand-braid-ubuntu-2604:
+  image: ubuntu:resolute
+  script:
+    - _packaging/setup-ubuntu-apt-proxy.sh
+
+    # The debian packaging infrastructure wants to have the .so files available to automatically determine which packages to depend on. The
+    # package list here is probably more than needed, but should contain the required subset.
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl
+
+    # Download pylon and install so dpkg figues out the source
+    - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
+    # Download vimba and install
+    - $CI_PROJECT_DIR/_packaging/setup-ubuntu-vimba.sh
+
+    - mkdir -p strand-braid-ubuntu-2604-${CI_COMMIT_TAG}
+
+    - cd $CI_PROJECT_DIR/_packaging
+    - pwd
+    - ls -l $CI_PROJECT_DIR/build
+    - $CI_PROJECT_DIR/build/strand-cam-pylon --version
+    - $CI_PROJECT_DIR/build/braid-run --version
+    - ldd -v $CI_PROJECT_DIR/build/flytrax-csv-to-braidz
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-pylon
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-vimba
+    - ldd -v $CI_PROJECT_DIR/build/braid
+    - ldd -v $CI_PROJECT_DIR/build/braid-run
+    - ldd -v $CI_PROJECT_DIR/build/cal-to-xml
+    - ldd -v $CI_PROJECT_DIR/build/align-calibration
+    - ldd -v $CI_PROJECT_DIR/build/braidz-mcsc
+    - ldd -v $CI_PROJECT_DIR/build/braid-april-cal-cli
+    - ldd -v $CI_PROJECT_DIR/build/braidz-export-rrd
+    - ldd -v $CI_PROJECT_DIR/build/braid-process-video
+    - make
+    - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
+    - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2604-${CI_COMMIT_TAG}/
+
+    - cp $CI_PROJECT_DIR/_packaging/ubuntu-installer-zip-readme.txt $CI_PROJECT_DIR/strand-braid-ubuntu-2604-${CI_COMMIT_TAG}/README.txt
+    - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-2604-${CI_COMMIT_TAG}/
+    - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2604-${CI_COMMIT_TAG}/*.deb
+  needs:
+    - braid-offline-static
+    - braid-process-video
+    - braid-run-binary
+    - braidz-mcsc
+    - extra-programs
+    - fmf-cli
+    - strand-cam-vimba-binary
+    - strand-cam-pylon-binary
+    - flytrax-csv-to-braidz-binary
+    - strand-cam-flydratrax-pylon-binary
+  # For releases, we should upload the .zip to the github releases page, as the
+  # zip (but not the deb) will include that this is for "ubuntu-2604" in the
+  # filename.
+  artifacts:
+    paths:
+      - strand-braid-ubuntu-2604-${CI_COMMIT_TAG}/
+    name: "strand-braid-ubuntu-2604-${CI_COMMIT_TAG}"
+
+# build the final downloadable .deb
 strand-braid-ubuntu-2404:
   image: ubuntu:noble
   script:
