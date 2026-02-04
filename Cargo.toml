@@ -196,7 +196,7 @@ image = { version = "0.25", default-features = false, features = [
 include_dir = "0.7.3"
 indicatif = "0.17.1"
 ipp-sys = "0.4.4"
-itertools = "0.10"
+itertools = "0.14"
 js-sys = "0.3.77"
 json-lines = { version = "0.1.0", features = ["codec"] }
 lazy_static = "1.4"
