@@ -440,6 +440,36 @@ impl DynamicFrameOwned {
             Ok(dest)
         }
     }
+
+    /// Returns the width of the image in pixels.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use strand_dynamic_frame::DynamicFrame;
+    /// # use machine_vision_formats::PixFmt;
+    /// let data = vec![0u8; 1500];
+    /// let frame = DynamicFrame::from_buf(50, 10, 150, data, PixFmt::RGB8).unwrap();
+    /// assert_eq!(frame.width(), 50);
+    /// ```
+    #[must_use]
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+
+    /// Returns the height of the image in pixels.
+    ///
+    /// # Examples
+    /// ```rust
+    /// # use strand_dynamic_frame::DynamicFrame;
+    /// # use machine_vision_formats::PixFmt;
+    /// let data = vec![0u8; 2000];
+    /// let frame = DynamicFrame::from_buf(40, 50, 40, data, PixFmt::Mono8).unwrap();
+    /// assert_eq!(frame.height(), 50);
+    /// ```
+    #[must_use]
+    pub fn height(&self) -> u32 {
+        self.height
+    }
 }
 
 impl<'a> DynamicFrame<'a> {
