@@ -185,10 +185,8 @@ impl<H: SeekableH264Source> FrameDataSource for H264Source<H> {
             Some(TimestampSource::FixedFramerate) => {
                 if let Some(t) = &self.frame0_precision_time {
                     Some(*t)
-                } else if let Some(fi) = &self.frame0_frameinfo {
-                    Some(fi.recv.into())
                 } else {
-                    None
+                    self.frame0_frameinfo.as_ref().map(|fi| fi.recv.into())
                 }
             }
             Some(TimestampSource::MispMicrosectime) => self.frame0_precision_time,
@@ -698,7 +696,7 @@ where
                 }
                 UnitType::PicParameterSet => {
                     match h264_reader::nal::pps::PicParameterSet::from_bits(
-                        &parsing_ctx,
+                        parsing_ctx,
                         nal.rbsp_bits(),
                     ) {
                         Ok(ipps) => {
