@@ -298,7 +298,7 @@ where
         Ok(())
     }
 
-    pub fn write_dynamic<'a, TS>(&'a mut self, frame: &DynamicFrame, timestamp: TS) -> Result<()>
+    pub fn write_dynamic<TS>(&mut self, frame: &DynamicFrame, timestamp: TS) -> Result<()>
     where
         TS: Into<chrono::DateTime<chrono::Local>>,
     {
@@ -497,7 +497,7 @@ where
                     inner: Some(inner),
                 };
 
-                write_dynamic_frame(&mut state, &frame, timestamp)?;
+                write_dynamic_frame(&mut state, frame, timestamp)?;
 
                 self.inner = Some(WriteState::Recording(Box::new(state)));
 
