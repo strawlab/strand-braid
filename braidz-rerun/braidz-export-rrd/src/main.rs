@@ -51,10 +51,10 @@ fn main() -> eyre::Result<()> {
 fn export_rrd(opt: Opt) -> eyre::Result<()> {
     if opt.version {
         println!(
-            "{name} {version} (rerun {rrvers})",
+            "{name} {version} (rerun {rerun_version})",
             name = env!("CARGO_PKG_NAME"),
             version = env!("CARGO_PKG_VERSION"),
-            rrvers = re_sdk::build_info().version,
+            rerun_version = re_sdk::build_info().version,
         );
         return Ok(());
     }
