@@ -8,17 +8,17 @@ use num_traits::{One, Zero};
 
 use nalgebra as na;
 use nalgebra::{
-    allocator::Allocator, geometry::Point3, DMatrix, DefaultAllocator, Dyn, Matrix3, OMatrix,
-    RealField, Vector3, Vector5, U1, U2, U3, U4,
+    DMatrix, DefaultAllocator, Dyn, Matrix3, OMatrix, RealField, U1, U2, U3, U4, Vector3, Vector5,
+    allocator::Allocator, geometry::Point3,
 };
 
 use cam_geom::ExtrinsicParameters;
 use opencv_ros_camera::{Distortion, RosOpenCvIntrinsics};
 
 use braid_mvg::{
-    rq_decomposition, vec_sum, Camera, DistortedPixel, MultiCameraSystem, MvgError,
-    PointWorldFrame, PointWorldFrameMaybeWithSumReprojError, PointWorldFrameWithSumReprojError,
-    UndistortedPixel, WorldCoordAndUndistorted2D,
+    Camera, DistortedPixel, MultiCameraSystem, MvgError, PointWorldFrame,
+    PointWorldFrameMaybeWithSumReprojError, PointWorldFrameWithSumReprojError, UndistortedPixel,
+    WorldCoordAndUndistorted2D, rq_decomposition, vec_sum,
 };
 
 mod fermats_least_time;
@@ -243,10 +243,11 @@ impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
     pub fn project_3d_to_ray(&self, pt3d: &PointWorldFrame<R>) -> parry3d_f64::query::Ray {
         let camcenter = self.extrinsics().camcenter();
 
-        let dir: Vector3<R> = if self.water.is_some() && pt3d.coords[2] < na::convert(0.0) {
+        let dir: Vector3<R> = if let Some(n2) = self.water
+            && pt3d.coords[2] < na::convert(0.0)
+        {
             // this is tag "laksdfjasl".
             let n1 = na::convert(AIR_REFRACTION);
-            let n2 = self.water.unwrap();
 
             let camcenter_z0 =
                 Point3::from(Vector3::new(camcenter[0], camcenter[1], na::convert(0.0)));
@@ -324,8 +325,8 @@ impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
 
     pub fn project_3d_to_pixel(&self, pt3d: &PointWorldFrame<R>) -> UndistortedPixel<R> {
         let ray = self.project_3d_to_ray(pt3d); // This handles water correctly
-                                                // (i.e. a 3D point is not necessarily seen with the ray direct from the cam center
-                                                // to that 3D point).
+        // (i.e. a 3D point is not necessarily seen with the ray direct from the cam center
+        // to that 3D point).
 
         // From here, we use normal camera stuff (no need to know about water).
         let coords: Point3<R> = (ray.origin + ray.dir).to_r();

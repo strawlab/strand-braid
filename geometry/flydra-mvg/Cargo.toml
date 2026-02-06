@@ -2,8 +2,8 @@
 name = "flydra-mvg"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2021"
-rust-version = "1.76"
+edition = "2024"
+rust-version = "1.85"
 
 [dependencies]
 thiserror.workspace = true
