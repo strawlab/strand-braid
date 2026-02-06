@@ -23,6 +23,8 @@ pub const UNDIST_NAME: &str = ".linearized.mp4";
 
 const CAMERA_BASE_PATH: &str = "world/camera";
 
+const EMPTY_POSITION: [(f32, f32); 0] = [];
+
 #[derive(Clone, Debug)]
 struct CachedCamData {
     /// The rerun entity path for image data
@@ -310,8 +312,6 @@ impl OfflineBraidzRerunLogger {
         self.last_frame = Some(row.frame);
         self.last_timestamp = Some(dt);
 
-        let empty_position: [(f32, f32); 0] = [];
-
         if let Some(path_base) = &cam_data.log_raw_2d_points {
             let ent_path = format!("{path_base}/{DETECT_NAME}");
             if !row.x.is_nan() {
@@ -324,12 +324,10 @@ impl OfflineBraidzRerunLogger {
                 // We have no detection at this frame. If required, tell rerun
                 // to stop drawing previous detections now.
                 if let Some(prior_frame) = self.last_data2d.remove(&ent_path) {
-                    assert_eq!(
-                        prior_frame + 1,
-                        row.frame,
-                        "must call in frame order for a given entity path"
-                    );
-                    self.rec.log(ent_path, &Points2D::new(empty_position))?;
+                    if row.frame != prior_frame + 1 {
+                        tracing::warn!("skipped frames for {path_base}. Expected {}, found {}", prior_frame+1, row.frame);
+                    }
+                    self.rec.log(ent_path, &Points2D::new(EMPTY_POSITION))?;
                 }
             }
         };
@@ -351,12 +349,10 @@ impl OfflineBraidzRerunLogger {
                 // We have no detection at this frame. If required, tell rerun
                 // to stop drawing previous detections now.
                 if let Some(prior_frame) = self.last_data2d.remove(&ent_path) {
-                    assert_eq!(
-                        prior_frame + 1,
-                        row.frame,
-                        "must call in frame order for a given entity path"
-                    );
-                    self.rec.log(ent_path, &Points2D::new(empty_position))?;
+                    if row.frame != prior_frame + 1 {
+                        tracing::warn!("skipped frames for {path_base}. Expected {}, found {}", prior_frame+1, row.frame);
+                    }
+                    self.rec.log(ent_path, &Points2D::new(EMPTY_POSITION))?;
                 }
             }
         }
