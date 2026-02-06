@@ -65,7 +65,7 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
     let input_braidz = {
         let braidz_inputs: Vec<_> = inputs
             .iter()
-            .filter(|x| x.as_os_str().to_string_lossy().ends_with(".braidz"))
+            .filter(|x| x.as_str().ends_with(".braidz"))
             .collect();
         let n_braidz_files = braidz_inputs.len();
         if n_braidz_files != 1 {
@@ -79,27 +79,19 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
     let archive = braidz_parser::braidz_parse_path(&input_braidz)
         .with_context(|| format!("Parsing file {input_braidz}"))?;
 
-    let output = output.unwrap_or_else(|| {
-        let mut output = input_braidz.as_os_str().to_owned();
-        output.push(".rrd");
-        Utf8PathBuf::from_os_string(output).unwrap()
-    });
+    let output = output.unwrap_or_else(|| Utf8PathBuf::from(format!("{input_braidz}.rrd")));
 
     // Exclude expected output (e.g. from prior run) from inputs.
     inputs.remove(&output);
     // Exclude .linearized.mp4 files
     let inputs: Vec<_> = inputs
         .iter()
-        .filter(|x| {
-            !x.as_os_str()
-                .to_string_lossy()
-                .ends_with(braidz_rerun::UNDIST_NAME)
-        })
+        .filter(|x| !x.as_str().ends_with(braidz_rerun::UNDIST_NAME))
         .collect();
 
     let mp4_inputs: Vec<_> = inputs
         .iter()
-        .filter(|x| x.as_os_str().to_string_lossy().ends_with(".mp4"))
+        .filter(|x| x.as_str().ends_with(".mp4"))
         .collect();
     if mp4_inputs.len() != inputs.len() {
         eyre::bail!("expected only mp4 inputs beyond one .braidz file.");
@@ -120,13 +112,8 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
         .try_for_each(|mp4_filename| {
             let my_mp4_writer = if opt.export_linearized_mp4s {
                 let linearized_mp4_output = {
-                    let output = mp4_filename.as_os_str().to_owned();
-                    let output = output.to_str().unwrap().to_string();
-                    let o2 = output.trim_end_matches(".mp4");
-                    let output_ref: &std::ffi::OsStr = o2.as_ref();
-                    let mut output = output_ref.to_os_string();
-                    output.push(braidz_rerun::UNDIST_NAME);
-                    Utf8PathBuf::from_os_string(output).unwrap()
+                    let trimmed = mp4_filename.as_str().trim_end_matches(".mp4");
+                    Utf8PathBuf::from(format!("{trimmed}{}", braidz_rerun::UNDIST_NAME))
                 };
 
                 tracing::info!("linearize (undistort) {mp4_filename} -> {linearized_mp4_output}");
