@@ -92,7 +92,7 @@ pub fn undistort_image(
             >::new(
                 width.try_into().unwrap(),
                 height.try_into().unwrap(),
-                (width * 3).try_into().unwrap(),
+                width * 3,
                 data_u8,
             )
             .unwrap();
