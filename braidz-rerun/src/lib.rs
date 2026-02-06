@@ -217,7 +217,7 @@ impl OfflineBraidzRerunLogger {
         mp4_filename: &str,
         mut my_mp4_writer: Option<Mp4Writer<std::fs::File>>,
     ) -> eyre::Result<()> {
-        let (_, camname) = camera_name_from_filename(&mp4_filename);
+        let (_, camname) = camera_name_from_filename(mp4_filename);
         if camname.is_none() {
             tracing::warn!("Did not recognize camera name for file \"{mp4_filename}\". Skipping.");
             return Ok(());
@@ -237,7 +237,7 @@ impl OfflineBraidzRerunLogger {
             None
         };
 
-        let mut src = frame_source::FrameSourceBuilder::new(&mp4_filename).build_source()?;
+        let mut src = frame_source::FrameSourceBuilder::new(mp4_filename).build_source()?;
 
         tracing::info!("Frame size: {}x{}", src.width(), src.height());
         let start_time = src.frame0_time().unwrap();
@@ -325,7 +325,11 @@ impl OfflineBraidzRerunLogger {
                 // to stop drawing previous detections now.
                 if let Some(prior_frame) = self.last_data2d.remove(&ent_path) {
                     if row.frame != prior_frame + 1 {
-                        tracing::warn!("skipped frames for {path_base}. Expected {}, found {}", prior_frame+1, row.frame);
+                        tracing::warn!(
+                            "skipped frames for {path_base}. Expected {}, found {}",
+                            prior_frame + 1,
+                            row.frame
+                        );
                     }
                     self.rec.log(ent_path, &Points2D::new(EMPTY_POSITION))?;
                 }
@@ -350,7 +354,11 @@ impl OfflineBraidzRerunLogger {
                 // to stop drawing previous detections now.
                 if let Some(prior_frame) = self.last_data2d.remove(&ent_path) {
                     if row.frame != prior_frame + 1 {
-                        tracing::warn!("skipped frames for {path_base}. Expected {}, found {}", prior_frame+1, row.frame);
+                        tracing::warn!(
+                            "skipped frames for {path_base}. Expected {}, found {}",
+                            prior_frame + 1,
+                            row.frame
+                        );
                     }
                     self.rec.log(ent_path, &Points2D::new(EMPTY_POSITION))?;
                 }
@@ -366,8 +374,8 @@ impl OfflineBraidzRerunLogger {
             self.rec
                 .set_timestamp_secs_since_epoch(SECONDS_TIMELINE, *timestamp);
             self.rec.log(
-                format!("world/obj_id/origin"),
-                &Points3D::new([(0.0 as f32, 0.0 as f32, 0.0 as f32)]),
+                "world/obj_id/origin".to_string(),
+                &Points3D::new([(0.0_f32, 0.0_f32, 0.0_f32)]),
             )?;
         }
         Ok(())
@@ -604,14 +612,16 @@ impl re_data_loader::DataLoader for BraidzLoader {
 }
 
 impl BraidzLoader {
-    fn ensure_path(&self, filepath: &std::path::PathBuf) -> Result<(), re_sdk::DataLoaderError> {
+    fn ensure_path(&self, filepath: &std::path::Path) -> Result<(), re_sdk::DataLoaderError> {
         if filepath.is_dir() {
-            return Err(re_sdk::DataLoaderError::Incompatible(filepath.clone()));
+            return Err(re_sdk::DataLoaderError::Incompatible(
+                filepath.to_path_buf(),
+            ));
         }
         let extension = filepath.extension();
         if extension.map(|x| x.to_str()) != Some(Some("braidz")) {
             return Err(re_data_loader::DataLoaderError::Incompatible(
-                filepath.clone(),
+                filepath.to_path_buf(),
             ));
         }
 
