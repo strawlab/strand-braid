@@ -384,16 +384,18 @@ async fn test_braid_vs_old_flydra() -> anyhow::Result<()> {
     const URL_BASE: &str = "https://strawlab-cdn.com/assets";
     const SHA256SUM: &str = "badef11e30d2fd24b6727a4dab384741cdef317e3dd038debf0f1f8eb6f2e2b0";
 
+    let local_fname = format!("scratch/{}", FNAME);
+
     download_verify::download_verify(
         format!("{}/{}", URL_BASE, FNAME).as_str(),
-        FNAME,
+        &local_fname,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )
     .unwrap();
 
     let untracked_dir = tempfile::tempdir()?.keep(); // must manually cleanup
 
-    run_test(FNAME, untracked_dir.clone()).await?;
+    run_test(&local_fname, untracked_dir.clone()).await?;
 
     // TODO: check that results are similar to original.
 
