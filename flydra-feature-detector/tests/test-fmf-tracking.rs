@@ -8,14 +8,14 @@ const SHA256SUM: &str = "8c9733b7741ae6c0dbe9bd5595db17d0c8eeede743736aac3bf51e5
 async fn track_fmf() -> eyre::Result<()> {
     let _ = env_logger::builder().is_test(true).try_init();
 
+    let local_fname = format!("scratch/{}", FNAME);
     download_verify::download_verify(
         format!("{}/{}", URL_BASE, FNAME).as_str(),
-        FNAME,
+        &local_fname,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
 
-    let reader = fmf::FMFReader::new(FNAME)?;
-
+    let reader = fmf::FMFReader::new(&local_fname)?;
     let cfg = flydra_pt_detect_cfg::default_absdiff();
 
     let mut ft = FlydraFeatureDetector::new(
