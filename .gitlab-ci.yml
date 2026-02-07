@@ -770,6 +770,15 @@ extra-programs:
     - cd $CI_PROJECT_DIR/media-utils/show-timestamps
     - cargo build --release
     - cp ../../target/release/show-timestamps $CI_PROJECT_DIR/build
+
+    - cd $CI_PROJECT_DIR
+    - cargo build --package flydra-feature-detector --release --features do_not_use_ipp --example flydra-feature-detector-bench
+    - cp target/release/examples/flydra-feature-detector-bench build/
+
+    - _packaging/setup-ubuntu-ipp.sh
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && IPP_STATIC=1 cargo build --package flydra-feature-detector --release --features use_ipp,ipp-sys/2019 --example flydra-feature-detector-bench
+    - cp target/release/examples/flydra-feature-detector-bench build/flydra-feature-detector-bench-ipp
+
   artifacts:
     paths:
       - build/
