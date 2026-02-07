@@ -60,6 +60,7 @@ impl Dynlibs {
     }
 }
 
+#[ignore = "requires NVENC shared libraries to be present at runtime"]
 #[test]
 fn test_basics() {
     check_basics().unwrap();
