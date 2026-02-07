@@ -4,16 +4,18 @@ const SHA256SUM: &str = "ddd2932d74139cd6ab5500b40c5f0482d5036df2f766be3a5f28ae2
 
 #[test]
 fn test_detect_tags() -> eyre::Result<()> {
+    let input_fname = camino::Utf8Path::new("scratch").join(FNAME);
     download_verify::download_verify(
         format!("{}/{}", URL_BASE, FNAME).as_str(),
-        FNAME,
+        input_fname.as_str(),
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
 
-    let out_fname: camino::Utf8PathBuf = "movie-standard41h12.apriltag.csv".into();
+    std::fs::create_dir_all("scratch")?;
+    let out_fname: camino::Utf8PathBuf = "scratch/movie-standard41h12.apriltag.csv".into();
 
     let cli_args = apriltag_track_movie::Cli {
-        input: FNAME.into(),
+        input: input_fname,
         max_num_frames: Some(2),
         output: out_fname.clone(),
         force: true,
