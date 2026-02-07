@@ -259,57 +259,6 @@ fn bindgen_test_layout___crt_locale_pointers() {
     );
 }
 pub type _locale_t = *mut __crt_locale_pointers;
-#[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct _Mbstatet {
-    pub _Wchar: ::std::os::raw::c_ulong,
-    pub _Byte: ::std::os::raw::c_ushort,
-    pub _State: ::std::os::raw::c_ushort,
-}
-#[test]
-fn bindgen_test_layout__Mbstatet() {
-    assert_eq!(
-        ::std::mem::size_of::<_Mbstatet>(),
-        8usize,
-        concat!("Size of: ", stringify!(_Mbstatet))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<_Mbstatet>(),
-        4usize,
-        concat!("Alignment of ", stringify!(_Mbstatet))
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<_Mbstatet>()))._Wchar as *const _ as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(_Mbstatet),
-            "::",
-            stringify!(_Wchar)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<_Mbstatet>()))._Byte as *const _ as usize },
-        4usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(_Mbstatet),
-            "::",
-            stringify!(_Byte)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<_Mbstatet>()))._State as *const _ as usize },
-        6usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(_Mbstatet),
-            "::",
-            stringify!(_State)
-        )
-    );
-}
-pub type mbstate_t = _Mbstatet;
 pub type time_t = __time64_t;
 pub type rsize_t = size_t;
 extern "C" {
@@ -1020,46 +969,6 @@ fn bindgen_test_layout__div_t() {
 pub type div_t = _div_t;
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-pub struct _ldiv_t {
-    pub quot: ::std::os::raw::c_long,
-    pub rem: ::std::os::raw::c_long,
-}
-#[test]
-fn bindgen_test_layout__ldiv_t() {
-    assert_eq!(
-        ::std::mem::size_of::<_ldiv_t>(),
-        8usize,
-        concat!("Size of: ", stringify!(_ldiv_t))
-    );
-    assert_eq!(
-        ::std::mem::align_of::<_ldiv_t>(),
-        4usize,
-        concat!("Alignment of ", stringify!(_ldiv_t))
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<_ldiv_t>())).quot as *const _ as usize },
-        0usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(_ldiv_t),
-            "::",
-            stringify!(quot)
-        )
-    );
-    assert_eq!(
-        unsafe { &(*(::std::ptr::null::<_ldiv_t>())).rem as *const _ as usize },
-        4usize,
-        concat!(
-            "Offset of field: ",
-            stringify!(_ldiv_t),
-            "::",
-            stringify!(rem)
-        )
-    );
-}
-pub type ldiv_t = _ldiv_t;
-#[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct _lldiv_t {
     pub quot: ::std::os::raw::c_longlong,
     pub rem: ::std::os::raw::c_longlong,
@@ -1121,10 +1030,6 @@ extern "C" {
 }
 extern "C" {
     pub fn div(_Numerator: ::std::os::raw::c_int, _Denominator: ::std::os::raw::c_int) -> div_t;
-}
-extern "C" {
-    pub fn ldiv(_Numerator: ::std::os::raw::c_long, _Denominator: ::std::os::raw::c_long)
-        -> ldiv_t;
 }
 extern "C" {
     pub fn lldiv(
