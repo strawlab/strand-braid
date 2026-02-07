@@ -267,16 +267,17 @@ fn tiff_12bit_mono() -> Result<()> {
 fn fmf_gz_mono() -> Result<()> {
     // first convert fmf -> mp4
     const FNAME: &str = "movie20211109_080701_Basler-21714402.fmf.gz";
+    let local_fname = format!("scratch/{}", FNAME);
     const URL_BASE: &str =
         "https://strawlab-cdn.com/assets/flycube6-videos/fc6-led-4fps-5-cams-bright";
     const SHA256SUM: &str = "fa1ef64b4ab967fd081ab3f026805662212e6b7696a52d1ccc06b61703c3c467";
 
     download_verify::download_verify(
         format!("{URL_BASE}/{FNAME}").as_str(),
-        FNAME,
+        &local_fname,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
 
-    do_convert(FNAME, false, false)?;
+    do_convert(&local_fname, false, false)?;
     Ok(())
 }
