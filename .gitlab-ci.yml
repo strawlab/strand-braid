@@ -157,7 +157,7 @@ test_flydra2:
     - cargo test --release
     - cd $CI_PROJECT_DIR/braid-offline
     # test 3D retracking
-    - PATH="$CI_PROJECT_DIR/flydra2env/bin:$CI_PROJECT_DIR/target/release:$PATH" cargo test --release
+    - PATH="$CI_PROJECT_DIR/flydra2env/bin:$CI_PROJECT_DIR/target/release:$PATH" cargo test --release -- --include-ignored
     # test 2D retracking
     - PATH="$CI_PROJECT_DIR/flydra2env/bin:$CI_PROJECT_DIR/target/release:$PATH" cargo run --no-default-features --features "flydra2/bundle_files" --bin braid-offline-retrack --release -- -d test_data/20180330_113743.short -o /tmp/k2d.braidz
     # run retracking script

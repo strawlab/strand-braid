@@ -378,6 +378,7 @@ async fn run_test(src: &str, untracked_dir: PathBuf) -> anyhow::Result<()> {
     Ok(())
 }
 
+#[ignore] // Ignore this test because it requires python and flydra.
 #[tokio::test]
 async fn test_braid_vs_old_flydra() -> anyhow::Result<()> {
     const FNAME: &str = "sample_datafile-v0.4.28.h5";
@@ -404,6 +405,7 @@ async fn test_braid_vs_old_flydra() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[ignore] // Ignore this test because it requires python and flydra.
 #[tokio::test]
 async fn test_braid_vs_old_flydra_with_water() -> anyhow::Result<()> {
     const FNAME: &str = "20160527_163937.mainbrain-short.h5";
