@@ -36,7 +36,7 @@ fn main() -> eyre::Result<()> {
 
                 let rate = None;
                 let h264_metadata = Some(strand_cam_remote_control::H264Metadata::new(
-                    "ffmpeg-rewriter/save-animation",
+                    "ffmpeg-rewriter/save-animation-ffmpeg-rewriter",
                     start.into(),
                 ));
 
