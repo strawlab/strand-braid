@@ -48,6 +48,7 @@ pub fn load() -> Result<SharedLibrary, NvencError> {
 #[cfg(test)]
 mod tests {
     use crate::load::*;
+    #[ignore = "requires nv encode shared library to be present at runtime"]
     #[test]
     fn test_load_unload() {
         load().expect("load");
