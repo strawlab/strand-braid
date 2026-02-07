@@ -903,9 +903,11 @@ mod test {
         const SHA256SUM: &str = "7f6992079af987c668ea09f86500ebadb5f76cb1a0182aa08f8788304cdba565";
         const URL_BASE: &str = "https://strawlab-cdn.com/assets/";
 
+        let local_fname = format!("scratch/{FNAME}");
+
         download_verify::download_verify(
             format!("{}/{}", URL_BASE, FNAME).as_str(),
-            FNAME,
+            &local_fname,
             &download_verify::Hash::Sha256(SHA256SUM.into()),
         )
         .unwrap();
@@ -914,7 +916,7 @@ mod test {
         let data_root_dir_name =
             Utf8PathBuf::from_path_buf(std::path::PathBuf::from(data_root.path())).unwrap();
 
-        let rdr = std::fs::File::open(FNAME)?;
+        let rdr = std::fs::File::open(&local_fname)?;
         let cal_data_archive = ZipArchive::new(rdr)?;
 
         unpack_zip_into(cal_data_archive, &data_root_dir_name)?;
