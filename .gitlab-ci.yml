@@ -7,7 +7,7 @@ cache:
 
 check_workspace:
   # This is basically what rust analyzer does.
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   dependencies: []
   script:
     - export RUSTFLAGS="-D warnings"
@@ -28,7 +28,7 @@ check_workspace:
     - cargo check --workspace --all-targets
 
 test_crates:
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   dependencies: []
   script:
     - export RUSTFLAGS="-D warnings"
@@ -307,20 +307,20 @@ test_crates_rust_nightly:
     - export RUSTFLAGS="-D warnings"
 
     # Use known good nightly
-    - rustup update --no-self-update nightly-2026-01-24
+    - rustup update --no-self-update nightly-2026-02-02
 
     # Test imops with nightly features
     - cd $CI_PROJECT_DIR/imops
-    - cargo +nightly-2025-02-14 test --no-default-features --features std,simd
+    - cargo +nightly-2026-02-02 test --no-default-features --features std,simd
 
     # Test fastfreeimage
     - cd $CI_PROJECT_DIR/fastfreeimage
-    - cargo +nightly-2026-01-24 test --features portsimd
+    - cargo +nightly-2026-02-02 test --features portsimd
     - cd ..
 
 test_flydra_feature_detector:
   dependencies: []
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   script:
     - _packaging/setup-ubuntu-ipp.sh
 
@@ -330,7 +330,7 @@ test_flydra_feature_detector:
 
 test_fastimage:
   dependencies: []
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   script:
     - _packaging/setup-ubuntu-ipp.sh
 
@@ -338,7 +338,7 @@ test_fastimage:
     - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd fastimage && cargo test --verbose --features "ipp-sys/2019" -- --nocapture --test-threads 1
 
 led-box-ubuntu2004-debs:
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   script:
     - mkdir -p $CI_PROJECT_DIR/focal-led-box-debs
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
@@ -360,7 +360,7 @@ led-box-ubuntu2004-debs:
 
 led-box-standalone-ubuntu2004-deb:
   dependencies: []
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   script:
     - mkdir -p $CI_PROJECT_DIR/led-box-standalone-debs
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev cmake pkg-config libfontconfig-dev
@@ -442,7 +442,7 @@ deploy-freemovr-calibration-webapp:
 
 build-api-docs:
   dependencies: []
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
@@ -525,7 +525,7 @@ publish-api-docs:
 
 strand-cam-pylon-binary:
   stage: build
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
@@ -564,7 +564,7 @@ strand-cam-pylon-binary:
 
 strand-cam-vimba-binary:
   stage: build
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
@@ -625,7 +625,7 @@ flytrax-csv-to-braidz-binary:
 
 strand-cam-flydratrax-pylon-binary:
   stage: build
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
@@ -634,6 +634,7 @@ strand-cam-flydratrax-pylon-binary:
     - _packaging/setup-ubuntu-ipp.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export RUSTFLAGS="-D warnings"
+    - rustc --version
 
     - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon-gui
 
@@ -737,7 +738,7 @@ extra-programs:
   stage: build
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   script:
     - rustup default stable
     - export RUSTFLAGS="-D warnings"
@@ -778,7 +779,7 @@ braidz-mcsc:
   stage: build
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   script:
     - rustup default stable
     - export RUSTFLAGS="-D warnings"
@@ -800,7 +801,7 @@ fmf-cli:
   dependencies: []
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   script:
     - rustup default stable
     - export RUSTFLAGS="-D warnings"
@@ -841,7 +842,7 @@ braid-run-binary:
   stage: build
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
@@ -1095,7 +1096,7 @@ strand-braid-ubuntu-2204:
 
 build_simple:
   dependencies: []
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.3
+  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   script:
     # Install Pylon
     - _packaging/install-pylon-linux.sh

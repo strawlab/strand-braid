@@ -12,7 +12,7 @@ echo $ORIG_DIR
 # Install nightly Rust. Use specific "known good" version of nightly because
 # occasionally breakage happens.
 cd /tmp
-curl -O --show-error --fail --silent https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && chmod a+x rustup-init && ./rustup-init -y --default-toolchain nightly-2025-06-20
+curl -O --show-error --fail --silent https://static.rust-lang.org/rustup/dist/x86_64-unknown-linux-gnu/rustup-init && chmod a+x rustup-init && ./rustup-init -y --default-toolchain nightly-2026-02-02
 
 if [[ -f "$HOME/.cargo/env" ]]; then
     # Put rust on the path (otherwise, it was probably in /usr/bin and on the path anyway).
