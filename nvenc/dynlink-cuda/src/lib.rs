@@ -12,6 +12,7 @@ pub use error::*;
 mod tests {
     use crate::*;
 
+    #[ignore = "requires CUDA shared library to be present at runtime"]
     #[test]
     fn test_version() {
         let shlib = load::load().expect("load");
