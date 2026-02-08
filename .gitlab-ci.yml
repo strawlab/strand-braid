@@ -5,7 +5,7 @@ cache:
   key: there-is-no-cache
   policy: pull
 
-check_workspace:
+check_and_test_workspace:
   # This is basically what rust analyzer does.
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   dependencies: []
@@ -13,7 +13,7 @@ check_workspace:
     - export RUSTFLAGS="-D warnings"
 
     # Install prerequisites
-    - DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg libopencv-dev
+    - DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg libopencv-dev octave
     - cd $CI_PROJECT_DIR
     - _packaging/install-pylon-linux.sh
 
@@ -22,10 +22,13 @@ check_workspace:
     - cd $CI_PROJECT_DIR/braid/braid-run/braid_frontend && time ./build.sh
     - cd $CI_PROJECT_DIR/geometry/mcsc-structs && ./package-mcsc-zip.sh
 
-    # Finally, do a cargo check on the whole workspace to make sure all crates
-    # compile with default features.
+    # Do a cargo check on the whole workspace to make sure all crates compile
+    # with default features.
     - cd $CI_PROJECT_DIR
     - cargo check --workspace --all-targets
+
+    # Run all tests.
+    - cargo test --release --workspace --all-targets
 
 test_crates:
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
