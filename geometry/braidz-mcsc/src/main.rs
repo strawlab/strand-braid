@@ -901,9 +901,11 @@ mod test {
         const FNAME: &str = "braidz-mcsc-skew-cal-test-data.zip";
         const SHA256SUM: &str = "82294b0b9fa2a0d6f43bb410e133722abffa55bf3abab934dbb165791a3f334c";
 
+        let local_fname = format!("scratch/{FNAME}");
+
         download_verify::download_verify(
             format!("{}/{}", URL_BASE, FNAME).as_str(),
-            FNAME,
+            &local_fname,
             &download_verify::Hash::Sha256(SHA256SUM.into()),
         )
         .unwrap();
@@ -912,7 +914,7 @@ mod test {
         let data_root_dir_name =
             Utf8PathBuf::from_path_buf(std::path::PathBuf::from(data_root.path())).unwrap();
 
-        let rdr = std::fs::File::open(FNAME)?;
+        let rdr = std::fs::File::open(&local_fname)?;
         let cal_data_archive = ZipArchive::new(rdr)?;
 
         unpack_zip_into(cal_data_archive, &data_root_dir_name)?;

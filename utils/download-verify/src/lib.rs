@@ -91,7 +91,7 @@ mod tests {
     fn it_works() {
         crate::download_verify(
             "https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js",
-            "jquery.min.js",
+            "scratch/jquery.min.js",
             &crate::Hash::Sha256(
                 "668b046d12db350ccba6728890476b3efee53b2f42dbb84743e5e9f1ae0cc404".into(),
             ),

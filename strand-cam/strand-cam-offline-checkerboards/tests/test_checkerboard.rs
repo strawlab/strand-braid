@@ -38,9 +38,10 @@ fn unpack_zip_into<R: Read + Seek>(
 
 #[test]
 fn test_checkerboard() -> Result<()> {
+    let local_fname = format!("scratch/{FNAME}");
     download_verify::download_verify(
         format!("{}/{}", URL_BASE, FNAME).as_str(),
-        FNAME,
+        &local_fname,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )
     .unwrap();
@@ -49,7 +50,7 @@ fn test_checkerboard() -> Result<()> {
     let data_root_dir_name =
         Utf8PathBuf::from_path_buf(std::path::PathBuf::from(data_root.path())).unwrap();
 
-    let rdr = std::fs::File::open(FNAME)?;
+    let rdr = std::fs::File::open(&local_fname)?;
     let cal_data_archive = ZipArchive::new(rdr)?;
 
     unpack_zip_into(cal_data_archive, &data_root_dir_name)?;
