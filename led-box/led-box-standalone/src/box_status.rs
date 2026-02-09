@@ -72,23 +72,17 @@ pub async fn handle_box(
     // initial state - unconnected
     assert_eq!(box_manager.lock().unwrap().status(), BoxStatus::Unconnected);
 
-    let device_name;
-    loop {
-        match cmd_rx.recv().await {
-            Some(Cmd::Connect(port)) => {
-                device_name = port;
-                break;
-            }
-            Some(Cmd::Toggle(_chan)) => {
-                panic!("Cannot toggle LED when not yet connected");
-            }
-            Some(Cmd::Quit) | None => {
-                error!("exiting serial task before device opened");
-                // quit request or channel closed
-                return Ok(());
-            }
+    let device_name = match cmd_rx.recv().await {
+        Some(Cmd::Connect(port)) => port,
+        Some(Cmd::Toggle(_chan)) => {
+            panic!("Cannot toggle LED when not yet connected");
         }
-    }
+        Some(Cmd::Quit) | None => {
+            error!("exiting serial task before device opened");
+            // quit request or channel closed
+            return Ok(());
+        }
+    };
 
     let next_state = DeviceState {
         ch1: make_chan(1, OnState::Off),
@@ -262,28 +256,32 @@ async fn handle_cmd(cmd: Cmd, box_manager: &mut Arc<Mutex<BoxManager>>) -> anyho
             tracing::warn!("already connected");
         }
         Cmd::Toggle(chan) => {
-            let mut guard = box_manager.lock().unwrap();
-            {
-                let inner = guard.inner.as_mut().unwrap();
+            let (msg, sender) = {
+                let mut guard = box_manager.lock().unwrap();
                 {
-                    let chan_ref = match chan {
-                        1 => &mut inner.state.ch1,
-                        2 => &mut inner.state.ch2,
-                        3 => &mut inner.state.ch3,
-                        4 => &mut inner.state.ch4,
-                        other => {
-                            panic!("unknown channel {}", other);
-                        }
-                    };
-                    let next_on_state = match chan_ref.on_state {
-                        OnState::ConstantOn => OnState::Off,
-                        OnState::Off => OnState::ConstantOn,
-                    };
-                    chan_ref.on_state = next_on_state;
+                    let inner = guard.inner.as_mut().unwrap();
+                    {
+                        let chan_ref = match chan {
+                            1 => &mut inner.state.ch1,
+                            2 => &mut inner.state.ch2,
+                            3 => &mut inner.state.ch3,
+                            4 => &mut inner.state.ch4,
+                            other => {
+                                panic!("unknown channel {}", other);
+                            }
+                        };
+                        let next_on_state = match chan_ref.on_state {
+                            OnState::ConstantOn => OnState::Off,
+                            OnState::Off => OnState::ConstantOn,
+                        };
+                        chan_ref.on_state = next_on_state;
+                    }
+                    let msg = ToDevice::DeviceState(inner.state);
+                    let sender = inner.to_box_writer.clone();
+                    (msg, sender)
                 }
-                let msg = ToDevice::DeviceState(inner.state);
-                inner.to_box_writer.send(msg).await?
-            }
+            };
+            sender.send(msg).await?;
         }
     }
     Ok(())
