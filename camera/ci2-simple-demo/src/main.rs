@@ -22,7 +22,7 @@ fn main() -> anyhow::Result<()> {
     if infos.is_empty() {
         anyhow::bail!("no cameras detected");
     }
-    for info in infos.iter() {
+    if let Some(info) = infos.first() {
         println!("opening camera {}", info.name());
         let mut cam = wrapped_mod.camera(info.name())?;
         println!("got camera");
@@ -47,7 +47,6 @@ fn main() -> anyhow::Result<()> {
             }
         }
         cam.acquisition_stop()?;
-        break;
     }
 
     Ok(())

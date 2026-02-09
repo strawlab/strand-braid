@@ -79,7 +79,7 @@ fn main() -> anyhow::Result<()> {
         anyhow::bail!("no cameras detected");
     }
 
-    for info in infos.iter() {
+    if let Some(info) = infos.first() {
         println!("opening camera {}", info.name());
         let mut cam = async_mod.threaded_async_camera(info.name())?;
         println!("got camera");
@@ -94,7 +94,6 @@ fn main() -> anyhow::Result<()> {
             }
             join_handle.join().expect("joining camera thread");
         }
-        break;
     }
 
     Ok(())
