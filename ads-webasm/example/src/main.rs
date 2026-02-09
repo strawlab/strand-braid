@@ -42,15 +42,13 @@ struct MyConfig {
     value: u8,
 }
 
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Clone, PartialEq, Serialize, Deserialize, Default)]
 enum MySelection {
     SelOne,
     #[default]
     SelTwo,
     SelThree,
 }
-
 
 impl std::fmt::Display for MySelection {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -121,7 +119,11 @@ impl Component for Model {
                     self.record_filename = None;
                 }
             }
-            Msg::SetConfigString(yaml_buf) => if let Ok(cfg) = serde_yaml::from_str(&yaml_buf) { self.cfg = cfg },
+            Msg::SetConfigString(yaml_buf) => {
+                if let Ok(cfg) = serde_yaml::from_str(&yaml_buf) {
+                    self.cfg = cfg
+                }
+            }
             Msg::SetU8(_v) => {
                 // we could do something with success or failure value.
             }

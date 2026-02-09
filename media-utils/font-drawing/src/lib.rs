@@ -1,6 +1,6 @@
-use rusttype::{point, Scale};
-use machine_vision_formats::{pixel_format, ImageMutStride};
 use eyre::Result;
+use machine_vision_formats::{pixel_format, ImageMutStride};
+use rusttype::{point, Scale};
 
 struct Rgba(pub [u8; 4]);
 
@@ -26,7 +26,11 @@ fn put_pixel(image: &mut dyn ImageMutStride<pixel_format::RGB8>, x: u32, y: u32,
     image.buffer_mut_ref().data[pix_start + 2] = new[2];
 }
 
-pub fn stamp_frame<'a>(image: &mut dyn ImageMutStride<pixel_format::RGB8>, font: &rusttype::Font<'a>, text: &str) -> Result<()> {
+pub fn stamp_frame<'a>(
+    image: &mut dyn ImageMutStride<pixel_format::RGB8>,
+    font: &rusttype::Font<'a>,
+    text: &str,
+) -> Result<()> {
     // from https://gitlab.redox-os.org/redox-os/rusttype/blob/master/dev/examples/image.rs
 
     // The font size to use

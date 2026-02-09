@@ -400,7 +400,6 @@ impl flydra2::ConnectedCamCallback for SendConnectedCamToBuiBackend {
     }
 }
 
-
 fn display_qr_url(url: &str) -> Result<()> {
     use qrcode::render::unicode;
     use qrcode::QrCode;

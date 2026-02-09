@@ -1,5 +1,5 @@
 use clap::{CommandFactory, Parser};
-use eyre::{WrapErr, Result};
+use eyre::{Result, WrapErr};
 
 #[derive(Debug, Parser)]
 #[command(author, version, about)]

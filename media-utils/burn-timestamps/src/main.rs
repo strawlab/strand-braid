@@ -152,7 +152,9 @@ fn main() -> Result<()> {
         };
         let ts = t0 + dur;
 
-        let text = ts.to_rfc3339_opts(chrono::format::SecondsFormat::Millis, true).to_string();
+        let text = ts
+            .to_rfc3339_opts(chrono::format::SecondsFormat::Millis, true)
+            .to_string();
 
         let mut frame_rgb8 = im.into_pixel_format()?.owned();
         stamp_frame(&mut frame_rgb8, &font, &text)?;
@@ -162,9 +164,10 @@ fn main() -> Result<()> {
         ffmpeg_wtr.write_dynamic_frame(&dy_im, ts)?;
 
         if let Some(stop_frame) = cli.stop_frame
-            && (idx as u64) >= stop_frame {
-                break;
-            }
+            && (idx as u64) >= stop_frame
+        {
+            break;
+        }
     }
 
     ffmpeg_wtr.close()?;

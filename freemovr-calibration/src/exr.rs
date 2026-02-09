@@ -52,7 +52,6 @@ pub struct ExrWriter {
     data_offset: usize,
 }
 
-
 impl ExrWriter {
     fn write_header(&mut self) {
         self.buffer.write_i32::<LittleEndian>(MAGIC_NUMBER).unwrap();

@@ -7,7 +7,6 @@ pub enum NvencError {
     DynLibLoadError {
         dynlib: String,
         source: libloading::Error,
-
     },
     #[error("NvEnc returned code `{status}`: {message} at {fname}:{line_num}")]
     ErrCode {
@@ -15,27 +14,18 @@ pub enum NvencError {
         fname: &'static str,
         line_num: u32,
         message: &'static str,
-
     },
     #[error("Name `{name}` could not be opened")]
-    NameFFIError {
-        name: String,
-
-    },
+    NameFFIError { name: String },
     #[error("Name `{name}` could not be opened: `{source}`")]
     NameFFIError2 {
         name: String,
         source: libloading::Error,
-
     },
     #[error("Unable to compute image size")]
-    UnableToComputeSize {
-
-    },
+    UnableToComputeSize {},
     #[error("Encode configuration required")]
-    EncodeConfigRequired {
-
-    },
+    EncodeConfigRequired {},
 }
 
 pub fn code_to_string(code: crate::ffi::_NVENCSTATUS::Type) -> &'static str {

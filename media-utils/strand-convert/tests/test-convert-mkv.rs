@@ -1,9 +1,9 @@
 use std::path::Path;
 use tracing_test::traced_test;
 
-use strand_cam_remote_control::H264Metadata;
 use eyre::Result;
 use frame_source::FrameDataSource;
+use strand_cam_remote_control::H264Metadata;
 
 // use frame_source::{EncodedH264, ImageData};
 

@@ -103,11 +103,7 @@ pub fn compute_intrinsics_with_raw_opencv<R: RealField>(
         })
         .collect();
 
-    opencv_calibrate::calibrate_camera(
-        &pts,
-        size.width as i32,
-        size.height as i32,
-    )
+    opencv_calibrate::calibrate_camera(&pts, size.width as i32, size.height as i32)
 }
 
 pub fn convert_to_cam_geom<R: RealField>(

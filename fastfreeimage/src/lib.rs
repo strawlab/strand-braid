@@ -116,7 +116,9 @@ mod simd_generic {
                 let mut im2_chunk_iter = rowdata_im2.chunks_exact(32);
                 let mut out_chunk_iter = outdata.chunks_exact_mut(32);
 
-                for ((a,b), c) in (&mut im1_chunk_iter).zip(&mut im2_chunk_iter).zip(&mut out_chunk_iter)
+                for ((a, b), c) in (&mut im1_chunk_iter)
+                    .zip(&mut im2_chunk_iter)
+                    .zip(&mut out_chunk_iter)
                 {
                     let vec_im1 = u8x32::from_slice(a);
                     let vec_im2 = u8x32::from_slice(b);
@@ -124,7 +126,11 @@ mod simd_generic {
                     c.copy_from_slice(&out_vec.to_array());
                 }
 
-                scalar_adsdiff(im1_chunk_iter.remainder(), im2_chunk_iter.remainder(), out_chunk_iter.into_remainder());
+                scalar_adsdiff(
+                    im1_chunk_iter.remainder(),
+                    im2_chunk_iter.remainder(),
+                    out_chunk_iter.into_remainder(),
+                );
             }
         }
 

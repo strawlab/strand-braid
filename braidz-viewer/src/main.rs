@@ -39,7 +39,6 @@ pub struct ValidBraidzFile {
     archive: braidz_parser::BraidzArchive<std::io::Cursor<Vec<u8>>>,
 }
 
-
 // -----------------------------------------------------------------------------
 
 struct Model {

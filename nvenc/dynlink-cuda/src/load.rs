@@ -28,7 +28,6 @@ pub fn load_manually() -> Result<SharedLibrary, CudaError> {
         CudaError::DynLibLoadError {
             lib: path.display().to_string(),
             source,
-
         }
     })?;
     let library = SharedLibrary::new(library, path);

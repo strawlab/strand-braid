@@ -139,7 +139,9 @@ pub async fn handle_box(
         Some(Ok(from_device_msg)) => {
             assert_eq!(
                 from_device_msg,
-                strand_led_box_comms::FromDevice::VersionResponse(strand_led_box_comms::COMM_VERSION)
+                strand_led_box_comms::FromDevice::VersionResponse(
+                    strand_led_box_comms::COMM_VERSION
+                )
             );
             info!(
                 "Connected to firmware version {}",

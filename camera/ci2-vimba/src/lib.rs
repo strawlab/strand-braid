@@ -71,13 +71,12 @@ fn callback_rust(
             let code = unsafe { (*frame).pixelFormat };
 
             let flags = unsafe { (*frame).receiveFlags };
-            let frame_id =
-                if flags & vmbc_sys::VmbFrameFlagsType::VmbFrameFlagsFrameID.0 != 0 {
-                    unsafe { (*frame).frameID }
-                } else {
-                    eprintln!("no frame number data in frame");
-                    0
-                };
+            let frame_id = if flags & vmbc_sys::VmbFrameFlagsType::VmbFrameFlagsFrameID.0 != 0 {
+                unsafe { (*frame).frameID }
+            } else {
+                eprintln!("no frame number data in frame");
+                0
+            };
 
             let device_timestamp =
                 if flags & vmbc_sys::VmbFrameFlagsType::VmbFrameFlagsTimestamp.0 != 0 {
@@ -689,12 +688,10 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
         match val {
             "Off" => Ok(ci2::TriggerMode::Off),
             "On" => Ok(ci2::TriggerMode::On),
-            s => {
-                Err(ci2::Error::from(format!(
-                    "unexpected TriggerMode enum string: {}",
-                    s
-                )))
-            }
+            s => Err(ci2::Error::from(format!(
+                "unexpected TriggerMode enum string: {}",
+                s
+            ))),
         }
     }
     fn set_trigger_mode(&mut self, val: TriggerMode) -> std::result::Result<(), ci2::Error> {
@@ -751,12 +748,10 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
             "FrameBurstStart" => Ok(ci2::TriggerSelector::FrameBurstStart),
             "FrameStart" => Ok(ci2::TriggerSelector::FrameStart),
             "ExposureActive" => Ok(ci2::TriggerSelector::ExposureActive),
-            s => {
-                Err(ci2::Error::from(format!(
-                    "unexpected TriggerSelector enum string: {}",
-                    s
-                )))
-            }
+            s => Err(ci2::Error::from(format!(
+                "unexpected TriggerSelector enum string: {}",
+                s
+            ))),
         }
     }
     fn set_trigger_selector(
@@ -887,12 +882,10 @@ fn str_to_auto_mode(val: &str) -> ci2::Result<ci2::AutoMode> {
         "Off" => Ok(ci2::AutoMode::Off),
         "Once" => Ok(ci2::AutoMode::Once),
         "Continuous" => Ok(ci2::AutoMode::Continuous),
-        s => {
-            Err(ci2::Error::from(format!(
-                "unexpected AutoMode enum string: {}",
-                s
-            )))
-        }
+        s => Err(ci2::Error::from(format!(
+            "unexpected AutoMode enum string: {}",
+            s
+        ))),
     }
 }
 

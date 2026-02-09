@@ -83,8 +83,8 @@ enum BAIntrinsicsSource {
 
 fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {
     // modified from https://stackoverflow.com/a/65192210
-    let entries: Vec<fs::DirEntry> = fs::read_dir(src)?
-        .collect::<io::Result<Vec<fs::DirEntry>>>()?;
+    let entries: Vec<fs::DirEntry> =
+        fs::read_dir(src)?.collect::<io::Result<Vec<fs::DirEntry>>>()?;
     fs::create_dir_all(&dst)?;
     for entry in entries.iter() {
         let ty = entry.file_type()?;
@@ -614,7 +614,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
                         let cx = intrin_mcsc.cx();
                         let cy = intrin_mcsc.cy();
                         let distortion = intrin_mcsc.distortion.clone();
-                        
+
                         RosOpenCvIntrinsics::from_params_with_distortion(
                             f, skew, f, cx, cy, distortion,
                         )

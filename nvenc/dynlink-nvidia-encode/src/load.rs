@@ -31,7 +31,6 @@ pub fn load_manually() -> Result<SharedLibrary, NvencError> {
         NvencError::DynLibLoadError {
             dynlib: path.display().to_string(),
             source,
-
         }
     })?;
 

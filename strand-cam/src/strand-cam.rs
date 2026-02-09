@@ -1018,7 +1018,8 @@ async fn connect_to_braid(braid_args: &BraidArgs) -> Result<BraidInfo> {
     let jar = Arc::new(RwLock::new(jar));
     let mut mainbrain_session =
         braid_http_session::create_mainbrain_session(mainbrain_bui_loc.clone(), jar.clone())
-            .await.with_context(|| format!("While connecting to Braid at {}", braid_args.braid_url))?;
+            .await
+            .with_context(|| format!("While connecting to Braid at {}", braid_args.braid_url))?;
     tracing::debug!("Opened HTTP session with Braid.");
     {
         // We have the cookie from braid now, so store it to disk.
@@ -1219,7 +1220,7 @@ where
 
             // Wait for egui context.
             let egui_ctx: eframe::egui::Context = egui_ctx_rx.recv().unwrap();
-            
+
             Some((frame_tx, egui_ctx))
         };
 

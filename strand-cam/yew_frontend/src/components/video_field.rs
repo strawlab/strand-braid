@@ -1,9 +1,9 @@
 use std::{cell::RefCell, rc::Rc};
 
 use crate::video_data::VideoData;
-use strand_bui_backend_session_types::ConnectionKey;
 use gloo_timers::callback::{Interval, Timeout};
 use serde::{Deserialize, Serialize};
+use strand_bui_backend_session_types::ConnectionKey;
 use wasm_bindgen::{closure::Closure, JsCast, JsValue, UnwrapThrowExt};
 use yew::{classes, html, Callback, Component, Context, Html, MouseEvent, Properties};
 

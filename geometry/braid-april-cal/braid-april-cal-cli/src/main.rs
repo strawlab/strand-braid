@@ -758,7 +758,9 @@ fn show_cams(
     system: &braid_mvg::MultiCameraSystem<f64>,
     lines: &mut LineBuf,
 ) -> eyre::Result<()> {
-    lines.push(" Camera parameters:          t_x      t_y      t_z      r_x      r_y      r_z".to_string());
+    lines.push(
+        " Camera parameters:          t_x      t_y      t_z      r_x      r_y      r_z".to_string(),
+    );
     for cam_name in cam_names.iter() {
         let cam = system.cam_by_name(cam_name).unwrap();
         let cc = cam.extrinsics().camcenter();

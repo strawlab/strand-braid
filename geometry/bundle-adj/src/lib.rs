@@ -244,9 +244,10 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
             let mut params_cache = Vec::new();
             for cam in cams0.iter() {
                 if model_type != ModelType::ExtrinsicsOnly
-                    && cam.intrinsics().fx() != cam.intrinsics().fy() {
-                        return Err(Error::InconsistentData("fx must equal fy"));
-                    }
+                    && cam.intrinsics().fx() != cam.intrinsics().fy()
+                {
+                    return Err(Error::InconsistentData("fx must equal fy"));
+                }
                 let p = to_params(cam, model_type);
                 debug_assert_eq!(p.len(), model_type.info().num_cam_params());
                 params_cache.extend(p);

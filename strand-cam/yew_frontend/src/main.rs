@@ -8,8 +8,8 @@ use std::{
 
 use strand_cam_remote_control::CamArg;
 
-use strand_led_box_comms::ToDevice as ToLedBoxDevice;
 use strand_cam_enum_iter::EnumIter;
+use strand_led_box_comms::ToDevice as ToLedBoxDevice;
 
 use console_error_panic_hook::set_once as set_panic_hook;
 use gloo_events::EventListener;
@@ -1442,7 +1442,6 @@ fn main() -> Result<(), JsValue> {
     set_panic_hook();
     wasm_logger::init(wasm_logger::Config::default());
 
-    yew::Renderer::<Model>::new()
-    .render();
+    yew::Renderer::<Model>::new().render();
     Ok(())
 }
