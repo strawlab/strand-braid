@@ -1,5 +1,3 @@
-use bindgen;
-
 use std::io::Write;
 
 #[derive(Debug)]
@@ -34,6 +32,6 @@ fn main() {
         .expect("Unable to generate bindings");
 
     let mut fd = std::fs::File::create(&dest_fname).expect("unable to generate file");
-    fd.write(bindings.to_string().as_bytes())
+    fd.write_all(bindings.to_string().as_bytes())
         .expect("cannot write");
 }
