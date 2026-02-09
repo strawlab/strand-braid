@@ -34,7 +34,7 @@ pub fn download_verify<P: AsRef<std::path::Path>>(
         // read it,
         let bytes = std::fs::read(dest)?;
         // and validate that it matches the checksum.
-        validate(&bytes, &hash)?;
+        validate(&bytes, hash)?;
     } else {
         // create the dir, if it does not already exist.
         if let Some(dest_dir) = dest.as_ref().parent() {
@@ -57,7 +57,7 @@ pub fn download_verify<P: AsRef<std::path::Path>>(
         rdr.read_to_end(&mut bytes)?;
 
         // validate them,
-        validate(bytes.as_ref(), &hash)?;
+        validate(bytes.as_ref(), hash)?;
         // and save them to disk.
         let mut fd = std::fs::File::create(dest)?;
         fd.write(bytes.as_ref())?;
@@ -68,7 +68,7 @@ pub fn download_verify<P: AsRef<std::path::Path>>(
 
 fn validate(bytes: &[u8], hash: &Hash) -> Result<(), DlError> {
     match hash {
-        &Hash::Sha256(ref sum) => {
+        Hash::Sha256(sum) => {
             let expected = hex::decode(sum.as_bytes())?;
             let digest = sha2::Sha256::digest(bytes);
             if &digest[..] == expected.as_slice() {

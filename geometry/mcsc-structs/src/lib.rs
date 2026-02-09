@@ -6,8 +6,8 @@ use std::{
 };
 use zip::ZipArchive;
 
-static MCSC_RELEASE: &'static [u8] = include_bytes!("../multicamselfcal-0.3.2.zip"); // use package-mcsc-zip.sh
-static MCSC_DIRNAME: &'static str = "multicamselfcal-0.3.2";
+static MCSC_RELEASE: &[u8] = include_bytes!("../multicamselfcal-0.3.2.zip"); // use package-mcsc-zip.sh
+static MCSC_DIRNAME: &str = "multicamselfcal-0.3.2";
 
 #[derive(Clone)]
 pub struct DatMat<T> {
@@ -127,7 +127,7 @@ impl RadFile {
                 }
             }
         }
-        let distortion = (&distortion[..4]).to_vec();
+        let distortion = distortion[..4].to_vec();
         assert_eq!(distortion.len(), 4);
         Ok(Self { k, distortion })
     }
@@ -196,8 +196,8 @@ impl McscConfigDir {
         let base = PathBuf::from(p.as_ref());
         std::fs::create_dir_all(&base)?;
 
-        self.id_mat.save(&base.join("IdMat.dat"))?;
-        self.res.save(&base.join("Res.dat"))?;
+        self.id_mat.save(base.join("IdMat.dat"))?;
+        self.res.save(base.join("Res.dat"))?;
 
         for (i, radfile) in self.radfiles.iter().enumerate() {
             let fname = base.join(format!("basename{}.rad", i + 1));
@@ -212,9 +212,9 @@ impl McscConfigDir {
             }
         }
 
-        self.cfg.save(&base.join("multicamselfcal.cfg"))?;
+        self.cfg.save(base.join("multicamselfcal.cfg"))?;
 
-        self.points.save(&base.join("points.dat"))?;
+        self.points.save(base.join("points.dat"))?;
 
         Ok(())
     }
@@ -266,13 +266,13 @@ pub fn unpack_mcsc_into(mcsc_dir_name: &Path) -> Result<PathBuf> {
     let rdr = std::io::Cursor::new(MCSC_RELEASE);
     let mcsc_zip_archive = ZipArchive::new(rdr)?;
     // unpack MCSC into tempdir
-    unpack_zip_into(mcsc_zip_archive, &mcsc_dir_name)?;
+    unpack_zip_into(mcsc_zip_archive, mcsc_dir_name)?;
 
     Ok(mcsc_dir_name.join(MCSC_DIRNAME))
 }
 
 fn unpack_zip_into<R: Read + Seek>(mut archive: ZipArchive<R>, mcsc_dir_name: &Path) -> Result<()> {
-    fs::create_dir_all(&mcsc_dir_name).unwrap();
+    fs::create_dir_all(mcsc_dir_name).unwrap();
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).unwrap();
         let outpath = match file.enclosed_name() {

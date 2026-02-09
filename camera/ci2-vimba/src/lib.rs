@@ -72,7 +72,7 @@ fn callback_rust(
 
             let flags = unsafe { (*frame).receiveFlags };
             let frame_id =
-                if flags & vmbc_sys::VmbFrameFlagsType::VmbFrameFlagsFrameID.0 as u32 != 0 {
+                if flags & vmbc_sys::VmbFrameFlagsType::VmbFrameFlagsFrameID.0 != 0 {
                     unsafe { (*frame).frameID }
                 } else {
                     eprintln!("no frame number data in frame");
@@ -80,7 +80,7 @@ fn callback_rust(
                 };
 
             let device_timestamp =
-                if flags & vmbc_sys::VmbFrameFlagsType::VmbFrameFlagsTimestamp.0 as u32 != 0 {
+                if flags & vmbc_sys::VmbFrameFlagsType::VmbFrameFlagsTimestamp.0 != 0 {
                     unsafe { (*frame).timestamp }
                 } else {
                     eprintln!("no timestamp data in frame");
@@ -213,7 +213,7 @@ trait ExtendedError<T> {
 
 impl<T> ExtendedError<T> for std::result::Result<T, vimba::Error> {
     fn map_vimba_err(self) -> ci2::Result<T> {
-        self.map_err(|e| ve2ce(e))
+        self.map_err(ve2ce)
     }
 }
 
@@ -567,7 +567,6 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
             .iter()
             // This silently drops pixel formats that cannot be converted.
             .filter_map(|fmt_str| vimba::str_to_pixel_format(fmt_str).map_vimba_err().ok())
-            .into_iter()
             .collect())
     }
     fn set_pixel_format(&mut self, pixfmt: PixFmt) -> std::result::Result<(), ci2::Error> {
@@ -691,10 +690,10 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
             "Off" => Ok(ci2::TriggerMode::Off),
             "On" => Ok(ci2::TriggerMode::On),
             s => {
-                return Err(ci2::Error::from(format!(
+                Err(ci2::Error::from(format!(
                     "unexpected TriggerMode enum string: {}",
                     s
-                )));
+                )))
             }
         }
     }
@@ -753,10 +752,10 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
             "FrameStart" => Ok(ci2::TriggerSelector::FrameStart),
             "ExposureActive" => Ok(ci2::TriggerSelector::ExposureActive),
             s => {
-                return Err(ci2::Error::from(format!(
+                Err(ci2::Error::from(format!(
                     "unexpected TriggerSelector enum string: {}",
                     s
-                )));
+                )))
             }
         }
     }
@@ -889,10 +888,10 @@ fn str_to_auto_mode(val: &str) -> ci2::Result<ci2::AutoMode> {
         "Once" => Ok(ci2::AutoMode::Once),
         "Continuous" => Ok(ci2::AutoMode::Continuous),
         s => {
-            return Err(ci2::Error::from(format!(
+            Err(ci2::Error::from(format!(
                 "unexpected AutoMode enum string: {}",
                 s
-            )));
+            )))
         }
     }
 }

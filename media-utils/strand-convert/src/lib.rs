@@ -311,11 +311,7 @@ impl DeleteOnError {
 }
 
 fn abs_diff(a: Duration, b: Duration) -> Duration {
-    if a > b {
-        a - b
-    } else {
-        b - a
-    }
+    a.abs_diff(b)
 }
 
 trait DisplayTimestamp {
@@ -407,8 +403,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
     if is_file {
         let file_ext = input_path
             .extension()
-            .map(|x| x.to_str())
-            .flatten()
+            .and_then(|x| x.to_str())
             .map(|x| x.to_lowercase());
         if file_ext == Some("tif".into()) || file_ext == Some("tiff".into()) {
             // tif file - assume this is image sequence and use directory.

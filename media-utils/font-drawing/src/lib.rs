@@ -5,7 +5,7 @@ use eyre::Result;
 struct Rgba(pub [u8; 4]);
 
 fn put_pixel(image: &mut dyn ImageMutStride<pixel_format::RGB8>, x: u32, y: u32, incoming: Rgba) {
-    let row_start = image.stride() as usize * y as usize;
+    let row_start = image.stride() * y as usize;
     let pix_start = row_start + x as usize * 3;
 
     let alpha = incoming.0[3] as f64 / 255.0;
@@ -49,7 +49,7 @@ pub fn stamp_frame<'a>(image: &mut dyn ImageMutStride<pixel_format::RGB8>, font:
     let width = glyphs
         .iter()
         .rev()
-        .map(|g| g.position().x as f32 + g.unpositioned().h_metrics().advance_width)
+        .map(|g| g.position().x + g.unpositioned().h_metrics().advance_width)
         .next()
         .unwrap_or(0.0)
         .ceil() as usize;

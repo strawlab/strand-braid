@@ -43,17 +43,14 @@ struct MyConfig {
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default)]
 enum MySelection {
     SelOne,
+    #[default]
     SelTwo,
     SelThree,
 }
 
-impl Default for MySelection {
-    fn default() -> MySelection {
-        MySelection::SelTwo
-    }
-}
 
 impl std::fmt::Display for MySelection {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
@@ -124,10 +121,7 @@ impl Component for Model {
                     self.record_filename = None;
                 }
             }
-            Msg::SetConfigString(yaml_buf) => match serde_yaml::from_str(&yaml_buf) {
-                Ok(cfg) => self.cfg = cfg,
-                Err(_) => {}
-            },
+            Msg::SetConfigString(yaml_buf) => if let Ok(cfg) = serde_yaml::from_str(&yaml_buf) { self.cfg = cfg },
             Msg::SetU8(_v) => {
                 // we could do something with success or failure value.
             }
@@ -174,7 +168,7 @@ impl Component for Model {
                    <label>{"u8 int"}
                    <TypedInput<u8>
                        storage={self.raw_u8.clone()}
-                       on_input={ctx.link().callback(|v| Msg::SetU8(v))}
+                       on_input={ctx.link().callback(Msg::SetU8)}
                        />
                    </label>
                </div>
@@ -184,7 +178,7 @@ impl Component for Model {
                    <label>{"f32 float"}
                    <TypedInput<f32>
                        storage={self.raw_f32.clone()}
-                       on_input={ctx.link().callback(|v| Msg::SetF32(v))}
+                       on_input={ctx.link().callback(Msg::SetF32)}
                        />
                    </label>
                </div>
@@ -194,7 +188,7 @@ impl Component for Model {
                    <h2>{"Data Upload"}</h2>
                     <CsvDataField<CsvRowType>
                         button_text="Select a CSV file."
-                        onfile={ctx.link().callback(|csv_file| Msg::CsvFile(csv_file))}
+                        onfile={ctx.link().callback(Msg::CsvFile)}
                         />
                    <p>
                        { &csv_file_state }

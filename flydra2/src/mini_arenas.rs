@@ -132,7 +132,7 @@ pub(crate) fn build_mini_arena_images(
                     )
                     .unwrap();
 
-                    annotate_mini_arena_image(&well_jpeg_buf, cfg, &cam, &xy_grid_cfg).unwrap();
+                    annotate_mini_arena_image(&well_jpeg_buf, cfg, &cam, xy_grid_cfg).unwrap();
                 }
 
                 mini_arena_images.insert(
@@ -170,7 +170,7 @@ fn annotate_mini_arena_image(
 
         // Draw background image
         if let Some(jpeg_buf) = &cfg.background_image_jpeg_buf {
-            let jpeg_base64_buf = base64::encode(&jpeg_buf);
+            let jpeg_base64_buf = base64::encode(jpeg_buf);
             let data_url = format!("data:image/jpeg;base64,{}", jpeg_base64_buf);
             w.single("image", |d| {
                 d.attr("x", 0)?;
@@ -183,7 +183,7 @@ fn annotate_mini_arena_image(
 
         // Draw well image
         {
-            let jpeg_base64_buf = base64::encode(&well_jpeg_buf);
+            let jpeg_base64_buf = base64::encode(well_jpeg_buf);
             let data_url = format!("data:image/jpeg;base64,{}", jpeg_base64_buf);
             w.single("image", |d| {
                 d.attr("x", 0)?;

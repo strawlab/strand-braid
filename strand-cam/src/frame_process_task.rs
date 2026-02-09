@@ -666,7 +666,7 @@ pub(crate) async fn frame_process_task<'a>(
 
                     use machine_vision_formats::ImageData;
                     let im_data2 = mono8.image_data();
-                    let buf_in = &im_data2[..];
+                    let buf_in = im_data2;
                     let bytesused = buf_in.len().try_into()?;
 
                     let buf_out = &mut buf_out[0..buf_in.len()];

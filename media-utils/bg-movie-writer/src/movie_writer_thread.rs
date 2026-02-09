@@ -113,7 +113,7 @@ fn create_writer<'a>(
     use strand_cam_remote_control::RecordingConfig::*;
     let raw: RawWriter<'_, File> = match &recording_config {
         Mp4(mp4_recording_config) => {
-            let mp4_file = std::fs::File::create(&mp4_path)?;
+            let mp4_file = std::fs::File::create(mp4_path)?;
 
             let nv_enc = match &mp4_recording_config.codec {
                 strand_cam_remote_control::Mp4Codec::H264NvEnc(_opts) => {
@@ -152,7 +152,7 @@ fn create_writer<'a>(
                 nv_enc,
             )?)
         }
-        Ffmpeg(c) => RawWriter::FfmpegReWriter(Box::new(MyFfmpegWriter::new(&mp4_path, c)?)),
+        Ffmpeg(c) => RawWriter::FfmpegReWriter(Box::new(MyFfmpegWriter::new(mp4_path, c)?)),
     };
     tracing::info!("Saving MP4 to \"{}\"", mp4_path.display());
 

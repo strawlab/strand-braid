@@ -468,7 +468,7 @@ pub async fn run_config(
     let mut braid_archive = if let Some(input_braidz) = cfg.input_braidz.as_ref() {
         tracing::debug!("parsing braidz file");
         Some(
-            braidz_parser::braidz_parse_path(&input_braidz).with_context(|| {
+            braidz_parser::braidz_parse_path(input_braidz).with_context(|| {
                 format!(
                     "opening braidz archive {}",
                     cfg.input_braidz.as_ref().unwrap()
@@ -968,8 +968,7 @@ fn gather_frame_data<'a>(
                             // create new FlydraFeatureDetector
                             let best_name = source.cam_id.best_name();
                             let im_pt_cfg = per_cam_cfg
-                                .get(&best_name)
-                                .map(Clone::clone)
+                                .get(&best_name).cloned()
                                 .unwrap_or_else(|| {
                                     tracing::info!("for {}: creating default flydra feature detector configuration",
                                         source.cam_id.best_name());

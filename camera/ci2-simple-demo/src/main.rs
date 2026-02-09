@@ -17,9 +17,9 @@ fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     let _guard = backend::make_singleton_guard(&&*CAMLIB)?;
-    let mut wrapped_mod: &backend::WrappedModule = &*CAMLIB;
+    let mut wrapped_mod: &backend::WrappedModule = &CAMLIB;
     let infos = wrapped_mod.camera_infos()?;
-    if infos.len() == 0 {
+    if infos.is_empty() {
         anyhow::bail!("no cameras detected");
     }
     for info in infos.iter() {

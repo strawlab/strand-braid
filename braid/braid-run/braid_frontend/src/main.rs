@@ -295,7 +295,7 @@ impl Model {
                     {fake_sync_warning}
                     <div>
                         {record_widget}
-                        {view_clock_model(&value)}
+                        {view_clock_model(value)}
                         {view_calibration(&value.calibration_filename)}
                         {view_cam_list(&value.connected_cameras)}
                         {view_model_server_link(&value.model_server_addr)}

@@ -84,7 +84,6 @@ enum BAIntrinsicsSource {
 fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {
     // modified from https://stackoverflow.com/a/65192210
     let entries: Vec<fs::DirEntry> = fs::read_dir(src)?
-        .into_iter()
         .collect::<io::Result<Vec<fs::DirEntry>>>()?;
     fs::create_dir_all(&dst)?;
     for entry in entries.iter() {
@@ -173,7 +172,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
 
         for cam_id in camid2camn_df["cam_id"].str()?.iter() {
             let cam_id = cam_id.unwrap();
-            let yaml_intrinsics_fname = checkerboard_cal_dir.join(&format!("{cam_id}.yaml"));
+            let yaml_intrinsics_fname = checkerboard_cal_dir.join(format!("{cam_id}.yaml"));
             let yaml_buf = std::fs::read_to_string(&yaml_intrinsics_fname)
                 .with_context(|| format!("while reading {yaml_intrinsics_fname}"))?;
 
@@ -199,14 +198,12 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
         }
 
         (radfiles, Some(checkerboard_intrinsics))
+    } else if opt.force_allow_no_checkerboard_cal {
+        (vec![], None)
     } else {
-        if opt.force_allow_no_checkerboard_cal {
-            (vec![], None)
-        } else {
-            eyre::bail!(
-                "No --checkerboard-cal-dir given and --force-allow-no-checkerboard-cal not set."
-            );
-        }
+        eyre::bail!(
+            "No --checkerboard-cal-dir given and --force-allow-no-checkerboard-cal not set."
+        );
     };
 
     let num_cameras = camid2camn_df.height();
@@ -454,7 +451,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
     const PROGRAM: &str = "octave";
 
     if !std::process::Command::new(PROGRAM)
-        .args(&["--version"])
+        .args(["--version"])
         .status()
         .with_context(|| format!("While checking version of {PROGRAM:?}"))?
         .success()
@@ -570,7 +567,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
                         println!("cam {i} pt {j}: {obs_u:.2}, {obs_v:.2}");
 
                         let xyz = [qq[(j, 0)], qq[(j, 1)], qq[(j, 2)]];
-                        let prev_xyz = point_locs.entry(j).or_insert_with(|| xyz.clone());
+                        let prev_xyz = point_locs.entry(j).or_insert_with(|| xyz);
                         for ii in 0..3 {
                             if !approx::relative_eq!(xyz[ii], prev_xyz[ii]) {
                                 todo!("return error: MCSC returned different 3D points for the same 3D point?");
@@ -617,10 +614,10 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
                         let cx = intrin_mcsc.cx();
                         let cy = intrin_mcsc.cy();
                         let distortion = intrin_mcsc.distortion.clone();
-                        let intrin = RosOpenCvIntrinsics::from_params_with_distortion(
+                        
+                        RosOpenCvIntrinsics::from_params_with_distortion(
                             f, skew, f, cx, cy, distortion,
-                        );
-                        intrin
+                        )
                     }
                 };
                 let cam_fixed = cam_geom::Camera::new(intrin, extrin);
@@ -718,7 +715,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
     } else {
         mcsc_system
     };
-    multi_cam_system.to_flydra_xml(&mut out_fd.inner())?;
+    multi_cam_system.to_flydra_xml(out_fd.inner())?;
     out_fd.close()?;
 
     Ok(xml_out_name)

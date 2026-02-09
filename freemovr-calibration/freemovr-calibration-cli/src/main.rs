@@ -133,7 +133,7 @@ fn generate_csv(c: GenerateCsv) -> anyhow::Result<()> {
         .expect("cannot get input directory name");
     let fd = std::fs::File::open(&c.input_yaml)
         .context(format!("opening file: {}", c.input_yaml.display()))?;
-    let src_data = freemovr_calibration::ActualFiles::new(fd, &src_dir, c.epsilon)?;
+    let src_data = freemovr_calibration::ActualFiles::new(fd, src_dir, c.epsilon)?;
     let trimesh = src_data.geom_as_trimesh().unwrap();
 
     let pinhole_fits = src_data.pinhole_fits();
@@ -144,7 +144,7 @@ fn generate_csv(c: GenerateCsv) -> anyhow::Result<()> {
     let mut file = std::fs::File::create(out_fname)?;
     info!("saving CSV output file: {}", out_fname);
     let created_at = Some(chrono::Local::now());
-    freemovr_calibration::export_to_csv(&mut file, &cam, &trimesh, created_at)?;
+    freemovr_calibration::export_to_csv(&mut file, cam, trimesh, created_at)?;
     Ok(())
 }
 
@@ -214,7 +214,7 @@ fn no_distortion(c: GenerateExr) -> anyhow::Result<()> {
         .expect("cannot get input directory name");
     let fd = std::fs::File::open(&c.input_yaml)
         .context(format!("opening file: {}", c.input_yaml.display()))?;
-    let src_data = freemovr_calibration::ActualFiles::new(fd, &src_dir, c.epsilon)?;
+    let src_data = freemovr_calibration::ActualFiles::new(fd, src_dir, c.epsilon)?;
     let float_image = freemovr_calibration::fit_pinholes_compute_cal_image(
         &src_data,
         c.save_debug_images,
@@ -236,7 +236,7 @@ fn multi_display(c: MultiDisplayExr) -> anyhow::Result<()> {
         .expect("cannot get input directory name");
     let fd = std::fs::File::open(&c.input_yaml)
         .context(format!("opening file: {}", c.input_yaml.display()))?;
-    let float_image = freemovr_calibration::do_multi_display(fd, c.epsilon, &src_dir)?;
+    let float_image = freemovr_calibration::do_multi_display(fd, c.epsilon, src_dir)?;
     let out_fname = "multi.exr";
     let mut file = std::fs::File::create(out_fname)?;
     let mut exr_writer = freemovr_calibration::ExrWriter::default();

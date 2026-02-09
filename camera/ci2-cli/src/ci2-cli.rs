@@ -44,7 +44,7 @@ fn record(mut mymod: &backend::WrappedModule, recargs: Record) -> ci2::Result<()
         camera_name
     } else {
         let infos = mymod.camera_infos()?;
-        if infos.len() == 0 {
+        if infos.is_empty() {
             return Err("no cameras detected".into());
         }
         infos[0].name().to_string()

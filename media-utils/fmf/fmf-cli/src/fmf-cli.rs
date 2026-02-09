@@ -376,7 +376,7 @@ fn export_mp4(x: ExportMp4) -> Result<()> {
         None => {
             anyhow::bail!("Cannot export mp4 to stdout."); // Seek required
         }
-        Some(path) => std::fs::File::create(&path)?,
+        Some(path) => std::fs::File::create(path)?,
     };
 
     let mut reader = fmf::FMFReader::new(&x.input)?;
@@ -416,7 +416,7 @@ fn export_mp4(x: ExportMp4) -> Result<()> {
     // read first frames to get duration.
     const BUFSZ: usize = 50;
     let mut buffered_first = Vec::with_capacity(BUFSZ);
-    while let Some(next) = reader.next() {
+    for next in reader.by_ref() {
         buffered_first.push(Ok(next?));
         if buffered_first.len() >= BUFSZ {
             break;

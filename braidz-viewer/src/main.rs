@@ -25,7 +25,9 @@ const SIDE1VIEW: &str = "3d-side1view-canvas";
 
 // -----------------------------------------------------------------------------
 
+#[derive(Default)]
 pub enum MaybeValidBraidzFile {
+    #[default]
     NotLoaded,
     ParseFail(braidz_parser::Error),
     Valid(ValidBraidzFile),
@@ -37,11 +39,6 @@ pub struct ValidBraidzFile {
     archive: braidz_parser::BraidzArchive<std::io::Cursor<Vec<u8>>>,
 }
 
-impl Default for MaybeValidBraidzFile {
-    fn default() -> Self {
-        MaybeValidBraidzFile::NotLoaded
-    }
-}
 
 // -----------------------------------------------------------------------------
 
@@ -119,7 +116,7 @@ impl Component for Model {
                         MaybeValidBraidzFile::Valid(v)
                     }
                     Err(e) => {
-                        let title = format!("BRAIDZ Viewer");
+                        let title = "BRAIDZ Viewer".to_string();
 
                         web_sys::window()
                             .unwrap()
@@ -203,7 +200,7 @@ impl Component for Model {
             WhyBusy::LoadingFile(filename) => {
                 ("compute-modal", format!("Loading file: \"{}\"", filename))
             }
-            WhyBusy::DrawingPlots => ("compute-modal", format!("Drawing plots")),
+            WhyBusy::DrawingPlots => ("compute-modal", "Drawing plots".to_string()),
         };
 
         html! {

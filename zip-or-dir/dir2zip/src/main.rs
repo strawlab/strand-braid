@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 fn main() -> anyhow::Result<()> {
-    let args: Vec<String> = std::env::args().map(String::from).collect();
+    let args: Vec<String> = std::env::args().collect();
     if args.len() != 3 {
         eprintln!("Usage: {} <INPUT> <OUTPUT.zip>", args[0]);
         anyhow::bail!("No <INPUT> or <OUTPUT.zip> filename given");

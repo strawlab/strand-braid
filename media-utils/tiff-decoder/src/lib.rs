@@ -39,6 +39,12 @@ pub struct ValHistogram {
     pub minmax: Option<(u16, u16)>,
 }
 
+impl Default for ValHistogram {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ValHistogram {
     pub fn new() -> Self {
         Self { minmax: None }

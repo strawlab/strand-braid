@@ -45,7 +45,7 @@ pub fn save_yaml<P: AsRef<std::path::Path>>(
     raw_opencv_cal: &opencv_calibrate::CalibrationResult,
     raw_cam_name: &str,
 ) -> eyre::Result<()> {
-    let intrinsics = convert_to_cam_geom::<f64>(&raw_opencv_cal);
+    let intrinsics = convert_to_cam_geom::<f64>(raw_opencv_cal);
 
     // Convert from braid_mvg to ROS format.
     let ci: opencv_ros_camera::RosCameraInfo<_> = opencv_ros_camera::NamedIntrinsicParameters {
@@ -90,11 +90,11 @@ pub fn compute_intrinsics_with_raw_opencv<R: RealField>(
     use opencv_calibrate::CorrespondingPoint;
     let pts: Vec<Vec<CorrespondingPoint>> = object_points
         .into_iter()
-        .zip(image_points.into_iter())
+        .zip(image_points)
         .map(|(obj_pts, im_pts)| {
             obj_pts
                 .into_iter()
-                .zip(im_pts.into_iter())
+                .zip(im_pts)
                 .map(|(obj_pt, im_pt)| CorrespondingPoint {
                     object_point: obj_pt,
                     image_point: im_pt,
@@ -103,11 +103,11 @@ pub fn compute_intrinsics_with_raw_opencv<R: RealField>(
         })
         .collect();
 
-    Ok(opencv_calibrate::calibrate_camera(
+    opencv_calibrate::calibrate_camera(
         &pts,
         size.width as i32,
         size.height as i32,
-    )?)
+    )
 }
 
 pub fn convert_to_cam_geom<R: RealField>(

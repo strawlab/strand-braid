@@ -75,7 +75,7 @@ fn main() -> anyhow::Result<()> {
     let mut async_mod = ci2_async::into_threaded_async(&*CAMLIB, &guard);
     let infos = async_mod.camera_infos()?;
 
-    if infos.len() == 0 {
+    if infos.is_empty() {
         anyhow::bail!("no cameras detected");
     }
 

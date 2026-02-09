@@ -67,7 +67,7 @@ fn to_rr_image(
         _ => eyre::bail!("image not decoded"),
     };
 
-    let to_save = { undistort_image::undistort_image(decoded.borrow(), &undist_cache)? };
+    let to_save = { undistort_image::undistort_image(decoded.borrow(), undist_cache)? };
 
     // jpeg compression TODO: give option to save uncompressed?
     let contents = to_save
@@ -126,7 +126,7 @@ fn main() -> eyre::Result<()> {
     };
 
     let undist_cache = if let Some(yaml_intrinsics_fname) = &opt.undistort_with_calibration {
-        let yaml_buf = std::fs::read_to_string(&yaml_intrinsics_fname)
+        let yaml_buf = std::fs::read_to_string(yaml_intrinsics_fname)
             .with_context(|| format!("while reading {yaml_intrinsics_fname}"))?;
 
         let intrinsics: opencv_ros_camera::RosCameraInfo<f64> = serde_yaml::from_str(&yaml_buf)

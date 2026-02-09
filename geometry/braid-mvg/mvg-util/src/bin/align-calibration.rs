@@ -118,7 +118,7 @@ fn align_cal(opt: Opt) -> Result<PathBuf> {
     println!("rotation:{rot}");
     println!("translation:{t}");
 
-    let xformed = s * &rot * &x1 + bcast(&t, unaligned_3d_rows.len());
+    let xformed = s * rot * &x1 + bcast(&t, unaligned_3d_rows.len());
 
     print!("Original unaligned points: -------");
     println!("{x1}");

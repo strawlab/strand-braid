@@ -43,7 +43,7 @@ impl BoxManager {
 
     pub fn status(&self) -> BoxStatus {
         if let Some(inner) = &self.inner {
-            BoxStatus::Connected(inner.state.clone())
+            BoxStatus::Connected(inner.state)
         } else {
             BoxStatus::Unconnected
         }
@@ -279,7 +279,7 @@ async fn handle_cmd(cmd: Cmd, box_manager: &mut Arc<Mutex<BoxManager>>) -> anyho
                     };
                     chan_ref.on_state = next_on_state;
                 }
-                let msg = ToDevice::DeviceState(inner.state.clone());
+                let msg = ToDevice::DeviceState(inner.state);
                 inner.to_box_writer.send(msg).await?
             }
         }

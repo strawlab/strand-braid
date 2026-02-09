@@ -244,7 +244,7 @@ impl<'a> WrappedCamera<'a> {
                         {
                             // This seems to be a USB camera, let's also check /sys/module/usbcore/parameters/usbfs_memory_mb
                             let fname = "/sys/module/usbcore/parameters/usbfs_memory_mb";
-                            match std::fs::read_to_string(&fname) {
+                            match std::fs::read_to_string(fname) {
                                 Ok(usbfs_memory_mb) => {
                                     let usbfs_memory_mb: i64 =
                                         usbfs_memory_mb.trim().parse().unwrap();

@@ -77,7 +77,7 @@ impl<'a> frame_source::h264_source::H264Preparser for MyPreParser<'a> {
         nalu: &h264_reader::nal::RefNal<'_>,
         is_i_frame: bool,
     ) -> Result<()> {
-        if self.count % self.interval == 0 {
+        if self.count.is_multiple_of(self.interval) {
             self.do_save_next = true;
         }
         if is_i_frame && self.do_save_next {

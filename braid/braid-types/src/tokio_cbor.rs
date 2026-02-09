@@ -48,8 +48,7 @@ impl Decoder for CborPacketCodec {
         let new_results = match new_results {
             Ok(v) => v,
             Err(e) => {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Other,
+                return Err(std::io::Error::other(
                     format!("serde_cbor::error::Error {e:?}"),
                 ));
             }

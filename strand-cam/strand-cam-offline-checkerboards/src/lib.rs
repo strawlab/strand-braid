@@ -23,7 +23,7 @@ pub struct Cli {
 }
 
 fn get_image_files(dirname: &Utf8Path) -> Result<Vec<PathBuf>> {
-    if !std::fs::metadata(&dirname)
+    if !std::fs::metadata(dirname)
         .with_context(|| format!("While reading filesystem metadata from \"{dirname}\"."))?
         .is_dir()
     {
@@ -84,7 +84,7 @@ pub fn run_cal(cli: Cli) -> Result<CalibrationResult> {
     let mut collected_corners = Vec::with_capacity(fnames.len());
     for fname in fnames.iter() {
         info!("{}", fname.display());
-        let img = image::open(&fname).with_context(|| format!("Opening {}", fname.display()))?;
+        let img = image::open(fname).with_context(|| format!("Opening {}", fname.display()))?;
         let (w, h) = img.dimensions();
         image_width = w;
         image_height = h;

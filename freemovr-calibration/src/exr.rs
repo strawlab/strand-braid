@@ -44,6 +44,7 @@ fn index(row: usize, col: usize, width: usize) -> usize {
     row * width + col
 }
 
+#[derive(Default)]
 pub struct ExrWriter {
     buffer: std::vec::Vec<u8>,
     width: usize,
@@ -51,16 +52,6 @@ pub struct ExrWriter {
     data_offset: usize,
 }
 
-impl Default for ExrWriter {
-    fn default() -> Self {
-        Self {
-            buffer: vec![],
-            width: 0,
-            height: 0,
-            data_offset: 0,
-        }
-    }
-}
 
 impl ExrWriter {
     fn write_header(&mut self) {

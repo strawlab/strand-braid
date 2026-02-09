@@ -14,7 +14,7 @@ struct Opt {
 
 fn print_cal(filename: &std::path::Path) -> Result<()> {
     println!("# ----- {:?} ----- ", filename);
-    let fd = std::fs::File::open(&filename)?;
+    let fd = std::fs::File::open(filename)?;
     let cams = flydra_mvg::FlydraMultiCameraSystem::<f64>::from_flydra_xml(fd)?;
     for cam_name in cams.cam_names() {
         let cam = cams.cam_by_name(cam_name).unwrap();

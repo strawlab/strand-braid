@@ -75,7 +75,7 @@ impl eframe::App for StrandCamEguiApp {
 
             // Copy the URL if present.
             match my_guard.url.as_ref() {
-                Some(url) => (Some(format!("{url}")), opt_ctx_clone),
+                Some(url) => (Some(url.to_string()), opt_ctx_clone),
                 None => (None, opt_ctx_clone),
             }
         };

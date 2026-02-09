@@ -1219,8 +1219,8 @@ where
 
             // Wait for egui context.
             let egui_ctx: eframe::egui::Context = egui_ctx_rx.recv().unwrap();
-            let gui_stuff2 = Some((frame_tx, egui_ctx));
-            gui_stuff2
+            
+            Some((frame_tx, egui_ctx))
         };
 
         #[cfg(not(feature = "eframe-gui"))]

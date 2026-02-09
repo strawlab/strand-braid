@@ -165,7 +165,7 @@ fn image_to_frame(
     fname: &std::path::Path,
 ) -> Result<impl OwnedImageStride<machine_vision_formats::pixel_format::RGB8>> {
     let piston_image =
-        image::open(&fname).with_context(|| format!("Opening {}", fname.display()))?;
+        image::open(fname).with_context(|| format!("Opening {}", fname.display()))?;
     let decoded = convert_image::image_to_rgb8(piston_image)?;
     Ok(decoded)
 }
@@ -179,7 +179,7 @@ fn ffprobe_dump<P: AsRef<Path>>(fname: P) -> Result<()> {
         "-show_packets",
     ];
     let output = std::process::Command::new("ffprobe")
-        .args(&args)
+        .args(args)
         .output()
         .with_context(|| format!("When running: ffprobe {:?}", args))?;
 
@@ -215,10 +215,10 @@ fn open_h264_dump<P: AsRef<Path>>(path: P) -> Result<()> {
 
     println!("luma (Y) ------");
     for decoded_y_row in decoded_yuv.y().chunks_exact(oys) {
-        dump_row(&decoded_y_row[..width as usize], "  ");
+        dump_row(&decoded_y_row[..width], "  ");
     }
 
-    let chroma_width = (width / 2) as usize;
+    let chroma_width = (width / 2);
 
     println!("chroma Cb (U) ------");
     for decoded_u_row in decoded_yuv.u().chunks_exact(ous) {
@@ -253,7 +253,7 @@ fn main() -> Result<()> {
     let parser = match cli.parser {
         Some(p) => Ok(p),
         None => {
-            let ext: Option<&str> = cli.input_fname.extension().map(|x| x.to_str()).flatten();
+            let ext: Option<&str> = cli.input_fname.extension().and_then(|x| x.to_str());
             match ext {
                 Some("tiff") | Some("tif") => Ok(MediaParser::ImageRsTiff),
                 Some("bmp") | Some("jpeg") | Some("jpg") | Some("png") | Some("pbm")

@@ -572,18 +572,16 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
                 points_new.push(wc.z);
             }
         }
-        lines.push(format!("Newly triangulated 3d point locations:"));
+        lines.push("Newly triangulated 3d point locations:".to_string());
         let points_new = nalgebra::Matrix3xX::<f64>::from_column_slice(&points_new);
         show_points_csv(&points_new, &ids3d_new[..], &mut lines);
     }
 
-    lines.push(format!("Given 3d point locations:"));
+    lines.push("Given 3d point locations:".to_string());
     let points0 = nalgebra::Matrix3xX::<f64>::from_column_slice(&points0);
     show_points(&points0, &ids3d[..], &mut lines);
 
-    lines.push(format!(
-        "Results from SQPnP algorithm using prior intrinsics:"
-    ));
+    lines.push("Results from SQPnP algorithm using prior intrinsics:".to_string());
 
     show_cams(&cam_names, &cal_result.cam_system, &mut lines)?;
 
@@ -715,8 +713,8 @@ fn show_points(points: &nalgebra::Matrix3xX<f64>, ids3d: &[u32], lines: &mut Lin
         let pt = points.column(i);
         x.insert(*id, pt);
     }
-    lines.push(format!(" 3d point locations:"));
-    lines.push(format!("     id        x       y       z"));
+    lines.push(" 3d point locations:".to_string());
+    lines.push("     id        x       y       z".to_string());
     for (id, pt) in x.iter() {
         lines.push(format!("  {id:>5}: {:7.3} {:7.3} {:7.3}", pt.x, pt.y, pt.z));
     }
@@ -739,17 +737,15 @@ fn show_points_distances(
         let dist = (pt1 - pt0).norm();
         x.insert(*id, dist);
     }
-    lines.push(format!(
-        " 3d distance between original and updated point locations:"
-    ));
-    lines.push(format!("     id     dist"));
+    lines.push(" 3d distance between original and updated point locations:".to_string());
+    lines.push("     id     dist".to_string());
     for (id, dist) in x.iter() {
         lines.push(format!("  {id:>5}: {:7.4}", dist));
     }
 }
 
 fn show_points_csv(points: &nalgebra::Matrix3xX<f64>, ids3d: &[u32], lines: &mut LineBuf) {
-    lines.push(format!("id,x,y,z"));
+    lines.push("id,x,y,z".to_string());
     for i in 0..points.ncols() {
         let id = &ids3d[i];
         let pt = points.column(i);
@@ -762,9 +758,7 @@ fn show_cams(
     system: &braid_mvg::MultiCameraSystem<f64>,
     lines: &mut LineBuf,
 ) -> eyre::Result<()> {
-    lines.push(format!(
-        " Camera parameters:          t_x      t_y      t_z      r_x      r_y      r_z"
-    ));
+    lines.push(" Camera parameters:          t_x      t_y      t_z      r_x      r_y      r_z".to_string());
     for cam_name in cam_names.iter() {
         let cam = system.cam_by_name(cam_name).unwrap();
         let cc = cam.extrinsics().camcenter();
@@ -786,7 +780,7 @@ fn show_reproj_matrix(
     points: &nalgebra::Matrix3xX<f64>,
     lines: &mut LineBuf,
 ) -> eyre::Result<()> {
-    lines.push(format!(" Reprojection distance:"));
+    lines.push(" Reprojection distance:".to_string());
     {
         let mut bits = vec!["      id".to_string()];
         for cam_name in cam_names.iter() {
@@ -803,7 +797,7 @@ fn show_reproj_matrix(
         let joined = bits.join(" ");
         let space = " ".repeat((joined.len() - 6) / 2);
         lines.push(format!("{}Camera{}", space, space));
-        lines.push(format!("{}", joined));
+        lines.push(joined.to_string());
     }
     let mut dists: BTreeMap<_, Vec<_>> = Default::default();
     for (id, ipt_idx) in tag_id_to_pt_idx.iter() {
@@ -822,12 +816,12 @@ fn show_reproj_matrix(
                 id_dists.push(dist);
                 bits.push(format!("{dist:7.2}"));
             } else {
-                bits.push(format!("     - "));
+                bits.push("     - ".to_string());
             }
         }
         let mean_id = id_dists.iter().sum::<f64>() / id_dists.len() as f64;
         bits.push(format!("{mean_id:7.2}"));
-        lines.push(format!("{}", bits.join(" ")));
+        lines.push(bits.join(" ").to_string());
     }
     {
         let mut bits = vec!["    mean".to_string()];
@@ -838,12 +832,12 @@ fn show_reproj_matrix(
                 bits.push(format!("{mean_dist:7.2}"));
                 all_dist.extend(dists);
             } else {
-                bits.push(format!("     - "));
+                bits.push("     - ".to_string());
             }
         }
         let mean_dist = all_dist.iter().sum::<f64>() / all_dist.len() as f64;
         bits.push(format!("{mean_dist:7.2}"));
-        lines.push(format!("{}", bits.join(" ")));
+        lines.push(bits.join(" ").to_string());
     }
     Ok(())
 }

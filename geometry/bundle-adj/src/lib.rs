@@ -243,11 +243,10 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
         let params_cache = {
             let mut params_cache = Vec::new();
             for cam in cams0.iter() {
-                if model_type != ModelType::ExtrinsicsOnly {
-                    if cam.intrinsics().fx() != cam.intrinsics().fy() {
+                if model_type != ModelType::ExtrinsicsOnly
+                    && cam.intrinsics().fx() != cam.intrinsics().fy() {
                         return Err(Error::InconsistentData("fx must equal fy"));
                     }
-                }
                 let p = to_params(cam, model_type);
                 debug_assert_eq!(p.len(), model_type.info().num_cam_params());
                 params_cache.extend(p);
@@ -383,7 +382,7 @@ fn to_cam<F: na::RealField + Float>(
             let cy = params[2];
 
             let nd = model_type.info().num_distortion_params;
-            (&mut distortion[0..nd]).copy_from_slice(&params[3..3 + nd]);
+            distortion[0..nd].copy_from_slice(&params[3..3 + nd]);
             (fx, fy, cx, cy)
         }
         ModelType::Linear => {
@@ -399,7 +398,7 @@ fn to_cam<F: na::RealField + Float>(
             let cx = fixed_params[2];
             let cy = fixed_params[3];
             let d = &fixed_params[4..];
-            distortion.copy_from_slice(&d);
+            distortion.copy_from_slice(d);
             (fx, fy, cx, cy)
         }
     };
@@ -754,7 +753,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
             let pt_geom = (2, 3);
             // Compute jacobian for these camera parameters and world point.
             self.model_type.eval_cam_jacobians(
-                &self,
+                self,
                 *cam_idx,
                 *pt_idx,
                 &mut j,

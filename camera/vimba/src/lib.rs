@@ -217,7 +217,7 @@ impl VimbaLibrary {
                 streamCount: 0,
                 permittedAccess: 0,
             };
-            n_count as usize
+            n_count
         ];
 
         let mut n_found_count = 0;
@@ -418,7 +418,6 @@ impl<'lib> Camera<'lib> {
                     .to_string();
                 Ok(value)
             })
-            .into_iter()
             .collect()
     }
 
