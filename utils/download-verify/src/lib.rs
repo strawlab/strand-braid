@@ -60,7 +60,7 @@ pub fn download_verify<P: AsRef<std::path::Path>>(
         validate(bytes.as_ref(), hash)?;
         // and save them to disk.
         let mut fd = std::fs::File::create(dest)?;
-        fd.write(bytes.as_ref())?;
+        fd.write_all(bytes.as_ref())?;
         fd.sync_all()?;
     }
     Ok(())
