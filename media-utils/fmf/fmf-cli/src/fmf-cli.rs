@@ -389,8 +389,10 @@ fn export_mp4(x: ExportMp4) -> Result<()> {
 
     let (codec, nv_enc) = match x.codec {
         Codec::NvencH264 => {
-            let mut opts = NvidiaH264Options::default();
-            opts.bitrate = x.bitrate;
+            let opts = NvidiaH264Options {
+                bitrate: x.bitrate,
+                ..Default::default()
+            };
             let nv_enc = Some(nvenc::NvEnc::new(libs.as_ref().unwrap())?);
             (strand_cam_remote_control::Mp4Codec::H264NvEnc(opts), nv_enc)
         }
