@@ -1512,8 +1512,8 @@ where
                 format!("opening V4L2 loopback device {}", v4l_device.display())
             })?;
             let source_fmt = v4l::format::Format {
-                width: frame.width().try_into()?,
-                height: frame.height().try_into()?,
+                width: frame.width(),
+                height: frame.height(),
                 stride: frame.stride().try_into()?,
                 field_order: v4l::format::field::FieldOrder::Progressive,
                 flags: 0.into(),
