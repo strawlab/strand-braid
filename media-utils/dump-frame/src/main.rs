@@ -155,7 +155,12 @@ fn y4m_dump<P: AsRef<Path>>(path: P) -> Result<()> {
                     }
                 }
             }
-            _ => break,
+            Err(y4m::Error::EOF) => {
+                break;
+            }
+            Err(e) => {
+                anyhow::bail!("error reading frame: {e}");
+            }
         }
     }
     Ok(())
@@ -218,7 +223,7 @@ fn open_h264_dump<P: AsRef<Path>>(path: P) -> Result<()> {
         dump_row(&decoded_y_row[..width], "  ");
     }
 
-    let chroma_width = (width / 2);
+    let chroma_width = width / 2;
 
     println!("chroma Cb (U) ------");
     for decoded_u_row in decoded_yuv.u().chunks_exact(ous) {
