@@ -225,7 +225,7 @@ fn no_distortion(c: GenerateExr) -> anyhow::Result<()> {
     let mut exr_writer = freemovr_calibration::ExrWriter::default();
     info!("saving EXR output file: {}", out_fname);
     exr_writer.update(&float_image, EXR_COMMENT);
-    file.write(&exr_writer.buffer())?;
+    file.write_all(&exr_writer.buffer())?;
     Ok(())
 }
 
@@ -242,7 +242,7 @@ fn multi_display(c: MultiDisplayExr) -> anyhow::Result<()> {
     let mut exr_writer = freemovr_calibration::ExrWriter::default();
     info!("saving EXR output file: {}", out_fname);
     exr_writer.update(&float_image, EXR_COMMENT);
-    file.write(&exr_writer.buffer())?;
+    file.write_all(&exr_writer.buffer())?;
     Ok(())
 }
 
