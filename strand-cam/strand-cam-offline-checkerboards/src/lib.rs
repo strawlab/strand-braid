@@ -69,9 +69,11 @@ pub fn run_cal(cli: Cli) -> Result<CalibrationResult> {
     let dirname = cli.input_dirname;
     let fnames = get_image_files(&dirname)?;
 
-    let mut checkerboard_data = strand_cam_storetype::CheckerboardCalState::default();
-    checkerboard_data.width = cli.pattern_width.try_into().unwrap();
-    checkerboard_data.height = cli.pattern_height.try_into().unwrap();
+    let checkerboard_data = strand_cam_storetype::CheckerboardCalState {
+        width: cli.pattern_width.try_into().unwrap(),
+        height: cli.pattern_height.try_into().unwrap(),
+        ..Default::default()
+    };
 
     info!(
         "Attempting to find {}x{} chessboard.",
