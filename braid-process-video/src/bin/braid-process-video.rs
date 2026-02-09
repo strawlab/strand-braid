@@ -5,7 +5,6 @@ use braid_process_video::{auto_config, run_config, BraidRetrackVideoConfig, Vali
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
-
 struct Cli {
     /// The command to run
     #[command(subcommand)]
