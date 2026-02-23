@@ -490,7 +490,7 @@ fn test_get_orientation() {
 }
 
 macro_rules! gen_test_alloc {
-    ($ty:ty, $pixel_val:expr, $single_val:expr, $name:ident) => {
+    ($ty:ty, $pixel_val:expr_2021, $single_val:expr_2021, $name:ident) => {
         #[test]
         fn $name() {
             ripp::init().unwrap();

@@ -66,7 +66,7 @@ pub mod simd_sse2 {
     /// This unconditionally generates code that depends on the SSE2 instruction
     /// set. The caller must ensure that the SSE2 feature is available.
     #[target_feature(enable = "sse2")]
-    pub unsafe fn abs_diff_8u_c1r(img1: &[u8], img2: &[u8], output: &mut [u8]) {
+    pub unsafe fn abs_diff_8u_c1r(img1: &[u8], img2: &[u8], output: &mut [u8]) { unsafe {
         assert_eq!(img1.len(), img2.len());
         assert_eq!(img1.len(), output.len());
 
@@ -100,7 +100,7 @@ pub mod simd_sse2 {
             *os = std::cmp::max(*i1s, *i2s) - std::cmp::min(*i1s, *i2s);
             start += 1;
         }
-    }
+    }}
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -122,7 +122,7 @@ pub mod simd_avx2 {
     /// This unconditionally generates code that depends on the AVX2 instruction
     /// set. The caller must ensure that the AVX2 feature is available.
     #[target_feature(enable = "avx2")]
-    pub unsafe fn abs_diff_8u_c1r(img1: &[u8], img2: &[u8], output: &mut [u8]) {
+    pub unsafe fn abs_diff_8u_c1r(img1: &[u8], img2: &[u8], output: &mut [u8]) { unsafe {
         assert_eq!(img1.len(), img2.len());
         assert_eq!(img1.len(), output.len());
 
@@ -156,11 +156,11 @@ pub mod simd_avx2 {
             *os = std::cmp::max(*i1s, *i2s) - std::cmp::min(*i1s, *i2s);
             start += 1;
         }
-    }
+    }}
 }
 
 macro_rules! itry {
-    ($x:expr) => {
+    ($x:expr_2021) => {
         match unsafe { $x } {
             NO_IPP_ERR => {}
             e => {
@@ -939,7 +939,7 @@ fn round_mode_to_ipp(round_mode: RoundMode) -> ipp_sys::IppRoundMode::Type {
 }
 
 macro_rules! version_assert {
-    ($compiled:expr, $runtime:expr, $level:expr) => {{
+    ($compiled:expr_2021, $runtime:expr_2021, $level:expr_2021) => {{
         if $compiled != $runtime {
             return Err(Error::MismatchedCompileRuntimeVersions(
                 $compiled, $runtime, $level,
