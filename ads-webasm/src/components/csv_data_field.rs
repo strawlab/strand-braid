@@ -36,14 +36,14 @@ impl<RowType> std::fmt::Display for MaybeCsvData<RowType> {
         use self::MaybeCsvData::*;
 
         match self {
-            Valid(ref fd) => write!(
+            Valid(fd) => write!(
                 f,
                 "CSV file \"{}\" with {} rows.",
                 fd.filename,
                 fd.rows.len()
             ),
             Empty => write!(f, "No CSV file loaded."),
-            ParseFail(ref _e) => write!(f, "Failed parsing CSV file: {}", _e),
+            ParseFail(_e) => write!(f, "Failed parsing CSV file: {}", _e),
         }
     }
 }

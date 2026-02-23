@@ -1231,16 +1231,16 @@ pub(crate) async fn toggle_saving_csv_tables(
             save_performance_histograms: true,
         };
 
-        if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
+        match braidz_write_tx_weak.upgrade() { Some(braidz_write_tx) => {
             // `braidz_write_tx` will be dropped after this scope.
             braidz_write_tx
                 .send(flydra2::SaveToDiskMsg::StartSavingCsv(cfg))
                 .await
                 .unwrap();
             info!("saving data to \"{}\"", my_dir.display());
-        } else {
+        } _ => {
             error!("data writing thread lost. Not saving data as requested");
-        }
+        }}
 
         {
             let mut tracker = shared_data.write().unwrap();
@@ -1249,16 +1249,16 @@ pub(crate) async fn toggle_saving_csv_tables(
             });
         }
     } else {
-        if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
+        match braidz_write_tx_weak.upgrade() { Some(braidz_write_tx) => {
             // `braidz_write_tx` will be dropped after this scope.
             braidz_write_tx
                 .send(flydra2::SaveToDiskMsg::StopSavingCsv)
                 .await
                 .unwrap_or(()); // ignore error on shutdown
             info!("stopping saving");
-        } else {
+        } _ => {
             error!("data writing thread lost. Could not stop saving data as requested");
-        }
+        }}
 
         {
             let mut tracker = shared_data.write().unwrap();

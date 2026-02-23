@@ -42,7 +42,7 @@ use formats::{cow::CowImage, owned::OImage};
 #[macro_export]
 /// Macro to match all dynamic pixel formats and execute a block of code with a typed image reference.
 macro_rules! match_all_dynamic_fmts {
-    ($self:expr, $x:ident, $block:expr, $err:expr) => {{
+    ($self:expr_2021, $x:ident, $block:expr_2021, $err:expr_2021) => {{
         use machine_vision_formats::{
             pixel_format::{
                 BayerBG32f, BayerBG8, BayerGB32f, BayerGB8, BayerGR32f, BayerGR8, BayerRG32f,

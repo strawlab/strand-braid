@@ -2,7 +2,7 @@ use crate::ffi::GUID;
 
 // from https://github.com/crab2313/nvenc-sys
 macro_rules! make_guid {
-    ($d1:expr, $d2:expr, $d3:expr, $d4:expr) => {
+    ($d1:expr_2021, $d2:expr_2021, $d3:expr_2021, $d4:expr_2021) => {
         GUID {
             Data1: $d1,
             Data2: $d2,

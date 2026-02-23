@@ -80,7 +80,8 @@ fn record(mut mymod: &backend::WrappedModule, recargs: Record) -> ci2::Result<()
 
 fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "ci2=info,warn");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("RUST_LOG", "ci2=info,warn") };
     }
 
     env_logger::init();

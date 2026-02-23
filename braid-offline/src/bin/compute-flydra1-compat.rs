@@ -252,7 +252,7 @@ fn save_data_association_ascending<R1: Read, R2: Read>(
                 wtrs = Some((twod_idxs_wtr, ml_estimates_wtr));
             };
 
-            let (ref mut twod_idxs_wtr, ref mut ml_estimates_wtr) = wtrs.as_mut().unwrap();
+            let (twod_idxs_wtr, ml_estimates_wtr) = wtrs.as_mut().unwrap();
 
             let obj_id = kest_row.obj_id;
             let da_rows = da_by_obj_id.remove(&obj_id);

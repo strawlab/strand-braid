@@ -1404,7 +1404,7 @@ where
     let im_pt_detect_cfg = match &tracker_cfg_src {
         ImPtDetectCfgSource::ChangedSavedToDisk(src) => {
             // Retrieve the saved preferences
-            let (app_info, ref prefs_key) = src;
+            let (app_info, prefs_key) = src;
             match ImPtDetectCfg::load(app_info, prefs_key) {
                 Ok(cfg) => cfg,
                 Err(e) => {
@@ -1578,7 +1578,7 @@ where
 
     let mainbrain_transmitter_fut = async move {
         while let Some(msg) = mainbrain_msg_rx.recv().await {
-            if let Some(ref mut mainbrain_session) = &mut mainbrain_session {
+            if let Some(mainbrain_session) = &mut mainbrain_session {
                 match mainbrain_session.post_callback_message(msg).await {
                     Ok(()) => {}
                     Err(e) => {
@@ -2871,7 +2871,7 @@ where
                                 if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) =
                                     tracker_cfg_src
                                 {
-                                    let (app_info, ref prefs_key) = src;
+                                    let (app_info, prefs_key) = src;
                                     match cfg2.save(app_info, prefs_key) {
                                         Ok(()) => {
                                             info!("saved new detection config");
@@ -3188,7 +3188,7 @@ where
                 .map_err(to_eyre)?;
 
             info!("attempting to nicely stop camera");
-            if let Some((control, join_handle)) = cam.control_and_join_handle() {
+            match cam.control_and_join_handle() { Some((control, join_handle)) => {
                 control.stop();
                 while !control.is_done() {
                     tokio::time::sleep(std::time::Duration::from_millis(10)).await;
@@ -3196,9 +3196,9 @@ where
                 info!("camera thread stopped");
                 join_handle.join().expect("join camera thread");
                 info!("camera thread joined");
-            } else {
+            } _ => {
                 error!("camera thread not running!?");
-            }
+            }}
 
             info!("cam_args_rx future is resolved");
             Ok::<_, eyre::Report>(())

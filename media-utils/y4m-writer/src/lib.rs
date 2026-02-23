@@ -287,7 +287,7 @@ impl Y4MFrame {
         }
     }
 
-    pub fn convert<DEST>(&self) -> Result<impl HasRowChunksExact<DEST>>
+    pub fn convert<DEST>(&self) -> Result<impl HasRowChunksExact<DEST> + use<DEST>>
     where
         DEST: PixelFormat,
     {

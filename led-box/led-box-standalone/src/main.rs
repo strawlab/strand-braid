@@ -13,7 +13,8 @@ fn to_device_name(spi: &tokio_serial::SerialPortInfo) -> String {
 
 fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "info");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("RUST_LOG", "info") };
     }
     env_tracing_logger::init();
 

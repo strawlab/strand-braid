@@ -331,7 +331,7 @@ impl CameraSource {
         &mut self,
     ) -> Option<Peek2<Box<dyn Iterator<Item = frame_source::Result<FrameData>>>>> {
         match &mut self.cam_id {
-            CameraIdentifier::MovieOnly(ref mut m) | CameraIdentifier::Both((ref mut m, _)) => {
+            CameraIdentifier::MovieOnly(m) | CameraIdentifier::Both((m, _)) => {
                 m.reader.take()
             }
             CameraIdentifier::BraidzOnly(_) => None,
@@ -342,7 +342,7 @@ impl CameraSource {
         braidz_archive: Option<&braidz_parser::BraidzArchive<std::io::BufReader<std::fs::File>>>,
     ) -> Option<f64> {
         match &self.cam_id {
-            CameraIdentifier::MovieOnly(ref m) => m.framerate(),
+            CameraIdentifier::MovieOnly(m) => m.framerate(),
             CameraIdentifier::BraidzOnly(_) | CameraIdentifier::Both((_, _)) => {
                 Some(braidz_archive.unwrap().expected_fps)
             }

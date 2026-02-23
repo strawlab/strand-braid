@@ -29,14 +29,14 @@ impl std::fmt::Display for MaybeValidObjFile {
         use self::MaybeValidObjFile::*;
 
         match self {
-            Valid(ref fd) => write!(
+            Valid(fd) => write!(
                 f,
                 "OBJ file \"{}\" with {} vertices.",
                 fd.filename,
                 fd.mesh.coords.len()
             ),
             NotLoaded => write!(f, "No OBJ file loaded."),
-            ParseFail(ref _e) => write!(f, "Failed parsing OBJ file."),
+            ParseFail(_e) => write!(f, "Failed parsing OBJ file."),
             NotExactlyOneMesh => write!(f, "OBJ file loaded, but not exactly one mesh present."),
         }
     }

@@ -189,7 +189,7 @@ fn callback_rust(
 /// This function will not propagate panics that happen in the callback, but it
 /// should print an error to stderr and then soon stop further image-ready
 /// callbacks.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn callback_c(
     camera_handle: vmbc_sys::VmbHandle_t,
     _stream_handle: vmbc_sys::VmbHandle_t,

@@ -114,14 +114,14 @@ fn vimba_err(err: i32) -> std::result::Result<(), VimbaError> {
 }
 
 macro_rules! vimba_call_no_err {
-    ($expr: expr) => {{
+    ($expr: expr_2021) => {{
         tracing::debug!("calling: {} {}:{}", stringify!($expr), file!(), line!());
         unsafe { $expr }
     }};
 }
 
 macro_rules! vimba_call {
-    ($expr: expr) => {{
+    ($expr: expr_2021) => {{
         let errcode = vimba_call_no_err!($expr);
         tracing::debug!("  errcode: {}", errcode);
 

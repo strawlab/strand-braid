@@ -51,7 +51,8 @@ async fn main() -> Result<()> {
     std::panic::set_hook(Box::new(tracing_panic::panic_hook));
 
     if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "info");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("RUST_LOG", "info") };
     }
 
     env_tracing_logger::init();

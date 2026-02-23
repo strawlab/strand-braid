@@ -38,7 +38,7 @@ type Result<T> = std::result::Result<T, Error>;
 /// From outside the worker thread, check if we received an error from the
 /// thread.
 macro_rules! poll_err {
-    ($err_rx: expr) => {{
+    ($err_rx: expr_2021) => {{
         if let Some(e) = $err_rx.lock().unwrap().take() {
             return Err(e);
         }

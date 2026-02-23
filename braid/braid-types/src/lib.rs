@@ -778,7 +778,7 @@ impl MiniArenaConfig {
     }
 
     /// Iterate over all mini arena locators in this configuration.
-    pub fn iter_locators(&self) -> impl Iterator<Item = MiniArenaLocator> {
+    pub fn iter_locators(&self) -> impl Iterator<Item = MiniArenaLocator> + use<> {
         let res = match self {
             Self::NoMiniArena => vec![MiniArenaLocator::from_mini_arena_idx(0)],
             Self::XYGrid(xy_grid_config) => {
@@ -866,7 +866,7 @@ impl XYGridConfig {
     }
 
     /// Iterate over all grid center coordinates.
-    pub fn iter_centers(&self) -> impl Iterator<Item = (f64, f64)> {
+    pub fn iter_centers(&self) -> impl Iterator<Item = (f64, f64)> + use<> {
         XYGridIter {
             col_centers: self.x_centers.0.clone(),
             row_centers: self.y_centers.0.clone(),

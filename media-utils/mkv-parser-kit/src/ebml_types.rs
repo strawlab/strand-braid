@@ -84,7 +84,7 @@ impl std::fmt::Debug for Hex32 {
 }
 
 macro_rules! impl_tags {
-    ( $( ($name:ident, $val:expr, $dtype:expr) ),* ) => {
+    ( $( ($name:ident, $val:expr_2021, $dtype:expr_2021) ),* ) => {
         #[derive(Debug, PartialEq, Eq, Clone, Copy)]
         pub enum Tag {
             $(

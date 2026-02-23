@@ -606,13 +606,13 @@ where
             let synced_frame = SyncFno(safe_u64(data_frame_rows.group_key));
 
             let opt = opt3.clone();
-            if let Some(ref start) = &opt.start_frame {
+            if let Some(start) = &opt.start_frame {
                 if synced_frame.0 < *start {
                     continue;
                 }
             }
 
-            if let Some(ref stop) = &opt.stop_frame {
+            if let Some(stop) = &opt.stop_frame {
                 if synced_frame.0 > *stop {
                     break;
                 }
@@ -679,7 +679,7 @@ where
     let (data_tx, data_rx) = tokio::sync::mpsc::channel(50);
 
     let _model_server = match &opt2.model_server_addr {
-        Some(ref addr) => {
+        Some(addr) => {
             let addr = addr.parse().unwrap();
             info!("send_pose server at {}", addr);
             coord_processor.add_listener(data_tx);

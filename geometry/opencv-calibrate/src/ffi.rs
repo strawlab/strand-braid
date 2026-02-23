@@ -22,7 +22,7 @@ pub(crate) struct cv_return_value_slice {
     pub(crate) num_elements: c_int,
 }
 
-extern "C" {
+unsafe extern "C" {
     pub(crate) fn calibrate_camera(
         image_count: c_int,
         object_points: *const c_double,

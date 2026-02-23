@@ -64,7 +64,7 @@ where
                 ChunkStartAndDuration::Timestamp(_start_stamp, _dur) => {
                     let stop_time = stop_time.as_ref().unwrap();
 
-                    if let Some(ref this_timestamp) = &peek_row.timestamp {
+                    if let Some(this_timestamp) = &peek_row.timestamp {
                         if this_timestamp.as_f64() >= stop_time.as_f64() {
                             do_return_rows = true;
                             // done iterating

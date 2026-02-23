@@ -112,7 +112,7 @@ impl ConnectedCamerasManager {
         let mut not_yet_connected = BTreeMap::new();
 
         // pre-reserve cam numbers for cameras in calibration
-        let next_cam_num = if let Some(ref recon) = recon {
+        let next_cam_num = if let Some(recon) = recon {
             for (base_num, cam_name) in recon.cam_names().enumerate() {
                 let raw_cam_name = RawCamName::new(cam_name.to_string());
                 let cam_num: CamNum = safe_u8(base_num).into();
@@ -170,7 +170,7 @@ impl ConnectedCamerasManager {
         let mut not_yet_connected = BTreeMap::new();
 
         // pre-reserve cam numbers for cameras in calibration
-        if let Some(ref recon) = &self.recon {
+        if let Some(recon) = &self.recon {
             for cam_name in recon.cam_names() {
                 let cam_num = next_cam_num;
                 next_cam_num = safe_u8(next_cam_num as usize + 1);

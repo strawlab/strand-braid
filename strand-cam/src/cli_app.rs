@@ -21,10 +21,11 @@ where
     dotenv::dotenv().ok();
 
     if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var(
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var(
             "RUST_LOG",
             "strand_cam=info,flydra_feature_detector=info,bg_movie_writer=info,warn",
-        );
+        ) };
     }
 
     let args = parse_args(app_name).with_context(|| "parsing args".to_string())?;

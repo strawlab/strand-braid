@@ -324,10 +324,10 @@ where
                         return Err(Error::NoNvencCompiledError)
                     }
                     #[cfg(feature = "nv-encode")]
-                    strand_cam_remote_control::Mp4Codec::H264NvEnc(ref opts) => {
+                    strand_cam_remote_control::Mp4Codec::H264NvEnc(opts) => {
                         // scope for anonymous lifetime of ref
                         match &self.nv_enc {
-                            Some(ref nv_enc) => {
+                            Some(nv_enc) => {
                                 debug!("Using codec H264 in mp4 file.");
 
                                 // Setup the encoder.
@@ -718,7 +718,7 @@ where
             return Err(Error::NoNvencCompiledError);
         }
         #[cfg(feature = "nv-encode")]
-        (MyEncoder::Nvidia(ref mut nv_encoder), Some(state_inner)) => {
+        (MyEncoder::Nvidia(nv_encoder), Some(state_inner)) => {
             let vram_buf: &mut IOBuffer<_, _> = match nv_encoder.vram_queue.get_available() {
                 Some(iobuf) => iobuf,
                 None => {

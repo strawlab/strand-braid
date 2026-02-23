@@ -34,7 +34,7 @@ struct Xyz {
 }
 
 impl Xyz {
-    fn iter(&self) -> impl Iterator<Item = f64> {
+    fn iter(&self) -> impl Iterator<Item = f64> + use<> {
         vec![self.x, self.y, self.z].into_iter()
     }
 }

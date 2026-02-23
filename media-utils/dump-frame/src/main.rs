@@ -168,7 +168,7 @@ fn y4m_dump<P: AsRef<Path>>(path: P) -> Result<()> {
 
 fn image_to_frame(
     fname: &std::path::Path,
-) -> Result<impl OwnedImageStride<machine_vision_formats::pixel_format::RGB8>> {
+) -> Result<impl OwnedImageStride<machine_vision_formats::pixel_format::RGB8> + use<>> {
     let piston_image =
         image::open(fname).with_context(|| format!("Opening {}", fname.display()))?;
     let decoded = convert_image::image_to_rgb8(piston_image)?;

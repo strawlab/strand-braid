@@ -20,7 +20,7 @@ where
     CLK: Source,
 {
     let val = match orig {
-        Some(ref tl) => tl.as_f64(),
+        Some(tl) => tl.as_f64(),
         None => f64::NAN,
     };
     serializer.serialize_f64(val)

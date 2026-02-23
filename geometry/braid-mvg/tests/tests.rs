@@ -250,7 +250,7 @@ fn get_cam() -> Camera<f64> {
 }
 
 macro_rules! check_project_3d_roundtrip {
-    ($cam: expr, $dist: expr) => {{
+    ($cam: expr_2021, $dist: expr_2021) => {{
         let uv_raws = generate_uv_raw($cam.width(), $cam.height());
         for distorted in uv_raws.into_iter() {
             let pt3d_1 = $cam.project_distorted_pixel_to_3d_with_dist(&distorted, $dist);

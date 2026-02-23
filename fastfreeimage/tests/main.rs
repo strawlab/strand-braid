@@ -761,7 +761,7 @@ fn test_get_orientation() -> Result<()> {
 }
 
 macro_rules! gen_test_alloc {
-    ($ty:ty, $pixel_val:expr, $single_val:expr, $name:ident) => {
+    ($ty:ty, $pixel_val:expr_2021, $single_val:expr_2021, $name:ident) => {
         #[test]
         fn $name() {
             let ws = vec![1, 2, 3, 31, 32, 33, 62, 63, 64, 65, 66];

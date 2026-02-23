@@ -10,7 +10,7 @@ use std::{
 };
 
 macro_rules! api_call {
-    ($expr:expr) => {{
+    ($expr:expr_2021) => {{
         let status = $expr;
         if status != _NVENCSTATUS::NV_ENC_SUCCESS {
             return Err(NvencError::ErrCode {
@@ -24,7 +24,7 @@ macro_rules! api_call {
 }
 
 macro_rules! load_func {
-    ($inner:expr, $ident:ident) => {{
+    ($inner:expr_2021, $ident:ident) => {{
         let func = if let Some(func) = $inner.$ident {
             func
         } else {
@@ -38,7 +38,7 @@ macro_rules! load_func {
 }
 
 macro_rules! get_func {
-    ($lib:expr, $name:expr) => {{
+    ($lib:expr_2021, $name:expr_2021) => {{
         unsafe { $lib.library.get($name) }.map_err(|source| NvencError::NameFFIError2 {
             name: String::from_utf8_lossy($name).to_string(),
             source,

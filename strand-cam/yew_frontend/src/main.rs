@@ -1127,7 +1127,7 @@ impl Model {
                 let num_checkerboards_collected =
                     format!("Number of checkerboards collected: {}", ncs);
 
-                let checkerboard_debug = if let Some(ref debug) = &shared.checkerboard_save_debug {
+                let checkerboard_debug = if let Some(debug) = &shared.checkerboard_save_debug {
                     format!("Saving debug data to {}", debug)
                 } else {
                     "".to_string()

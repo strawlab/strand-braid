@@ -178,13 +178,13 @@ impl Component for Model {
                       Please reload this page and try again."}
                 </div>
             }
-        } else if let Valid(ref fd) = &self.braidz_file {
+        } else if let Valid(fd) = &self.braidz_file {
             add_2d_dom_elements(fd)
         } else {
             empty()
         };
 
-        let the_3d_part = if let Valid(ref fd) = &self.braidz_file {
+        let the_3d_part = if let Valid(fd) = &self.braidz_file {
             if fd.archive.kalman_estimates_info.is_some() {
                 add_3d_traj_dom_elements()
             } else {
@@ -324,7 +324,7 @@ fn update_canvas(model: &mut Model) {
     let mut ylim = -1.0..1.0;
     let mut zlim = -1.0..1.0;
     if let MaybeValidBraidzFile::Valid(fd) = &model.braidz_file {
-        if let Some(ref k) = &fd.archive.kalman_estimates_info {
+        if let Some(k) = &fd.archive.kalman_estimates_info {
             trajectories = Some(&k.trajectories);
             xlim = k.xlim[0]..k.xlim[1];
             ylim = k.ylim[0]..k.ylim[1];
@@ -349,12 +349,12 @@ fn update_canvas(model: &mut Model) {
 
     // top view
     if do_3d_plots {
-        let backend = if let Some(be) = CanvasBackend::new(TOPVIEW) {
+        let backend = match CanvasBackend::new(TOPVIEW) { Some(be) => {
             be
-        } else {
+        } _ => {
             model.did_error = true;
             return;
-        };
+        }};
         let root = backend.into_drawing_area();
         let _font: FontDesc = ("Arial", 20.0).into();
 
@@ -501,19 +501,19 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
         None => "not present".to_string(),
     };
 
-    let kest_est = if let Some(ref k) = &summary.kalman_estimates_summary {
+    let kest_est = if let Some(k) = &summary.kalman_estimates_summary {
         format!("{}", k.num_trajectories)
     } else {
         "(No 3D data)".to_string()
     };
 
-    let total_distance = if let Some(ref k) = &summary.kalman_estimates_summary {
+    let total_distance = if let Some(k) = &summary.kalman_estimates_summary {
         format!("{:.3}", k.total_distance)
     } else {
         "(No 3D data)".to_string()
     };
 
-    let (bx, by, bz) = if let Some(ref k) = &summary.kalman_estimates_summary {
+    let (bx, by, bz) = if let Some(k) = &summary.kalman_estimates_summary {
         (
             format!("{:.3} - {:.3}", k.x_limits[0], k.x_limits[1]),
             format!("{:.3} - {:.3}", k.y_limits[0], k.y_limits[1]),

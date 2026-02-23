@@ -380,7 +380,8 @@ fn is_needed_now(
 
 pub fn main() -> Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "info");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("RUST_LOG", "info") };
     }
 
     env_tracing_logger::init();
@@ -527,7 +528,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
     if let Some(ref camera_name) = camera_name {
         h264_metadata.camera_name = Some(camera_name.clone());
     }
-    if let Some(ref gamma) = &gamma {
+    if let Some(gamma) = &gamma {
         h264_metadata.gamma = Some(*gamma);
     }
 

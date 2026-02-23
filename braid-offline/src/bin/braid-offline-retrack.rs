@@ -4,7 +4,8 @@ use tracing_futures::Instrument;
 
 fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "braid_offline=info,flydra2=info,warn");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("RUST_LOG", "braid_offline=info,flydra2=info,warn") };
     }
 
     // console_subscriber::init();

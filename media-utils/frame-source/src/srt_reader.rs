@@ -78,14 +78,14 @@ fn parse_stanza(input: &mut &BStr) -> ModalResult<Stanza> {
         // TODO: match against two `line_ending`s (rather than only '\n')
         let till_newlines = take_until(0.., "\n\n");
 
-        let res: ModalResult<&[u8]> = if let Some(lines0) = opt(till_newlines).parse_next(input)? {
+        let res: ModalResult<&[u8]> = match opt(till_newlines).parse_next(input)? { Some(lines0) => {
             // Clear one trailing newline. (Leave other as stanza seperator.)
             "\n".parse_next(input)?;
             Ok(lines0)
-        } else {
+        } _ => {
             // We reached EOF
             terminated(take_while(0.., |_| true), eof).parse_next(input)
-        };
+        }};
         let lines0 = res?;
         let lines = String::from_utf8(lines0.to_vec()).unwrap();
 

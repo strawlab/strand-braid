@@ -41,7 +41,7 @@ Example export to mp4:
 
 /// Convert to runtime specified pixel format and save to FMF file.
 macro_rules! convert_and_write_fmf {
-    ($new_pixel_format:expr, $writer:expr, $x:expr, $timestamp:expr) => {{
+    ($new_pixel_format:expr_2021, $writer:expr_2021, $x:expr_2021, $timestamp:expr_2021) => {{
         use pixel_format::*;
         match $new_pixel_format {
             PixFmt::Mono8 => write_converted!(Mono8, $writer, $x, $timestamp),
@@ -65,7 +65,7 @@ macro_rules! convert_and_write_fmf {
 
 /// For a specified runtime specified pixel format, convert and save to FMF file.
 macro_rules! write_converted {
-    ($pixfmt:ty, $writer:expr, $x:expr, $timestamp:expr) => {{
+    ($pixfmt:ty, $writer:expr_2021, $x:expr_2021, $timestamp:expr_2021) => {{
         let converted_frame = convert_image::convert_ref::<_, $pixfmt>($x)?;
         $writer.write(&converted_frame, $timestamp)?;
     }};
@@ -495,7 +495,8 @@ fn export_y4m(x: ExportY4m) -> Result<()> {
 
 fn main() -> Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "fmf=info,warn");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("RUST_LOG", "fmf=info,warn") };
     }
 
     env_logger::init();
@@ -658,7 +659,7 @@ fn ffmpeg_to_frame(
     fname: &std::path::Path,
     base_path: &std::path::Path,
 ) -> anyhow::Result<
-    impl machine_vision_formats::OwnedImageStride<machine_vision_formats::pixel_format::RGB8>,
+    impl machine_vision_formats::OwnedImageStride<machine_vision_formats::pixel_format::RGB8> + use<>,
 > {
     use anyhow::Context;
 

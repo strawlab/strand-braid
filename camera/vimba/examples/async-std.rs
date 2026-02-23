@@ -22,12 +22,12 @@ struct Frame {
     pixel_format: u32,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn callback_c(
     camera_handle: vmbc_sys::VmbHandle_t,
     _stream_handle: vmbc_sys::VmbHandle_t,
     frame: *mut vmbc_sys::VmbFrame_t,
-) {
+) { unsafe {
     match std::panic::catch_unwind(|| {
         if !IS_DONE.load(Ordering::Relaxed) {
             let err = VIMBA
@@ -77,7 +77,7 @@ pub unsafe extern "C" fn callback_c(
             IS_DONE.store(true, Ordering::Relaxed); // indicate we are done
         }
     }
-}
+}}
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();

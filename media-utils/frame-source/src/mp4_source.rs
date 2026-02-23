@@ -43,19 +43,19 @@ impl SeekableH264Source for Mp4Source {
         &self.nal_locations
     }
     fn read_nal_units_at_location(&mut self, location: &Self::NalLocation) -> Result<Vec<Vec<u8>>> {
-        if let Some(sample) = self
+        match self
             .mp4_reader
             .read_sample(location.track_id, location.sample_id)?
-        {
+        { Some(sample) => {
             if !sample.bytes.is_empty() {
                 let sample_nal_units = avcc_to_nalu_ebsp(sample.bytes.as_ref())?;
                 Ok(sample_nal_units.iter().map(|x| x.to_vec()).collect())
             } else {
                 Err(Mp4SourceError::SampleEmpty.into())
             }
-        } else {
+        } _ => {
             Err(Mp4SourceError::SampleDisappeared.into())
-        }
+        }}
     }
     fn first_sps(&self) -> Option<Vec<u8>> {
         Some(self.first_sps.clone())

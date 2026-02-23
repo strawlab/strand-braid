@@ -445,7 +445,7 @@ mod tests {
     }
 
     macro_rules! gen_threshold_test {
-        ($name:ident, $orig:expr, $op:path, $thresh:expr, $expected:expr) => {
+        ($name:ident, $orig:expr_2021, $op:path, $thresh:expr_2021, $expected:expr_2021) => {
             #[test]
             fn $name() {
                 const W: usize = 33; // wider than u8x32

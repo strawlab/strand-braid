@@ -356,7 +356,7 @@ fn view_clock_model(shared: &BraidHttpApiSharedState) -> Html {
 }
 
 fn view_calibration(calibration_filename: &Option<String>) -> Html {
-    if let Some(ref fname) = calibration_filename {
+    if let Some(fname) = calibration_filename {
         html! {
             <div>
                 <p>
@@ -422,7 +422,7 @@ fn view_cam_list(cams: &[CamInfo]) -> Html {
 fn view_model_server_link(opt_addr: &Option<std::net::SocketAddr>) -> Html {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-    if let Some(ref addr) = opt_addr {
+    if let Some(addr) = opt_addr {
         let ip = if addr.ip().is_unspecified() {
             match addr.ip() {
                 IpAddr::V4(_) => IpAddr::V4(Ipv4Addr::LOCALHOST),

@@ -122,32 +122,32 @@ pub const CU_TRSF_SRGB: u32 = 16;
 pub const CU_TRSF_DISABLE_TRILINEAR_OPTIMIZATION: u32 = 32;
 pub const CU_PARAM_TR_DEFAULT: i32 = -1;
 pub type va_list = *mut ::std::os::raw::c_char;
-extern "C" {
+unsafe extern "C" {
     pub fn __va_start(arg1: *mut *mut ::std::os::raw::c_char, ...);
 }
 pub type size_t = ::std::os::raw::c_ulonglong;
 pub type __vcrt_bool = bool;
 pub type wchar_t = ::std::os::raw::c_ushort;
-extern "C" {
+unsafe extern "C" {
     pub fn __security_init_cookie();
 }
-extern "C" {
+unsafe extern "C" {
     pub fn __security_check_cookie(_StackCookie: usize);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn __report_gsfailure(_StackCookie: usize);
 }
-extern "C" {
+unsafe extern "C" {
     pub static mut __security_cookie: usize;
 }
 pub type __crt_bool = bool;
-extern "C" {
+unsafe extern "C" {
     pub fn _invalid_parameter_noinfo();
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _invalid_parameter_noinfo_noreturn();
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _invoke_watson(
         _Expression: *const wchar_t,
         _FunctionName: *const wchar_t,
@@ -261,89 +261,89 @@ fn bindgen_test_layout___crt_locale_pointers() {
 pub type _locale_t = *mut __crt_locale_pointers;
 pub type time_t = __time64_t;
 pub type rsize_t = size_t;
-extern "C" {
+unsafe extern "C" {
     pub fn _calloc_base(_Count: size_t, _Size: size_t) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn calloc(
         _Count: ::std::os::raw::c_ulonglong,
         _Size: ::std::os::raw::c_ulonglong,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _callnewh(_Size: size_t) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _expand(
         _Block: *mut ::std::os::raw::c_void,
         _Size: size_t,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _free_base(_Block: *mut ::std::os::raw::c_void);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn free(_Block: *mut ::std::os::raw::c_void);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _malloc_base(_Size: size_t) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn malloc(_Size: ::std::os::raw::c_ulonglong) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _msize_base(_Block: *mut ::std::os::raw::c_void) -> size_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _msize(_Block: *mut ::std::os::raw::c_void) -> size_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _realloc_base(
         _Block: *mut ::std::os::raw::c_void,
         _Size: size_t,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn realloc(
         _Block: *mut ::std::os::raw::c_void,
         _Size: ::std::os::raw::c_ulonglong,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _recalloc_base(
         _Block: *mut ::std::os::raw::c_void,
         _Count: size_t,
         _Size: size_t,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _recalloc(
         _Block: *mut ::std::os::raw::c_void,
         _Count: size_t,
         _Size: size_t,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _aligned_free(_Block: *mut ::std::os::raw::c_void);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _aligned_malloc(_Size: size_t, _Alignment: size_t) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _aligned_offset_malloc(
         _Size: size_t,
         _Alignment: size_t,
         _Offset: size_t,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _aligned_msize(
         _Block: *mut ::std::os::raw::c_void,
         _Alignment: size_t,
         _Offset: size_t,
     ) -> size_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _aligned_offset_realloc(
         _Block: *mut ::std::os::raw::c_void,
         _Size: size_t,
@@ -351,7 +351,7 @@ extern "C" {
         _Offset: size_t,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _aligned_offset_recalloc(
         _Block: *mut ::std::os::raw::c_void,
         _Count: size_t,
@@ -360,14 +360,14 @@ extern "C" {
         _Offset: size_t,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _aligned_realloc(
         _Block: *mut ::std::os::raw::c_void,
         _Size: size_t,
         _Alignment: size_t,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _aligned_recalloc(
         _Block: *mut ::std::os::raw::c_void,
         _Count: size_t,
@@ -375,19 +375,19 @@ extern "C" {
         _Alignment: size_t,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _errno() -> *mut ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _set_errno(_Value: ::std::os::raw::c_int) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _get_errno(_Value: *mut ::std::os::raw::c_int) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn __threadid() -> ::std::os::raw::c_ulong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn __threadhandle() -> usize;
 }
 pub type _CoreCrtSecureSearchSortCompareFunction = ::std::option::Option<
@@ -403,7 +403,7 @@ pub type _CoreCrtNonSecureSearchSortCompareFunction = ::std::option::Option<
         arg2: *const ::std::os::raw::c_void,
     ) -> ::std::os::raw::c_int,
 >;
-extern "C" {
+unsafe extern "C" {
     pub fn bsearch_s(
         _Key: *const ::std::os::raw::c_void,
         _Base: *const ::std::os::raw::c_void,
@@ -413,7 +413,7 @@ extern "C" {
         _Context: *mut ::std::os::raw::c_void,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn qsort_s(
         _Base: *mut ::std::os::raw::c_void,
         _NumOfElements: rsize_t,
@@ -422,7 +422,7 @@ extern "C" {
         _Context: *mut ::std::os::raw::c_void,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn bsearch(
         _Key: *const ::std::os::raw::c_void,
         _Base: *const ::std::os::raw::c_void,
@@ -431,7 +431,7 @@ extern "C" {
         _CompareFunction: _CoreCrtNonSecureSearchSortCompareFunction,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn qsort(
         _Base: *mut ::std::os::raw::c_void,
         _NumOfElements: size_t,
@@ -439,7 +439,7 @@ extern "C" {
         _CompareFunction: _CoreCrtNonSecureSearchSortCompareFunction,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _lfind_s(
         _Key: *const ::std::os::raw::c_void,
         _Base: *const ::std::os::raw::c_void,
@@ -449,7 +449,7 @@ extern "C" {
         _Context: *mut ::std::os::raw::c_void,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _lfind(
         _Key: *const ::std::os::raw::c_void,
         _Base: *const ::std::os::raw::c_void,
@@ -458,7 +458,7 @@ extern "C" {
         _CompareFunction: _CoreCrtNonSecureSearchSortCompareFunction,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _lsearch_s(
         _Key: *const ::std::os::raw::c_void,
         _Base: *mut ::std::os::raw::c_void,
@@ -468,7 +468,7 @@ extern "C" {
         _Context: *mut ::std::os::raw::c_void,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _lsearch(
         _Key: *const ::std::os::raw::c_void,
         _Base: *mut ::std::os::raw::c_void,
@@ -477,7 +477,7 @@ extern "C" {
         _CompareFunction: _CoreCrtNonSecureSearchSortCompareFunction,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn lfind(
         _Key: *const ::std::os::raw::c_void,
         _Base: *const ::std::os::raw::c_void,
@@ -486,7 +486,7 @@ extern "C" {
         _CompareFunction: _CoreCrtNonSecureSearchSortCompareFunction,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn lsearch(
         _Key: *const ::std::os::raw::c_void,
         _Base: *mut ::std::os::raw::c_void,
@@ -495,7 +495,7 @@ extern "C" {
         _CompareFunction: _CoreCrtNonSecureSearchSortCompareFunction,
     ) -> *mut ::std::os::raw::c_void;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _itow_s(
         _Value: ::std::os::raw::c_int,
         _Buffer: *mut wchar_t,
@@ -503,14 +503,14 @@ extern "C" {
         _Radix: ::std::os::raw::c_int,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _itow(
         _Value: ::std::os::raw::c_int,
         _Buffer: *mut wchar_t,
         _Radix: ::std::os::raw::c_int,
     ) -> *mut wchar_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _ltow_s(
         _Value: ::std::os::raw::c_long,
         _Buffer: *mut wchar_t,
@@ -518,14 +518,14 @@ extern "C" {
         _Radix: ::std::os::raw::c_int,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _ltow(
         _Value: ::std::os::raw::c_long,
         _Buffer: *mut wchar_t,
         _Radix: ::std::os::raw::c_int,
     ) -> *mut wchar_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _ultow_s(
         _Value: ::std::os::raw::c_ulong,
         _Buffer: *mut wchar_t,
@@ -533,31 +533,31 @@ extern "C" {
         _Radix: ::std::os::raw::c_int,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _ultow(
         _Value: ::std::os::raw::c_ulong,
         _Buffer: *mut wchar_t,
         _Radix: ::std::os::raw::c_int,
     ) -> *mut wchar_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wcstod(_String: *const wchar_t, _EndPtr: *mut *mut wchar_t) -> f64;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wcstod_l(
         _String: *const wchar_t,
         _EndPtr: *mut *mut wchar_t,
         _Locale: _locale_t,
     ) -> f64;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wcstol(
         _String: *const wchar_t,
         _EndPtr: *mut *mut wchar_t,
         _Radix: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_long;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wcstol_l(
         _String: *const wchar_t,
         _EndPtr: *mut *mut wchar_t,
@@ -565,14 +565,14 @@ extern "C" {
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_long;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wcstoll(
         _String: *const wchar_t,
         _EndPtr: *mut *mut wchar_t,
         _Radix: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wcstoll_l(
         _String: *const wchar_t,
         _EndPtr: *mut *mut wchar_t,
@@ -580,14 +580,14 @@ extern "C" {
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wcstoul(
         _String: *const wchar_t,
         _EndPtr: *mut *mut wchar_t,
         _Radix: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_ulong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wcstoul_l(
         _String: *const wchar_t,
         _EndPtr: *mut *mut wchar_t,
@@ -595,14 +595,14 @@ extern "C" {
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_ulong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wcstoull(
         _String: *const wchar_t,
         _EndPtr: *mut *mut wchar_t,
         _Radix: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_ulonglong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wcstoull_l(
         _String: *const wchar_t,
         _EndPtr: *mut *mut wchar_t,
@@ -610,51 +610,51 @@ extern "C" {
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_ulonglong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wcstold(_String: *const wchar_t, _EndPtr: *mut *mut wchar_t) -> f64;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wcstold_l(
         _String: *const wchar_t,
         _EndPtr: *mut *mut wchar_t,
         _Locale: _locale_t,
     ) -> f64;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wcstof(_String: *const wchar_t, _EndPtr: *mut *mut wchar_t) -> f32;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wcstof_l(
         _String: *const wchar_t,
         _EndPtr: *mut *mut wchar_t,
         _Locale: _locale_t,
     ) -> f32;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wtof(_String: *const wchar_t) -> f64;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wtof_l(_String: *const wchar_t, _Locale: _locale_t) -> f64;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wtoi(_String: *const wchar_t) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wtoi_l(_String: *const wchar_t, _Locale: _locale_t) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wtol(_String: *const wchar_t) -> ::std::os::raw::c_long;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wtol_l(_String: *const wchar_t, _Locale: _locale_t) -> ::std::os::raw::c_long;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wtoll(_String: *const wchar_t) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wtoll_l(_String: *const wchar_t, _Locale: _locale_t) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _i64tow_s(
         _Value: ::std::os::raw::c_longlong,
         _Buffer: *mut wchar_t,
@@ -662,14 +662,14 @@ extern "C" {
         _Radix: ::std::os::raw::c_int,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _i64tow(
         _Value: ::std::os::raw::c_longlong,
         _Buffer: *mut wchar_t,
         _Radix: ::std::os::raw::c_int,
     ) -> *mut wchar_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _ui64tow_s(
         _Value: ::std::os::raw::c_ulonglong,
         _Buffer: *mut wchar_t,
@@ -677,27 +677,27 @@ extern "C" {
         _Radix: ::std::os::raw::c_int,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _ui64tow(
         _Value: ::std::os::raw::c_ulonglong,
         _Buffer: *mut wchar_t,
         _Radix: ::std::os::raw::c_int,
     ) -> *mut wchar_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wtoi64(_String: *const wchar_t) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wtoi64_l(_String: *const wchar_t, _Locale: _locale_t) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wcstoi64(
         _String: *const wchar_t,
         _EndPtr: *mut *mut wchar_t,
         _Radix: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wcstoi64_l(
         _String: *const wchar_t,
         _EndPtr: *mut *mut wchar_t,
@@ -705,14 +705,14 @@ extern "C" {
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wcstoui64(
         _String: *const wchar_t,
         _EndPtr: *mut *mut wchar_t,
         _Radix: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_ulonglong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wcstoui64_l(
         _String: *const wchar_t,
         _EndPtr: *mut *mut wchar_t,
@@ -720,14 +720,14 @@ extern "C" {
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_ulonglong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wfullpath(
         _Buffer: *mut wchar_t,
         _Path: *const wchar_t,
         _BufferCount: size_t,
     ) -> *mut wchar_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wmakepath_s(
         _Buffer: *mut wchar_t,
         _BufferCount: size_t,
@@ -737,7 +737,7 @@ extern "C" {
         _Ext: *const wchar_t,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wmakepath(
         _Buffer: *mut wchar_t,
         _Drive: *const wchar_t,
@@ -746,10 +746,10 @@ extern "C" {
         _Ext: *const wchar_t,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wperror(_ErrorMessage: *const wchar_t);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wsplitpath(
         _FullPath: *const wchar_t,
         _Drive: *mut wchar_t,
@@ -758,7 +758,7 @@ extern "C" {
         _Ext: *mut wchar_t,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wsplitpath_s(
         _FullPath: *const wchar_t,
         _Drive: *mut wchar_t,
@@ -771,17 +771,17 @@ extern "C" {
         _ExtCount: size_t,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wdupenv_s(
         _Buffer: *mut *mut wchar_t,
         _BufferCount: *mut size_t,
         _VarName: *const wchar_t,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wgetenv(_VarName: *const wchar_t) -> *mut wchar_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wgetenv_s(
         _RequiredCount: *mut size_t,
         _Buffer: *mut wchar_t,
@@ -789,13 +789,13 @@ extern "C" {
         _VarName: *const wchar_t,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wputenv(_EnvString: *const wchar_t) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wputenv_s(_Name: *const wchar_t, _Value: *const wchar_t) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wsearchenv_s(
         _Filename: *const wchar_t,
         _VarName: *const wchar_t,
@@ -803,52 +803,52 @@ extern "C" {
         _BufferCount: size_t,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wsearchenv(
         _Filename: *const wchar_t,
         _VarName: *const wchar_t,
         _ResultPath: *mut wchar_t,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wsystem(_Command: *const wchar_t) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _swab(
         _Buf1: *mut ::std::os::raw::c_char,
         _Buf2: *mut ::std::os::raw::c_char,
         _SizeInBytes: ::std::os::raw::c_int,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn exit(_Code: ::std::os::raw::c_int);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _exit(_Code: ::std::os::raw::c_int);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _Exit(_Code: ::std::os::raw::c_int);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn quick_exit(_Code: ::std::os::raw::c_int);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn abort();
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _set_abort_behavior(
         _Flags: ::std::os::raw::c_uint,
         _Mask: ::std::os::raw::c_uint,
     ) -> ::std::os::raw::c_uint;
 }
 pub type _onexit_t = ::std::option::Option<unsafe extern "C" fn() -> ::std::os::raw::c_int>;
-extern "C" {
+unsafe extern "C" {
     pub fn atexit(arg1: ::std::option::Option<unsafe extern "C" fn()>) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _onexit(_Func: _onexit_t) -> _onexit_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn at_quick_exit(
         arg1: ::std::option::Option<unsafe extern "C" fn()>,
     ) -> ::std::os::raw::c_int;
@@ -863,68 +863,68 @@ pub type _invalid_parameter_handler = ::std::option::Option<
         arg5: usize,
     ),
 >;
-extern "C" {
+unsafe extern "C" {
     pub fn _set_purecall_handler(_Handler: _purecall_handler) -> _purecall_handler;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _get_purecall_handler() -> _purecall_handler;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _set_invalid_parameter_handler(
         _Handler: _invalid_parameter_handler,
     ) -> _invalid_parameter_handler;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _get_invalid_parameter_handler() -> _invalid_parameter_handler;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _set_thread_local_invalid_parameter_handler(
         _Handler: _invalid_parameter_handler,
     ) -> _invalid_parameter_handler;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _get_thread_local_invalid_parameter_handler() -> _invalid_parameter_handler;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _set_error_mode(_Mode: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn __doserrno() -> *mut ::std::os::raw::c_ulong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _set_doserrno(_Value: ::std::os::raw::c_ulong) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _get_doserrno(_Value: *mut ::std::os::raw::c_ulong) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn __sys_errlist() -> *mut *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn __sys_nerr() -> *mut ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn perror(_ErrMsg: *const ::std::os::raw::c_char);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn __p__pgmptr() -> *mut *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn __p__wpgmptr() -> *mut *mut wchar_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn __p__fmode() -> *mut ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _get_pgmptr(_Value: *mut *mut ::std::os::raw::c_char) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _get_wpgmptr(_Value: *mut *mut wchar_t) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _set_fmode(_Mode: ::std::os::raw::c_int) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _get_fmode(_PMode: *mut ::std::os::raw::c_int) -> errno_t;
 }
 #[repr(C)]
@@ -1007,76 +1007,76 @@ fn bindgen_test_layout__lldiv_t() {
     );
 }
 pub type lldiv_t = _lldiv_t;
-extern "C" {
+unsafe extern "C" {
     pub fn abs(_Number: ::std::os::raw::c_int) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn labs(_Number: ::std::os::raw::c_long) -> ::std::os::raw::c_long;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn llabs(_Number: ::std::os::raw::c_longlong) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _abs64(_Number: ::std::os::raw::c_longlong) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _byteswap_ushort(_Number: ::std::os::raw::c_ushort) -> ::std::os::raw::c_ushort;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _byteswap_ulong(_Number: ::std::os::raw::c_ulong) -> ::std::os::raw::c_ulong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _byteswap_uint64(_Number: ::std::os::raw::c_ulonglong) -> ::std::os::raw::c_ulonglong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn div(_Numerator: ::std::os::raw::c_int, _Denominator: ::std::os::raw::c_int) -> div_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn lldiv(
         _Numerator: ::std::os::raw::c_longlong,
         _Denominator: ::std::os::raw::c_longlong,
     ) -> lldiv_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _rotl(
         _Value: ::std::os::raw::c_uint,
         _Shift: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_uint;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _lrotl(
         _Value: ::std::os::raw::c_ulong,
         _Shift: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_ulong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _rotl64(
         _Value: ::std::os::raw::c_ulonglong,
         _Shift: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_ulonglong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _rotr(
         _Value: ::std::os::raw::c_uint,
         _Shift: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_uint;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _lrotr(
         _Value: ::std::os::raw::c_ulong,
         _Shift: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_ulong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _rotr64(
         _Value: ::std::os::raw::c_ulonglong,
         _Shift: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_ulonglong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn srand(_Seed: ::std::os::raw::c_uint);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn rand() -> ::std::os::raw::c_int;
 }
 #[repr(C)]
@@ -1219,134 +1219,134 @@ fn bindgen_test_layout__LDBL12() {
         )
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn atof(_String: *const ::std::os::raw::c_char) -> f64;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn atoi(_String: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn atol(_String: *const ::std::os::raw::c_char) -> ::std::os::raw::c_long;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn atoll(_String: *const ::std::os::raw::c_char) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _atoi64(_String: *const ::std::os::raw::c_char) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _atof_l(_String: *const ::std::os::raw::c_char, _Locale: _locale_t) -> f64;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _atoi_l(
         _String: *const ::std::os::raw::c_char,
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _atol_l(
         _String: *const ::std::os::raw::c_char,
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_long;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _atoll_l(
         _String: *const ::std::os::raw::c_char,
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _atoi64_l(
         _String: *const ::std::os::raw::c_char,
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _atoflt(
         _Result: *mut _CRT_FLOAT,
         _String: *const ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _atodbl(
         _Result: *mut _CRT_DOUBLE,
         _String: *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _atoldbl(
         _Result: *mut _LDOUBLE,
         _String: *mut ::std::os::raw::c_char,
     ) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _atoflt_l(
         _Result: *mut _CRT_FLOAT,
         _String: *const ::std::os::raw::c_char,
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _atodbl_l(
         _Result: *mut _CRT_DOUBLE,
         _String: *mut ::std::os::raw::c_char,
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _atoldbl_l(
         _Result: *mut _LDOUBLE,
         _String: *mut ::std::os::raw::c_char,
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn strtof(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
     ) -> f32;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _strtof_l(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
         _Locale: _locale_t,
     ) -> f32;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn strtod(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
     ) -> f64;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _strtod_l(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
         _Locale: _locale_t,
     ) -> f64;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn strtold(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
     ) -> f64;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _strtold_l(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
         _Locale: _locale_t,
     ) -> f64;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn strtol(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
         _Radix: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_long;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _strtol_l(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
@@ -1354,14 +1354,14 @@ extern "C" {
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_long;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn strtoll(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
         _Radix: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _strtoll_l(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
@@ -1369,14 +1369,14 @@ extern "C" {
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn strtoul(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
         _Radix: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_ulong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _strtoul_l(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
@@ -1384,14 +1384,14 @@ extern "C" {
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_ulong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn strtoull(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
         _Radix: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_ulonglong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _strtoull_l(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
@@ -1399,14 +1399,14 @@ extern "C" {
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_ulonglong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _strtoi64(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
         _Radix: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _strtoi64_l(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
@@ -1414,14 +1414,14 @@ extern "C" {
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_longlong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _strtoui64(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
         _Radix: ::std::os::raw::c_int,
     ) -> ::std::os::raw::c_ulonglong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _strtoui64_l(
         _String: *const ::std::os::raw::c_char,
         _EndPtr: *mut *mut ::std::os::raw::c_char,
@@ -1429,7 +1429,7 @@ extern "C" {
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_ulonglong;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _itoa_s(
         _Value: ::std::os::raw::c_int,
         _Buffer: *mut ::std::os::raw::c_char,
@@ -1437,14 +1437,14 @@ extern "C" {
         _Radix: ::std::os::raw::c_int,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _itoa(
         _Value: ::std::os::raw::c_int,
         _Buffer: *mut ::std::os::raw::c_char,
         _Radix: ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _ltoa_s(
         _Value: ::std::os::raw::c_long,
         _Buffer: *mut ::std::os::raw::c_char,
@@ -1452,14 +1452,14 @@ extern "C" {
         _Radix: ::std::os::raw::c_int,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _ltoa(
         _Value: ::std::os::raw::c_long,
         _Buffer: *mut ::std::os::raw::c_char,
         _Radix: ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _ultoa_s(
         _Value: ::std::os::raw::c_ulong,
         _Buffer: *mut ::std::os::raw::c_char,
@@ -1467,14 +1467,14 @@ extern "C" {
         _Radix: ::std::os::raw::c_int,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _ultoa(
         _Value: ::std::os::raw::c_ulong,
         _Buffer: *mut ::std::os::raw::c_char,
         _Radix: ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _i64toa_s(
         _Value: ::std::os::raw::c_longlong,
         _Buffer: *mut ::std::os::raw::c_char,
@@ -1482,14 +1482,14 @@ extern "C" {
         _Radix: ::std::os::raw::c_int,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _i64toa(
         _Value: ::std::os::raw::c_longlong,
         _Buffer: *mut ::std::os::raw::c_char,
         _Radix: ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _ui64toa_s(
         _Value: ::std::os::raw::c_ulonglong,
         _Buffer: *mut ::std::os::raw::c_char,
@@ -1497,14 +1497,14 @@ extern "C" {
         _Radix: ::std::os::raw::c_int,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _ui64toa(
         _Value: ::std::os::raw::c_ulonglong,
         _Buffer: *mut ::std::os::raw::c_char,
         _Radix: ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _ecvt_s(
         _Buffer: *mut ::std::os::raw::c_char,
         _BufferCount: size_t,
@@ -1514,7 +1514,7 @@ extern "C" {
         _PtSign: *mut ::std::os::raw::c_int,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _ecvt(
         _Value: f64,
         _DigitCount: ::std::os::raw::c_int,
@@ -1522,7 +1522,7 @@ extern "C" {
         _PtSign: *mut ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _fcvt_s(
         _Buffer: *mut ::std::os::raw::c_char,
         _BufferCount: size_t,
@@ -1532,7 +1532,7 @@ extern "C" {
         _PtSign: *mut ::std::os::raw::c_int,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _fcvt(
         _Value: f64,
         _FractionalDigitCount: ::std::os::raw::c_int,
@@ -1540,7 +1540,7 @@ extern "C" {
         _PtSign: *mut ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _gcvt_s(
         _Buffer: *mut ::std::os::raw::c_char,
         _BufferCount: size_t,
@@ -1548,53 +1548,53 @@ extern "C" {
         _DigitCount: ::std::os::raw::c_int,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _gcvt(
         _Value: f64,
         _DigitCount: ::std::os::raw::c_int,
         _Buffer: *mut ::std::os::raw::c_char,
     ) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn ___mb_cur_max_func() -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn ___mb_cur_max_l_func(_Locale: _locale_t) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn mblen(_Ch: *const ::std::os::raw::c_char, _MaxCount: size_t) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _mblen_l(
         _Ch: *const ::std::os::raw::c_char,
         _MaxCount: size_t,
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _mbstrlen(_String: *const ::std::os::raw::c_char) -> size_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _mbstrlen_l(_String: *const ::std::os::raw::c_char, _Locale: _locale_t) -> size_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _mbstrnlen(_String: *const ::std::os::raw::c_char, _MaxCount: size_t) -> size_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _mbstrnlen_l(
         _String: *const ::std::os::raw::c_char,
         _MaxCount: size_t,
         _Locale: _locale_t,
     ) -> size_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn mbtowc(
         _DstCh: *mut wchar_t,
         _SrcCh: *const ::std::os::raw::c_char,
         _SrcSizeInBytes: size_t,
     ) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _mbtowc_l(
         _DstCh: *mut wchar_t,
         _SrcCh: *const ::std::os::raw::c_char,
@@ -1602,7 +1602,7 @@ extern "C" {
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn mbstowcs_s(
         _PtNumOfCharConverted: *mut size_t,
         _DstBuf: *mut wchar_t,
@@ -1611,14 +1611,14 @@ extern "C" {
         _MaxCount: size_t,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn mbstowcs(
         _Dest: *mut wchar_t,
         _Source: *const ::std::os::raw::c_char,
         _MaxCount: size_t,
     ) -> size_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _mbstowcs_s_l(
         _PtNumOfCharConverted: *mut size_t,
         _DstBuf: *mut wchar_t,
@@ -1628,7 +1628,7 @@ extern "C" {
         _Locale: _locale_t,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _mbstowcs_l(
         _Dest: *mut wchar_t,
         _Source: *const ::std::os::raw::c_char,
@@ -1636,17 +1636,17 @@ extern "C" {
         _Locale: _locale_t,
     ) -> size_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wctomb(_MbCh: *mut ::std::os::raw::c_char, _WCh: wchar_t) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wctomb_l(
         _MbCh: *mut ::std::os::raw::c_char,
         _WCh: wchar_t,
         _Locale: _locale_t,
     ) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wctomb_s(
         _SizeConverted: *mut ::std::os::raw::c_int,
         _MbCh: *mut ::std::os::raw::c_char,
@@ -1654,7 +1654,7 @@ extern "C" {
         _WCh: wchar_t,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wctomb_s_l(
         _SizeConverted: *mut ::std::os::raw::c_int,
         _MbCh: *mut ::std::os::raw::c_char,
@@ -1663,7 +1663,7 @@ extern "C" {
         _Locale: _locale_t,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wcstombs_s(
         _PtNumOfCharConverted: *mut size_t,
         _Dst: *mut ::std::os::raw::c_char,
@@ -1672,14 +1672,14 @@ extern "C" {
         _MaxCountInBytes: size_t,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn wcstombs(
         _Dest: *mut ::std::os::raw::c_char,
         _Source: *const wchar_t,
         _MaxCount: size_t,
     ) -> size_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wcstombs_s_l(
         _PtNumOfCharConverted: *mut size_t,
         _Dst: *mut ::std::os::raw::c_char,
@@ -1689,7 +1689,7 @@ extern "C" {
         _Locale: _locale_t,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _wcstombs_l(
         _Dest: *mut ::std::os::raw::c_char,
         _Source: *const wchar_t,
@@ -1697,14 +1697,14 @@ extern "C" {
         _Locale: _locale_t,
     ) -> size_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _fullpath(
         _Buffer: *mut ::std::os::raw::c_char,
         _Path: *const ::std::os::raw::c_char,
         _BufferCount: size_t,
     ) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _makepath_s(
         _Buffer: *mut ::std::os::raw::c_char,
         _BufferCount: size_t,
@@ -1714,7 +1714,7 @@ extern "C" {
         _Ext: *const ::std::os::raw::c_char,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _makepath(
         _Buffer: *mut ::std::os::raw::c_char,
         _Drive: *const ::std::os::raw::c_char,
@@ -1723,7 +1723,7 @@ extern "C" {
         _Ext: *const ::std::os::raw::c_char,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _splitpath(
         _FullPath: *const ::std::os::raw::c_char,
         _Drive: *mut ::std::os::raw::c_char,
@@ -1732,7 +1732,7 @@ extern "C" {
         _Ext: *mut ::std::os::raw::c_char,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _splitpath_s(
         _FullPath: *const ::std::os::raw::c_char,
         _Drive: *mut ::std::os::raw::c_char,
@@ -1745,7 +1745,7 @@ extern "C" {
         _ExtCount: size_t,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn getenv_s(
         _RequiredCount: *mut size_t,
         _Buffer: *mut ::std::os::raw::c_char,
@@ -1753,44 +1753,44 @@ extern "C" {
         _VarName: *const ::std::os::raw::c_char,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn __p___argc() -> *mut ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn __p___argv() -> *mut *mut *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn __p___wargv() -> *mut *mut *mut wchar_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn __p__environ() -> *mut *mut *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn __p__wenviron() -> *mut *mut *mut wchar_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn getenv(_VarName: *const ::std::os::raw::c_char) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _dupenv_s(
         _Buffer: *mut *mut ::std::os::raw::c_char,
         _BufferCount: *mut size_t,
         _VarName: *const ::std::os::raw::c_char,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn system(_Command: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _putenv(_EnvString: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _putenv_s(
         _Name: *const ::std::os::raw::c_char,
         _Value: *const ::std::os::raw::c_char,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _searchenv_s(
         _Filename: *const ::std::os::raw::c_char,
         _VarName: *const ::std::os::raw::c_char,
@@ -1798,23 +1798,23 @@ extern "C" {
         _BufferCount: size_t,
     ) -> errno_t;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _searchenv(
         _Filename: *const ::std::os::raw::c_char,
         _VarName: *const ::std::os::raw::c_char,
         _Buffer: *mut ::std::os::raw::c_char,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _seterrormode(_Mode: ::std::os::raw::c_int);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _beep(_Frequency: ::std::os::raw::c_uint, _Duration: ::std::os::raw::c_uint);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn _sleep(_Duration: ::std::os::raw::c_ulong);
 }
-extern "C" {
+unsafe extern "C" {
     pub fn ecvt(
         _Value: f64,
         _DigitCount: ::std::os::raw::c_int,
@@ -1822,7 +1822,7 @@ extern "C" {
         _PtSign: *mut ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn fcvt(
         _Value: f64,
         _FractionalDigitCount: ::std::os::raw::c_int,
@@ -1830,45 +1830,45 @@ extern "C" {
         _PtSign: *mut ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn gcvt(
         _Value: f64,
         _DigitCount: ::std::os::raw::c_int,
         _DstBuf: *mut ::std::os::raw::c_char,
     ) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn itoa(
         _Value: ::std::os::raw::c_int,
         _Buffer: *mut ::std::os::raw::c_char,
         _Radix: ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn ltoa(
         _Value: ::std::os::raw::c_long,
         _Buffer: *mut ::std::os::raw::c_char,
         _Radix: ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn swab(
         _Buf1: *mut ::std::os::raw::c_char,
         _Buf2: *mut ::std::os::raw::c_char,
         _SizeInBytes: ::std::os::raw::c_int,
     );
 }
-extern "C" {
+unsafe extern "C" {
     pub fn ultoa(
         _Value: ::std::os::raw::c_ulong,
         _Buffer: *mut ::std::os::raw::c_char,
         _Radix: ::std::os::raw::c_int,
     ) -> *mut ::std::os::raw::c_char;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn putenv(_EnvString: *const ::std::os::raw::c_char) -> ::std::os::raw::c_int;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn onexit(_Func: _onexit_t) -> _onexit_t;
 }
 pub type cuuint32_t = ::std::os::raw::c_uint;
@@ -8905,7 +8905,7 @@ pub mod CUgraphExecUpdateResult_enum {
     pub const CU_GRAPH_EXEC_UPDATE_ERROR_NOT_SUPPORTED: Type = 6;
 }
 pub use self::CUgraphExecUpdateResult_enum::Type as CUgraphExecUpdateResult;
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets the string description of an error code"]
     #[doc = ""]
     #[doc = " Sets \\p *pStr to the address of a NULL-terminated string description"]
@@ -8925,7 +8925,7 @@ extern "C" {
     #[doc = " ::cudaGetErrorString"]
     pub fn cuGetErrorString(error: CUresult, pStr: *mut *const ::std::os::raw::c_char) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets the string representation of an error code enum name"]
     #[doc = ""]
     #[doc = " Sets \\p *pStr to the address of a NULL-terminated string representation"]
@@ -8945,7 +8945,7 @@ extern "C" {
     #[doc = " ::cudaGetErrorName"]
     pub fn cuGetErrorName(error: CUresult, pStr: *mut *const ::std::os::raw::c_char) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Initialize the CUDA driver API"]
     #[doc = ""]
     #[doc = " Initializes the driver API and must be called before any other function from"]
@@ -8964,7 +8964,7 @@ extern "C" {
     #[doc = " \\notefnerr"]
     pub fn cuInit(Flags: ::std::os::raw::c_uint) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns the latest CUDA version supported by driver"]
     #[doc = ""]
     #[doc = " Returns in \\p *driverVersion the version of CUDA supported by"]
@@ -8987,7 +8987,7 @@ extern "C" {
     #[doc = " ::cudaRuntimeGetVersion"]
     pub fn cuDriverGetVersion(driverVersion: *mut ::std::os::raw::c_int) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a handle to a compute device"]
     #[doc = ""]
     #[doc = " Returns in \\p *device a device handle given an ordinal in the range <b>[0,"]
@@ -9014,7 +9014,7 @@ extern "C" {
     #[doc = " ::cuDeviceTotalMem"]
     pub fn cuDeviceGet(device: *mut CUdevice, ordinal: ::std::os::raw::c_int) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns the number of compute-capable devices"]
     #[doc = ""]
     #[doc = " Returns in \\p *count the number of devices with compute capability greater"]
@@ -9041,7 +9041,7 @@ extern "C" {
     #[doc = " ::cudaGetDeviceCount"]
     pub fn cuDeviceGetCount(count: *mut ::std::os::raw::c_int) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns an identifer string for the device"]
     #[doc = ""]
     #[doc = " Returns an ASCII string identifying the device \\p dev in the NULL-terminated"]
@@ -9075,7 +9075,7 @@ extern "C" {
         dev: CUdevice,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Return an UUID for the device"]
     #[doc = ""]
     #[doc = " Returns 16-octets identifing the device \\p dev in the structure"]
@@ -9102,7 +9102,7 @@ extern "C" {
     #[doc = " ::cudaGetDeviceProperties"]
     pub fn cuDeviceGetUuid(uuid: *mut CUuuid, dev: CUdevice) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Return an LUID and device node mask for the device"]
     #[doc = ""]
     #[doc = " Return identifying information (\\p luid and \\p deviceNodeMask) to allow"]
@@ -9133,10 +9133,10 @@ extern "C" {
         dev: CUdevice,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuDeviceTotalMem_v2(bytes: *mut size_t, dev: CUdevice) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns the maximum number of elements allocatable in a 1D linear texture for a given texture element size."]
     #[doc = ""]
     #[doc = " Returns in \\p maxWidthInElements the maximum number of texture elements allocatable in a 1D linear texture"]
@@ -9171,7 +9171,7 @@ extern "C" {
         dev: CUdevice,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns information about the device"]
     #[doc = ""]
     #[doc = " Returns in \\p *pi the integer value of the attribute \\p attrib on device"]
@@ -9387,7 +9387,7 @@ extern "C" {
         dev: CUdevice,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Return NvSciSync attributes that this device can support."]
     #[doc = ""]
     #[doc = " Returns in \\p nvSciSyncAttrList, the properties of NvSciSync that"]
@@ -9439,7 +9439,7 @@ extern "C" {
         flags: ::std::os::raw::c_int,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns properties for a selected device"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -9502,7 +9502,7 @@ extern "C" {
     #[doc = " ::cuDeviceTotalMem"]
     pub fn cuDeviceGetProperties(prop: *mut CUdevprop, dev: CUdevice) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns the compute capability of the device"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -9539,7 +9539,7 @@ extern "C" {
         dev: CUdevice,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Retain the primary context on the GPU"]
     #[doc = ""]
     #[doc = " Retains the primary context on the device."]
@@ -9588,13 +9588,13 @@ extern "C" {
     #[doc = " ::cuCtxSynchronize"]
     pub fn cuDevicePrimaryCtxRetain(pctx: *mut CUcontext, dev: CUdevice) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuDevicePrimaryCtxRelease_v2(dev: CUdevice) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuDevicePrimaryCtxSetFlags_v2(dev: CUdevice, flags: ::std::os::raw::c_uint) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Get the state of the primary context"]
     #[doc = ""]
     #[doc = " Returns in \\p *flags the flags for the primary context of \\p dev, and in"]
@@ -9623,26 +9623,26 @@ extern "C" {
         active: *mut ::std::os::raw::c_int,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuDevicePrimaryCtxReset_v2(dev: CUdevice) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuCtxCreate_v2(
         pctx: *mut CUcontext,
         flags: ::std::os::raw::c_uint,
         dev: CUdevice,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuCtxDestroy_v2(ctx: CUcontext) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuCtxPushCurrent_v2(ctx: CUcontext) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuCtxPopCurrent_v2(pctx: *mut CUcontext) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Binds the specified CUDA context to the calling CPU thread"]
     #[doc = ""]
     #[doc = " Binds the specified CUDA context to the calling CPU thread."]
@@ -9671,7 +9671,7 @@ extern "C" {
     #[doc = " ::cudaSetDevice"]
     pub fn cuCtxSetCurrent(ctx: CUcontext) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns the CUDA context bound to the calling CPU thread."]
     #[doc = ""]
     #[doc = " Returns in \\p *pctx the CUDA context bound to the calling CPU thread."]
@@ -9693,7 +9693,7 @@ extern "C" {
     #[doc = " ::cudaGetDevice"]
     pub fn cuCtxGetCurrent(pctx: *mut CUcontext) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns the device ID for the current context"]
     #[doc = ""]
     #[doc = " Returns in \\p *device the ordinal of the current context's device."]
@@ -9722,7 +9722,7 @@ extern "C" {
     #[doc = " ::cudaGetDevice"]
     pub fn cuCtxGetDevice(device: *mut CUdevice) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns the flags for the current context"]
     #[doc = ""]
     #[doc = " Returns in \\p *flags the flags of the current context. See ::cuCtxCreate"]
@@ -9749,7 +9749,7 @@ extern "C" {
     #[doc = " ::cudaGetDeviceFlags"]
     pub fn cuCtxGetFlags(flags: *mut ::std::os::raw::c_uint) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Block for a context's tasks to complete"]
     #[doc = ""]
     #[doc = " Blocks until the device has completed all preceding requested tasks."]
@@ -9778,7 +9778,7 @@ extern "C" {
     #[doc = " ::cudaDeviceSynchronize"]
     pub fn cuCtxSynchronize() -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Set resource limits"]
     #[doc = ""]
     #[doc = " Setting \\p limit to \\p value is a request by the application to update"]
@@ -9872,7 +9872,7 @@ extern "C" {
     #[doc = " ::cudaDeviceSetLimit"]
     pub fn cuCtxSetLimit(limit: CUlimit, value: size_t) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns resource limits"]
     #[doc = ""]
     #[doc = " Returns in \\p *pvalue the current size of \\p limit.  The supported"]
@@ -9912,7 +9912,7 @@ extern "C" {
     #[doc = " ::cudaDeviceGetLimit"]
     pub fn cuCtxGetLimit(pvalue: *mut size_t, limit: CUlimit) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns the preferred cache configuration for the current context."]
     #[doc = ""]
     #[doc = " On devices where the L1 cache and shared memory use the same hardware"]
@@ -9955,7 +9955,7 @@ extern "C" {
     #[doc = " ::cudaDeviceGetCacheConfig"]
     pub fn cuCtxGetCacheConfig(pconfig: *mut CUfunc_cache) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the preferred cache configuration for the current context."]
     #[doc = ""]
     #[doc = " On devices where the L1 cache and shared memory use the same hardware"]
@@ -10005,7 +10005,7 @@ extern "C" {
     #[doc = " ::cudaDeviceSetCacheConfig"]
     pub fn cuCtxSetCacheConfig(config: CUfunc_cache) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns the current shared memory configuration for the current context."]
     #[doc = ""]
     #[doc = " This function will return in \\p pConfig the current size of shared memory banks"]
@@ -10046,7 +10046,7 @@ extern "C" {
     #[doc = " ::cudaDeviceGetSharedMemConfig"]
     pub fn cuCtxGetSharedMemConfig(pConfig: *mut CUsharedconfig) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the shared memory configuration for the current context."]
     #[doc = ""]
     #[doc = " On devices with configurable shared memory banks, this function will set"]
@@ -10098,7 +10098,7 @@ extern "C" {
     #[doc = " ::cudaDeviceSetSharedMemConfig"]
     pub fn cuCtxSetSharedMemConfig(config: CUsharedconfig) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets the context's API version."]
     #[doc = ""]
     #[doc = " Returns a version number in \\p version corresponding to the capabilities of"]
@@ -10135,7 +10135,7 @@ extern "C" {
     #[doc = " ::cuCtxSynchronize"]
     pub fn cuCtxGetApiVersion(ctx: CUcontext, version: *mut ::std::os::raw::c_uint) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns numerical values that correspond to the least and"]
     #[doc = " greatest stream priorities."]
     #[doc = ""]
@@ -10177,7 +10177,7 @@ extern "C" {
         greatestPriority: *mut ::std::os::raw::c_int,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Resets all persisting lines in cache to normal status."]
     #[doc = ""]
     #[doc = " ::cuCtxResetPersistingL2Cache Resets all persisting lines in cache to normal"]
@@ -10192,7 +10192,7 @@ extern "C" {
     #[doc = " ::CUaccessPolicyWindow"]
     pub fn cuCtxResetPersistingL2Cache() -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Increment a context's usage-count"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -10232,7 +10232,7 @@ extern "C" {
     #[doc = " ::cuCtxSynchronize"]
     pub fn cuCtxAttach(pctx: *mut CUcontext, flags: ::std::os::raw::c_uint) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Decrement a context's usage-count"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -10267,7 +10267,7 @@ extern "C" {
     #[doc = " ::cuCtxSynchronize"]
     pub fn cuCtxDetach(ctx: CUcontext) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Loads a compute module"]
     #[doc = ""]
     #[doc = " Takes a filename \\p fname and loads the corresponding module \\p module into"]
@@ -10307,7 +10307,7 @@ extern "C" {
     #[doc = " ::cuModuleUnload"]
     pub fn cuModuleLoad(module: *mut CUmodule, fname: *const ::std::os::raw::c_char) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Load a module's data"]
     #[doc = ""]
     #[doc = " Takes a pointer \\p image and loads the corresponding module \\p module into"]
@@ -10347,7 +10347,7 @@ extern "C" {
         image: *const ::std::os::raw::c_void,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Load a module's data with options"]
     #[doc = ""]
     #[doc = " Takes a pointer \\p image and loads the corresponding module \\p module into"]
@@ -10396,7 +10396,7 @@ extern "C" {
         optionValues: *mut *mut ::std::os::raw::c_void,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Load a module's data"]
     #[doc = ""]
     #[doc = " Takes a pointer \\p fatCubin and loads the corresponding module \\p module"]
@@ -10441,7 +10441,7 @@ extern "C" {
         fatCubin: *const ::std::os::raw::c_void,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Unloads a module"]
     #[doc = ""]
     #[doc = " Unloads a module \\p hmod from the current context."]
@@ -10465,7 +10465,7 @@ extern "C" {
     #[doc = " ::cuModuleLoadFatBinary"]
     pub fn cuModuleUnload(hmod: CUmodule) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a function handle"]
     #[doc = ""]
     #[doc = " Returns in \\p *hfunc the handle of the function of name \\p name located in"]
@@ -10498,7 +10498,7 @@ extern "C" {
         name: *const ::std::os::raw::c_char,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuModuleGetGlobal_v2(
         dptr: *mut CUdeviceptr,
         bytes: *mut size_t,
@@ -10506,7 +10506,7 @@ extern "C" {
         name: *const ::std::os::raw::c_char,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a handle to a texture reference"]
     #[doc = ""]
     #[doc = " Returns in \\p *pTexRef the handle of the texture reference of name \\p name"]
@@ -10543,7 +10543,7 @@ extern "C" {
         name: *const ::std::os::raw::c_char,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a handle to a surface reference"]
     #[doc = ""]
     #[doc = " Returns in \\p *pSurfRef the handle of the surface reference of name \\p name"]
@@ -10578,7 +10578,7 @@ extern "C" {
         name: *const ::std::os::raw::c_char,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuLinkCreate_v2(
         numOptions: ::std::os::raw::c_uint,
         options: *mut CUjit_option,
@@ -10586,7 +10586,7 @@ extern "C" {
         stateOut: *mut CUlinkState,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuLinkAddData_v2(
         state: CUlinkState,
         type_: CUjitInputType,
@@ -10598,7 +10598,7 @@ extern "C" {
         optionValues: *mut *mut ::std::os::raw::c_void,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuLinkAddFile_v2(
         state: CUlinkState,
         type_: CUjitInputType,
@@ -10608,7 +10608,7 @@ extern "C" {
         optionValues: *mut *mut ::std::os::raw::c_void,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Complete a pending linker invocation"]
     #[doc = ""]
     #[doc = " Completes the pending linker action and returns the cubin image for the linked"]
@@ -10636,7 +10636,7 @@ extern "C" {
         sizeOut: *mut size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Destroys state for a JIT linker invocation."]
     #[doc = ""]
     #[doc = " \\param state State object for the linker invocation"]
@@ -10648,13 +10648,13 @@ extern "C" {
     #[doc = " \\sa ::cuLinkCreate"]
     pub fn cuLinkDestroy(state: CUlinkState) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemGetInfo_v2(free: *mut size_t, total: *mut size_t) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemAlloc_v2(dptr: *mut CUdeviceptr, bytesize: size_t) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemAllocPitch_v2(
         dptr: *mut CUdeviceptr,
         pPitch: *mut size_t,
@@ -10663,20 +10663,20 @@ extern "C" {
         ElementSizeBytes: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemFree_v2(dptr: CUdeviceptr) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemGetAddressRange_v2(
         pbase: *mut CUdeviceptr,
         psize: *mut size_t,
         dptr: CUdeviceptr,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemAllocHost_v2(pp: *mut *mut ::std::os::raw::c_void, bytesize: size_t) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Frees page-locked host memory"]
     #[doc = ""]
     #[doc = " Frees the memory space pointed to by \\p p, which must have been returned by"]
@@ -10705,7 +10705,7 @@ extern "C" {
     #[doc = " ::cudaFreeHost"]
     pub fn cuMemFreeHost(p: *mut ::std::os::raw::c_void) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Allocates page-locked host memory"]
     #[doc = ""]
     #[doc = " Allocates \\p bytesize bytes of host memory that is page-locked and accessible"]
@@ -10787,14 +10787,14 @@ extern "C" {
         Flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemHostGetDevicePointer_v2(
         pdptr: *mut CUdeviceptr,
         p: *mut ::std::os::raw::c_void,
         Flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Passes back flags that were used for a pinned allocation"]
     #[doc = ""]
     #[doc = " Passes back the flags \\p pFlags that were specified when allocating"]
@@ -10823,7 +10823,7 @@ extern "C" {
         p: *mut ::std::os::raw::c_void,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Allocates memory that will be automatically managed by the Unified Memory system"]
     #[doc = ""]
     #[doc = " Allocates \\p bytesize bytes of managed memory on the device and returns in"]
@@ -10936,7 +10936,7 @@ extern "C" {
         flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a handle to a compute device"]
     #[doc = ""]
     #[doc = " Returns in \\p *device a device handle given a PCI bus ID string."]
@@ -10967,7 +10967,7 @@ extern "C" {
         pciBusId: *const ::std::os::raw::c_char,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a PCI Bus Id string for the device"]
     #[doc = ""]
     #[doc = " Returns an ASCII string identifying the device \\p dev in the NULL-terminated"]
@@ -11002,7 +11002,7 @@ extern "C" {
         dev: CUdevice,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets an interprocess handle for a previously allocated event"]
     #[doc = ""]
     #[doc = " Takes as input a previously allocated event. This event must have been"]
@@ -11046,7 +11046,7 @@ extern "C" {
     #[doc = " ::cudaIpcGetEventHandle"]
     pub fn cuIpcGetEventHandle(pHandle: *mut CUipcEventHandle, event: CUevent) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Opens an interprocess event handle for use in the current process"]
     #[doc = ""]
     #[doc = " Opens an interprocess event handle exported from another process with"]
@@ -11085,7 +11085,7 @@ extern "C" {
     #[doc = " ::cudaIpcOpenEventHandle"]
     pub fn cuIpcOpenEventHandle(phEvent: *mut CUevent, handle: CUipcEventHandle) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets an interprocess memory handle for an existing device memory"]
     #[doc = " allocation"]
     #[doc = ""]
@@ -11125,14 +11125,14 @@ extern "C" {
     #[doc = " ::cudaIpcGetMemHandle"]
     pub fn cuIpcGetMemHandle(pHandle: *mut CUipcMemHandle, dptr: CUdeviceptr) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuIpcOpenMemHandle_v2(
         pdptr: *mut CUdeviceptr,
         handle: CUipcMemHandle,
         Flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Attempts to close memory mapped with ::cuIpcOpenMemHandle"]
     #[doc = ""]
     #[doc = " Decrements the reference count of the memory returned by ::cuIpcOpenMemHandle by 1."]
@@ -11165,14 +11165,14 @@ extern "C" {
     #[doc = " ::cudaIpcCloseMemHandle"]
     pub fn cuIpcCloseMemHandle(dptr: CUdeviceptr) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemHostRegister_v2(
         p: *mut ::std::os::raw::c_void,
         bytesize: size_t,
         Flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Unregisters a memory range that was registered with cuMemHostRegister."]
     #[doc = ""]
     #[doc = " Unmaps the memory range whose base address is specified by \\p p, and makes"]
@@ -11197,7 +11197,7 @@ extern "C" {
     #[doc = " ::cudaHostUnregister"]
     pub fn cuMemHostUnregister(p: *mut ::std::os::raw::c_void) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Copies memory"]
     #[doc = ""]
     #[doc = " Copies data between two pointers."]
@@ -11236,7 +11236,7 @@ extern "C" {
     #[doc = " ::cudaMemcpyFromSymbol"]
     pub fn cuMemcpy(dst: CUdeviceptr, src: CUdeviceptr, ByteCount: size_t) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Copies device memory between two contexts"]
     #[doc = ""]
     #[doc = " Copies from device memory in one context to device memory in another"]
@@ -11271,28 +11271,28 @@ extern "C" {
         ByteCount: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpyHtoD_v2(
         dstDevice: CUdeviceptr,
         srcHost: *const ::std::os::raw::c_void,
         ByteCount: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpyDtoH_v2(
         dstHost: *mut ::std::os::raw::c_void,
         srcDevice: CUdeviceptr,
         ByteCount: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpyDtoD_v2(
         dstDevice: CUdeviceptr,
         srcDevice: CUdeviceptr,
         ByteCount: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpyDtoA_v2(
         dstArray: CUarray,
         dstOffset: size_t,
@@ -11300,7 +11300,7 @@ extern "C" {
         ByteCount: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpyAtoD_v2(
         dstDevice: CUdeviceptr,
         srcArray: CUarray,
@@ -11308,7 +11308,7 @@ extern "C" {
         ByteCount: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpyHtoA_v2(
         dstArray: CUarray,
         dstOffset: size_t,
@@ -11316,7 +11316,7 @@ extern "C" {
         ByteCount: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpyAtoH_v2(
         dstHost: *mut ::std::os::raw::c_void,
         srcArray: CUarray,
@@ -11324,7 +11324,7 @@ extern "C" {
         ByteCount: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpyAtoA_v2(
         dstArray: CUarray,
         dstOffset: size_t,
@@ -11333,16 +11333,16 @@ extern "C" {
         ByteCount: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpy2D_v2(pCopy: *const CUDA_MEMCPY2D) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpy2DUnaligned_v2(pCopy: *const CUDA_MEMCPY2D) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpy3D_v2(pCopy: *const CUDA_MEMCPY3D) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Copies memory between contexts"]
     #[doc = ""]
     #[doc = " Perform a 3D memory copy according to the parameters specified in"]
@@ -11365,7 +11365,7 @@ extern "C" {
     #[doc = " ::cudaMemcpy3DPeer"]
     pub fn cuMemcpy3DPeer(pCopy: *const CUDA_MEMCPY3D_PEER) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Copies memory asynchronously"]
     #[doc = ""]
     #[doc = " Copies data between two pointers."]
@@ -11414,7 +11414,7 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Copies device memory between two contexts asynchronously."]
     #[doc = ""]
     #[doc = " Copies from device memory in one context to device memory in another"]
@@ -11453,7 +11453,7 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpyHtoDAsync_v2(
         dstDevice: CUdeviceptr,
         srcHost: *const ::std::os::raw::c_void,
@@ -11461,7 +11461,7 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpyDtoHAsync_v2(
         dstHost: *mut ::std::os::raw::c_void,
         srcDevice: CUdeviceptr,
@@ -11469,7 +11469,7 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpyDtoDAsync_v2(
         dstDevice: CUdeviceptr,
         srcDevice: CUdeviceptr,
@@ -11477,7 +11477,7 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpyHtoAAsync_v2(
         dstArray: CUarray,
         dstOffset: size_t,
@@ -11486,7 +11486,7 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpyAtoHAsync_v2(
         dstHost: *mut ::std::os::raw::c_void,
         srcArray: CUarray,
@@ -11495,13 +11495,13 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpy2DAsync_v2(pCopy: *const CUDA_MEMCPY2D, hStream: CUstream) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemcpy3DAsync_v2(pCopy: *const CUDA_MEMCPY3D, hStream: CUstream) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Copies memory between contexts asynchronously."]
     #[doc = ""]
     #[doc = " Perform a 3D memory copy according to the parameters specified in"]
@@ -11526,28 +11526,28 @@ extern "C" {
     #[doc = " ::cudaMemcpy3DPeerAsync"]
     pub fn cuMemcpy3DPeerAsync(pCopy: *const CUDA_MEMCPY3D_PEER, hStream: CUstream) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemsetD8_v2(
         dstDevice: CUdeviceptr,
         uc: ::std::os::raw::c_uchar,
         N: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemsetD16_v2(
         dstDevice: CUdeviceptr,
         us: ::std::os::raw::c_ushort,
         N: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemsetD32_v2(
         dstDevice: CUdeviceptr,
         ui: ::std::os::raw::c_uint,
         N: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemsetD2D8_v2(
         dstDevice: CUdeviceptr,
         dstPitch: size_t,
@@ -11556,7 +11556,7 @@ extern "C" {
         Height: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemsetD2D16_v2(
         dstDevice: CUdeviceptr,
         dstPitch: size_t,
@@ -11565,7 +11565,7 @@ extern "C" {
         Height: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuMemsetD2D32_v2(
         dstDevice: CUdeviceptr,
         dstPitch: size_t,
@@ -11574,7 +11574,7 @@ extern "C" {
         Height: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets device memory"]
     #[doc = ""]
     #[doc = " Sets the memory range of \\p N 8-bit values to the specified value"]
@@ -11615,7 +11615,7 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets device memory"]
     #[doc = ""]
     #[doc = " Sets the memory range of \\p N 16-bit values to the specified value"]
@@ -11656,7 +11656,7 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets device memory"]
     #[doc = ""]
     #[doc = " Sets the memory range of \\p N 32-bit values to the specified value"]
@@ -11696,7 +11696,7 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets device memory"]
     #[doc = ""]
     #[doc = " Sets the 2D memory range of \\p Width 8-bit values to the specified value"]
@@ -11744,7 +11744,7 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets device memory"]
     #[doc = ""]
     #[doc = " Sets the 2D memory range of \\p Width 16-bit values to the specified value"]
@@ -11793,7 +11793,7 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets device memory"]
     #[doc = ""]
     #[doc = " Sets the 2D memory range of \\p Width 32-bit values to the specified value"]
@@ -11842,19 +11842,19 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuArrayCreate_v2(
         pHandle: *mut CUarray,
         pAllocateArray: *const CUDA_ARRAY_DESCRIPTOR,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuArrayGetDescriptor_v2(
         pArrayDescriptor: *mut CUDA_ARRAY_DESCRIPTOR,
         hArray: CUarray,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns the layout properties of a sparse CUDA array"]
     #[doc = ""]
     #[doc = " Returns the layout properties of a sparse CUDA array in \\p sparseProperties"]
@@ -11880,7 +11880,7 @@ extern "C" {
         array: CUarray,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns the layout properties of a sparse CUDA mipmapped array"]
     #[doc = ""]
     #[doc = " Returns the sparse array layout properties in \\p sparseProperties"]
@@ -11907,7 +11907,7 @@ extern "C" {
         mipmap: CUmipmappedArray,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Destroys a CUDA array"]
     #[doc = ""]
     #[doc = " Destroys the CUDA array \\p hArray."]
@@ -11937,19 +11937,19 @@ extern "C" {
     #[doc = " ::cudaFreeArray"]
     pub fn cuArrayDestroy(hArray: CUarray) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuArray3DCreate_v2(
         pHandle: *mut CUarray,
         pAllocateArray: *const CUDA_ARRAY3D_DESCRIPTOR,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuArray3DGetDescriptor_v2(
         pArrayDescriptor: *mut CUDA_ARRAY3D_DESCRIPTOR,
         hArray: CUarray,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Creates a CUDA mipmapped array"]
     #[doc = ""]
     #[doc = " Creates a CUDA mipmapped array according to the ::CUDA_ARRAY3D_DESCRIPTOR structure"]
@@ -12094,7 +12094,7 @@ extern "C" {
         numMipmapLevels: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets a mipmap level of a CUDA mipmapped array"]
     #[doc = ""]
     #[doc = " Returns in \\p *pLevelArray a CUDA array that represents a single mipmap level"]
@@ -12127,7 +12127,7 @@ extern "C" {
         level: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Destroys a CUDA mipmapped array"]
     #[doc = ""]
     #[doc = " Destroys the CUDA mipmapped array \\p hMipmappedArray."]
@@ -12151,7 +12151,7 @@ extern "C" {
     #[doc = " ::cudaFreeMipmappedArray"]
     pub fn cuMipmappedArrayDestroy(hMipmappedArray: CUmipmappedArray) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Allocate an address range reservation."]
     #[doc = ""]
     #[doc = " Reserves a virtual address range based on the given parameters, giving"]
@@ -12183,7 +12183,7 @@ extern "C" {
         flags: ::std::os::raw::c_ulonglong,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Free an address range reservation."]
     #[doc = ""]
     #[doc = " Frees a virtual address range reserved by cuMemAddressReserve.  The size"]
@@ -12203,7 +12203,7 @@ extern "C" {
     #[doc = " \\sa ::cuMemAddressReserve"]
     pub fn cuMemAddressFree(ptr: CUdeviceptr, size: size_t) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Create a CUDA memory handle representing a memory allocation of a given size described by the given properties"]
     #[doc = ""]
     #[doc = " This creates a memory allocation on the target device specified through the"]
@@ -12246,7 +12246,7 @@ extern "C" {
         flags: ::std::os::raw::c_ulonglong,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Release a memory handle representing a memory allocation which was previously allocated through cuMemCreate."]
     #[doc = ""]
     #[doc = " Frees the memory that was allocated on a device through cuMemCreate."]
@@ -12272,7 +12272,7 @@ extern "C" {
     #[doc = " \\sa ::cuMemCreate"]
     pub fn cuMemRelease(handle: CUmemGenericAllocationHandle) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Maps an allocation handle to a reserved virtual address range."]
     #[doc = ""]
     #[doc = " Maps bytes of memory represented by \\p handle starting from byte \\p offset to"]
@@ -12321,7 +12321,7 @@ extern "C" {
         flags: ::std::os::raw::c_ulonglong,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Maps or unmaps subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays"]
     #[doc = ""]
     #[doc = " Performs map or unmap operations on subregions of sparse CUDA arrays and sparse CUDA mipmapped arrays."]
@@ -12454,7 +12454,7 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Unmap the backing memory of a given address range."]
     #[doc = ""]
     #[doc = " The range must be the entire contiguous address range that was mapped to.  In"]
@@ -12482,7 +12482,7 @@ extern "C" {
     #[doc = " \\sa ::cuMemCreate, ::cuMemAddressReserve"]
     pub fn cuMemUnmap(ptr: CUdeviceptr, size: size_t) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Set the access flags for each location specified in \\p desc for the given virtual address range"]
     #[doc = ""]
     #[doc = " Given the virtual address range via \\p ptr and \\p size, and the locations"]
@@ -12511,7 +12511,7 @@ extern "C" {
         count: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Get the access \\p flags set for the given \\p location and \\p ptr"]
     #[doc = ""]
     #[doc = " \\param[out] flags   - Flags set for this location"]
@@ -12533,7 +12533,7 @@ extern "C" {
         ptr: CUdeviceptr,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Exports an allocation to a requested shareable handle type"]
     #[doc = ""]
     #[doc = " Given a CUDA memory handle, create a shareable memory"]
@@ -12570,7 +12570,7 @@ extern "C" {
         flags: ::std::os::raw::c_ulonglong,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Imports an allocation from a requested shareable handle type."]
     #[doc = ""]
     #[doc = " If the current process cannot support the memory described by this shareable"]
@@ -12600,7 +12600,7 @@ extern "C" {
         shHandleType: CUmemAllocationHandleType,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Calculates either the minimal or recommended granularity"]
     #[doc = ""]
     #[doc = " Calculates either the minimal or recommended granularity"]
@@ -12625,7 +12625,7 @@ extern "C" {
         option: CUmemAllocationGranularity_flags,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Retrieve the contents of the property structure defining properties for this handle"]
     #[doc = ""]
     #[doc = " \\param[out] prop  - Pointer to a properties structure which will hold the information about this handle"]
@@ -12644,7 +12644,7 @@ extern "C" {
         handle: CUmemGenericAllocationHandle,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Given an address \\p addr, returns the allocation handle of the backing memory allocation."]
     #[doc = ""]
     #[doc = " The handle is guaranteed to be the same handle value used to map the memory. If the address"]
@@ -12670,7 +12670,7 @@ extern "C" {
         addr: *mut ::std::os::raw::c_void,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns information about a pointer"]
     #[doc = ""]
     #[doc = " The supported attributes are:"]
@@ -12859,7 +12859,7 @@ extern "C" {
         ptr: CUdeviceptr,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Prefetches memory to the specified destination device"]
     #[doc = ""]
     #[doc = " Prefetches memory to the specified destination device.  \\p devPtr is the"]
@@ -12931,7 +12931,7 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Advise about the usage of a given memory range"]
     #[doc = ""]
     #[doc = " Advise the Unified Memory subsystem about the usage pattern for the memory range"]
@@ -13049,7 +13049,7 @@ extern "C" {
         device: CUdevice,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Query an attribute of a given memory range"]
     #[doc = ""]
     #[doc = " Query an attribute about the memory range starting at \\p devPtr with a size of \\p count bytes. The"]
@@ -13112,7 +13112,7 @@ extern "C" {
         count: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Query attributes of a given memory range."]
     #[doc = ""]
     #[doc = " Query attributes of the memory range starting at \\p devPtr with a size of \\p count bytes. The"]
@@ -13158,7 +13158,7 @@ extern "C" {
         count: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Set attributes on a previously allocated memory region"]
     #[doc = ""]
     #[doc = " The supported attributes are:"]
@@ -13203,7 +13203,7 @@ extern "C" {
         ptr: CUdeviceptr,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns information about a pointer."]
     #[doc = ""]
     #[doc = " The supported attributes are (refer to ::cuPointerGetAttribute for attribute descriptions and restrictions):"]
@@ -13255,7 +13255,7 @@ extern "C" {
         ptr: CUdeviceptr,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Create a stream"]
     #[doc = ""]
     #[doc = " Creates a stream and returns a handle in \\p phStream.  The \\p Flags argument"]
@@ -13291,7 +13291,7 @@ extern "C" {
     #[doc = " ::cudaStreamCreateWithFlags"]
     pub fn cuStreamCreate(phStream: *mut CUstream, Flags: ::std::os::raw::c_uint) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Create a stream with the given priority"]
     #[doc = ""]
     #[doc = " Creates a stream with the specified priority and returns a handle in \\p phStream."]
@@ -13343,7 +13343,7 @@ extern "C" {
         priority: ::std::os::raw::c_int,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Query the priority of a given stream"]
     #[doc = ""]
     #[doc = " Query the priority of a stream created using ::cuStreamCreate or ::cuStreamCreateWithPriority"]
@@ -13373,7 +13373,7 @@ extern "C" {
     pub fn cuStreamGetPriority(hStream: CUstream, priority: *mut ::std::os::raw::c_int)
         -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Query the flags of a given stream"]
     #[doc = ""]
     #[doc = " Query the flags of a stream created using ::cuStreamCreate or ::cuStreamCreateWithPriority"]
@@ -13400,7 +13400,7 @@ extern "C" {
     #[doc = " ::cudaStreamGetFlags"]
     pub fn cuStreamGetFlags(hStream: CUstream, flags: *mut ::std::os::raw::c_uint) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Query the context associated with a stream"]
     #[doc = ""]
     #[doc = " Returns the CUDA context that the stream is associated with."]
@@ -13443,7 +13443,7 @@ extern "C" {
     #[doc = " ::cudaStreamCreateWithFlags"]
     pub fn cuStreamGetCtx(hStream: CUstream, pctx: *mut CUcontext) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Make a compute stream wait on an event"]
     #[doc = ""]
     #[doc = " Makes all future work submitted to \\p hStream wait for all work captured in"]
@@ -13483,7 +13483,7 @@ extern "C" {
         Flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Add a callback to a compute stream"]
     #[doc = ""]
     #[doc = " \\note This function is slated for eventual deprecation and removal. If"]
@@ -13562,10 +13562,10 @@ extern "C" {
         flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuStreamBeginCapture_v2(hStream: CUstream, mode: CUstreamCaptureMode) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Swaps the stream capture interaction mode for a thread"]
     #[doc = ""]
     #[doc = " Sets the calling thread's stream capture interaction mode to the value contained"]
@@ -13617,7 +13617,7 @@ extern "C" {
     #[doc = " ::cuStreamBeginCapture"]
     pub fn cuThreadExchangeStreamCaptureMode(mode: *mut CUstreamCaptureMode) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Ends capture on a stream, returning the captured graph"]
     #[doc = ""]
     #[doc = " End capture on \\p hStream, returning the captured graph via \\p phGraph."]
@@ -13646,7 +13646,7 @@ extern "C" {
     #[doc = " ::cuStreamIsCapturing"]
     pub fn cuStreamEndCapture(hStream: CUstream, phGraph: *mut CUgraph) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a stream's capture status"]
     #[doc = ""]
     #[doc = " Return the capture status of \\p hStream via \\p captureStatus. After a successful"]
@@ -13688,7 +13688,7 @@ extern "C" {
         captureStatus: *mut CUstreamCaptureStatus,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Query capture status of a stream"]
     #[doc = ""]
     #[doc = " Query the capture status of a stream and and get an id for"]
@@ -13715,7 +13715,7 @@ extern "C" {
         id: *mut cuuint64_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Attach memory to a stream asynchronously"]
     #[doc = ""]
     #[doc = " Enqueues an operation in \\p hStream to specify stream association of"]
@@ -13807,7 +13807,7 @@ extern "C" {
         flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Determine status of a compute stream"]
     #[doc = ""]
     #[doc = " Returns ::CUDA_SUCCESS if all operations in the stream specified by"]
@@ -13836,7 +13836,7 @@ extern "C" {
     #[doc = " ::cudaStreamQuery"]
     pub fn cuStreamQuery(hStream: CUstream) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Wait until a stream's tasks are completed"]
     #[doc = ""]
     #[doc = " Waits until the device has completed all operations in the stream specified"]
@@ -13864,10 +13864,10 @@ extern "C" {
     #[doc = " ::cudaStreamSynchronize"]
     pub fn cuStreamSynchronize(hStream: CUstream) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuStreamDestroy_v2(hStream: CUstream) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Copies attributes from source stream to destination stream."]
     #[doc = ""]
     #[doc = " Copies attributes from source stream \\p src to destination stream \\p dst."]
@@ -13886,7 +13886,7 @@ extern "C" {
     #[doc = " ::CUaccessPolicyWindow"]
     pub fn cuStreamCopyAttributes(dst: CUstream, src: CUstream) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Queries stream attribute."]
     #[doc = ""]
     #[doc = " Queries attribute \\p attr from \\p hStream and stores it in corresponding"]
@@ -13910,7 +13910,7 @@ extern "C" {
         value_out: *mut CUstreamAttrValue,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets stream attribute."]
     #[doc = ""]
     #[doc = " Sets attribute \\p attr on \\p hStream from corresponding attribute of"]
@@ -13935,7 +13935,7 @@ extern "C" {
         value: *const CUstreamAttrValue,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Creates an event"]
     #[doc = ""]
     #[doc = " Creates an event *phEvent for the current context with the flags specified via"]
@@ -13975,7 +13975,7 @@ extern "C" {
     #[doc = " ::cudaEventCreateWithFlags"]
     pub fn cuEventCreate(phEvent: *mut CUevent, Flags: ::std::os::raw::c_uint) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Records an event"]
     #[doc = ""]
     #[doc = " Captures in \\p hEvent the contents of \\p hStream at the time of this call."]
@@ -14016,7 +14016,7 @@ extern "C" {
     #[doc = " ::cuEventRecordWithFlags"]
     pub fn cuEventRecord(hEvent: CUevent, hStream: CUstream) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Records an event"]
     #[doc = ""]
     #[doc = " Captures in \\p hEvent the contents of \\p hStream at the time of this call."]
@@ -14068,7 +14068,7 @@ extern "C" {
         flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Queries an event's status"]
     #[doc = ""]
     #[doc = " Queries the status of all work currently captured by \\p hEvent. See"]
@@ -14099,7 +14099,7 @@ extern "C" {
     #[doc = " ::cudaEventQuery"]
     pub fn cuEventQuery(hEvent: CUevent) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Waits for an event to complete"]
     #[doc = ""]
     #[doc = " Waits until the completion of all work currently captured in \\p hEvent."]
@@ -14129,10 +14129,10 @@ extern "C" {
     #[doc = " ::cudaEventSynchronize"]
     pub fn cuEventSynchronize(hEvent: CUevent) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuEventDestroy_v2(hEvent: CUevent) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Computes the elapsed time between two events"]
     #[doc = ""]
     #[doc = " Computes the elapsed time between two events (in milliseconds with a"]
@@ -14175,7 +14175,7 @@ extern "C" {
     #[doc = " ::cudaEventElapsedTime"]
     pub fn cuEventElapsedTime(pMilliseconds: *mut f32, hStart: CUevent, hEnd: CUevent) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Imports an external memory object"]
     #[doc = ""]
     #[doc = " Imports an externally allocated memory object and returns"]
@@ -14337,7 +14337,7 @@ extern "C" {
         memHandleDesc: *const CUDA_EXTERNAL_MEMORY_HANDLE_DESC,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Maps a buffer onto an imported memory object"]
     #[doc = ""]
     #[doc = " Maps a buffer onto an imported memory object and returns a device"]
@@ -14393,7 +14393,7 @@ extern "C" {
         bufferDesc: *const CUDA_EXTERNAL_MEMORY_BUFFER_DESC,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Maps a CUDA mipmapped array onto an external memory object"]
     #[doc = ""]
     #[doc = " Maps a CUDA mipmapped array onto an external object and returns a"]
@@ -14448,7 +14448,7 @@ extern "C" {
         mipmapDesc: *const CUDA_EXTERNAL_MEMORY_MIPMAPPED_ARRAY_DESC,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Destroys an external memory object."]
     #[doc = ""]
     #[doc = " Destroys the specified external memory object. Any existing buffers"]
@@ -14469,7 +14469,7 @@ extern "C" {
     #[doc = " ::cuExternalMemoryGetMappedMipmappedArray"]
     pub fn cuDestroyExternalMemory(extMem: CUexternalMemory) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Imports an external semaphore"]
     #[doc = ""]
     #[doc = " Imports an externally allocated synchronization object and returns"]
@@ -14605,7 +14605,7 @@ extern "C" {
         semHandleDesc: *const CUDA_EXTERNAL_SEMAPHORE_HANDLE_DESC,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Signals a set of external semaphore objects"]
     #[doc = ""]
     #[doc = " Enqueues a signal operation on a set of externally allocated"]
@@ -14674,7 +14674,7 @@ extern "C" {
         stream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Waits on a set of external semaphore objects"]
     #[doc = ""]
     #[doc = " Enqueues a wait operation on a set of externally allocated"]
@@ -14752,7 +14752,7 @@ extern "C" {
         stream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Destroys an external semaphore"]
     #[doc = ""]
     #[doc = " Destroys an external semaphore object and releases any references"]
@@ -14772,7 +14772,7 @@ extern "C" {
     #[doc = " ::cuWaitExternalSemaphoresAsync"]
     pub fn cuDestroyExternalSemaphore(extSem: CUexternalSemaphore) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Wait on a memory location"]
     #[doc = ""]
     #[doc = " Enqueues a synchronization of the stream on the given memory location. Work"]
@@ -14815,7 +14815,7 @@ extern "C" {
         flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Wait on a memory location"]
     #[doc = ""]
     #[doc = " Enqueues a synchronization of the stream on the given memory location. Work"]
@@ -14854,7 +14854,7 @@ extern "C" {
         flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Write a value to memory"]
     #[doc = ""]
     #[doc = " Write a value to memory. Unless the ::CU_STREAM_WRITE_VALUE_NO_MEMORY_BARRIER"]
@@ -14893,7 +14893,7 @@ extern "C" {
         flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Write a value to memory"]
     #[doc = ""]
     #[doc = " Write a value to memory. Unless the ::CU_STREAM_WRITE_VALUE_NO_MEMORY_BARRIER"]
@@ -14931,7 +14931,7 @@ extern "C" {
         flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Batch operations to synchronize the stream via memory operations"]
     #[doc = ""]
     #[doc = " This is a batch version of ::cuStreamWaitValue32() and ::cuStreamWriteValue32()."]
@@ -14970,7 +14970,7 @@ extern "C" {
         flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns information about a function"]
     #[doc = ""]
     #[doc = " Returns in \\p *pi the integer value of the attribute \\p attrib on the kernel"]
@@ -15032,7 +15032,7 @@ extern "C" {
         hfunc: CUfunction,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets information about a function"]
     #[doc = ""]
     #[doc = " This call sets the value of a specified attribute \\p attrib on the kernel given"]
@@ -15081,7 +15081,7 @@ extern "C" {
         value: ::std::os::raw::c_int,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the preferred cache configuration for a device function"]
     #[doc = ""]
     #[doc = " On devices where the L1 cache and shared memory use the same hardware"]
@@ -15124,7 +15124,7 @@ extern "C" {
     #[doc = " ::cudaFuncSetCacheConfig"]
     pub fn cuFuncSetCacheConfig(hfunc: CUfunction, config: CUfunc_cache) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the shared memory configuration for a device function."]
     #[doc = ""]
     #[doc = " On devices with configurable shared memory banks, this function will"]
@@ -15175,7 +15175,7 @@ extern "C" {
     #[doc = " ::cudaFuncSetSharedMemConfig"]
     pub fn cuFuncSetSharedMemConfig(hfunc: CUfunction, config: CUsharedconfig) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Launches a CUDA function"]
     #[doc = ""]
     #[doc = " Invokes the kernel \\p f on a \\p gridDimX x \\p gridDimY x \\p gridDimZ"]
@@ -15294,7 +15294,7 @@ extern "C" {
         extra: *mut *mut ::std::os::raw::c_void,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Launches a CUDA function where thread blocks can cooperate and synchronize as they execute"]
     #[doc = ""]
     #[doc = " Invokes the kernel \\p f on a \\p gridDimX x \\p gridDimY x \\p gridDimZ"]
@@ -15382,7 +15382,7 @@ extern "C" {
         kernelParams: *mut *mut ::std::os::raw::c_void,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Launches CUDA functions on multiple devices where thread blocks can cooperate and synchronize as they execute"]
     #[doc = ""]
     #[doc = " Invokes kernels as specified in the \\p launchParamsList array where each element"]
@@ -15520,7 +15520,7 @@ extern "C" {
         flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Enqueues a host function call in a stream"]
     #[doc = ""]
     #[doc = " Enqueues a host function to run in a stream.  The function will be called"]
@@ -15588,7 +15588,7 @@ extern "C" {
         userData: *mut ::std::os::raw::c_void,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the block-dimensions for the function"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -15628,7 +15628,7 @@ extern "C" {
         z: ::std::os::raw::c_int,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the dynamic shared-memory size for the function"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -15661,7 +15661,7 @@ extern "C" {
     #[doc = " ::cuLaunchKernel"]
     pub fn cuFuncSetSharedSize(hfunc: CUfunction, bytes: ::std::os::raw::c_uint) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the parameter size for the function"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -15692,7 +15692,7 @@ extern "C" {
     #[doc = " ::cuLaunchKernel"]
     pub fn cuParamSetSize(hfunc: CUfunction, numbytes: ::std::os::raw::c_uint) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Adds an integer parameter to the function's argument list"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -15728,7 +15728,7 @@ extern "C" {
         value: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Adds a floating-point parameter to the function's argument list"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -15760,7 +15760,7 @@ extern "C" {
     #[doc = " ::cuLaunchKernel"]
     pub fn cuParamSetf(hfunc: CUfunction, offset: ::std::os::raw::c_int, value: f32) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Adds arbitrary data to the function's argument list"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -15799,7 +15799,7 @@ extern "C" {
         numbytes: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Launches a CUDA function"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -15850,7 +15850,7 @@ extern "C" {
     #[doc = " ::cuLaunchKernel"]
     pub fn cuLaunch(f: CUfunction) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Launches a CUDA function"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -15907,7 +15907,7 @@ extern "C" {
         grid_height: ::std::os::raw::c_int,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Launches a CUDA function"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -15973,7 +15973,7 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Adds a texture-reference to the function's argument list"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -16000,7 +16000,7 @@ extern "C" {
         hTexRef: CUtexref,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Creates a graph"]
     #[doc = ""]
     #[doc = " Creates an empty graph, which is returned via \\p phGraph."]
@@ -16032,7 +16032,7 @@ extern "C" {
     #[doc = " ::cuGraphClone"]
     pub fn cuGraphCreate(phGraph: *mut CUgraph, flags: ::std::os::raw::c_uint) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Creates a kernel execution node and adds it to a graph"]
     #[doc = ""]
     #[doc = " Creates a new kernel execution node and adds it to \\p hGraph with \\p numDependencies"]
@@ -16137,7 +16137,7 @@ extern "C" {
         nodeParams: *const CUDA_KERNEL_NODE_PARAMS,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a kernel node's parameters"]
     #[doc = ""]
     #[doc = " Returns the parameters of kernel node \\p hNode in \\p nodeParams."]
@@ -16171,7 +16171,7 @@ extern "C" {
         nodeParams: *mut CUDA_KERNEL_NODE_PARAMS,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets a kernel node's parameters"]
     #[doc = ""]
     #[doc = " Sets the parameters of kernel node \\p hNode to \\p nodeParams."]
@@ -16196,7 +16196,7 @@ extern "C" {
         nodeParams: *const CUDA_KERNEL_NODE_PARAMS,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Creates a memcpy node and adds it to a graph"]
     #[doc = ""]
     #[doc = " Creates a new memcpy node and adds it to \\p hGraph with \\p numDependencies"]
@@ -16250,7 +16250,7 @@ extern "C" {
         ctx: CUcontext,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a memcpy node's parameters"]
     #[doc = ""]
     #[doc = " Returns the parameters of memcpy node \\p hNode in \\p nodeParams."]
@@ -16275,7 +16275,7 @@ extern "C" {
         nodeParams: *mut CUDA_MEMCPY3D,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets a memcpy node's parameters"]
     #[doc = ""]
     #[doc = " Sets the parameters of memcpy node \\p hNode to \\p nodeParams."]
@@ -16300,7 +16300,7 @@ extern "C" {
         nodeParams: *const CUDA_MEMCPY3D,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Creates a memset node and adds it to a graph"]
     #[doc = ""]
     #[doc = " Creates a new memset node and adds it to \\p hGraph with \\p numDependencies"]
@@ -16348,7 +16348,7 @@ extern "C" {
         ctx: CUcontext,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a memset node's parameters"]
     #[doc = ""]
     #[doc = " Returns the parameters of memset node \\p hNode in \\p nodeParams."]
@@ -16373,7 +16373,7 @@ extern "C" {
         nodeParams: *mut CUDA_MEMSET_NODE_PARAMS,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets a memset node's parameters"]
     #[doc = ""]
     #[doc = " Sets the parameters of memset node \\p hNode to \\p nodeParams."]
@@ -16398,7 +16398,7 @@ extern "C" {
         nodeParams: *const CUDA_MEMSET_NODE_PARAMS,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Creates a host execution node and adds it to a graph"]
     #[doc = ""]
     #[doc = " Creates a new CPU execution node and adds it to \\p hGraph with \\p numDependencies"]
@@ -16444,7 +16444,7 @@ extern "C" {
         nodeParams: *const CUDA_HOST_NODE_PARAMS,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a host node's parameters"]
     #[doc = ""]
     #[doc = " Returns the parameters of host node \\p hNode in \\p nodeParams."]
@@ -16469,7 +16469,7 @@ extern "C" {
         nodeParams: *mut CUDA_HOST_NODE_PARAMS,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets a host node's parameters"]
     #[doc = ""]
     #[doc = " Sets the parameters of host node \\p hNode to \\p nodeParams."]
@@ -16494,7 +16494,7 @@ extern "C" {
         nodeParams: *const CUDA_HOST_NODE_PARAMS,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Creates a child graph node and adds it to a graph"]
     #[doc = ""]
     #[doc = " Creates a new node which executes an embedded graph, and adds it to \\p hGraph with"]
@@ -16537,7 +16537,7 @@ extern "C" {
         childGraph: CUgraph,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets a handle to the embedded graph of a child graph node"]
     #[doc = ""]
     #[doc = " Gets a handle to the embedded graph in a child graph node. This call"]
@@ -16560,7 +16560,7 @@ extern "C" {
     #[doc = " ::cuGraphNodeFindInClone"]
     pub fn cuGraphChildGraphNodeGetGraph(hNode: CUgraphNode, phGraph: *mut CUgraph) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Creates an empty node and adds it to a graph"]
     #[doc = ""]
     #[doc = " Creates a new node which performs no operation, and adds it to \\p hGraph with"]
@@ -16602,7 +16602,7 @@ extern "C" {
         numDependencies: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Creates an event record node and adds it to a graph"]
     #[doc = ""]
     #[doc = " Creates a new event record node and adds it to \\p hGraph with \\p numDependencies"]
@@ -16648,7 +16648,7 @@ extern "C" {
         event: CUevent,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns the event associated with an event record node"]
     #[doc = ""]
     #[doc = " Returns the event of event record node \\p hNode in \\p event_out."]
@@ -16672,7 +16672,7 @@ extern "C" {
     #[doc = " ::cuStreamWaitEvent"]
     pub fn cuGraphEventRecordNodeGetEvent(hNode: CUgraphNode, event_out: *mut CUevent) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets an event record node's event"]
     #[doc = ""]
     #[doc = " Sets the event of event record node \\p hNode to \\p event."]
@@ -16696,7 +16696,7 @@ extern "C" {
     #[doc = " ::cuStreamWaitEvent"]
     pub fn cuGraphEventRecordNodeSetEvent(hNode: CUgraphNode, event: CUevent) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Creates an event wait node and adds it to a graph"]
     #[doc = ""]
     #[doc = " Creates a new event wait node and adds it to \\p hGraph with \\p numDependencies"]
@@ -16743,7 +16743,7 @@ extern "C" {
         event: CUevent,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns the event associated with an event wait node"]
     #[doc = ""]
     #[doc = " Returns the event of event wait node \\p hNode in \\p event_out."]
@@ -16767,7 +16767,7 @@ extern "C" {
     #[doc = " ::cuStreamWaitEvent"]
     pub fn cuGraphEventWaitNodeGetEvent(hNode: CUgraphNode, event_out: *mut CUevent) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets an event wait node's event"]
     #[doc = ""]
     #[doc = " Sets the event of event wait node \\p hNode to \\p event."]
@@ -16791,7 +16791,7 @@ extern "C" {
     #[doc = " ::cuStreamWaitEvent"]
     pub fn cuGraphEventWaitNodeSetEvent(hNode: CUgraphNode, event: CUevent) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Clones a graph"]
     #[doc = ""]
     #[doc = " This function creates a copy of \\p originalGraph and returns it in \\p phGraphClone."]
@@ -16815,7 +16815,7 @@ extern "C" {
     #[doc = " ::cuGraphNodeFindInClone"]
     pub fn cuGraphClone(phGraphClone: *mut CUgraph, originalGraph: CUgraph) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Finds a cloned version of a node"]
     #[doc = ""]
     #[doc = " This function returns the node in \\p hClonedGraph corresponding to \\p hOriginalNode"]
@@ -16844,7 +16844,7 @@ extern "C" {
         hClonedGraph: CUgraph,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a node's type"]
     #[doc = ""]
     #[doc = " Returns the node type of \\p hNode in \\p type."]
@@ -16874,7 +16874,7 @@ extern "C" {
     #[doc = " ::cuGraphMemsetNodeSetParams"]
     pub fn cuGraphNodeGetType(hNode: CUgraphNode, type_: *mut CUgraphNodeType) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a graph's nodes"]
     #[doc = ""]
     #[doc = " Returns a list of \\p hGraph's nodes. \\p nodes may be NULL, in which case this"]
@@ -16908,7 +16908,7 @@ extern "C" {
         numNodes: *mut size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a graph's root nodes"]
     #[doc = ""]
     #[doc = " Returns a list of \\p hGraph's root nodes. \\p rootNodes may be NULL, in which case this"]
@@ -16942,7 +16942,7 @@ extern "C" {
         numRootNodes: *mut size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a graph's dependency edges"]
     #[doc = ""]
     #[doc = " Returns a list of \\p hGraph's dependency edges. Edges are returned via corresponding"]
@@ -16980,7 +16980,7 @@ extern "C" {
         numEdges: *mut size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a node's dependencies"]
     #[doc = ""]
     #[doc = " Returns a list of \\p node's dependencies. \\p dependencies may be NULL, in which case this"]
@@ -17014,7 +17014,7 @@ extern "C" {
         numDependencies: *mut size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a node's dependent nodes"]
     #[doc = ""]
     #[doc = " Returns a list of \\p node's dependent nodes. \\p dependentNodes may be NULL, in which"]
@@ -17049,7 +17049,7 @@ extern "C" {
         numDependentNodes: *mut size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Adds dependency edges to a graph"]
     #[doc = ""]
     #[doc = " The number of dependencies to be added is defined by \\p numDependencies"]
@@ -17082,7 +17082,7 @@ extern "C" {
         numDependencies: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Removes dependency edges from a graph"]
     #[doc = ""]
     #[doc = " The number of \\p dependencies to be removed is defined by \\p numDependencies."]
@@ -17115,7 +17115,7 @@ extern "C" {
         numDependencies: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Remove a node from the graph"]
     #[doc = ""]
     #[doc = " Removes \\p hNode from its graph. This operation also severs any dependencies of other nodes"]
@@ -17138,7 +17138,7 @@ extern "C" {
     #[doc = " ::cuGraphAddMemsetNode"]
     pub fn cuGraphDestroyNode(hNode: CUgraphNode) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuGraphInstantiate_v2(
         phGraphExec: *mut CUgraphExec,
         hGraph: CUgraph,
@@ -17147,7 +17147,7 @@ extern "C" {
         bufferSize: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the parameters for a kernel node in the given graphExec"]
     #[doc = ""]
     #[doc = " Sets the parameters of a kernel node in an executable graph \\p hGraphExec."]
@@ -17182,7 +17182,7 @@ extern "C" {
         nodeParams: *const CUDA_KERNEL_NODE_PARAMS,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the parameters for a memcpy node in the given graphExec."]
     #[doc = ""]
     #[doc = " Updates the work represented by \\p hNode in \\p hGraphExec as though \\p hNode had"]
@@ -17224,7 +17224,7 @@ extern "C" {
         ctx: CUcontext,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the parameters for a memset node in the given graphExec."]
     #[doc = ""]
     #[doc = " Updates the work represented by \\p hNode in \\p hGraphExec as though \\p hNode had"]
@@ -17266,7 +17266,7 @@ extern "C" {
         ctx: CUcontext,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the parameters for a host node in the given graphExec."]
     #[doc = ""]
     #[doc = " Updates the work represented by \\p hNode in \\p hGraphExec as though \\p hNode had"]
@@ -17298,7 +17298,7 @@ extern "C" {
         nodeParams: *const CUDA_HOST_NODE_PARAMS,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Updates node parameters in the child graph node in the given graphExec."]
     #[doc = ""]
     #[doc = " Updates the work represented by \\p hNode in \\p hGraphExec as though the nodes contained"]
@@ -17337,7 +17337,7 @@ extern "C" {
         childGraph: CUgraph,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the event for an event record node in the given graphExec"]
     #[doc = ""]
     #[doc = " Sets the event of an event record node in an executable graph \\p hGraphExec."]
@@ -17373,7 +17373,7 @@ extern "C" {
         event: CUevent,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the event for an event record node in the given graphExec"]
     #[doc = ""]
     #[doc = " Sets the event of an event record node in an executable graph \\p hGraphExec."]
@@ -17409,7 +17409,7 @@ extern "C" {
         event: CUevent,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Uploads an executable graph in a stream"]
     #[doc = ""]
     #[doc = " Uploads \\p hGraphExec to the device in \\p hStream without executing it. Uploads of"]
@@ -17433,7 +17433,7 @@ extern "C" {
     #[doc = " ::cuGraphExecDestroy"]
     pub fn cuGraphUpload(hGraphExec: CUgraphExec, hStream: CUstream) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Launches an executable graph in a stream"]
     #[doc = ""]
     #[doc = " Executes \\p hGraphExec in \\p hStream. Only one instance of \\p hGraphExec may be executing"]
@@ -17458,7 +17458,7 @@ extern "C" {
     #[doc = " ::cuGraphExecDestroy"]
     pub fn cuGraphLaunch(hGraphExec: CUgraphExec, hStream: CUstream) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Destroys an executable graph"]
     #[doc = ""]
     #[doc = " Destroys the executable graph specified by \\p hGraphExec, as well"]
@@ -17482,7 +17482,7 @@ extern "C" {
     #[doc = " ::cuGraphLaunch"]
     pub fn cuGraphExecDestroy(hGraphExec: CUgraphExec) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Destroys a graph"]
     #[doc = ""]
     #[doc = " Destroys the graph specified by \\p hGraph, as well as all of its nodes."]
@@ -17501,7 +17501,7 @@ extern "C" {
     #[doc = " ::cuGraphCreate"]
     pub fn cuGraphDestroy(hGraph: CUgraph) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Check whether an executable graph can be updated with a graph and perform the update if possible"]
     #[doc = ""]
     #[doc = " Updates the node parameters in the instantiated graph specified by \\p hGraphExec with the"]
@@ -17578,7 +17578,7 @@ extern "C" {
         updateResult_out: *mut CUgraphExecUpdateResult,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Copies attributes from source node to destination node."]
     #[doc = ""]
     #[doc = " Copies attributes from source node \\p src to destination node \\p dst."]
@@ -17597,7 +17597,7 @@ extern "C" {
     #[doc = " ::CUaccessPolicyWindow"]
     pub fn cuGraphKernelNodeCopyAttributes(dst: CUgraphNode, src: CUgraphNode) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Queries node attribute."]
     #[doc = ""]
     #[doc = " Queries attribute \\p attr from node \\p hNode and stores it in corresponding"]
@@ -17621,7 +17621,7 @@ extern "C" {
         value_out: *mut CUkernelNodeAttrValue,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets node attribute."]
     #[doc = ""]
     #[doc = " Sets attribute \\p attr on node \\p hNode from corresponding attribute of"]
@@ -17645,7 +17645,7 @@ extern "C" {
         value: *const CUkernelNodeAttrValue,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns occupancy of a function"]
     #[doc = ""]
     #[doc = " Returns in \\p *numBlocks the number of the maximum active blocks per"]
@@ -17674,7 +17674,7 @@ extern "C" {
         dynamicSMemSize: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns occupancy of a function"]
     #[doc = ""]
     #[doc = " Returns in \\p *numBlocks the number of the maximum active blocks per"]
@@ -17721,7 +17721,7 @@ extern "C" {
         flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Suggest a launch configuration with reasonable occupancy"]
     #[doc = ""]
     #[doc = " Returns in \\p *blockSize a reasonable block size that can achieve"]
@@ -17779,7 +17779,7 @@ extern "C" {
         blockSizeLimit: ::std::os::raw::c_int,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Suggest a launch configuration with reasonable occupancy"]
     #[doc = ""]
     #[doc = " An extended version of ::cuOccupancyMaxPotentialBlockSize. In"]
@@ -17832,7 +17832,7 @@ extern "C" {
         flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns dynamic shared memory available per block when launching \\p numBlocks blocks on SM"]
     #[doc = ""]
     #[doc = " Returns in \\p *dynamicSmemSize the maximum size of dynamic shared memory to allow \\p numBlocks blocks per SM."]
@@ -17859,7 +17859,7 @@ extern "C" {
         blockSize: ::std::os::raw::c_int,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Binds an array as a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -17893,7 +17893,7 @@ extern "C" {
         Flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Binds a mipmapped array to a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -17926,7 +17926,7 @@ extern "C" {
         Flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuTexRefSetAddress_v2(
         ByteOffset: *mut size_t,
         hTexRef: CUtexref,
@@ -17934,7 +17934,7 @@ extern "C" {
         bytes: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuTexRefSetAddress2D_v3(
         hTexRef: CUtexref,
         desc: *const CUDA_ARRAY_DESCRIPTOR,
@@ -17942,7 +17942,7 @@ extern "C" {
         Pitch: size_t,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the format for a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -17980,7 +17980,7 @@ extern "C" {
         NumPackedComponents: ::std::os::raw::c_int,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the addressing mode for a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18029,7 +18029,7 @@ extern "C" {
         am: CUaddress_mode,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the filtering mode for a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18064,7 +18064,7 @@ extern "C" {
     #[doc = " ::cudaBindTextureToArray"]
     pub fn cuTexRefSetFilterMode(hTexRef: CUtexref, fm: CUfilter_mode) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the mipmap filtering mode for a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18099,7 +18099,7 @@ extern "C" {
     #[doc = " ::cudaBindTextureToMipmappedArray"]
     pub fn cuTexRefSetMipmapFilterMode(hTexRef: CUtexref, fm: CUfilter_mode) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the mipmap level bias for a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18127,7 +18127,7 @@ extern "C" {
     #[doc = " ::cudaBindTextureToMipmappedArray"]
     pub fn cuTexRefSetMipmapLevelBias(hTexRef: CUtexref, bias: f32) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the mipmap min/max mipmap level clamps for a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18161,7 +18161,7 @@ extern "C" {
         maxMipmapLevelClamp: f32,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the maximum anisotropy for a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18193,7 +18193,7 @@ extern "C" {
         maxAniso: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the border color for a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18228,7 +18228,7 @@ extern "C" {
     #[doc = " ::cudaBindTextureToMipmappedArray"]
     pub fn cuTexRefSetBorderColor(hTexRef: CUtexref, pBorderColor: *mut f32) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the flags for a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18272,10 +18272,10 @@ extern "C" {
     #[doc = " ::cudaBindTextureToMipmappedArray"]
     pub fn cuTexRefSetFlags(hTexRef: CUtexref, Flags: ::std::os::raw::c_uint) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuTexRefGetAddress_v2(pdptr: *mut CUdeviceptr, hTexRef: CUtexref) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets the array bound to a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18301,7 +18301,7 @@ extern "C" {
     #[doc = " ::cuTexRefGetFilterMode, ::cuTexRefGetFlags, ::cuTexRefGetFormat"]
     pub fn cuTexRefGetArray(phArray: *mut CUarray, hTexRef: CUtexref) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets the mipmapped array bound to a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18330,7 +18330,7 @@ extern "C" {
         hTexRef: CUtexref,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets the addressing mode used by a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18361,7 +18361,7 @@ extern "C" {
         dim: ::std::os::raw::c_int,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets the filter-mode used by a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18386,7 +18386,7 @@ extern "C" {
     #[doc = " ::cuTexRefGetFlags, ::cuTexRefGetFormat"]
     pub fn cuTexRefGetFilterMode(pfm: *mut CUfilter_mode, hTexRef: CUtexref) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets the format used by a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18417,7 +18417,7 @@ extern "C" {
         hTexRef: CUtexref,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets the mipmap filtering mode for a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18442,7 +18442,7 @@ extern "C" {
     #[doc = " ::cuTexRefGetFilterMode, ::cuTexRefGetFlags, ::cuTexRefGetFormat"]
     pub fn cuTexRefGetMipmapFilterMode(pfm: *mut CUfilter_mode, hTexRef: CUtexref) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets the mipmap level bias for a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18467,7 +18467,7 @@ extern "C" {
     #[doc = " ::cuTexRefGetFilterMode, ::cuTexRefGetFlags, ::cuTexRefGetFormat"]
     pub fn cuTexRefGetMipmapLevelBias(pbias: *mut f32, hTexRef: CUtexref) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets the min/max mipmap level clamps for a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18497,7 +18497,7 @@ extern "C" {
         hTexRef: CUtexref,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets the maximum anisotropy for a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18525,7 +18525,7 @@ extern "C" {
         hTexRef: CUtexref,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets the border color used by a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18553,7 +18553,7 @@ extern "C" {
     #[doc = " ::cuTexRefSetAddressMode, ::cuTexRefSetBorderColor"]
     pub fn cuTexRefGetBorderColor(pBorderColor: *mut f32, hTexRef: CUtexref) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Gets the flags used by a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18577,7 +18577,7 @@ extern "C" {
     #[doc = " ::cuTexRefGetFilterMode, ::cuTexRefGetFormat"]
     pub fn cuTexRefGetFlags(pFlags: *mut ::std::os::raw::c_uint, hTexRef: CUtexref) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Creates a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18601,7 +18601,7 @@ extern "C" {
     #[doc = " \\sa ::cuTexRefDestroy"]
     pub fn cuTexRefCreate(pTexRef: *mut CUtexref) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Destroys a texture reference"]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18620,7 +18620,7 @@ extern "C" {
     #[doc = " \\sa ::cuTexRefCreate"]
     pub fn cuTexRefDestroy(hTexRef: CUtexref) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Sets the CUDA array for a surface reference."]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18652,7 +18652,7 @@ extern "C" {
         Flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Passes back the CUDA array bound to a surface reference."]
     #[doc = ""]
     #[doc = " \\deprecated"]
@@ -18674,7 +18674,7 @@ extern "C" {
     #[doc = " \\sa ::cuModuleGetSurfRef, ::cuSurfRefSetArray"]
     pub fn cuSurfRefGetArray(phArray: *mut CUarray, hSurfRef: CUsurfref) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Creates a texture object"]
     #[doc = ""]
     #[doc = " Creates a texture object and returns it in \\p pTexObject. \\p pResDesc describes"]
@@ -18894,7 +18894,7 @@ extern "C" {
         pResViewDesc: *const CUDA_RESOURCE_VIEW_DESC,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Destroys a texture object"]
     #[doc = ""]
     #[doc = " Destroys the texture object specified by \\p texObject."]
@@ -18913,7 +18913,7 @@ extern "C" {
     #[doc = " ::cudaDestroyTextureObject"]
     pub fn cuTexObjectDestroy(texObject: CUtexObject) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a texture object's resource descriptor"]
     #[doc = ""]
     #[doc = " Returns the resource descriptor for the texture object specified by \\p texObject."]
@@ -18936,7 +18936,7 @@ extern "C" {
         texObject: CUtexObject,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a texture object's texture descriptor"]
     #[doc = ""]
     #[doc = " Returns the texture descriptor for the texture object specified by \\p texObject."]
@@ -18959,7 +18959,7 @@ extern "C" {
         texObject: CUtexObject,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a texture object's resource view descriptor"]
     #[doc = ""]
     #[doc = " Returns the resource view descriptor for the texture object specified by \\p texObject."]
@@ -18983,7 +18983,7 @@ extern "C" {
         texObject: CUtexObject,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Creates a surface object"]
     #[doc = ""]
     #[doc = " Creates a surface object and returns it in \\p pSurfObject. \\p pResDesc describes"]
@@ -19013,7 +19013,7 @@ extern "C" {
         pResDesc: *const CUDA_RESOURCE_DESC,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Destroys a surface object"]
     #[doc = ""]
     #[doc = " Destroys the surface object specified by \\p surfObject."]
@@ -19032,7 +19032,7 @@ extern "C" {
     #[doc = " ::cudaDestroySurfaceObject"]
     pub fn cuSurfObjectDestroy(surfObject: CUsurfObject) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a surface object's resource descriptor"]
     #[doc = ""]
     #[doc = " Returns the resource descriptor for the surface object specified by \\p surfObject."]
@@ -19055,7 +19055,7 @@ extern "C" {
         surfObject: CUsurfObject,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Queries if a device may directly access a peer device's memory."]
     #[doc = ""]
     #[doc = " Returns in \\p *canAccessPeer a value of 1 if contexts on \\p dev are capable of"]
@@ -19086,7 +19086,7 @@ extern "C" {
         peerDev: CUdevice,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Enables direct access to memory allocations in a peer context."]
     #[doc = ""]
     #[doc = " If both the current context and \\p peerContext are on devices which support unified"]
@@ -19139,7 +19139,7 @@ extern "C" {
     pub fn cuCtxEnablePeerAccess(peerContext: CUcontext, Flags: ::std::os::raw::c_uint)
         -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Disables direct access to memory allocations in a peer context and"]
     #[doc = " unregisters any registered allocations."]
     #[doc = ""]
@@ -19165,7 +19165,7 @@ extern "C" {
     #[doc = " ::cudaDeviceDisablePeerAccess"]
     pub fn cuCtxDisablePeerAccess(peerContext: CUcontext) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Queries attributes of the link between two devices."]
     #[doc = ""]
     #[doc = " Returns in \\p *value the value of the requested attribute \\p attrib of the"]
@@ -19209,7 +19209,7 @@ extern "C" {
         dstDevice: CUdevice,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Unregisters a graphics resource for access by CUDA"]
     #[doc = ""]
     #[doc = " Unregisters the graphics resource \\p resource so it is not accessible by"]
@@ -19238,7 +19238,7 @@ extern "C" {
     #[doc = " ::cudaGraphicsUnregisterResource"]
     pub fn cuGraphicsUnregisterResource(resource: CUgraphicsResource) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Get an array through which to access a subresource of a mapped graphics resource."]
     #[doc = ""]
     #[doc = " Returns in \\p *pArray an array through which the subresource of the mapped"]
@@ -19282,7 +19282,7 @@ extern "C" {
         mipLevel: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Get a mipmapped array through which to access a mapped graphics resource."]
     #[doc = ""]
     #[doc = " Returns in \\p *pMipmappedArray a mipmapped array through which the mapped graphics"]
@@ -19315,20 +19315,20 @@ extern "C" {
         resource: CUgraphicsResource,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuGraphicsResourceGetMappedPointer_v2(
         pDevPtr: *mut CUdeviceptr,
         pSize: *mut size_t,
         resource: CUgraphicsResource,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     pub fn cuGraphicsResourceSetMapFlags_v2(
         resource: CUgraphicsResource,
         flags: ::std::os::raw::c_uint,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Map graphics resources for access by CUDA"]
     #[doc = ""]
     #[doc = " Maps the \\p count graphics resources in \\p resources for access by CUDA."]
@@ -19371,7 +19371,7 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Unmap graphics resources."]
     #[doc = ""]
     #[doc = " Unmaps the \\p count graphics resources in \\p resources."]
@@ -19411,14 +19411,14 @@ extern "C" {
         hStream: CUstream,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " @}"]
     pub fn cuGetExportTable(
         ppExportTable: *mut *const ::std::os::raw::c_void,
         pExportTableId: *const CUuuid,
     ) -> CUresult;
 }
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Returns a module handle"]
     #[doc = ""]
     #[doc = " Returns in \\p *hmod the handle of the module that function \\p hfunc"]

@@ -7598,7 +7598,7 @@ fn bindgen_test_layout__NV_ENC_OPEN_ENCODE_SESSIONEX_PARAMS() {
 }
 #[doc = " Encoder Session Creation parameters"]
 pub type NV_ENC_OPEN_ENCODE_SESSION_EX_PARAMS = _NV_ENC_OPEN_ENCODE_SESSIONEX_PARAMS;
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\brief Get the largest NvEncodeAPI version supported by the driver.\n\n This function can be used by clients to determine if the driver supports\n the NvEncodeAPI header the application was compiled with.\n\n \\param [out] version\n   Pointer to the requested value. The 4 least significant bits in the returned\n   indicate the minor version and the rest of the bits indicate the major\n   version of the largest supported version.\n\n \\return\n ::NV_ENC_SUCCESS \\n\n ::NV_ENC_ERR_INVALID_PTR \\n"]
     pub fn NvEncodeAPIGetMaxSupportedVersion(version: *mut u32) -> NVENCSTATUS;
 }
@@ -8417,7 +8417,7 @@ fn bindgen_test_layout__NV_ENCODE_API_FUNCTION_LIST() {
 }
 #[doc = " \\ingroup ENCODER_STRUCTURE\n NV_ENCODE_API_FUNCTION_LIST"]
 pub type NV_ENCODE_API_FUNCTION_LIST = _NV_ENCODE_API_FUNCTION_LIST;
-extern "C" {
+unsafe extern "C" {
     #[doc = " \\ingroup ENCODE_FUNC\n Entry Point to the NvEncodeAPI interface.\n\n Creates an instance of the NvEncodeAPI interface, and populates the\n pFunctionList with function pointers to the API routines implemented by the\n NvEncodeAPI interface.\n\n \\param [out] functionList\n\n \\return\n ::NV_ENC_SUCCESS\n ::NV_ENC_ERR_INVALID_PTR"]
     pub fn NvEncodeAPICreateInstance(functionList: *mut NV_ENCODE_API_FUNCTION_LIST)
         -> NVENCSTATUS;

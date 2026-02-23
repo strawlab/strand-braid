@@ -13,7 +13,7 @@ use csv_eof::EarlyEofOk;
 use zip_or_dir::{MaybeGzReader, ZipDirArchive};
 
 macro_rules! dict_set_item_array {
-    ($dict:expr, $name:expr, $obj:expr, $py: expr) => {
+    ($dict:expr_2021, $name:expr_2021, $obj:expr_2021, $py: expr_2021) => {
         if $dict.set_item($name, $obj.into_pyarray($py)).is_err() {
             panic!("error while setting '{}' key on data_dict", $name);
         }

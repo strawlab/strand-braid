@@ -216,7 +216,7 @@ impl TaskState {
 ///
 /// Logs message and breaks out of loop if None.
 macro_rules! otry {
-    ($e:expr, $msg:expr) => {
+    ($e:expr_2021, $msg:expr_2021) => {
         match $e {
             Some(v) => v,
             None => {

@@ -592,7 +592,7 @@ impl FlydraFeatureDetector {
 
     fn reload_config(&mut self) -> Result<()> {
         // Send updated feature detection parameters
-        if let Some(ref mut sender) = &mut self.transmit_feature_detect_settings_tx {
+        if let Some(sender) = &mut self.transmit_feature_detect_settings_tx {
             sender.try_send(self.cfg.clone()).unwrap();
         }
 
@@ -884,7 +884,7 @@ pub fn compute_mask_image(roi_sz: FastImageSize, shape: &Shape) -> Result<FastIm
                 }
             }
         }
-        Shape::Circle(ref valid) => {
+        Shape::Circle(valid) => {
             let r2 = (valid.radius as ipp_ctypes::c_int).pow(2);
             for (i, mask_row) in mask_row_iter.enumerate() {
                 let dy2 = (i as ipp_ctypes::c_int - valid.center_y as ipp_ctypes::c_int).pow(2);
@@ -898,7 +898,7 @@ pub fn compute_mask_image(roi_sz: FastImageSize, shape: &Shape) -> Result<FastIm
                 }
             }
         }
-        Shape::Polygon(ref shape) => {
+        Shape::Polygon(shape) => {
             let shape = parry_geom::mask_from_points(&shape.points);
             let m = nalgebra::geometry::Isometry::identity();
             for (row, mask_row) in mask_row_iter.enumerate() {

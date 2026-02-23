@@ -5,7 +5,7 @@ use crate::ffi::*;
 use crate::load::SharedLibrary;
 
 macro_rules! api_call {
-    ($expr:expr) => {{
+    ($expr:expr_2021) => {{
         let status = $expr;
         if status != cudaError_enum::CUDA_SUCCESS {
             return Err(CudaError::ErrCode { status });
@@ -101,7 +101,7 @@ impl<'a> CudaDevice<'a> {
 }
 
 macro_rules! get_func {
-    ($lib:expr, $name:expr) => {{
+    ($lib:expr_2021, $name:expr_2021) => {{
         unsafe { $lib.library.get($name) }.map_err(|source| CudaError::NameFFIError {
             name: String::from_utf8_lossy($name).to_string(),
             source,

@@ -17,7 +17,7 @@ use strand_dynamic_frame::DynamicFrame;
 use crate::{Error, Msg, Result};
 
 macro_rules! thread_try {
-    ($xx: expr, $result: expr) => {{
+    ($xx: expr_2021, $result: expr_2021) => {{
         match $result {
             Ok(val) => val,
             Err(e) => {
@@ -124,7 +124,7 @@ fn create_writer<'a>(
                     // available, so the panic should actually never
                     // happen.
                     match &libs_result {
-                        Ok(ref libs) => match nvenc::NvEnc::new(libs) {
+                        Ok(libs) => match nvenc::NvEnc::new(libs) {
                             Ok(nv_enc) => Some(nv_enc),
                             Err(e) => {
                                 panic!(
@@ -134,7 +134,7 @@ fn create_writer<'a>(
                                 );
                             }
                         },
-                        Err(ref e) => {
+                        Err(e) => {
                             panic!(
                                 "Error while loading \
                                 CUDA or nvidia-encode: {}",
@@ -167,11 +167,11 @@ fn save_frame(
     last_saved_stamp: &mut Option<DateTime<Local>>,
 ) -> Result<()> {
     match raw {
-        RawWriter::Mp4Writer(ref mut r) => {
+        RawWriter::Mp4Writer(r) => {
             r.write_dynamic(frame, stamp)?;
             *last_saved_stamp = Some(stamp);
         }
-        RawWriter::FfmpegReWriter(ref mut r) => {
+        RawWriter::FfmpegReWriter(r) => {
             r.write_dynamic(frame, stamp)?;
             *last_saved_stamp = Some(stamp);
         }
@@ -182,7 +182,7 @@ fn save_frame(
 /// Finish the writer. Runs inside writer thread loop.
 fn finish_writer(raw: &mut RawWriter<'_, File>) -> Result<()> {
     match raw {
-        RawWriter::Mp4Writer(ref mut mp4_writer) => {
+        RawWriter::Mp4Writer(mp4_writer) => {
             mp4_writer.finish()?;
         }
         RawWriter::FfmpegReWriter(ffmpeg_wtr) => {

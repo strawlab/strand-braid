@@ -7,7 +7,8 @@ use flydra2::{new_model_server, Result, SendType, TimeDataPassthrough};
 #[tokio::main]
 async fn main() -> Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
-        std::env::set_var("RUST_LOG", "info");
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        unsafe { std::env::set_var("RUST_LOG", "info") };
     }
     let _tracing_guard = env_tracing_logger::init();
 

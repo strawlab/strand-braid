@@ -206,7 +206,7 @@ impl WritingState {
         }
 
         // write calibration
-        if let Some(ref recon) = recon {
+        if let Some(recon) = recon {
             let mut cal_path = output_dirname.clone();
             cal_path.push(braid_types::CALIBRATION_XML_FNAME);
             let fd = std::fs::File::create(&cal_path)?;
@@ -275,7 +275,7 @@ impl WritingState {
         };
 
         // kalman estimates
-        let kalman_estimates_wtr = if let Some(ref _recon) = recon {
+        let kalman_estimates_wtr = if let Some(_recon) = recon {
             let mut csv_path = output_dirname.clone();
             csv_path.push(format!("{}.gz", braid_types::KALMAN_ESTIMATES_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
@@ -304,7 +304,7 @@ impl WritingState {
             csv::Writer::from_writer(Box::new(fd) as Box<dyn std::io::Write + Send>)
         };
 
-        let data_assoc_wtr = if let Some(ref _recon) = recon {
+        let data_assoc_wtr = if let Some(_recon) = recon {
             let mut csv_path = output_dirname.clone();
             csv_path.push(format!("{}.gz", braid_types::DATA_ASSOCIATE_CSV_FNAME));
             let fd = std::fs::File::create(&csv_path)?;
