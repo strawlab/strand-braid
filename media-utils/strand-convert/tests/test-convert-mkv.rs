@@ -143,13 +143,14 @@ fn mkv_color_nvenc_h264() -> Result<()> {
     const URL_BASE: &str = "https://strawlab-cdn.com/assets/braid-mkvs/color_mono";
     const SHA256SUM: &str = "7f7cd84fb8b5934e34e03c875e6a1da0d1ef3737f125de0f3b586a0451e58885";
 
+    let dest = format!("scratch/{}", FNAME);
     download_verify::download_verify(
         format!("{URL_BASE}/{FNAME}").as_str(),
-        FNAME,
+        &dest,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
 
-    do_convert(FNAME, false, true)?;
+    do_convert(&dest, false, true)?;
     Ok(())
 }
 
@@ -160,13 +161,14 @@ fn mkv_mono_nvenc_h264() -> Result<()> {
     const URL_BASE: &str = "https://strawlab-cdn.com/assets/braid-mkvs/color_mono";
     const SHA256SUM: &str = "9137122026736c719b897260c426d2e4337092aacc218ebe16d79470b0be3729";
 
+    let dest = format!("scratch/{}", FNAME);
     download_verify::download_verify(
         format!("{URL_BASE}/{FNAME}").as_str(),
-        FNAME,
+        &dest,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
 
-    do_convert(FNAME, false, true)?;
+    do_convert(&dest, false, true)?;
     Ok(())
 }
 
@@ -177,13 +179,14 @@ fn mkv_mono_uncompressed() -> Result<()> {
     const URL_BASE: &str = "https://strawlab-cdn.com/assets/braid-mkvs/uncompressed";
     const SHA256SUM: &str = "0cbe7a9c7a7be151dc8c401eb59e3fcd7d3589636bc70d0968f21673f8c95e45";
 
+    let dest = format!("scratch/{}", FNAME);
     download_verify::download_verify(
         format!("{URL_BASE}/{FNAME}").as_str(),
-        FNAME,
+        &dest,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
 
-    do_convert(FNAME, false, true)?;
+    do_convert(&dest, false, true)?;
     Ok(())
 }
 
@@ -195,13 +198,14 @@ fn mp4_color_nvenc_h264() -> Result<()> {
     const URL_BASE: &str = "https://strawlab-cdn.com/assets/braid-mkvs/color_mono";
     const SHA256SUM: &str = "7f7cd84fb8b5934e34e03c875e6a1da0d1ef3737f125de0f3b586a0451e58885";
 
+    let dest = format!("scratch/{}", FNAME);
     download_verify::download_verify(
         format!("{URL_BASE}/{FNAME}").as_str(),
-        FNAME,
+        &dest,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
 
-    let mp4dir = do_convert(FNAME, false, true)?;
+    let mp4dir = do_convert(&dest, false, true)?;
 
     // this is our mp4 file
     let mp4file = mp4dir.path().join("output.mp4");
@@ -223,13 +227,14 @@ fn mp4_mono_nvenc_h264() -> Result<()> {
     const URL_BASE: &str = "https://strawlab-cdn.com/assets/braid-mkvs/color_mono";
     const SHA256SUM: &str = "9137122026736c719b897260c426d2e4337092aacc218ebe16d79470b0be3729";
 
+    let dest = format!("scratch/{}", FNAME);
     download_verify::download_verify(
         format!("{URL_BASE}/{FNAME}").as_str(),
-        FNAME,
+        &dest,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
 
-    let mp4dir = do_convert(FNAME, false, true)?;
+    let mp4dir = do_convert(&dest, false, true)?;
 
     // this is our mp4 file
     let mp4file = mp4dir.path().join("output.mp4");
@@ -246,16 +251,17 @@ fn tiff_12bit_mono() -> Result<()> {
     const URL_BASE: &str = "https://strawlab-cdn.com/assets/photometrics-samples";
     const SHA256SUM: &str = "41bc89f2735250e02e308ff65009ad110888a57781a89de5b40b0033b20be483";
 
+    let dest = format!("scratch/{}", FNAME);
     download_verify::download_verify(
         format!("{URL_BASE}/{FNAME}").as_str(),
-        FNAME,
+        &dest,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
 
     let outdir = tempfile::tempdir().unwrap(); // will cleanup on drop
     let one_default = outdir.path().join("_1").join("Default");
     std::fs::create_dir_all(&one_default)?;
-    let mut zip_archive = zip::ZipArchive::new(std::fs::File::open(FNAME)?)?;
+    let mut zip_archive = zip::ZipArchive::new(std::fs::File::open(&dest)?)?;
     zip_archive.extract(&one_default)?;
 
     do_convert(&one_default, true, false)?;
