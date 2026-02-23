@@ -2,8 +2,7 @@
 name = "flydra2"
 version = "0.20.29"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2021"
-rust-version = "1.76"
+edition = "2024"
 
 [lib]
 path = "src/flydra2.rs"
@@ -50,8 +49,8 @@ tower-http = { workspace = true, optional = true }
 tower-serve-static = { workspace = true, optional = true }
 include_dir = { workspace = true, optional = true }
 approx.workspace = true
-re_sdk = {workspace = true, optional = true }
-re_sdk_types = {workspace = true, optional = true }
+re_sdk = { workspace = true, optional = true }
+re_sdk_types = { workspace = true, optional = true }
 resvg.workspace = true
 tagger.workspace = true
 cam-geom.workspace = true

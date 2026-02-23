@@ -3,7 +3,6 @@ name = "strand-cam-offline-checkerboards"
 version = "0.1.0"
 edition = "2024"
 description = "Generate camera intrinsic camera calibration from directory full of images"
-rust-version = "1.85"
 
 [dependencies]
 eyre.workspace = true

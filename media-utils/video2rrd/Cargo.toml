@@ -2,7 +2,7 @@
 name = "video2rrd"
 description = "Convert video with Strand Cam timestamps to RRD format for Rerun Viewer"
 version = "0.2.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 camino.workspace = true

@@ -3,8 +3,7 @@ name = "ads-apriltag"
 license = "BSD-2-Clause"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2021"
-rust-version = "1.76"
+edition = "2024"
 
 [dependencies]
 apriltag-sys = "0.4"

@@ -3,7 +3,6 @@ name = "braidz-rerun"
 version = "0.0.1"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
-rust-version = "1.85"
 
 [dependencies]
 eyre.workspace = true

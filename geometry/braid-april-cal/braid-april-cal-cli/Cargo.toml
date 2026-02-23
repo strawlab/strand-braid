@@ -3,7 +3,6 @@ name = "braid-april-cal-cli"
 version = "0.1.0"
 edition = "2024"
 description = "Create a multi-camera calibration using known intrinsics and the SQPnP algorithm"
-rust-version = "1.85"
 
 [dependencies]
 eyre.workspace = true

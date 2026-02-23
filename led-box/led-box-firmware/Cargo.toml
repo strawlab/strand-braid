@@ -3,8 +3,7 @@ name = "led-box-firmware"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 description = "firmware for Strawlab optogenetics LED control device"
-edition = "2021"
-rust-version = "1.77"
+edition = "2024"
 
 [dependencies]
 cortex-m = { version = "0.7.6", features = ["critical-section-single-core"] }

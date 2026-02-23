@@ -4,8 +4,7 @@ description = "images from machine vision cameras used in Strand Camera"
 version = "0.1.0"
 repository = "https://github.com/strawlab/strand-braid"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2021"
-rust-version = "1.76"
+edition = "2024"
 keywords = ["strand-cam"]
 license = "MIT OR Apache-2.0"
 

@@ -3,8 +3,7 @@ name = "strand-cam-types"
 description = "Core types for camera control and configuration in the Strand Camera ecosystem"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2021"
-rust-version = "1.76"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 keywords = ["strand-cam", "camera", "utils"]
 

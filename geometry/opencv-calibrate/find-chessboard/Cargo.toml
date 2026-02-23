@@ -4,8 +4,7 @@ description = "find chessboard corners in an input image"
 version = "0.1.0"
 license = "BSD-3-Clause"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2021"
-rust-version = "1.76"
+edition = "2024"
 
 [dependencies]
 opencv-calibrate.workspace = true

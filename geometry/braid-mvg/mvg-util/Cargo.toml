@@ -2,7 +2,7 @@
 name = "mvg-util"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 braid-mvg.workspace = true

@@ -1,6 +1,6 @@
 [package]
 authors = ["Straw Lab"]
-edition = "2021"
+edition = "2024"
 readme = "README.md"
 name = "led-box-firmware-pico"
 version = "0.0.1"

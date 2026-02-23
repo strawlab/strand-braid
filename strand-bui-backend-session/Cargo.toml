@@ -2,8 +2,7 @@
 name = "strand-bui-backend-session"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2021"
-rust-version = "1.76"
+edition = "2024"
 repository = "https://github.com/strawlab/strand-braid"
 description = "Backend session management for the BUI (Browser User Interface) used by Strand Camera and Braid"
 license = "MIT OR Apache-2.0"

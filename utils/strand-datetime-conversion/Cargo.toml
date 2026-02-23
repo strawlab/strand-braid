@@ -2,8 +2,7 @@
 name = "strand-datetime-conversion"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2021"
-rust-version = "1.56"
+edition = "2024"
 repository = "https://github.com/strawlab/strand-braid"
 description = "Convert between chrono and f64 time. Used in Strand Camera and Braid."
 license = "MIT OR Apache-2.0"

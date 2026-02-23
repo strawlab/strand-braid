@@ -2,8 +2,7 @@
 name = "freemovr-calibration-cli"
 version = "0.6.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2021"
-rust-version = "1.76"
+edition = "2024"
 
 [[bin]]
 name = "freemovr-calibration"

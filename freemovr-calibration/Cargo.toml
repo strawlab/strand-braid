@@ -2,8 +2,7 @@
 name = "freemovr-calibration"
 version = "0.6.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2021"
-rust-version = "1.76"
+edition = "2024"
 
 [dependencies]
 thiserror.workspace = true

@@ -1,7 +1,7 @@
 [package]
 name = "braidz-mcsc"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
 clap.workspace = true
@@ -24,7 +24,7 @@ include_dir.workspace = true
 zip.workspace = true
 nalgebra.workspace = true
 camino.workspace = true
-re_sdk = {workspace = true, optional = true}
+re_sdk = { workspace = true, optional = true }
 levenberg-marquardt.workspace = true
 cam-geom.workspace = true
 approx.workspace = true

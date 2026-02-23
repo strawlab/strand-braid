@@ -2,7 +2,7 @@
 name = "mkv-parser-kit"
 description = "Library for building Matroska (MKV) file parsers"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 authors = [
     "Andrew Straw <strawman@astraw.com>",
     "Brian Langenberger <bjl@usa.net>",

@@ -4,8 +4,7 @@ description = "work with .fmf (fly movie format) files"
 version = "0.12.0-alpha.9"                              # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 autobins = false
-edition = "2021"
-rust-version = "1.76"
+edition = "2024"
 
 [[bin]]
 name = "fmf"
