@@ -10,10 +10,11 @@ check_and_test_workspace:
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.4
   dependencies: []
   script:
+    - _packaging/setup-ubuntu-apt-proxy.sh
     - export RUSTFLAGS="-D warnings"
 
     # Install prerequisites
-    - DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg libopencv-dev octave
+    - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg libopencv-dev octave
     - cd $CI_PROJECT_DIR
     - _packaging/install-pylon-linux.sh
 
