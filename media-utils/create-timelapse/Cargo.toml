@@ -3,6 +3,7 @@ name = "create-timelapse"
 version = "0.1.0"
 edition = "2024"
 description = "create timelapse video from mp4 h264 source without transcoding"
+rust-version = "1.87"
 
 [dependencies]
 clap.workspace = true

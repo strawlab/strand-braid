@@ -6,6 +6,7 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/strawlab/strand-braid"
+rust-version = "1.87"
 
 [dependencies]
 nalgebra.workspace = true

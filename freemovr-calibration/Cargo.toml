@@ -3,6 +3,7 @@ name = "freemovr-calibration"
 version = "0.6.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+rust-version = "1.87"
 
 [dependencies]
 thiserror.workspace = true
