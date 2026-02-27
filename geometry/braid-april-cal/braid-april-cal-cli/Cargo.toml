@@ -31,7 +31,6 @@ cam-geom.workspace = true
 undistort-image.workspace = true
 
 [dev-dependencies]
-tempfile.workspace = true
 zip.workspace = true
 download-verify.workspace = true
 tracing-test.workspace = true

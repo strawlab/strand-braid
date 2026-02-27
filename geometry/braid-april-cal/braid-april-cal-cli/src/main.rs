@@ -908,21 +908,24 @@ mod test {
         )
         .unwrap();
 
-        let data_root = tempfile::tempdir()?;
         let data_root_dir_name =
-            Utf8PathBuf::from_path_buf(std::path::PathBuf::from(data_root.path())).unwrap();
+            Utf8PathBuf::from("scratch/braid-april-cal-test-data-root");
 
         let rdr = std::fs::File::open(&local_fname)?;
         let cal_data_archive = ZipArchive::new(rdr)?;
 
         unpack_zip_into(cal_data_archive, &data_root_dir_name)?;
+        let output_xml = data_root_dir_name.join("output.xml");
+        if output_xml.exists() {
+            std::fs::remove_file(&output_xml)?;
+        }
 
         let opt = super::Cli {
             apriltags_3d_fiducial_coords: data_root_dir_name
                 .join("braid-april-cal-test-data/3d-fiducial-coords.csv"),
             apriltags_2d_detections_dir: data_root_dir_name.join("braid-april-cal-test-data"),
             intrinsics_yaml_dir: data_root_dir_name.join("braid-april-cal-test-data/intrinsics"),
-            output_xml: data_root_dir_name.join("output.xml"),
+            output_xml,
             bundle_adjustment: true,
             ..Default::default()
         };
