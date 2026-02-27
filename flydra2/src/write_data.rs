@@ -568,9 +568,9 @@ pub(crate) fn writer_task_main(
                             let elapsed = now.signed_duration_since(then);
                             let now_system: std::time::SystemTime = now.into();
 
-                            if let Some(latency_usec) = elapsed.num_microseconds() {
-                                if latency_usec >= 0 {
-                                    if let Some(reconstruction_latency_usec) =
+                            if let Some(latency_usec) = elapsed.num_microseconds()
+                                && latency_usec >= 0
+                                    && let Some(reconstruction_latency_usec) =
                                         &mut ws.reconstruction_latency_usec
                                     {
                                         // The latency should always be positive, but num_microseconds()
@@ -592,8 +592,6 @@ pub(crate) fn writer_task_main(
                                             ),
                                         }
                                     }
-                                }
-                            }
                         }
                     }
 
@@ -668,11 +666,10 @@ pub(crate) fn writer_task_main(
             }
         }
 
-        if let Some(ref mut ws) = writing_state {
-            if ws.last_flush.elapsed() > flush_interval {
+        if let Some(ref mut ws) = writing_state
+            && ws.last_flush.elapsed() > flush_interval {
                 ws.flush_all()?;
             }
-        }
     }
     tracing::info!("Done with braidz writer task.");
     Ok(())

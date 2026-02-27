@@ -546,17 +546,15 @@ where
             for data_frame_rows in data_row_frame_iter {
                 let data_frame_rows: groupby::GroupedRows<i64, Data2dDistortedRow> =
                     data_frame_rows?;
-                if let Some(start_frame) = opt3.start_frame {
-                    if safe_u64(data_frame_rows.group_key) < start_frame {
+                if let Some(start_frame) = opt3.start_frame
+                    && safe_u64(data_frame_rows.group_key) < start_frame {
                         continue;
                     }
-                }
                 let this_frame = safe_u64(data_frame_rows.group_key);
-                if let Some(stop_frame) = opt3.stop_frame {
-                    if this_frame > stop_frame {
+                if let Some(stop_frame) = opt3.stop_frame
+                    && this_frame > stop_frame {
                         break;
                     }
-                }
                 if this_frame < min_frame {
                     min_frame = this_frame;
                 }
@@ -606,17 +604,15 @@ where
             let synced_frame = SyncFno(safe_u64(data_frame_rows.group_key));
 
             let opt = opt3.clone();
-            if let Some(start) = &opt.start_frame {
-                if synced_frame.0 < *start {
+            if let Some(start) = &opt.start_frame
+                && synced_frame.0 < *start {
                     continue;
                 }
-            }
 
-            if let Some(stop) = &opt.stop_frame {
-                if synced_frame.0 > *stop {
+            if let Some(stop) = &opt.stop_frame
+                && synced_frame.0 > *stop {
                     break;
                 }
-            }
 
             if let Some(pb) = &pb {
                 // Increment the counter.

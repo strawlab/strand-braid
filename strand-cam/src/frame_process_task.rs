@@ -219,13 +219,12 @@ pub(crate) async fn frame_process_task<'a>(
     loop {
         #[cfg(feature = "flydra_feat_detect")]
         {
-            if let Some(ref ssa) = shared_store_arc {
-                if let Ok(store) = ssa.try_read() {
+            if let Some(ref ssa) = shared_store_arc
+                && let Ok(store) = ssa.try_read() {
                     let tracker = store.as_ref();
                     is_doing_object_detection = tracker.is_doing_object_detection;
                     // make copy. TODO only copy on change.
                 }
-            }
         }
 
         #[cfg(feature = "flydratrax")]
@@ -284,11 +283,11 @@ pub(crate) async fn frame_process_task<'a>(
                                         cal_data.to_camera_system()?
                                     }
                                     crate::CalSource::XmlFile(cal_fname) => {
-                                        let rdr = std::fs::File::open(&cal_fname)?;
+                                        let rdr = std::fs::File::open(cal_fname)?;
                                         flydra_mvg::FlydraMultiCameraSystem::from_flydra_xml(rdr)?
                                     }
                                     crate::CalSource::PymvgJsonFile(cal_fname) => {
-                                        let rdr = std::fs::File::open(&cal_fname)?;
+                                        let rdr = std::fs::File::open(cal_fname)?;
                                         let sys =
                                             braid_mvg::MultiCameraSystem::from_pymvg_json(rdr)?;
                                         flydra_mvg::FlydraMultiCameraSystem::from_system(sys, None)
@@ -392,21 +391,20 @@ pub(crate) async fn frame_process_task<'a>(
                         }
                     }
                 }
-                if let Some(cam) = new_cam {
-                    if let Some(ref mut store) = shared_store_arc {
+                if let Some(cam) = new_cam
+                    && let Some(ref mut store) = shared_store_arc {
                         let mut tracker = store.write().unwrap();
                         tracker.modify(|tracker| {
                             tracker.camera_calibration = Some(cam);
                         });
                     }
-                }
             }
 
             if !is_doing_object_detection | !kalman_tracking_enabled {
                 // drop all flydra2 stuff if we are not tracking
                 maybe_flydra2_stream = None;
-                if let Some(braidz_write_tx_weak) = opt_braidz_write_tx_weak.take() {
-                    if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
+                if let Some(braidz_write_tx_weak) = opt_braidz_write_tx_weak.take()
+                    && let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
                         // `braidz_write_tx` will be dropped after this scope.
                         match braidz_write_tx
                             .send(flydra2::SaveToDiskMsg::StopSavingCsv)
@@ -419,7 +417,6 @@ pub(crate) async fn frame_process_task<'a>(
                             }
                         }
                     }
-                }
             }
         }
 
@@ -450,12 +447,11 @@ pub(crate) async fn frame_process_task<'a>(
                         dirty_flydra = true;
                     }
                 }
-                if let Some(ref clpcs) = current_led_program_config_state {
-                    if &store_cache_ref.led_program_config != clpcs {
+                if let Some(ref clpcs) = current_led_program_config_state
+                    && &store_cache_ref.led_program_config != clpcs {
                         current_led_program_config_state =
                             Some(store_cache_ref.led_program_config.clone());
                     }
-                }
             }
         }
 
@@ -829,8 +825,8 @@ pub(crate) async fn frame_process_task<'a>(
                     let mut blkajdsfads = None;
 
                     {
-                        if let Some(ref store_cache_ref) = store_cache {
-                            if let (true, Some(framenumber)) =
+                        if let Some(ref store_cache_ref) = store_cache
+                            && let (true, Some(framenumber)) =
                                 (store_cache_ref.im_ops_state.do_detection, block_id)
                             {
                                 let src = frame.image.borrow();
@@ -914,7 +910,6 @@ pub(crate) async fn frame_process_task<'a>(
                                     }
                                 }
                             }
-                        }
                     }
 
                     #[cfg(feature = "fiducial")]
@@ -1188,8 +1183,8 @@ pub(crate) async fn frame_process_task<'a>(
                                         let mut led2 = "".to_string();
                                         let mut led3 = "".to_string();
                                         {
-                                            if let Some(ref store) = store_cache {
-                                                if let Some(ref device_state) =
+                                            if let Some(ref store) = store_cache
+                                                && let Some(ref device_state) =
                                                     store.led_box_device_state
                                                 {
                                                     led1 = format!(
@@ -1205,7 +1200,6 @@ pub(crate) async fn frame_process_task<'a>(
                                                         crate::get_intensity(device_state, 3)
                                                     );
                                                 }
-                                            }
                                         }
                                         for pt in points.iter() {
                                             let orientation_mod_pi =
@@ -1414,8 +1408,7 @@ pub(crate) async fn frame_process_task<'a>(
                     {
                         if let Some(ref mut braidz_write_tx_weak) =
                             opt_braidz_write_tx_weak.as_mut()
-                        {
-                            if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
+                            && let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
                                 // `braidz_write_tx` will be dropped after this scope.
                                 match braidz_write_tx
                                     .send(flydra2::SaveToDiskMsg::StopSavingCsv)
@@ -1428,7 +1421,6 @@ pub(crate) async fn frame_process_task<'a>(
                                     }
                                 }
                             }
-                        }
                     }
 
                     // update UI

@@ -983,31 +983,26 @@ pub fn from_flydra_with_limited_skew<R: RealField + Copy + serde::Serialize>(
         });
     }
 
-    if let Some(fc1p) = cam.non_linear_parameters.fc1p {
-        if fc1p != cam.non_linear_parameters.fc1 {
+    if let Some(fc1p) = cam.non_linear_parameters.fc1p
+        && fc1p != cam.non_linear_parameters.fc1 {
             return Err(FlydraMvgError::NotImplemented);
         }
-    }
-    if let Some(fc2p) = cam.non_linear_parameters.fc2p {
-        if fc2p != cam.non_linear_parameters.fc2 {
+    if let Some(fc2p) = cam.non_linear_parameters.fc2p
+        && fc2p != cam.non_linear_parameters.fc2 {
             return Err(FlydraMvgError::NotImplemented);
         }
-    }
-    if let Some(cc1p) = cam.non_linear_parameters.cc1p {
-        if cc1p != cam.non_linear_parameters.cc1 {
+    if let Some(cc1p) = cam.non_linear_parameters.cc1p
+        && cc1p != cam.non_linear_parameters.cc1 {
             return Err(FlydraMvgError::NotImplemented);
         }
-    }
-    if let Some(cc2p) = cam.non_linear_parameters.cc2p {
-        if cc2p != cam.non_linear_parameters.cc2 {
+    if let Some(cc2p) = cam.non_linear_parameters.cc2p
+        && cc2p != cam.non_linear_parameters.cc2 {
             return Err(FlydraMvgError::NotImplemented);
         }
-    }
-    if let Some(scale_factor) = cam.scale_factor {
-        if scale_factor != one {
+    if let Some(scale_factor) = cam.scale_factor
+        && scale_factor != one {
             return Err(FlydraMvgError::NotImplemented);
         }
-    }
 
     // This craziness abuses the rectification matrix of the ROS/OpenCV
     // model to compensate for the issue that the intrinsic parameters used

@@ -235,8 +235,8 @@ fn json_content_type(headers: &http::HeaderMap) -> bool {
         return false;
     };
 
-    let is_json_content_type = mime.type_() == "application"
-        && (mime.subtype() == "json" || mime.suffix().is_some_and(|name| name == "json"));
+    
 
-    is_json_content_type
+    mime.type_() == "application"
+        && (mime.subtype() == "json" || mime.suffix().is_some_and(|name| name == "json"))
 }

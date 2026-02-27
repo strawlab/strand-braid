@@ -698,11 +698,10 @@ where
 {
     match out_colorspace {
         y4m::Colorspace::Cmono => {
-            if let Some(block_size) = forced_block_size {
-                if !((frame.width() % block_size == 0) && (frame.height() % block_size == 0)) {
+            if let Some(block_size) = forced_block_size
+                && !((frame.width() % block_size == 0) && (frame.height() % block_size == 0)) {
                     unimplemented!("conversion to mono with forced block size");
                 }
-            }
             let frame = convert_ref::<_, Mono8>(frame)?;
             if frame.width() as usize != frame.stride() {
                 // Copy into new buffer with no padding.

@@ -90,8 +90,8 @@ impl PerSender {
         // TODO make algorithm smarter to have more in-flight frames?
         // TODO include sent time in message to clients so we don't maintain that
 
-        if let Some(ref most_recent_frame_data) = self.frame_lifo {
-            if self.ready_to_send {
+        if let Some(ref most_recent_frame_data) = self.frame_lifo
+            && self.ready_to_send {
                 // sent_time computed early so that latency includes duration to encode, etc.
                 let sent_time = chrono::Local::now();
                 let tc = {
@@ -147,7 +147,6 @@ impl PerSender {
                 }
                 self.ready_to_send = false;
             }
-        }
 
         self.frame_lifo = None;
 

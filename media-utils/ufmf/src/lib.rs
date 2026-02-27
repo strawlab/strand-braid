@@ -199,11 +199,10 @@ where
         pixel_format: PixFmt,
         frame_timestamp0: Option<(&DynamicFrame, DateTime<Utc>)>,
     ) -> UFMFResult<Self> {
-        if let Some((frame0, _timestamp0)) = frame_timestamp0.as_ref() {
-            if frame0.pixel_format() != pixel_format {
+        if let Some((frame0, _timestamp0)) = frame_timestamp0.as_ref()
+            && frame0.pixel_format() != pixel_format {
                 return Err(UFMFError::FormatChanged);
             }
-        }
         let pos = write_header(&mut f, 0, max_width, max_height, pixel_format)?;
 
         use PixFmt::*;

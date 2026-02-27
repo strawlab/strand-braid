@@ -284,11 +284,10 @@ fn unpack_zip_into<R: Read + Seek>(mut archive: ZipArchive<R>, mcsc_dir_name: &P
         if (*file.name()).ends_with('/') {
             fs::create_dir_all(&outpath).unwrap();
         } else {
-            if let Some(p) = outpath.parent() {
-                if !p.exists() {
+            if let Some(p) = outpath.parent()
+                && !p.exists() {
                     fs::create_dir_all(p).unwrap();
                 }
-            }
             let mut outfile = fs::File::create(&outpath).unwrap();
             io::copy(&mut file, &mut outfile).unwrap();
         }

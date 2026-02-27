@@ -118,13 +118,12 @@ pub fn triggerbox_time(
     frame: usize,
 ) -> Option<FlydraFloatTimestampLocal<Triggerbox>> {
     let frame: u64 = frame.try_into().unwrap();
-    if let Some(frame_offset) = frame_offset {
-        if let Some(cm) = clock_model {
+    if let Some(frame_offset) = frame_offset
+        && let Some(cm) = clock_model {
             let ts: f64 = ((frame - frame_offset) as f64) * cm.gain + cm.offset;
             let ts = FlydraFloatTimestampLocal::<Triggerbox>::from_f64(ts);
             return Some(ts);
         }
-    }
     None
 }
 

@@ -122,8 +122,8 @@ fn main() -> eyre::Result<()> {
         p.clone()
     } else {
         // get just the filename part
-        let movie_filename = opt.input.file_name().unwrap().to_string();
-        movie_filename
+        
+        opt.input.file_name().unwrap().to_string()
     };
 
     let undist_cache = if let Some(yaml_intrinsics_fname) = &opt.undistort_with_calibration {
@@ -258,17 +258,15 @@ fn main() -> eyre::Result<()> {
         let stamp_chrono = start_time + pts;
         absolute_timestamps.push(stamp_chrono);
 
-        if let Some(first_time) = opt.exclude_before {
-            if stamp_chrono < first_time {
+        if let Some(first_time) = opt.exclude_before
+            && stamp_chrono < first_time {
                 continue;
             }
-        }
 
-        if let Some(last_time) = opt.exclude_after {
-            if stamp_chrono > last_time {
+        if let Some(last_time) = opt.exclude_after
+            && stamp_chrono > last_time {
                 continue;
             }
-        }
 
         if let Some(undist_cache) = undist_cache.as_ref() {
             {

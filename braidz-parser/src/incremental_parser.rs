@@ -135,7 +135,8 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         let tracking_params: Option<TrackingParams> = {
             let mut fname = self.archive.path_starter();
             fname.push(braid_types::TEXTLOG_CSV_FNAME);
-            let tracking_parameters = match open_maybe_gzipped(fname) {
+            
+            match open_maybe_gzipped(fname) {
                 Ok(rdr) => {
                     let mut tracking_parameters = None;
                     let textlog_rdr = csv::Reader::from_reader(rdr);
@@ -224,8 +225,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                     tracking_parameters
                 }
                 Err(_e) => None,
-            };
-            tracking_parameters
+            }
         };
 
         let metadata = if let Some(metadata) = metadata {
@@ -259,25 +259,24 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         };
 
         let reconstruction_latency_hlog = {
-            let reconstruction_latency_hlog = match self
+            
+            match self
                 .archive
                 .open(braid_types::RECONSTRUCT_LATENCY_HLOG_FNAME)
             {
                 Ok(rdr) => get_hlog(rdr).unwrap(),
                 Err(zip_or_dir::Error::FileNotFound) => None,
                 Err(e) => return Err(e.into()),
-            };
-            reconstruction_latency_hlog
+            }
         };
 
         let reprojection_distance_hlog = {
-            let reprojection_distance_hlog =
-                match self.archive.open(braid_types::REPROJECTION_DIST_HLOG_FNAME) {
+            
+            match self.archive.open(braid_types::REPROJECTION_DIST_HLOG_FNAME) {
                     Ok(rdr) => get_hlog(rdr).unwrap(),
                     Err(zip_or_dir::Error::FileNotFound) => None,
                     Err(e) => return Err(e.into()),
-                };
-            reprojection_distance_hlog
+                }
         };
 
         let cam_info = {

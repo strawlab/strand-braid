@@ -132,25 +132,23 @@ fn do_parse(
     } else {
         None
     };
-    if let Some(prefix) = &verbose_prefix {
-        if PRINT_ALL {
+    if let Some(prefix) = &verbose_prefix
+        && PRINT_ALL {
             println!("{}+ {}", prefix, line_summary(element));
         }
-    }
     for child in element.children().iter() {
         let mut child_tag_path = tag_path.to_vec();
         child_tag_path.push(child.tag());
         do_parse(child, depth + 1, accum, &child_tag_path, verbose, filename)?;
     }
 
-    if let Some(prefix) = &verbose_prefix {
-        if let Some(bd) = &element.box_data() {
+    if let Some(prefix) = &verbose_prefix
+        && let Some(bd) = &element.box_data() {
             if !PRINT_ALL {
                 println!("{}+ {}", prefix, line_summary(element));
             }
             println!("{prefix}+           {bd:?}");
         }
-    }
 
     match tag_path {
         [Tag::Segment] => {

@@ -106,7 +106,7 @@ pub async fn create_message_handler(
                     unimplemented!();
                 }
                 strand_http_video_streaming::Shape::MultipleCircles(ref circles) => {
-                    circles.iter().map(|circ| to_circ_params(circ)).collect()
+                    circles.iter().map(to_circ_params).collect()
                 }
                 strand_http_video_streaming::Shape::Circle(ref circ) => {
                     vec![to_circ_params(circ)]
@@ -130,7 +130,7 @@ pub async fn create_message_handler(
                 match &cur_pos2d {
                     None => {}
                     Some((_cur_obj_id, cur_pt2d)) => {
-                        let this_dist = na::distance(&cur_pt2d.coords, &led_center);
+                        let this_dist = na::distance(&cur_pt2d.coords, led_center);
                         if this_dist <= led_radius {
                             next_led_state = true;
                             break;
@@ -143,7 +143,7 @@ pub async fn create_message_handler(
                 info!("switching LED to ON={:?}", next_led_state);
                 let device_state: Option<strand_led_box_comms::DeviceState> = {
                     let tracker = ssa2.read().unwrap();
-                    tracker.as_ref().led_box_device_state.clone()
+                    tracker.as_ref().led_box_device_state
                 };
                 if let Some(mut device_state) = device_state {
                     let on_state = match next_led_state {

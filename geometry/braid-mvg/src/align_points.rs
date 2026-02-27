@@ -203,7 +203,7 @@ where
         None
     } else if n == 1 {
         Some(scales[0])
-    } else if n % 2 == 0 {
+    } else if n.is_multiple_of(2) {
         let s1 = scales[n / 2 - 1];
         let s2 = scales[n / 2];
         Some((s1 + s2) * nalgebra::convert(0.5))

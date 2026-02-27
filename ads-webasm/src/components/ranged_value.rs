@@ -55,11 +55,10 @@ impl Component for RangedValue {
                 }
             }
             Msg::SendValue => {
-                if let Some(ref callback) = ctx.props().onsignal {
-                    if let Some(value) = self.local_float {
+                if let Some(ref callback) = ctx.props().onsignal
+                    && let Some(value) = self.local_float {
                         callback.emit(value);
                     }
-                }
                 return false; // no need to rerender DOM
             }
             Msg::Ignore => {

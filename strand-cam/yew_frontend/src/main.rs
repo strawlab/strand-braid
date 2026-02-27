@@ -632,8 +632,8 @@ impl Model {
     }
 
     fn view_led_box(&self, ctx: &Context<Self>) -> Html {
-        if let Some(ref shared) = self.server_state {
-            if let Some(ref device_state) = shared.led_box_device_state {
+        if let Some(ref shared) = self.server_state
+            && let Some(ref device_state) = shared.led_box_device_state {
                 return html! {
                     <LedBoxControl
                         device_state={*device_state}
@@ -641,7 +641,6 @@ impl Model {
                     />
                 };
             }
-        }
         html! {
             <div>{""}</div>
         }
@@ -695,8 +694,8 @@ impl Model {
     }
 
     fn frame_processing_error_dialog(&self, ctx: &Context<Self>) -> Html {
-        if let Some(ref shared) = self.server_state {
-            if shared.had_frame_processing_error {
+        if let Some(ref shared) = self.server_state
+            && shared.had_frame_processing_error {
                 return {
                     html! {
                     <div class="modal-container">
@@ -714,7 +713,6 @@ impl Model {
                     }
                 };
             }
-        }
         html! {
             <div>
             </div>
@@ -1045,8 +1043,8 @@ impl Model {
     }
 
     fn point_detection_ui(&self, ctx: &Context<Self>) -> Html {
-        if let Some(ref shared) = self.server_state {
-            if shared.has_image_tracker_compiled {
+        if let Some(ref shared) = self.server_state
+            && shared.has_image_tracker_compiled {
                 let cfg_clone = shared.im_pt_detect_cfg.clone();
                 return html! {
                     <div class="wrap-collapsible">
@@ -1105,15 +1103,14 @@ impl Model {
                     </div>
                 };
             }
-        }
         html! {
             <div></div>
         }
     }
 
     fn checkerboard_calibration_ui(&self, ctx: &Context<Self>) -> Html {
-        if let Some(ref shared) = self.server_state {
-            if shared.has_checkercal_compiled {
+        if let Some(ref shared) = self.server_state
+            && shared.has_checkercal_compiled {
                 let (ncs, disabled) = {
                     let cdata = &shared.checkerboard_data;
                     let ncs = format!("{}", cdata.num_checkerboards_collected);
@@ -1192,15 +1189,14 @@ impl Model {
                     </div>
                 };
             }
-        }
         html! {
             <div></div>
         }
     }
 
     fn view_kalman_tracking(&self, ctx: &Context<Self>) -> Html {
-        if let Some(ref shared) = self.server_state {
-            if shared.has_flydratrax_compiled {
+        if let Some(ref shared) = self.server_state
+            && shared.has_flydratrax_compiled {
                 return html! {
                     <div class="wrap-collapsible">
                         <CheckboxLabel label="Kalman tracking" initially_checked=false />
@@ -1217,15 +1213,14 @@ impl Model {
                     </div>
                 };
             }
-        }
         html! {
             <div></div>
         }
     }
 
     fn view_led_triggering(&self, ctx: &Context<Self>) -> Html {
-        if let Some(ref shared) = self.server_state {
-            if shared.has_flydratrax_compiled {
+        if let Some(ref shared) = self.server_state
+            && shared.has_flydratrax_compiled {
                 return html! {
                     <div class="wrap-collapsible">
                         <CheckboxLabel label="Online LED triggering" initially_checked=false />
@@ -1241,15 +1236,14 @@ impl Model {
                     </div>
                 };
             }
-        }
         html! {
             <div></div>
         }
     }
 
     fn view_gain(&self, ctx: &Context<Self>) -> Html {
-        if let Some(ref shared) = self.server_state {
-            if let Some(gain_auto) = shared.gain_auto {
+        if let Some(ref shared) = self.server_state
+            && let Some(gain_auto) = shared.gain_auto {
                 return html! {
                     <div class={classes!("gain-main","cam-range-main")}>
                         <h3>{ "Gain" }</h3>
@@ -1268,15 +1262,14 @@ impl Model {
                     </div>
                 };
             }
-        }
         html! {
             <div></div>
         }
     }
 
     fn view_exposure(&self, ctx: &Context<Self>) -> Html {
-        if let Some(ref shared) = self.server_state {
-            if let Some(exposure_auto) = shared.exposure_auto {
+        if let Some(ref shared) = self.server_state
+            && let Some(exposure_auto) = shared.exposure_auto {
                 return html! {
                     <div class={classes!("exposure-main","cam-range-main")}>
                         <h3>{ "Exposure Time" }</h3>
@@ -1295,7 +1288,6 @@ impl Model {
                     </div>
                 };
             }
-        }
         html! {
             <div></div>
         }

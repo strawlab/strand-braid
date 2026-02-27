@@ -611,13 +611,12 @@ pub(crate) async fn do_run_forever(
             // let the OS assign a free port by setting the port as
             // unspecified.
             let mainbrain_tcp_addr = listener.local_addr()?;
-            if let Some(ensure_camdata_ip) = ensure_camdata_ip {
-                if mainbrain_tcp_addr.ip() != ensure_camdata_ip {
+            if let Some(ensure_camdata_ip) = ensure_camdata_ip
+                && mainbrain_tcp_addr.ip() != ensure_camdata_ip {
                     eyre::bail!(
                         "requested camdata UDP IP address not equal to mainbrain TCP IP address"
                     );
                 }
-            }
             let mut camdata_addr_unspecified_port = mainbrain_tcp_addr;
             camdata_addr_unspecified_port.set_port(*lowlatency_camdata_udp_port);
             camdata_addr_unspecified_port

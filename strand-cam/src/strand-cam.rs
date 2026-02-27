@@ -83,10 +83,10 @@ static ASSETS_DIR: include_dir::Dir<'static> =
     include_dir::include_dir!("$CARGO_MANIFEST_DIR/yew_frontend/dist");
 
 #[cfg(feature = "flydratrax")]
-const KALMAN_TRACKING_PREFS_KEY: &'static str = "kalman-tracking";
+const KALMAN_TRACKING_PREFS_KEY: &str = "kalman-tracking";
 
 #[cfg(feature = "flydratrax")]
-const LED_PROGRAM_PREFS_KEY: &'static str = "led-config";
+const LED_PROGRAM_PREFS_KEY: &str = "led-config";
 
 const COOKIE_SECRET_KEY: &str = "cookie-secret-base64";
 const BRAID_COOKIE_KEY: &str = "braid-cookie";
@@ -1734,8 +1734,8 @@ where
         }
     }
 
-    if camera_settings_filename.is_none() {
-        if let StartSoftwareFrameRateLimit::Enable(fps_limit) = &software_limit_framerate {
+    if camera_settings_filename.is_none()
+        && let StartSoftwareFrameRateLimit::Enable(fps_limit) = &software_limit_framerate {
             // Set the camera.
             cam.set_software_frame_rate_limit(*fps_limit).unwrap();
             // Store the values we set.
@@ -1746,7 +1746,6 @@ where
             }
             frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
         }
-    }
 
     let trigger_mode = cam.trigger_mode()?;
     let trigger_selector = cam.trigger_selector()?;
@@ -2131,7 +2130,7 @@ where
         let csv_save_dir = args.csv_save_dir.clone();
 
         #[cfg(feature = "flydratrax")]
-        let model_server_addr = args.model_server_addr.clone();
+        let model_server_addr = args.model_server_addr;
 
         #[cfg(feature = "flydratrax")]
         let led_box_tx_std = led_box_tx_std.clone();
@@ -2143,7 +2142,7 @@ where
             info!("send_pose server at {model_server_addr}");
             let (model_server_data_tx, data_rx) = tokio::sync::mpsc::channel(50);
             let model_server_future = flydra2::new_model_server(data_rx, model_server_addr);
-            tokio::spawn(async { model_server_future.await });
+            tokio::spawn(model_server_future);
             model_server_data_tx
         };
 
@@ -2272,8 +2271,8 @@ where
                     }
                 }
 
-                if let ci2_async::FrameResult::Frame(frame) = &frame_msg {
-                    if let Some(transmit_msg_tx) = transmit_msg_tx.as_mut() {
+                if let ci2_async::FrameResult::Frame(frame) = &frame_msg
+                    && let Some(transmit_msg_tx) = transmit_msg_tx.as_mut() {
                         // Check if we need to send this frame to braid because our timer elapsed.
                         if send_image_to_braid_timer.elapsed() >= send_image_to_braid_duration {
                             // If yes, encode frame to png buffer.
@@ -2301,7 +2300,6 @@ where
                             }
                         }
                     }
-                }
             }
             debug!("cam_stream_future future done {}:{}", file!(), line!());
             Ok::<_, eyre::Report>(())

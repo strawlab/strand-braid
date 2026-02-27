@@ -448,15 +448,14 @@ where
             crate::TimestampSource::SrtFile => (Some(timestamp_source), true),
         };
 
-        if let Some(mp4_pts) = mp4_pts.as_ref() {
-            if mp4_pts.len() != frame_time_info.len() {
+        if let Some(mp4_pts) = mp4_pts.as_ref()
+            && mp4_pts.len() != frame_time_info.len() {
                 return Err(Error::H264TimestampError(format!(
                     "We have {} frames of MP4 PTS timing, but computed {} frames of video.",
                     mp4_pts.len(),
                     frame_time_info.len()
                 )));
             }
-        }
         let average_fps = calc_avg_fps(&frame_time_info[..]);
 
         Ok(Self {

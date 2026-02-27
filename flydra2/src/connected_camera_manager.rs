@@ -492,7 +492,8 @@ impl ConnectedCamerasManager {
             let frames_during_sync = {
                 // This scope is for the write lock on self.inner. Keep it minimal.
                 let mut inner = self.inner.write().unwrap();
-                let frames_during_sync = match inner.ccis.get_mut(&raw_cam_name) {
+                
+                match inner.ccis.get_mut(&raw_cam_name) {
                     Some(cci) => {
                         cci.frames_during_sync += 1;
                         cci.frames_during_sync
@@ -500,8 +501,7 @@ impl ConnectedCamerasManager {
                     None => {
                         panic!("reached impossible code.");
                     }
-                };
-                frames_during_sync
+                }
             };
 
             if frames_during_sync > 10 {
@@ -536,11 +536,10 @@ impl ConnectedCamerasManager {
             let camera_periodic_signal_period_usec = self
                 .periodic_signal_period_usec
                 .expect("could not get period for PTP sync");
-            if let Some(expected_period) = ptpcfg.periodic_signal_period_usec {
-                if approx::relative_ne!(expected_period, camera_periodic_signal_period_usec) {
+            if let Some(expected_period) = ptpcfg.periodic_signal_period_usec
+                && approx::relative_ne!(expected_period, camera_periodic_signal_period_usec) {
                     panic!("camera period not set to expected period");
                 }
-            }
             let device_timestamp = PtpStamp::new(
                 packet
                     .device_timestamp

@@ -297,8 +297,8 @@ fn main() -> Result<()> {
 
         match cli.output {
             OutputFormat::EveryFrame | OutputFormat::Summary => {
-                if let Some(frame_source::Timestamp::Duration(prev_timestamp)) = prev_timestamp {
-                    if count > 0 {
+                if let Some(frame_source::Timestamp::Duration(prev_timestamp)) = prev_timestamp
+                    && count > 0 {
                         let fps = count as f64 / prev_timestamp.as_secs_f64();
                         println!(
                             "  {} frames in {}: {:.2} frames per second",
@@ -307,7 +307,6 @@ fn main() -> Result<()> {
                             fps
                         );
                     }
-                }
             }
             _ => {}
         }

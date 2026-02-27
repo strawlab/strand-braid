@@ -772,8 +772,8 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                     let best_col = arg_max_col(&likelihoods.iter().copied().collect::<Vec<_>>()); // select best point
                     trace!("row_idx {}, best_col {:?}", row_idx, best_col);
 
-                    if let Some((best_idx, best_wantedness)) = best_col {
-                        if best_wantedness > self.mcinner.params.accept_observation_min_likelihood {
+                    if let Some((best_idx, best_wantedness)) = best_col
+                        && best_wantedness > self.mcinner.params.accept_observation_min_likelihood {
                             // don't take unwanted point
                             unused_col_idxs.remove(&best_idx);
 
@@ -845,7 +845,6 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
 
                             next_model.state.data_assoc_this_timestamp.push(assoc);
                         }
-                    }
                 }
 
                 // we will fill this point-by-point

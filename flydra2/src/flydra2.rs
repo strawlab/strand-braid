@@ -604,11 +604,10 @@ fn finish_histogram(
     histograms: &mut Vec<IntervalHistogram<u64>>,
     now_system: std::time::SystemTime,
 ) -> std::result::Result<(), hdrhistogram::RecordError> {
-    if let Some(hist) = hist_store.take() {
-        if let Ok(h) = hist.end(&file_start_time, now_system) {
+    if let Some(hist) = hist_store.take()
+        && let Ok(h) = hist.end(&file_start_time, now_system) {
             histograms.push(h);
         }
-    }
     Ok(())
 }
 
@@ -642,11 +641,10 @@ fn histogram_record(
 
     *hist_store = Some(hist);
 
-    if let Some(accum_dur) = accum_dur {
-        if accum_dur.as_secs() >= 60 {
+    if let Some(accum_dur) = accum_dur
+        && accum_dur.as_secs() >= 60 {
             finish_histogram(hist_store, file_start_time, histograms, now_system)?;
         }
-    }
     Ok(())
 }
 

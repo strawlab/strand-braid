@@ -624,7 +624,7 @@ where
 
     let indices: Vec<usize> = (0..(csv_worldcoords.len())).collect();
 
-    if indices.len() % 3 != 0 {
+    if !indices.len().is_multiple_of(3) {
         return Err(Error::RequiredTriMesh);
     }
     let indices: Vec<Point3<usize>> = indices

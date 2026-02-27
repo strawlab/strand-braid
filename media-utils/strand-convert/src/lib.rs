@@ -430,13 +430,11 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         output_basename = input_path.as_path().with_extension(""); // removes extension but keeps leading directory.
 
         let mut ext: Option<&str> = input_path.extension().and_then(|x| x.to_str());
-        if ext == Some("gz") {
-            if let Some(input_path) = input_path.as_os_str().to_str() {
-                if input_path.to_lowercase().ends_with(".fmf.gz") {
+        if ext == Some("gz")
+            && let Some(input_path) = input_path.as_os_str().to_str()
+                && input_path.to_lowercase().ends_with(".fmf.gz") {
                     ext = Some("fmf.gz");
                 }
-            }
-        }
 
         let do_decode_h264 = cli.export_pngs || cli.skip.is_some();
         match ext {

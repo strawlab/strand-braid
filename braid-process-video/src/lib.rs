@@ -843,11 +843,10 @@ pub async fn run_config(
         }
         let synced_data = synced_data?;
 
-        if let Some(start_frame) = cfg.skip_n_first_output_frames {
-            if out_fno < start_frame {
+        if let Some(start_frame) = cfg.skip_n_first_output_frames
+            && out_fno < start_frame {
                 continue;
             }
-        }
 
         for output in output_storage.iter_mut() {
             if let OutputStorage::Debug(d) = output {

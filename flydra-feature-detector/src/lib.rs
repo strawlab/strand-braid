@@ -475,8 +475,7 @@ impl AcquisitionHistogram {
         if msecs < 0.0 {
             if let Some(acquisition_duration_allowed_imprecision_msec) =
                 self.acquisition_duration_allowed_imprecision_msec
-            {
-                if msecs < acquisition_duration_allowed_imprecision_msec {
+                && msecs < acquisition_duration_allowed_imprecision_msec {
                     // A little bit of deviation is expected occasionally due to
                     // noise in fitting the time measurements, so do not log warning
                     // unless it exceeds 5 msec.
@@ -487,7 +486,6 @@ impl AcquisitionHistogram {
                         msecs
                     );
                 }
-            }
             return;
         }
         let bin_num = if msecs > NUM_MSEC_BINS as f64 {

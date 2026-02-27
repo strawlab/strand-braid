@@ -167,13 +167,12 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
         P: AsRef<std::path::Path>,
     {
         let (parsed, rdr) = mkv_strand_reader::parse_strand_cam_mkv(rdr, false, path)?;
-        if let Some(uncompressed_fourcc) = &parsed.uncompressed_fourcc {
-            if uncompressed_fourcc.as_str() != "Y800" {
+        if let Some(uncompressed_fourcc) = &parsed.uncompressed_fourcc
+            && uncompressed_fourcc.as_str() != "Y800" {
                 return Err(
                     StrandMkvSourceError::UnsupportedFourcc(uncompressed_fourcc.clone()).into(),
                 );
             }
-        }
 
         let is_uncompressed = parsed.uncompressed_fourcc.is_some();
 

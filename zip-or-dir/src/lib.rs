@@ -259,11 +259,10 @@ impl<R: Read + Seek> ZipDirArchive<R> {
                     }
                 }
                 result = unique_single_components.into_iter().collect();
-                if let Some(relname) = relname {
-                    if result.is_empty() && !found_any {
+                if let Some(relname) = relname
+                    && result.is_empty() && !found_any {
                         return Err(not_dir_error(relname));
                     }
-                }
             }
             None => {
                 let dir_result = std::fs::read_dir(&dirpath);
