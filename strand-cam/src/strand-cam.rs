@@ -1765,7 +1765,7 @@ where
     let kalman_tracking_config = {
         if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) = tracker_cfg_src {
             // Retrieve the saved preferences
-            let (ref app_info, ref _im_pt_detect_prefs_key) = src;
+            let (app_info, _im_pt_detect_prefs_key) = src;
             match KalmanTrackingConfig::load(app_info, KALMAN_TRACKING_PREFS_KEY) {
                 Ok(cfg) => cfg,
                 Err(e) => {
@@ -1788,7 +1788,7 @@ where
     let led_program_config = {
         if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) = tracker_cfg_src {
             // Retrieve the saved preferences
-            let (ref app_info, ref _im_pt_detect_prefs_key) = src;
+            let (app_info, _im_pt_detect_prefs_key) = src;
             match LedProgramConfig::load(app_info, LED_PROGRAM_PREFS_KEY) {
                 Ok(cfg) => cfg,
                 Err(e) => {
@@ -2911,7 +2911,7 @@ where
                                     if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) =
                                         tracker_cfg_src
                                     {
-                                        let (ref app_info, _) = src;
+                                        let (app_info, _) = src;
                                         match cfg2.save(app_info, KALMAN_TRACKING_PREFS_KEY) {
                                             Ok(()) => {
                                                 info!("saved new kalman tracker config");
@@ -2951,7 +2951,7 @@ where
                                     if let ImPtDetectCfgSource::ChangedSavedToDisk(ref src) =
                                         tracker_cfg_src
                                     {
-                                        let (ref app_info, _) = src;
+                                        let (app_info, _) = src;
                                         match cfg2.save(app_info, LED_PROGRAM_PREFS_KEY) {
                                             Ok(()) => {
                                                 info!("saved new LED program config");
