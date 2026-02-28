@@ -632,7 +632,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             rec,
             #[cfg(feature = "with-rerun")]
             force_rerun_distorted,
-        )?
+        ).context("creating bundle adjuster")?
     };
 
     let multi_cam_system = if !bundle_adjustment {
