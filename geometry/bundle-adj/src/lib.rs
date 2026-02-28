@@ -246,6 +246,8 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
                 if model_type != ModelType::ExtrinsicsOnly
                     && cam.intrinsics().fx() != cam.intrinsics().fy()
                 {
+                    // This is not a fundamental limitation, but support would
+                    // need to be implemented.
                     return Err(Error::InconsistentData("fx must equal fy"));
                 }
                 let p = to_params(cam, model_type);
