@@ -1,3 +1,6 @@
+//! Bundle adjustment for multiple camera calibrations
+//!
+//! See the [BundleAdjuster] struct for more details.
 #[cfg(feature = "with-rerun")]
 use nalgebra::UnitQuaternion;
 use nalgebra::{self as na, Dyn, Owned};
@@ -23,10 +26,29 @@ type Result<T> = std::result::Result<T, Error>;
 
 /// Perform multi-camera bundle adjustment.
 ///
+/// In general, this works by performing A Levenberg-Marquardt optimization that
+/// minimizes the reprojection error of a set of observed 2D points in multiple
+/// cameras by tuning the parameters of the camera calibrations and, in most
+/// cases, the 3D world coordinate positions of the points. Several different
+/// possible parameterizations are available in the variants of [ModelType].
+///
 /// The most important internal operations are calculation of the residual
 /// errors and calculation of the Jacobian of the residuals with respect to the
 /// parameters (camera calibrations and estimated 3D world coordinate
 /// positions).
+///
+/// The number of residuals is [Self::nresid], which is twice the number of
+/// observed 2D points. The number of parameters is [Self::num_cams] * the
+/// number of parameters per camera (which depends on the [ModelType]) plus 3
+/// times the number of 3D world points (if [Self::optimize_points] is true).
+///
+/// Generally speaking, the Levenberg-Marquardt optimization performs iterative
+/// error minimization across `num_pts` observed 2D points by using a Jacobian
+/// matrix of `num_pts`*2 rows and ``num_params` columns. The Jacobian matrix is
+/// sparse because each observed 3D point only depends on the parameters of the
+/// cameras that observe it and on its own 3D world coordinate position. The
+/// implementation takes advantage of this sparsity to efficiently compute the
+/// Jacobian and perform the optimization.
 #[derive(Clone)]
 pub struct BundleAdjuster<F: na::RealField + Float> {
     /// number of cameras
@@ -34,7 +56,7 @@ pub struct BundleAdjuster<F: na::RealField + Float> {
     /// number of unique 3D world points
     num_pts: usize,
 
-    model_type: ModelType,
+    model_type: CameraModelType,
 
     /// The number of residuals
     ///
@@ -44,8 +66,12 @@ pub struct BundleAdjuster<F: na::RealField + Float> {
     /// The 2D observed points
     observed: na::Matrix2xX<F>,
     /// The index of the camera doing the observation.
+    ///
+    /// This is the same length as [Self::pt_idx].
     cam_idx: Vec<NCamsType>,
     /// The index of the 3D world point being observed.
+    ///
+    /// This is the same length as [Self::cam_idx].
     pt_idx: Vec<usize>,
 
     /// The cameras, of which there are `m`.
@@ -68,6 +94,9 @@ pub struct BundleAdjuster<F: na::RealField + Float> {
     /// Camera params that are not being optimized but that are fixed.
     fixed_params: Vec<F>,
 
+    /// Whether to optimize the 3D world points or keep them fixed.
+    optimize_points: bool,
+
     /// Names of the cameras,
     cam_names: Vec<String>,
 
@@ -89,7 +118,7 @@ struct BundleAdjusterRerun {
 
 /// What parameters are optimized during bundle adjustment.
 #[derive(Clone, Debug, PartialEq, Copy, clap::ValueEnum, Default)]
-pub enum ModelType {
+pub enum CameraModelType {
     /// Tunes the 3D world points, the camera extrinsic parameters, and the
     /// camera intrinsic parameters including all 5 distortion terms (3 radial
     /// distortions, 2 tangential distortions) in the OpenCV Brown-Conrady
@@ -107,46 +136,46 @@ pub enum ModelType {
     /// model has a single focal length (not fx and fy).
     Linear,
     /// Tunes the 3D world points and the camera extrinsic parameters.  The
-    /// intrinsic model has a separate focal length for x and y directions.
+    /// intrinsic model can have a separate focal length for x and y directions.
     #[default]
     ExtrinsicsOnly,
 }
 
-struct ModelTypeInfo {
+struct CameraModelTypeInfo {
     num_distortion_params: usize,
     num_intrinsic_params: usize,
     num_extrinsic_params: usize,
     num_fixed_params: usize,
 }
 
-impl ModelTypeInfo {
+impl CameraModelTypeInfo {
     fn num_cam_params(&self) -> usize {
         self.num_intrinsic_params + self.num_extrinsic_params
     }
 }
 
-impl ModelType {
-    fn info(&self) -> ModelTypeInfo {
+impl CameraModelType {
+    fn info(&self) -> CameraModelTypeInfo {
         match self {
-            ModelType::OpenCV5 => ModelTypeInfo {
+            CameraModelType::OpenCV5 => CameraModelTypeInfo {
                 num_distortion_params: 5,
                 num_intrinsic_params: 3 + 5,
                 num_extrinsic_params: 6,
                 num_fixed_params: 0,
             },
-            ModelType::OpenCV4 => ModelTypeInfo {
+            CameraModelType::OpenCV4 => CameraModelTypeInfo {
                 num_distortion_params: 4,
                 num_intrinsic_params: 3 + 4,
                 num_extrinsic_params: 6,
                 num_fixed_params: 0,
             },
-            ModelType::Linear => ModelTypeInfo {
+            CameraModelType::Linear => CameraModelTypeInfo {
                 num_distortion_params: 0,
                 num_intrinsic_params: 3,
                 num_extrinsic_params: 6,
                 num_fixed_params: 0,
             },
-            ModelType::ExtrinsicsOnly => ModelTypeInfo {
+            CameraModelType::ExtrinsicsOnly => CameraModelTypeInfo {
                 num_distortion_params: 0,
                 num_intrinsic_params: 0,
                 num_extrinsic_params: 6,
@@ -173,7 +202,8 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
         cams0: Vec<cam_geom::Camera<F, RosOpenCvIntrinsics<F>>>,
         points0: na::Matrix3xX<F>,
         labels3d: Vec<String>,
-        model_type: ModelType,
+        model_type: CameraModelType,
+        optimize_points: bool,
         #[cfg(feature = "with-rerun")] rec: Option<re_sdk::RecordingStream>,
         #[cfg(feature = "with-rerun")] force_rerun_distorted: bool,
     ) -> Result<Self> {
@@ -244,7 +274,7 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
             let mut params_cache = Vec::new();
             for (cami, cam) in cams0.iter().enumerate() {
                 let i = cam.intrinsics();
-                if model_type != ModelType::ExtrinsicsOnly && i.fx() != i.fy() {
+                if model_type != CameraModelType::ExtrinsicsOnly && i.fx() != i.fy() {
                     tracing::warn!(
                         "Camera {} has fx != fy ({} != {}), but model requires fx == fy. Using fx for both.",
                         cam_names[cami],
@@ -259,12 +289,19 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
                 debug_assert_eq!(fp.len(), model_type.info().num_fixed_params);
                 fixed_params.extend(fp);
             }
-            params_cache.extend(points0.as_slice());
+            if optimize_points {
+                params_cache.extend(points0.as_slice());
+            };
             let params_cache: na::DVector<F> = params_cache.into();
-            debug_assert_eq!(
-                params_cache.nrows(),
-                cams0.len() * num_cam_params + points0.ncols() * 3
-            );
+
+            if optimize_points {
+                debug_assert_eq!(
+                    params_cache.nrows(),
+                    cams0.len() * num_cam_params + points0.ncols() * 3
+                );
+            } else {
+                debug_assert_eq!(params_cache.nrows(), cams0.len() * num_cam_params);
+            }
             params_cache
         };
 
@@ -283,6 +320,7 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
             labels3d,
             params_cache: params_cache.clone(),
             fixed_params,
+            optimize_points,
             #[cfg(feature = "with-rerun")]
             rerun: BundleAdjusterRerun {
                 cam_dims,
@@ -308,18 +346,26 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
     pub fn labels3d(&self) -> &[String] {
         &self.labels3d[..]
     }
+
+    fn num_points_columns(&self) -> usize {
+        if self.optimize_points {
+            self.num_pts * 3
+        } else {
+            0
+        }
+    }
 }
 
 /// Create a (partial) vector of fixed parameters from a camera.
 fn to_fixed_params<F: na::RealField + Float>(
     cam: &cam_geom::Camera<F, RosOpenCvIntrinsics<F>>,
-    model_type: ModelType,
+    model_type: CameraModelType,
 ) -> Vec<F> {
     let i = cam.intrinsics();
     match model_type {
-        ModelType::OpenCV5 | ModelType::OpenCV4 => Vec::with_capacity(0),
-        ModelType::Linear => Vec::with_capacity(0),
-        ModelType::ExtrinsicsOnly => {
+        CameraModelType::OpenCV5 | CameraModelType::OpenCV4 => Vec::with_capacity(0),
+        CameraModelType::Linear => Vec::with_capacity(0),
+        CameraModelType::ExtrinsicsOnly => {
             let mut p = vec![i.fx(), i.fy(), i.cx(), i.cy()];
             p.extend(i.distortion.opencv_vec().as_slice());
             p
@@ -330,7 +376,7 @@ fn to_fixed_params<F: na::RealField + Float>(
 /// Create a (partial) parameter vector from a camera.
 fn to_params<F: na::RealField + Float>(
     cam: &cam_geom::Camera<F, RosOpenCvIntrinsics<F>>,
-    model_type: ModelType,
+    model_type: CameraModelType,
 ) -> Vec<F> {
     let i = cam.intrinsics();
     debug_assert!(i.is_opencv_compatible);
@@ -340,27 +386,27 @@ fn to_params<F: na::RealField + Float>(
     let cc = e.camcenter();
 
     match model_type {
-        ModelType::OpenCV5 => {
+        CameraModelType::OpenCV5 => {
             let mut p = vec![i.fx(), i.cx(), i.cy()];
             p.extend(i.distortion.opencv_vec().as_slice());
             p.extend(&[abc.x, abc.y, abc.z]);
             p.extend(&[cc.x, cc.y, cc.z]);
             p
         }
-        ModelType::OpenCV4 => {
+        CameraModelType::OpenCV4 => {
             let mut p = vec![i.fx(), i.cx(), i.cy()];
             p.extend(&i.distortion.opencv_vec().as_slice()[..4]);
             p.extend(&[abc.x, abc.y, abc.z]);
             p.extend(&[cc.x, cc.y, cc.z]);
             p
         }
-        ModelType::Linear => {
+        CameraModelType::Linear => {
             let mut p = vec![i.fx(), i.cx(), i.cy()];
             p.extend(&[abc.x, abc.y, abc.z]);
             p.extend(&[cc.x, cc.y, cc.z]);
             p
         }
-        ModelType::ExtrinsicsOnly => {
+        CameraModelType::ExtrinsicsOnly => {
             let mut p = vec![];
             p.extend(&[abc.x, abc.y, abc.z]);
             p.extend(&[cc.x, cc.y, cc.z]);
@@ -372,7 +418,7 @@ fn to_params<F: na::RealField + Float>(
 /// Convert a (partial) parameter vector to a camera.
 fn to_cam<F: na::RealField + Float>(
     params: &[F],
-    model_type: ModelType,
+    model_type: CameraModelType,
     fixed_params: &[F],
 ) -> cam_geom::Camera<F, RosOpenCvIntrinsics<F>> {
     debug_assert_eq!(params.len(), model_type.info().num_cam_params());
@@ -380,7 +426,7 @@ fn to_cam<F: na::RealField + Float>(
     let skew = na::convert(0.0);
     let mut distortion: [F; 5] = [na::convert(0.0); 5];
     let (fx, fy, cx, cy) = match &model_type {
-        ModelType::OpenCV5 | ModelType::OpenCV4 => {
+        CameraModelType::OpenCV5 | CameraModelType::OpenCV4 => {
             let fx = params[0];
             let fy = fx;
             let cx = params[1];
@@ -390,14 +436,14 @@ fn to_cam<F: na::RealField + Float>(
             distortion[0..nd].copy_from_slice(&params[3..3 + nd]);
             (fx, fy, cx, cy)
         }
-        ModelType::Linear => {
+        CameraModelType::Linear => {
             let fx = params[0];
             let fy = fx;
             let cx = params[1];
             let cy = params[2];
             (fx, fy, cx, cy)
         }
-        ModelType::ExtrinsicsOnly => {
+        CameraModelType::ExtrinsicsOnly => {
             let fx = fixed_params[0];
             let fy = fixed_params[1];
             let cx = fixed_params[2];
@@ -439,9 +485,9 @@ fn test_cam_param_roundtrip() {
             0.2, 2.2, 3.2, 0.01, 0.001, -0.01, -0.001, 0.0001, 0.0, 0.4, 0.5, 7.2, 8.2, 9.2,
         ],
     ] {
-        let cam = to_cam::<f64>(&params, ModelType::OpenCV5, &[]);
-        let p2 = to_params::<f64>(&cam, ModelType::OpenCV5);
-        assert_eq!(p2.len(), ModelType::OpenCV5.info().num_cam_params());
+        let cam = to_cam::<f64>(&params, CameraModelType::OpenCV5, &[]);
+        let p2 = to_params::<f64>(&cam, CameraModelType::OpenCV5);
+        assert_eq!(p2.len(), CameraModelType::OpenCV5.info().num_cam_params());
 
         let orig = na::DVector::from_column_slice(&params);
         let extracted = na::DVector::from_column_slice(&p2);
@@ -454,13 +500,16 @@ fn test_fxcy_extrinsics_only() {
     for full_params in [[
         1.0, 1.1, 2.0, 3.0, 0.01, 0.001, -0.01, -0.001, 0.0, 0.0, 1.0, 0.0, 7.0, 8.0, 9.0,
     ]] {
-        let model_type = ModelType::ExtrinsicsOnly;
+        let model_type = CameraModelType::ExtrinsicsOnly;
         let fixed_params = &full_params[..model_type.info().num_fixed_params];
         let params = &full_params[model_type.info().num_fixed_params..];
         // Part 1: roundtrip
-        let cam = to_cam::<f64>(&params, ModelType::ExtrinsicsOnly, fixed_params);
-        let p2 = to_params::<f64>(&cam, ModelType::ExtrinsicsOnly);
-        assert_eq!(p2.len(), ModelType::ExtrinsicsOnly.info().num_cam_params());
+        let cam = to_cam::<f64>(&params, CameraModelType::ExtrinsicsOnly, fixed_params);
+        let p2 = to_params::<f64>(&cam, CameraModelType::ExtrinsicsOnly);
+        assert_eq!(
+            p2.len(),
+            CameraModelType::ExtrinsicsOnly.info().num_cam_params()
+        );
 
         let orig = na::DVector::from_column_slice(&params);
         let extracted = na::DVector::from_column_slice(&p2);
@@ -539,12 +588,12 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
         self.params_cache = x.clone();
         debug_assert_eq!(
             x.nrows(),
-            usize(self.num_cams) * num_cam_params + self.num_pts * 3
+            usize(self.num_cams) * num_cam_params + self.num_points_columns()
         );
         let params = x.as_slice();
         debug_assert_eq!(x.nrows(), params.len());
         let (cam_params, point_params) = params.split_at(usize(self.num_cams) * num_cam_params);
-        debug_assert_eq!(point_params.len(), self.num_pts * 3);
+        debug_assert_eq!(point_params.len(), self.num_points_columns());
 
         let mut cams = Vec::with_capacity(self.cams.len());
         for (i, params) in cam_params.chunks_exact(num_cam_params).enumerate() {
@@ -559,7 +608,11 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
             cams.push(cam);
         }
 
-        let points = na::Matrix3xX::from_column_slice(point_params);
+        let points = if self.optimize_points {
+            na::Matrix3xX::from_column_slice(point_params)
+        } else {
+            self.points.clone()
+        };
 
         #[cfg(feature = "with-rerun")]
         if let Some(rec) = &self.rerun.rec {
@@ -740,6 +793,16 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
         Some(residuals)
     }
 
+    /// Compute jacobian matrix with respect to camera parameters and 3D world
+    /// points.
+    ///
+    /// The jacobian has shape (nresid, num_cams * num_cam_params +
+    /// num_points_params) where `num_points_params` is the number of parameters
+    /// for the 3D world points. If `optimize_points` is true,
+    /// `num_points_params` is `num_pts
+    /// * 3`, otherwise it is 0.
+    ///
+    /// In general this jacobian is sparse.
     fn jacobian(&self) -> Option<na::Matrix<F, Dyn, Dyn, Self::JacobianStorage>> {
         let num_cam_params = self.model_type.info().num_cam_params();
         let mut j = na::OMatrix::<F, Dyn, Dyn>::zeros(self.nresid, self.params_cache.len());
@@ -766,7 +829,9 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
                 &mut j,
                 (cam_start, cam_geom),
             );
-            self.eval_pt_jacobians(*cam_idx, *pt_idx, &mut j, (pt_start, pt_geom));
+            if self.optimize_points {
+                self.eval_pt_jacobians(*cam_idx, *pt_idx, &mut j, (pt_start, pt_geom));
+            }
         }
         Some(j)
     }
@@ -924,7 +989,7 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
     }
 }
 
-impl ModelType {
+impl CameraModelType {
     fn eval_cam_jacobians<F: na::RealField + Float>(
         &self,
         ba: &BundleAdjuster<F>,
@@ -964,7 +1029,7 @@ impl ModelType {
         let three: F = na::convert(3.0);
 
         match self {
-            ModelType::OpenCV5 => {
+            CameraModelType::OpenCV5 => {
                 let f = i.fx(); // we checked in the constructor that fx == fy
                 #[cfg_attr(any(), rustfmt::skip)]
                 {
@@ -1250,7 +1315,7 @@ impl ModelType {
                 }
             }
 
-            ModelType::OpenCV4 => {
+            CameraModelType::OpenCV4 => {
                 let f = i.fx(); // we checked in the constructor that fx == fy
                 #[cfg_attr(any(), rustfmt::skip)]
                 {
@@ -1517,7 +1582,7 @@ impl ModelType {
                 }
             }
 
-            ModelType::Linear => {
+            CameraModelType::Linear => {
                 let f = i.fx(); // we checked in the constructor that fx == fy
                 #[cfg_attr(any(), rustfmt::skip)]
                 {
@@ -1649,7 +1714,7 @@ impl ModelType {
                     j[(1,8)] = -x103*x63 - x106*x30;
                 }
             }
-            ModelType::ExtrinsicsOnly => {
+            CameraModelType::ExtrinsicsOnly => {
                 let fx = i.fx();
                 let fy = i.fy();
                 #[cfg_attr(any(), rustfmt::skip)]
@@ -1925,15 +1990,15 @@ mod test {
         ];
         let cams: Vec<_> = cam_params
             .iter()
-            .map(|p| to_cam(p, ModelType::OpenCV5, &[]))
+            .map(|p| to_cam(p, CameraModelType::OpenCV5, &[]))
             .collect();
-        let cam_names = cams
+        let cam_names: Vec<_> = cams
             .iter()
             .enumerate()
             .map(|(i, _cam)| format!("Cam {i}"))
             .collect();
         #[cfg(feature = "with-rerun")]
-        let cam_dims = cams.iter().map(|_cam| (640, 480)).collect();
+        let cam_dims: Vec<_> = cams.iter().map(|_cam| (640, 480)).collect();
 
         let mut observed_raw = vec![];
         let mut cam_idx = vec![];
@@ -1954,38 +2019,63 @@ mod test {
         let observed = na::Matrix2xX::from_column_slice(&observed_raw);
         let noisy = &observed + standard_normal(observed.nrows(), observed.ncols());
 
-        let ba = BundleAdjuster::<f64>::new(
-            noisy,
-            cam_idx,
-            pt_idx,
-            cam_names,
-            #[cfg(feature = "with-rerun")]
-            cam_dims,
-            cams,
-            points,
-            labels3d,
-            ModelType::OpenCV5,
-            #[cfg(feature = "with-rerun")]
-            None,
-            #[cfg(feature = "with-rerun")]
-            false,
-        )
-        .unwrap();
+        // let mut jacobian_results = vec![];
+        let mut all_jacobians_approx_equal = true;
 
-        // Test that numerical differentiation matches result from jacobian.
-        {
-            let mut ba = ba.clone();
-            use levenberg_marquardt::LeastSquaresProblem;
+        for optimize_points in [true, false] {
+            for model_type in clap::ValueEnum::value_variants() {
+                println!("Testing model type: {model_type:?}");
+                let ba = BundleAdjuster::<f64>::new(
+                    noisy.clone(),
+                    cam_idx.clone(),
+                    pt_idx.clone(),
+                    cam_names.clone(),
+                    #[cfg(feature = "with-rerun")]
+                    cam_dims.clone(),
+                    cams.clone(),
+                    points.clone(),
+                    labels3d.clone(),
+                    *model_type,
+                    optimize_points,
+                    #[cfg(feature = "with-rerun")]
+                    None,
+                    #[cfg(feature = "with-rerun")]
+                    false,
+                )
+                .unwrap();
 
-            let jacobian_numerical =
-                levenberg_marquardt::differentiate_numerically(&mut ba).unwrap();
-            let jacobian_trait = ba.jacobian().unwrap();
-            approx::assert_relative_eq!(jacobian_numerical, jacobian_trait, epsilon = 1e-7);
+                // Test that numerical differentiation matches result from jacobian.
+                {
+                    let mut ba = ba.clone();
+                    use levenberg_marquardt::LeastSquaresProblem;
+
+                    let jacobian_numerical =
+                        levenberg_marquardt::differentiate_numerically(&mut ba).unwrap();
+                    let jacobian_trait = ba.jacobian().unwrap();
+                    // TODO: re-enable this
+                    // approx::assert_relative_eq!(jacobian_numerical, jacobian_trait, epsilon = 1e-7);
+                    let approx_equal =
+                        approx::relative_eq!(jacobian_numerical, jacobian_trait, epsilon = 1e-7);
+                    // jacobian_results.push((model_type, approx_equal, jacobian_numerical, jacobian_trait));
+                    if !approx_equal {
+                        println!(
+                            "Jacobian mismatch for model type: {model_type:?}, optimize_points: {optimize_points}"
+                        );
+                        println!("Numerical Jacobian:\n{:?}", jacobian_numerical);
+                        println!("Trait Jacobian:\n{:?}", jacobian_trait);
+                        all_jacobians_approx_equal = false;
+                    }
+                }
+
+                let (_result, report) = levenberg_marquardt::LevenbergMarquardt::new().minimize(ba);
+                println!("{:?}", report);
+                assert!(report.termination.was_successful());
+                // TODO: check that the result is closer to the original parameters.
+            }
         }
-
-        let (_result, report) = levenberg_marquardt::LevenbergMarquardt::new().minimize(ba);
-        println!("{:?}", report);
-        assert!(report.termination.was_successful());
+        if !all_jacobians_approx_equal {
+            panic!("Jacobian mismatch for at least one model type. See above for details.");
+        }
     }
 
     fn standard_normal<Real: na::RealField>(

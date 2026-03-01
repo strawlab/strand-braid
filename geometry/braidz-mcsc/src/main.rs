@@ -1,4 +1,4 @@
-use bundle_adj::ModelType;
+use bundle_adj::CameraModelType;
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
 use eyre::{self, Context, Result};
@@ -45,7 +45,7 @@ struct Cli {
 
     /// Type of bundle adjustment to perform
     #[arg(long, value_enum, default_value_t)]
-    bundle_adjustment_model: ModelType,
+    bundle_adjustment_model: CameraModelType,
 
     /// Source of camera intrinsics when initializing bundle adjustment
     #[arg(long, value_enum, default_value_t)]
@@ -654,6 +654,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
             println!("# Results of MCSC");
             print_reproj_and_params(&mcsc_system, &points0, &visibility, &observations)?;
 
+            let optimize_points = true;
             let ba = bundle_adj::BundleAdjuster::new(
                 observed,
                 cam_idx,
@@ -665,10 +666,9 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
                 points0,
                 labels3d,
                 model_type,
+                optimize_points,
                 #[cfg(feature = "with-rerun")]
                 rec,
-                #[cfg(feature = "with-rerun")]
-                false,
             )?;
             (visibility, observations, ba, start_ba_system)
         };

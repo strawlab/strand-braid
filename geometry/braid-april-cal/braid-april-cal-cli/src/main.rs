@@ -60,7 +60,11 @@ struct Cli {
 
     /// If performing bundle adjustment, specify the model type.
     #[arg(long, value_enum, default_value_t)]
-    bundle_adjustment_model_type: bundle_adj::ModelType,
+    bundle_adjustment_model_type: bundle_adj::CameraModelType,
+
+    /// If performing bundle adjustment, whether to keep the 3D world points fixed.
+    #[arg(long)]
+    bundle_adjustment_world_points_remain_fixed: bool,
 
     #[cfg(feature = "with-rerun")]
     /// Log data to rerun viewer at this socket address. (The typical address is
@@ -147,6 +151,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         bundle_adjustment_min_cams_per_point,
         do_new_triangulation,
         bundle_adjustment_model_type,
+        bundle_adjustment_world_points_remain_fixed,
         #[cfg(feature = "with-rerun")]
         force_rerun_distorted,
     } = cli;
@@ -616,6 +621,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         let observed = nalgebra::Matrix2xX::<f64>::from_column_slice(&observed);
         assert_eq!(observed.ncols(), cam_idx.len());
         assert_eq!(pt_idx.len(), cam_idx.len());
+        let optimize_points = !bundle_adjustment_world_points_remain_fixed;
 
         bundle_adj::BundleAdjuster::new(
             observed,
@@ -628,6 +634,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             points0.clone(),
             labels3d,
             model_type,
+            optimize_points,
             #[cfg(feature = "with-rerun")]
             rec,
             #[cfg(feature = "with-rerun")]
