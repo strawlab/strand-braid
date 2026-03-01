@@ -683,11 +683,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         // TODO: save these values to a file alongside calibration output.
         show_points(ba.points(), &ids3d, &mut lines);
         show_points_distances(ba.points(), &points0, &ids3d, &mut lines);
-        show_cams_distances(
-            ba_system.system(),
-            &cal_result.cam_system,
-            &mut lines,
-        );
+        show_cams_distances(ba_system.system(), &cal_result.cam_system, &mut lines);
         show_cams(&cam_names, ba_system.system(), &mut lines)?;
         show_reproj_matrix(
             &cam_names,
@@ -765,7 +761,7 @@ fn show_cams_distances(
         let dist = (cc1 - cc0).norm();
         x.insert(cam_name, dist);
     }
-    lines.push(" 3d distance between original and updated camera locations:".to_string());
+    lines.push(" 3d distance between original and updated camera center locations:".to_string());
     lines.push("                       name     dist".to_string());
     for (id, dist) in x.iter() {
         lines.push(format!("  {id:>25}: {:7.4}", dist));
@@ -787,7 +783,7 @@ fn show_cams(
     lines: &mut LineBuf,
 ) -> eyre::Result<()> {
     lines.push(
-        " Camera parameters:          t_x      t_y      t_z      r_x      r_y      r_z".to_string(),
+        " Camera parameters:          t_x      t_y      t_z      r_x      r_y      r_z      fx      fy      cx      cy       k1       k2       p1       p2       k3".to_string(),
     );
     for cam_name in cam_names.iter() {
         let cam = system.cam_by_name(cam_name).unwrap();
@@ -795,8 +791,16 @@ fn show_cams(
         let (x, y, z) = (cc.x, cc.y, cc.z);
         let rot = cam.extrinsics().pose().rotation.scaled_axis();
         let (rx, ry, rz) = (rot.x, rot.y, rot.z);
+        let i = cam.intrinsics();
+        let d = &i.distortion;
+        let k1 = d.radial1();
+        let k2 = d.radial2();
+        let p1 = d.tangential1();
+        let p2 = d.tangential2();
+        let k3 = d.radial3();
+        let (fx, fy, cx, cy) = (i.fx(), i.fy(), i.cx(), i.cy());
         lines.push(format!(
-            " {cam_name:>20}:  {x:8.3} {y:8.3} {z:8.3} {rx:8.3} {ry:8.3} {rz:8.3}"
+            " {cam_name:>20}:  {x:8.3} {y:8.3} {z:8.3} {rx:8.3} {ry:8.3} {rz:8.3} {fx:7.1} {fy:7.1} {cx:7.1} {cy:7.1}  {k1:7.4}  {k2:7.4}  {p1:7.4}  {p2:7.4}  {k3:7.4}"
         ));
     }
     Ok(())
