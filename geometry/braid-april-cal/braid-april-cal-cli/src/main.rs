@@ -632,7 +632,8 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             rec,
             #[cfg(feature = "with-rerun")]
             force_rerun_distorted,
-        ).context("creating bundle adjuster")?
+        )
+        .context("creating bundle adjuster")?
     };
 
     let multi_cam_system = if !bundle_adjustment {
@@ -682,6 +683,11 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         // TODO: save these values to a file alongside calibration output.
         show_points(ba.points(), &ids3d, &mut lines);
         show_points_distances(ba.points(), &points0, &ids3d, &mut lines);
+        show_cams_distances(
+            ba_system.system(),
+            &cal_result.cam_system,
+            &mut lines,
+        );
         show_cams(&cam_names, ba_system.system(), &mut lines)?;
         show_reproj_matrix(
             &cam_names,
@@ -741,6 +747,28 @@ fn show_points_distances(
     lines.push("     id     dist".to_string());
     for (id, dist) in x.iter() {
         lines.push(format!("  {id:>5}: {:7.4}", dist));
+    }
+}
+
+fn show_cams_distances(
+    cams1: &braid_mvg::MultiCameraSystem<f64>,
+    cams0: &braid_mvg::MultiCameraSystem<f64>,
+    lines: &mut LineBuf,
+) {
+    assert_eq!(cams1.cams_by_name().len(), cams0.cams_by_name().len());
+    let mut x = BTreeMap::new();
+    for cam_name in cams1.cams_by_name().keys() {
+        let cam1 = cams1.cam_by_name(cam_name).unwrap();
+        let cam0 = cams0.cam_by_name(cam_name).unwrap();
+        let cc1 = cam1.extrinsics().camcenter();
+        let cc0 = cam0.extrinsics().camcenter();
+        let dist = (cc1 - cc0).norm();
+        x.insert(cam_name, dist);
+    }
+    lines.push(" 3d distance between original and updated camera locations:".to_string());
+    lines.push("                       name     dist".to_string());
+    for (id, dist) in x.iter() {
+        lines.push(format!("  {id:>25}: {:7.4}", dist));
     }
 }
 
@@ -908,8 +936,7 @@ mod test {
         )
         .unwrap();
 
-        let data_root_dir_name =
-            Utf8PathBuf::from("scratch/braid-april-cal-test-data-root");
+        let data_root_dir_name = Utf8PathBuf::from("scratch/braid-april-cal-test-data-root");
 
         let rdr = std::fs::File::open(&local_fname)?;
         let cal_data_archive = ZipArchive::new(rdr)?;
