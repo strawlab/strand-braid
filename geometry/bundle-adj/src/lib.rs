@@ -242,13 +242,15 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
         let mut fixed_params = Vec::new();
         let params_cache = {
             let mut params_cache = Vec::new();
-            for cam in cams0.iter() {
-                if model_type != ModelType::ExtrinsicsOnly
-                    && cam.intrinsics().fx() != cam.intrinsics().fy()
-                {
-                    // This is not a fundamental limitation, but support would
-                    // need to be implemented.
-                    return Err(Error::InconsistentData("fx must equal fy"));
+            for (cami, cam) in cams0.iter().enumerate() {
+                let i = cam.intrinsics();
+                if model_type != ModelType::ExtrinsicsOnly && i.fx() != i.fy() {
+                    tracing::warn!(
+                        "Camera {} has fx != fy ({} != {}), but model requires fx == fy. Using fx for both.",
+                        cam_names[cami],
+                        i.fx(),
+                        i.fy()
+                    );
                 }
                 let p = to_params(cam, model_type);
                 debug_assert_eq!(p.len(), model_type.info().num_cam_params());
@@ -600,7 +602,9 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
                 if allow_rerun_undistorted && !i.distortion.is_linear() {
                     // Drop distortions to log to rerun. See https://github.com/rerun-io/rerun/issues/2499
                     if !self.rerun.did_show_rerun_warning {
-                        tracing::warn!("Not showing distortions in rerun. See https://github.com/rerun-io/rerun/issues/2499");
+                        tracing::warn!(
+                            "Not showing distortions in rerun. See https://github.com/rerun-io/rerun/issues/2499"
+                        );
                         self.rerun.did_show_rerun_warning = true;
                     }
                 }
