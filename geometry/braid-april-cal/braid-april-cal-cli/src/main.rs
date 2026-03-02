@@ -3,7 +3,7 @@ use camino::Utf8PathBuf;
 use clap::Parser;
 use eyre::Context;
 use nalgebra::Point2;
-use opencv_ros_camera::{NamedIntrinsicParameters, RosCameraInfo, RosOpenCvIntrinsics};
+use opencv_ros_camera::{NamedIntrinsicParameters, RosCameraInfo};
 use std::{
     collections::{BTreeMap, BTreeSet},
     io::Write,
@@ -82,13 +82,6 @@ struct Cli {
     /// Log data to rerun viewer to this RRD file.
     #[arg(long)]
     rerun_save: Option<Utf8PathBuf>,
-
-    #[cfg(feature = "with-rerun")]
-    /// Force rerun to show original, distorted camera coordinates. Because
-    /// Rerun does not currently support distorted camera models this option
-    /// disables use of several rerun features.
-    #[arg(long)]
-    force_rerun_distorted: bool,
 }
 
 fn main() -> eyre::Result<()> {
@@ -152,8 +145,6 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         do_new_triangulation,
         bundle_adjustment_model_type,
         bundle_adjustment_world_points_remain_fixed,
-        #[cfg(feature = "with-rerun")]
-        force_rerun_distorted,
     } = cli;
 
     let fiducial_3d_coords_buf = std::fs::read(apriltags_3d_fiducial_coords.as_std_path())
@@ -360,26 +351,6 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         observed_per_cam
     };
 
-    #[cfg(feature = "with-rerun")]
-    let allow_rerun_undistortion = !force_rerun_distorted && RERUN_2499_OPEN;
-
-    // If we are using Rerun and rerun does not support distortion, we eliminate
-    // all distortion prior to sending to bundle-adjust. This is because
-    // bundle-adjust sends data to rerun.
-    #[cfg(feature = "with-rerun")]
-    let undistort_prior_to_bundle_adj = allow_rerun_undistortion && rerun.is_some();
-    #[cfg(not(feature = "with-rerun"))]
-    let undistort_prior_to_bundle_adj = false;
-
-    #[cfg(feature = "with-rerun")]
-    if undistort_prior_to_bundle_adj {
-        tracing::warn!(
-            "Rerun does not currently support lens distortion. All images and \
-    image coordinates will therefore be undistorted prior to sending to \
-    rerun. See https://github.com/rerun-io/rerun/issues/2499."
-        );
-    }
-
     // Gather data for new triangulation
     let mut for_triangulation = BTreeMap::<u32, Vec<_>>::new();
     for (cam_name, observed_per_id) in observed_per_cam.iter() {
@@ -393,26 +364,12 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
 
     // Gather data for bundle adjustment
     for (icam_idx, cam_name) in cam_names.iter().enumerate() {
-        let intrinsics = known_good_intrinsics.as_ref().and_then(|x| x.get(cam_name));
         for (id, (u, v)) in observed_per_cam.get(cam_name).unwrap().iter() {
             if let Some(cams) = cams_per_id.get(id) {
                 // Only save selected data for bundle adjustment.
                 if cams.len() >= bundle_adjustment_min_cams_per_point {
-                    if undistort_prior_to_bundle_adj {
-                        if let Some(intrin) = &intrinsics {
-                            let dist = cam_geom::Pixels {
-                                data: nalgebra::RowVector2::<f64>::new(*u, *v),
-                            };
-                            let undist = intrin.intrinsics.undistort(&dist).data;
-                            observed.push(undist[(0, 0)]);
-                            observed.push(undist[(0, 1)]);
-                        } else {
-                            eyre::bail!("cannot undistort pixels without intrinsics");
-                        }
-                    } else {
-                        observed.push(*u);
-                        observed.push(*v);
-                    }
+                    observed.push(*u);
+                    observed.push(*v);
 
                     cam_idx.push(icam_idx.try_into().unwrap());
                     pt_idx.push(tag_id_to_pt_idx[id]);
@@ -441,7 +398,19 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
 
     #[cfg(feature = "with-rerun")]
     let rec = if rerun_url.is_some() || rerun_save.is_some() {
-        use strand_dynamic_frame::DynamicFrameOwned;
+
+        // If we are using Rerun and rerun does not support distortion, we eliminate
+        // all distortion prior to sending to bundle-adjust. This is because
+        // bundle-adjust sends data to rerun.
+
+        if RERUN_2499_OPEN {
+            tracing::warn!(
+                "Rerun does not currently support lens distortion. All images and \
+        image coordinates will nevertheless be sent to rerun as-is. Therefore, \
+        Rerun will not automatically convert between 3D world and 2D image coordinates \
+        See https://github.com/rerun-io/rerun/issues/2499."
+            );
+        }
 
         let re_version = re_sdk::build_info().version;
         // TODO: allow saving to file.
@@ -461,31 +430,8 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         for (icam_idx, cam_fname) in image_fnames.iter() {
             let cam_name = cam_names[usize::from(*icam_idx)].as_str();
             let ent_path = format!("{RR_CAM_BASE_PATH}/{cam_name}/raw");
-            if allow_rerun_undistortion {
-                let intrinsics = known_good_intrinsics.as_ref().and_then(|x| x.get(cam_name));
-                if let Some(intrinsics) = intrinsics {
-                    let undist_cache = undistort_image::UndistortionCache::new(
-                        &intrinsics.intrinsics,
-                        intrinsics.width,
-                        intrinsics.height,
-                    )?;
-
-                    let image = image::open(cam_fname)?;
-                    let rgb8 = convert_image::image_to_rgb8(image).unwrap();
-                    let decoded = DynamicFrameOwned::from_static(rgb8);
-                    let undistorted =
-                        undistort_image::undistort_image(decoded.borrow(), &undist_cache)?;
-                    let opts = convert_image::EncoderOptions::Png;
-                    let png_buf = undistorted.borrow().to_encoded_buffer(opts)?;
-                    let im = re_sdk_types::archetypes::EncodedImage::from_file_contents(png_buf);
-                    rec.log_static(ent_path, &im)?;
-                } else {
-                    eyre::bail!("cannot undistort image because no intrinsics specified");
-                }
-            } else {
-                let im = to_rr_image(cam_fname)?;
-                rec.log_static(ent_path, &im)?;
-            }
+            let im = to_rr_image(cam_fname)?;
+            rec.log_static(ent_path, &im)?;
         }
 
         // Log 2D observed points to rerun
@@ -493,21 +439,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             let mut xy: Vec<(f32, f32)> = vec![];
             let mut labels = vec![];
             for (id, uv) in observed_per_id_this_cam.iter() {
-                if allow_rerun_undistortion {
-                    let intrinsics = known_good_intrinsics.as_ref().and_then(|x| x.get(cam_name));
-                    if let Some(i) = intrinsics {
-                        let distorted =
-                            cam_geom::Pixels::new(nalgebra::Vector2::new(uv.0, uv.1).transpose());
-                        let uvp = i.intrinsics.undistort(&distorted).data;
-                        xy.push((uvp[(0, 0)] as f32, uvp[(0, 1)] as f32));
-                    } else {
-                        eyre::bail!(
-                            "cannot undistort image points because no intrinsics specified"
-                        );
-                    }
-                } else {
-                    xy.push((uv.0 as f32, uv.1 as f32));
-                }
+                xy.push((uv.0 as f32, uv.1 as f32));
                 labels.push(format!("{id}"));
             }
             let path_base = format!("{RR_CAM_BASE_PATH}/{cam_name}/raw");
@@ -607,15 +539,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         let mut cams0 = Vec::new();
         for name in cam_names.iter() {
             let cam = cal_result.cam_system.cam_by_name(name).unwrap();
-
-            let cam = if undistort_prior_to_bundle_adj {
-                let inner = cam.linearize_to_cam_geom();
-                let intrinsics: RosOpenCvIntrinsics<f64> = inner.intrinsics().clone().into();
-                cam_geom::Camera::new(intrinsics, inner.extrinsics().clone())
-            } else {
-                cam.as_ref().clone()
-            };
-            cams0.push(cam);
+            cams0.push(cam.as_ref().clone());
         }
         // Reshape observations to 2xN matrix.
         let observed = nalgebra::Matrix2xX::<f64>::from_column_slice(&observed);
@@ -637,8 +561,6 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             optimize_points,
             #[cfg(feature = "with-rerun")]
             rec,
-            #[cfg(feature = "with-rerun")]
-            force_rerun_distorted,
         )
         .context("creating bundle adjuster")?
     };
@@ -649,7 +571,8 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         let cam_names_string = cam_names
             .iter()
             .enumerate()
-            .map(|(i, name)| format!("cam{i}: \"{name}\"")).collect::<Vec<_>>()
+            .map(|(i, name)| format!("cam{i}: \"{name}\""))
+            .collect::<Vec<_>>()
             .join(", ");
         tracing::debug!("cameras: {cam_names_string}");
 
@@ -692,11 +615,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         for (name, ba_cam) in cam_names.iter().zip(ba.cams().iter()) {
             let old_cam = cal_result.cam_system.cam_by_name(name).unwrap();
             let e = ba_cam.extrinsics().clone();
-            let mut i = ba_cam.intrinsics().clone();
-            if undistort_prior_to_bundle_adj {
-                // use original distortion
-                i.distortion = old_cam.intrinsics().distortion.clone();
-            }
+            let i = ba_cam.intrinsics().clone();
             let cam = braid_mvg::Camera::new(old_cam.width(), old_cam.height(), e, i)?;
             cams_by_name.insert(name.clone(), cam);
         }

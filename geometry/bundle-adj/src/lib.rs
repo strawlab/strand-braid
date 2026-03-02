@@ -114,7 +114,7 @@ pub struct BundleAdjuster<F: na::RealField + Float> {
     /// Names of the cameras,
     ///
     /// This has the same length as the number of cameras in [Self::cams].
-    cam_names: Vec<String>,
+    pub cam_names: Vec<String>,
 
     /// A cache of the parameters used to build `cams` and `points`.
     ///
@@ -136,6 +136,8 @@ pub struct BundleAdjuster<F: na::RealField + Float> {
 
     /// Names of the rows of the Jacobian matrix, for debugging.
     residuals_names: Vec<String>,
+
+    optimizer_step: i64,
 
     #[cfg(feature = "with-rerun")]
     rerun: ba_rerun::BundleAdjusterRerun,
@@ -161,7 +163,6 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
         model_type: CameraModelType,
         optimize_points: bool,
         #[cfg(feature = "with-rerun")] rec: Option<re_sdk::RecordingStream>,
-        #[cfg(feature = "with-rerun")] force_rerun_distorted: bool,
     ) -> Result<Self> {
         // println!("observed:\n{}", observed.transpose());
         // dbg!(&cam_idx);
@@ -308,13 +309,12 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
             params_names,
             params_block_names,
             residuals_names,
+            optimizer_step: -1, // will be incremented to 0 on first call to set_params
             #[cfg(feature = "with-rerun")]
             rerun: ba_rerun::BundleAdjusterRerun {
                 cam_dims,
                 rec,
                 did_show_rerun_warning: false,
-                rr_tick: 0,
-                force_rerun_distorted,
             },
         };
         // call once to log initial data to rerun
@@ -366,13 +366,13 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
     type JacobianStorage = Owned<F, Dyn, Dyn>;
 
     fn set_params(&mut self, x: &na::DVector<F>) {
+        self.optimizer_step += 1;
+
         #[cfg(feature = "with-rerun")]
-        let allow_rerun_undistorted = {
+        {
             if let Some(rec) = &self.rerun.rec {
-                rec.set_time_sequence("optimizer step", self.rerun.rr_tick);
+                rec.set_time_sequence("optimizer step", self.optimizer_step);
             }
-            self.rerun.rr_tick += 1;
-            !self.rerun.force_rerun_distorted
         };
 
         let num_cam_params = self.model_type.info().num_cam_params();
@@ -447,39 +447,33 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
                 let (w, h) = cam_dims;
 
                 let i = cam.intrinsics();
-                if allow_rerun_undistorted && !i.distortion.is_linear() {
-                    // Drop distortions to log to rerun. See https://github.com/rerun-io/rerun/issues/2499
+                if i.skew().to_f64().unwrap().abs() > 1e-15 {
+                    tracing::warn!("Camera has skew, but rerun cameras do not support skew");
+                }
+                if !i.distortion.is_linear() {
                     if !self.rerun.did_show_rerun_warning {
                         tracing::warn!(
-                            "Not showing distortions in rerun. See https://github.com/rerun-io/rerun/issues/2499"
+                            "Showing distorted 2D data in rerun but rerun cannot transform 3D data to distorted 2D coordinates. See https://github.com/rerun-io/rerun/issues/2499"
                         );
                         self.rerun.did_show_rerun_warning = true;
                     }
                 }
-                if i.skew().to_f64().unwrap().abs() > 1e-15 {
-                    tracing::warn!("Camera has skew, but rerun cameras do not support skew");
-                }
-                let params = cam_geom::PerspectiveParams {
-                    fx: i.fx(),
-                    fy: i.fy(),
-                    skew: na::convert(0.0),
-                    cx: i.cx(),
-                    cy: i.cy(),
-                };
-
-                let intrinsics_linear: cam_geom::IntrinsicParametersPerspective<_> = params.into();
-                if allow_rerun_undistorted {
-                    // TODO: confirm that `intrinsics_linear` is equal to
-                    // `cam.intrinsics()`. Probably it won't be while 2499 is open.
-                    let pinhole = braid_mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(
-                        &intrinsics_linear,
-                        *w,
-                        *h,
-                    )
-                    .unwrap();
-                    rec.log(raw_path.as_str(), &pinhole).unwrap();
-                }
-                let cam_linear = cam_geom::Camera::new(intrinsics_linear, extrinsics.clone());
+                let intrinsics_linear: cam_geom::IntrinsicParametersPerspective<_> =
+                    cam_geom::PerspectiveParams {
+                        fx: i.fx(),
+                        fy: i.fy(),
+                        skew: na::convert(0.0),
+                        cx: i.cx(),
+                        cy: i.cy(),
+                    }
+                    .into();
+                let pinhole = braid_mvg::rerun_io::cam_geom_to_rr_pinhole_archetype(
+                    &intrinsics_linear,
+                    *w,
+                    *h,
+                )
+                .unwrap();
+                rec.log(raw_path.as_str(), &pinhole).unwrap();
 
                 // Log reprojections in rerun 2D space.
                 let mut xy: Vec<(f32, f32)> = vec![];
@@ -499,11 +493,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
                     let pt = self.points.column(*pt_idx);
                     let label = &self.labels3d[*pt_idx];
                     let pts = cam_geom::Points::new(pt.transpose());
-                    let predicted = if allow_rerun_undistorted {
-                        cam_linear.world_to_pixel(&pts).data.transpose()
-                    } else {
-                        cam.world_to_pixel(&pts).data.transpose()
-                    };
+                    let predicted = cam.world_to_pixel(&pts).data.transpose();
                     xy.push((
                         predicted[(0, 0)].to_f32().unwrap(),
                         predicted[(1, 0)].to_f32().unwrap(),
@@ -542,6 +532,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
     }
 
     fn residuals(&self) -> Option<na::DVector<F>> {
+        // println!("Step: {}", self.optimizer_step);
         let mut residuals = Vec::with_capacity(self.nresid);
         for ((obs, cam_idx), pt_idx) in self
             .observed
@@ -555,30 +546,18 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
             let predicted = cam.world_to_pixel(&pts).data.transpose();
             let diff = obs - predicted;
             if false {
-                #[cfg(feature = "with-rerun")]
-                {
-                    dbg!(self.rerun.rr_tick);
-                }
-                dbg!(pt_idx);
-                let cam_name = &self.cam_names[usize(*cam_idx)];
-                dbg!(cam_name);
-                // dbg!(cam);
-                dbg!(cam.intrinsics().fx());
-                dbg!(cam.intrinsics().fy());
-                dbg!(cam.intrinsics().cx());
-                dbg!(cam.intrinsics().cy());
-                dbg!(&cam.intrinsics().distortion.is_linear());
-                dbg!(&self.labels3d[*pt_idx]);
-                dbg!((pt.x, pt.y, pt.z));
-                dbg!((predicted.x, predicted.y));
-                dbg!((obs.x, obs.y));
-                dbg!((
+                let tag_id = &self.labels3d[*pt_idx];
+                println!(
+                    "  cam: {cam_idx}, point: {tag_id}, observed: ({:.1},{:.1}), proj: ({:.1},{:.1}), dxdy: ({:.1},{:.1}), dist: {:.1}",
+                    obs.x,
+                    obs.y,
+                    predicted.x,
+                    predicted.y,
                     diff.x,
                     diff.y,
                     Float::sqrt(diff.x * diff.x + diff.y * diff.y)
-                ));
+                );
             }
-            // panic!("done");
             residuals.push(diff.x);
             residuals.push(diff.y);
         }
@@ -862,8 +841,6 @@ mod test {
                     optimize_points,
                     #[cfg(feature = "with-rerun")]
                     None,
-                    #[cfg(feature = "with-rerun")]
-                    false,
                 )
                 .unwrap();
 

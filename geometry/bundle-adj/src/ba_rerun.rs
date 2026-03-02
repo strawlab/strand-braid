@@ -8,8 +8,6 @@ pub(crate) struct BundleAdjusterRerun {
     /// rerun viewer
     pub(crate) rec: Option<re_sdk::RecordingStream>,
     pub(crate) did_show_rerun_warning: bool,
-    pub(crate) rr_tick: i64,
-    pub(crate) force_rerun_distorted: bool,
 }
 
 // makes ExtrinsicParameters<F> into ExtrinsicParameters<f64>
