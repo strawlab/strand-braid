@@ -279,7 +279,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
                     }
 
                     if uvs_per_cam_per_id.insert(icam_idx, uvs_per_id).is_some() {
-                        eyre::bail!("hmm");
+                        eyre::bail!("Camera with index {icam_idx} already exists");
                     }
 
                     cam_name
@@ -350,7 +350,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
                 let v = sumv / uv.len() as f64;
 
                 let cam_name = &cam_names[usize::from(*icam_idx)];
-                tracing::debug!("Camera {cam_name}: id {id}, uv: ({u:.1},{v:.1})");
+                tracing::debug!("cam{icam_idx} \"{cam_name}\": tag id {id}, uv: ({u:.1},{v:.1})");
                 observed_per_cam
                     .entry(cam_name.clone())
                     .or_insert_with(BTreeMap::new)
@@ -646,6 +646,24 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
     let multi_cam_system = if !bundle_adjustment {
         flydra_mvg::FlydraMultiCameraSystem::from_system(cal_result.cam_system.clone(), None)
     } else {
+        let cam_names_string = cam_names
+            .iter()
+            .enumerate()
+            .map(|(i, name)| format!("cam{i}: \"{name}\"")).collect::<Vec<_>>()
+            .join(", ");
+        tracing::debug!("cameras: {cam_names_string}");
+
+        tracing::debug!("bundle adjustment model type: {model_type:?}");
+
+        let params_block_names = ba.params_block_names().join(", ");
+        tracing::debug!("bundle adjustment parameter blocks: {params_block_names}");
+
+        let params_names = ba.params_names().join(", ");
+        tracing::debug!("bundle adjustment full parameters: {params_names}");
+
+        let residuals_name = ba.residuals_names().join(", ");
+        tracing::debug!("bundle adjustment residuals: {residuals_name}");
+
         // Perform bundle adjustment.
         let residuals_pre = levenberg_marquardt::LeastSquaresProblem::residuals(&ba).unwrap();
         tracing::debug!("residuals prior to bundle adjustment: {residuals_pre}");
