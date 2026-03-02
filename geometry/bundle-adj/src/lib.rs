@@ -234,7 +234,8 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
             for (cami, cam) in cams0.iter().enumerate() {
                 let i = cam.intrinsics();
                 let cam_name = &cam_names[cami];
-                if model_type != CameraModelType::ExtrinsicsOnly && i.fx() != i.fy() {
+                // if model_type != CameraModelType::ExtrinsicsOnly && i.fx() != i.fy() {
+                if i.fx() != i.fy() {
                     tracing::warn!(
                         "Camera {cam_name} has fx != fy ({} != {}), but model requires fx == fy. Using fx for both.",
                         i.fx(),

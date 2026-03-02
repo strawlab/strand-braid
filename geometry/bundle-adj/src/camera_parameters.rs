@@ -6,18 +6,18 @@ use super::*;
 
 /// Create a (partial) vector of fixed parameters from a camera.
 pub(crate) fn to_fixed_params<F: na::RealField + Float>(
-    cam: &cam_geom::Camera<F, RosOpenCvIntrinsics<F>>,
+    _cam: &cam_geom::Camera<F, RosOpenCvIntrinsics<F>>,
     model_type: CameraModelType,
 ) -> Vec<F> {
-    let i = cam.intrinsics();
+    // let i = cam.intrinsics();
     match model_type {
         CameraModelType::OpenCV5 | CameraModelType::OpenCV4 => Vec::with_capacity(0),
         CameraModelType::Linear => Vec::with_capacity(0),
-        CameraModelType::ExtrinsicsOnly => {
-            let mut p = vec![i.fx(), i.fy(), i.cx(), i.cy()];
-            p.extend(i.distortion.opencv_vec().as_slice());
-            p
-        }
+        // CameraModelType::ExtrinsicsOnly => {
+        //     let mut p = vec![i.fx(), i.fy(), i.cx(), i.cy()];
+        //     p.extend(i.distortion.opencv_vec().as_slice());
+        //     p
+        // }
     }
 }
 
@@ -54,12 +54,12 @@ pub(crate) fn to_params<F: na::RealField + Float>(
             p.extend(&[cc.x, cc.y, cc.z]);
             p
         }
-        CameraModelType::ExtrinsicsOnly => {
-            let mut p = vec![];
-            p.extend(&[abc.x, abc.y, abc.z]);
-            p.extend(&[cc.x, cc.y, cc.z]);
-            p
-        }
+        // CameraModelType::ExtrinsicsOnly => {
+        //     let mut p = vec![];
+        //     p.extend(&[abc.x, abc.y, abc.z]);
+        //     p.extend(&[cc.x, cc.y, cc.z]);
+        //     p
+        // }
     }
 }
 
@@ -91,15 +91,15 @@ pub(crate) fn to_cam<F: na::RealField + Float>(
             let cy = params[2];
             (fx, fy, cx, cy)
         }
-        CameraModelType::ExtrinsicsOnly => {
-            let fx = fixed_params[0];
-            let fy = fixed_params[1];
-            let cx = fixed_params[2];
-            let cy = fixed_params[3];
-            let d = &fixed_params[4..];
-            distortion.copy_from_slice(d);
-            (fx, fy, cx, cy)
-        }
+        // CameraModelType::ExtrinsicsOnly => {
+        //     let fx = fixed_params[0];
+        //     let fy = fixed_params[1];
+        //     let cx = fixed_params[2];
+        //     let cy = fixed_params[3];
+        //     let d = &fixed_params[4..];
+        //     distortion.copy_from_slice(d);
+        //     (fx, fy, cx, cy)
+        // }
     };
 
     let distortion = opencv_ros_camera::Distortion::from_opencv_vec(
@@ -143,32 +143,32 @@ fn test_cam_param_roundtrip() {
     }
 }
 
-#[test]
-fn test_parameterization_extrinsics_only() {
-    for full_params in [[
-        1.0, 1.1, 2.0, 3.0, 0.01, 0.001, -0.01, -0.001, 0.0, 0.0, 1.0, 0.0, 7.0, 8.0, 9.0,
-    ]] {
-        let model_type = CameraModelType::ExtrinsicsOnly;
-        let fixed_params = &full_params[..model_type.info().num_fixed_params];
-        let params = &full_params[model_type.info().num_fixed_params..];
-        // Part 1: roundtrip
-        let cam = to_cam::<f64>(&params, CameraModelType::ExtrinsicsOnly, fixed_params);
-        let p2 = to_params::<f64>(&cam, CameraModelType::ExtrinsicsOnly);
-        assert_eq!(
-            p2.len(),
-            CameraModelType::ExtrinsicsOnly.info().num_cam_params()
-        );
+// #[test]
+// fn test_parameterization_extrinsics_only() {
+//     for full_params in [[
+//         1.0, 1.1, 2.0, 3.0, 0.01, 0.001, -0.01, -0.001, 0.0, 0.0, 1.0, 0.0, 7.0, 8.0, 9.0,
+//     ]] {
+//         let model_type = CameraModelType::ExtrinsicsOnly;
+//         let fixed_params = &full_params[..model_type.info().num_fixed_params];
+//         let params = &full_params[model_type.info().num_fixed_params..];
+//         // Part 1: roundtrip
+//         let cam = to_cam::<f64>(&params, CameraModelType::ExtrinsicsOnly, fixed_params);
+//         let p2 = to_params::<f64>(&cam, CameraModelType::ExtrinsicsOnly);
+//         assert_eq!(
+//             p2.len(),
+//             CameraModelType::ExtrinsicsOnly.info().num_cam_params()
+//         );
 
-        let orig = na::DVector::from_column_slice(&params);
-        let extracted = na::DVector::from_column_slice(&p2);
-        approx::assert_relative_eq!(orig, extracted, epsilon = 1.0e-6);
+//         let orig = na::DVector::from_column_slice(&params);
+//         let extracted = na::DVector::from_column_slice(&p2);
+//         approx::assert_relative_eq!(orig, extracted, epsilon = 1.0e-6);
 
-        // Part 2: compare spot check values with expected.
-        // px: 1.0, py: 2.0, pz: 3.0,
-        let pts = cam_geom::Points::new(na::RowVector3::new(1.0, 2.0, 3.0));
-        let predicted = cam.world_to_pixel(&pts).data.transpose();
+//         // Part 2: compare spot check values with expected.
+//         // px: 1.0, py: 2.0, pz: 3.0,
+//         let pts = cam_geom::Points::new(na::RowVector3::new(1.0, 2.0, 3.0));
+//         let predicted = cam.world_to_pixel(&pts).data.transpose();
 
-        approx::assert_relative_eq!(predicted.x, -9.15875414775472, epsilon = 1.0e-10);
-        approx::assert_relative_eq!(predicted.y, -6.21053637093717, epsilon = 1.0e-10);
-    }
-}
+//         approx::assert_relative_eq!(predicted.x, -9.15875414775472, epsilon = 1.0e-10);
+//         approx::assert_relative_eq!(predicted.y, -6.21053637093717, epsilon = 1.0e-10);
+//     }
+// }
