@@ -826,7 +826,7 @@ mod test {
 
         for optimize_points in [true, false] {
             for model_type in clap::ValueEnum::value_variants() {
-                println!("Testing model type: {model_type:?}");
+                println!("Testing model type: {model_type:?}, optimize 3d world point locations: {optimize_points}");
                 let ba = BundleAdjuster::<f64>::new(
                     noisy.clone(),
                     cam_idx.clone(),
@@ -859,16 +859,16 @@ mod test {
                     // jacobian_results.push((model_type, approx_equal, jacobian_numerical, jacobian_trait));
                     if !approx_equal {
                         println!(
-                            "Jacobian mismatch for model type: {model_type:?}, optimize_points: {optimize_points}"
+                            "  Jacobian mismatch for model type: {model_type:?}, optimize_points: {optimize_points}"
                         );
-                        println!("Numerical Jacobian:\n{:?}", jacobian_numerical);
-                        println!("Trait Jacobian:\n{:?}", jacobian_trait);
+                        println!("  Numerical Jacobian:\n    {:?}", jacobian_numerical);
+                        println!("  Trait Jacobian:\n    {:?}", jacobian_trait);
                         all_jacobians_approx_equal = false;
                     }
                 }
 
                 let (_result, report) = levenberg_marquardt::LevenbergMarquardt::new().minimize(ba);
-                println!("{:?}", report);
+                println!("  Levenberg-Marquardt report:\n{:?}", report);
                 assert!(report.termination.was_successful());
                 // TODO: check that the result is closer to the original parameters.
             }
