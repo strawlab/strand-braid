@@ -1,11 +1,12 @@
 //! Bundle adjustment for multiple camera calibrations
 //!
 //! See the [BundleAdjuster] struct for more details.
-#[cfg(feature = "with-rerun")]
-use nalgebra::UnitQuaternion;
 use nalgebra::{self as na, Dyn, Owned};
 use num_traits::Float;
 use opencv_ros_camera::RosOpenCvIntrinsics;
+
+#[cfg(feature = "with-rerun")]
+mod ba_rerun;
 
 type NCamsType = u8;
 
@@ -101,19 +102,7 @@ pub struct BundleAdjuster<F: na::RealField + Float> {
     cam_names: Vec<String>,
 
     #[cfg(feature = "with-rerun")]
-    rerun: BundleAdjusterRerun,
-}
-
-#[cfg(feature = "with-rerun")]
-#[derive(Clone)]
-struct BundleAdjusterRerun {
-    cam_dims: Vec<(usize, usize)>,
-
-    /// rerun viewer
-    rec: Option<re_sdk::RecordingStream>,
-    did_show_rerun_warning: bool,
-    rr_tick: i64,
-    force_rerun_distorted: bool,
+    rerun: ba_rerun::BundleAdjusterRerun,
 }
 
 /// What parameters are optimized during bundle adjustment.
@@ -322,7 +311,7 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
             fixed_params,
             optimize_points,
             #[cfg(feature = "with-rerun")]
-            rerun: BundleAdjusterRerun {
+            rerun: ba_rerun::BundleAdjusterRerun {
                 cam_dims,
                 rec,
                 did_show_rerun_warning: false,
@@ -525,46 +514,6 @@ fn test_fxcy_extrinsics_only() {
     }
 }
 
-#[cfg(feature = "with-rerun")]
-// makes ExtrinsicParameters<F> into ExtrinsicParameters<f64>
-fn extrinsics_f64<F: na::RealField + Float>(
-    e: &cam_geom::ExtrinsicParameters<F>,
-) -> cam_geom::ExtrinsicParameters<f64> {
-    let r = e.pose().rotation.as_ref().coords;
-    let rotation: UnitQuaternion<f64> = UnitQuaternion::from_quaternion(na::Quaternion {
-        coords: na::Vector4::new(
-            r[0].to_f64().unwrap(),
-            r[1].to_f64().unwrap(),
-            r[2].to_f64().unwrap(),
-            r[3].to_f64().unwrap(),
-        ),
-    });
-    let c = e.camcenter();
-    let camcenter = na::Point3 {
-        coords: na::Vector3::new(
-            c[0].to_f64().unwrap(),
-            c[1].to_f64().unwrap(),
-            c[2].to_f64().unwrap(),
-        ),
-    };
-    cam_geom::ExtrinsicParameters::from_rotation_and_camcenter(rotation, camcenter)
-}
-
-#[cfg(feature = "with-rerun")]
-#[test]
-fn test_extrinsics_f64() {
-    let rotation: UnitQuaternion<f64> = UnitQuaternion::from_quaternion(na::Quaternion {
-        coords: na::Vector4::new(1.0, 2.0, 3.0, 4.0), // will be normalized
-    });
-    let camcenter = na::Point3 {
-        coords: na::Vector3::new(1.2, 3.4, 5.6),
-    };
-    let orig =
-        cam_geom::ExtrinsicParameters::<f64>::from_rotation_and_camcenter(rotation, camcenter);
-    let converted = extrinsics_f64(&orig);
-    approx::assert_relative_eq!(orig.pose(), converted.pose(), epsilon = 1e-7);
-}
-
 impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, Dyn>
     for BundleAdjuster<F>
 {
@@ -645,7 +594,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
                 let extrinsics = cam.extrinsics();
                 rec.log(
                     base_path.as_str(),
-                    &extrinsics_f64(&extrinsics).as_rerun_transform3d().into(),
+                    &ba_rerun::extrinsics_f64(&extrinsics).as_rerun_transform3d().into(),
                 )
                 .unwrap();
                 let raw_path = format!("{base_path}/raw");
