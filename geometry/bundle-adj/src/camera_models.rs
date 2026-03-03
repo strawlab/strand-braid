@@ -14,16 +14,15 @@ pub enum CameraModelType {
     /// distortions, 2 tangential distortions) in the OpenCV Brown-Conrady
     /// distortion model. The intrinsic model has a single focal length (not fx
     /// and fy).
-    #[default]
     OpenCV4,
     /// Tunes the 3D world points, the camera extrinsic parameters, and the
     /// camera intrinsic parameters with no distortion terms. The intrinsic
     /// model has a single focal length (not fx and fy).
     Linear,
-    // /// Tunes the 3D world points and the camera extrinsic parameters.  The
-    // /// intrinsic model can have a separate focal length for x and y directions.
-    // #[default]
-    // ExtrinsicsOnly,
+    /// Tunes the 3D world points and the camera extrinsic parameters.  The
+    /// intrinsic model can have a separate focal length for x and y directions.
+    #[default]
+    ExtrinsicsOnly,
 }
 
 pub(crate) struct CameraModelTypeInfo {
@@ -60,12 +59,12 @@ impl CameraModelType {
                 num_extrinsic_params: 6,
                 num_fixed_params: 0,
             },
-            // CameraModelType::ExtrinsicsOnly => CameraModelTypeInfo {
-            //     num_distortion_params: 0,
-            //     num_intrinsic_params: 0,
-            //     num_extrinsic_params: 6,
-            //     num_fixed_params: 9, // fx, fy, cx, cy + 5 distortion
-            // },
+            CameraModelType::ExtrinsicsOnly => CameraModelTypeInfo {
+                num_distortion_params: 0,
+                num_intrinsic_params: 0,
+                num_extrinsic_params: 6,
+                num_fixed_params: 9, // fx, fy, cx, cy + 5 distortion
+            },
         }
     }
 }
@@ -795,249 +794,263 @@ impl CameraModelType {
                     j[(1,8)] = -x103*x63 - x106*x30;
                 }
             }
-            // CameraModelType::ExtrinsicsOnly => {
-            //     let fx = i.fx();
-            //     let fy = i.fy();
-            //     #[cfg_attr(any(), rustfmt::skip)]
-            //     {
-            //         let x0 = p_x - w_x;
-            //         let x1 = Float::powi(r_y, 2);
-            //         let x2 = Float::powi(r_x, 2);
-            //         let x3 = Float::powi(r_z, 2);
-            //         let x4 = x1 + x2 + x3;
-            //         let x5 = Float::sqrt(x4);
-            //         let x6 = Float::sin(x5);
-            //         let x7 = Float::powf(x4, -three/two);
-            //         let x8 = x6*x7;
-            //         let x9 = x1*x8;
-            //         let x10 = r_x*x9;
-            //         let x11 = x3*x8;
-            //         let x12 = r_x*x11;
-            //         let x13 = Float::cos(x5);
-            //         let x14 = one - x13;
-            //         let x15 = Float::powi(x4, -2);
-            //         let x16 = two*x14*x15;
-            //         let x17 = r_x*x16;
-            //         let x18 = x1*x17;
-            //         let x19 = x17*x3;
-            //         let x20 = x0*(-x10 - x12 + x18 + x19);
-            //         let x21 = p_y - w_y;
-            //         let x22 = Float::recip(x4);
-            //         let x23 = x14*x22;
-            //         let x24 = r_y*x23;
-            //         let x25 = x2*x8;
-            //         let x26 = r_y*x25;
-            //         let x27 = x16*x2;
-            //         let x28 = r_y*x27;
-            //         let x29 = x26 - x28;
-            //         let x30 = x24 + x29;
-            //         let x31 = r_x*r_z;
-            //         let x32 = x31*x8;
-            //         let x33 = x13*x22;
-            //         let x34 = x31*x33;
-            //         let x35 = x32 - x34;
-            //         let x36 = x21*(x30 + x35);
-            //         let x37 = p_z - w_z;
-            //         let x38 = r_z*x23;
-            //         let x39 = r_z*x25;
-            //         let x40 = r_z*x27;
-            //         let x41 = x39 - x40;
-            //         let x42 = x38 + x41;
-            //         let x43 = r_x*r_y;
-            //         let x44 = x33*x43;
-            //         let x45 = x43*x8;
-            //         let x46 = x44 - x45;
-            //         let x47 = x37*(x42 + x46);
-            //         let x48 = x20 + x36 + x47;
-            //         let x49 = x6/x5;
-            //         let x50 = r_x*x49;
-            //         let x51 = r_y*x38;
-            //         let x52 = x50 + x51;
-            //         let x53 = r_y*x49;
-            //         let x54 = r_x*x38;
-            //         let x55 = -x53 + x54;
-            //         let x56 = x1*x23;
-            //         let x57 = x2*x23;
-            //         let x58 = x57 - one;
-            //         let x59 = -x56 - x58;
-            //         let x60 = x0*x55 + x21*x52 + x37*x59;
-            //         let x61 = Float::powi(x60, -2);
-            //         let x62 = r_z*x49;
-            //         let x63 = r_x*x24;
-            //         let x64 = x62 + x63;
-            //         let x65 = -r_y*r_z*x14*x22 + x50;
-            //         let x66 = x23*x3;
-            //         let x67 = x58 + x66;
-            //         let x68 = x0*x64 - x21*x67 - x37*x65;
-            //         let x69 = x61*x68;
-            //         let x70 = two*p1;
-            //         let x71 = x69*x70;
-            //         let x72 = x2*x33 - x25 + x49;
-            //         let x73 = r_z*x16;
-            //         let x74 = x43*x73;
-            //         let x75 = -r_x*r_y*r_z*x6*x7 + x74;
-            //         let x76 = x37*(-x72 - x75);
-            //         let x77 = -x32 + x34;
-            //         let x78 = x0*(x30 + x77);
-            //         let x79 = Float::powi(r_x, 3);
-            //         let x80 = r_x*x23;
-            //         let x81 = -two*x14*x15*x79 + x79*x8 + two*x80;
-            //         let x82 = x12 - x19;
-            //         let x83 = x21*(-x81 - x82);
-            //         let x84 = x76 + x78 + x83;
-            //         let x85 = x53 + x54;
-            //         let x86 = -x62 + x63;
-            //         let x87 = x56 + x66 - one;
-            //         let x88 = -x0*x87 + x21*x86 + x37*x85;
-            //         let x89 = x61*x88;
-            //         let x90 = x70*x89;
-            //         let x91 = Float::powi(x60, -3);
-            //         let x92 = r_z*x45 - x74;
-            //         let x93 = x21*(x72 + x92);
-            //         let x94 = -x44 + x45;
-            //         let x95 = x0*(x42 + x94);
-            //         let x96 = x10 - x18;
-            //         let x97 = x37*(-x81 - x96);
-            //         let x98 = x91*(-two*x93 - two*x95 - two*x97);
-            //         let x99 = x68*x88;
-            //         let x100 = x70*x99;
-            //         let x101 = Float::recip(x60);
-            //         let x102 = Float::powi(x68, 2);
-            //         let x103 = Float::powi(x88, 2);
-            //         let x104 = x102*x61 + x103*x61;
-            //         let x105 = k1*x104 + k2*Float::powi(x104, 2) + one;
-            //         let x106 = x101*x105;
-            //         let x107 = -x93 - x95 - x97;
-            //         let x108 = x105*x89;
-            //         let x109 = x103*x98;
-            //         let x110 = x89*(two*x20 + two*x36 + two*x47);
-            //         let x111 = x102*x98;
-            //         let x112 = x69*(two*x76 + two*x78 + two*x83);
-            //         let x113 = x111 + x112;
-            //         let x114 = x109 + x110;
-            //         let x115 = k2*x104;
-            //         let x116 = k1*(x113 + x114) + x115*(two*x109 + two*x110 + two*x111 + two*x112);
-            //         let x117 = x101*x88;
-            //         let x118 = r_y*x11;
-            //         let x119 = r_y*x16*x3;
-            //         let x120 = x21*(-x118 + x119 - x26 + x28);
-            //         let x121 = x80 + x96;
-            //         let x122 = r_y*r_z;
-            //         let x123 = x122*x33;
-            //         let x124 = x122*x8;
-            //         let x125 = x123 - x124;
-            //         let x126 = x0*(x121 + x125);
-            //         let x127 = r_z*x9;
-            //         let x128 = x1*x73;
-            //         let x129 = x127 - x128;
-            //         let x130 = x129 + x38;
-            //         let x131 = x37*(x130 + x94);
-            //         let x132 = x120 + x126 + x131;
-            //         let x133 = x1*x33 - x9;
-            //         let x134 = x49 + x92;
-            //         let x135 = x37*(x133 + x134);
-            //         let x136 = -x123 + x124;
-            //         let x137 = x21*(x121 + x136);
-            //         let x138 = Float::powi(r_y, 3);
-            //         let x139 = -two*x138*x14*x15 + x138*x8 + two*x24;
-            //         let x140 = x118 - x119;
-            //         let x141 = x0*(-x139 - x140);
-            //         let x142 = x135 + x137 + x141;
-            //         let x143 = x49 + x75;
-            //         let x144 = x0*(-x133 - x143);
-            //         let x145 = x21*(x130 + x46);
-            //         let x146 = x37*(-x139 - x29);
-            //         let x147 = x91*(-two*x144 - two*x145 - two*x146);
-            //         let x148 = -x144 - x145 - x146;
-            //         let x149 = x103*x147;
-            //         let x150 = x89*(two*x135 + two*x137 + two*x141);
-            //         let x151 = x102*x147;
-            //         let x152 = x69*(two*x120 + two*x126 + two*x131);
-            //         let x153 = x151 + x152;
-            //         let x154 = x149 + x150;
-            //         let x155 = k1*(x153 + x154) + x115*(two*x149 + two*x150 + two*x151 + two*x152);
-            //         let x156 = -x11 + x3*x33;
-            //         let x157 = x0*(x134 + x156);
-            //         let x158 = x140 + x24;
-            //         let x159 = x37*(x158 + x35);
-            //         let x160 = Float::powi(r_z, 3);
-            //         let x161 = -two*x14*x15*x160 + x160*x8 + two*x38;
-            //         let x162 = x21*(-x161 - x41);
-            //         let x163 = x157 + x159 + x162;
-            //         let x164 = x21*(-x143 - x156);
-            //         let x165 = x80 + x82;
-            //         let x166 = x37*(x125 + x165);
-            //         let x167 = x0*(-x129 - x161);
-            //         let x168 = x164 + x166 + x167;
-            //         let x169 = x37*(-x127 + x128 - x39 + x40);
-            //         let x170 = x0*(x136 + x165);
-            //         let x171 = x21*(x158 + x77);
-            //         let x172 = x91*(-two*x169 - two*x170 - two*x171);
-            //         let x173 = -x169 - x170 - x171;
-            //         let x174 = x103*x172;
-            //         let x175 = x89*(two*x164 + two*x166 + two*x167);
-            //         let x176 = x102*x172;
-            //         let x177 = x69*(two*x157 + two*x159 + two*x162);
-            //         let x178 = x176 + x177;
-            //         let x179 = x174 + x175;
-            //         let x180 = k1*(x178 + x179) + x115*(two*x174 + two*x175 + two*x176 + two*x177);
-            //         let x181 = -x64;
-            //         let x182 = two*x53;
-            //         let x183 = two*x54;
-            //         let x184 = x91*(-x182 + x183);
-            //         let x185 = x103*x184;
-            //         let x186 = two*x56;
-            //         let x187 = two*x66 - two;
-            //         let x188 = x89*(x186 + x187);
-            //         let x189 = x102*x184;
-            //         let x190 = two*x62;
-            //         let x191 = two*x63;
-            //         let x192 = x69*(-x190 - x191);
-            //         let x193 = x189 + x192;
-            //         let x194 = x185 + x188;
-            //         let x195 = k1*(x193 + x194) + x115*(two*x185 + two*x188 + two*x189 + two*x192);
-            //         let x196 = -x86;
-            //         let x197 = two*x50;
-            //         let x198 = two*x51;
-            //         let x199 = x91*(x197 + x198);
-            //         let x200 = x103*x199;
-            //         let x201 = x89*(x190 - x191);
-            //         let x202 = x102*x199;
-            //         let x203 = two*x57;
-            //         let x204 = x69*(x187 + x203);
-            //         let x205 = x202 + x204;
-            //         let x206 = x200 + x201;
-            //         let x207 = k1*(x205 + x206) + x115*(two*x200 + two*x201 + two*x202 + two*x204);
-            //         let x208 = -x85;
-            //         let x209 = x91*(-x186 - x203 + two);
-            //         let x210 = x103*x209;
-            //         let x211 = x89*(-x182 - x183);
-            //         let x212 = x102*x209;
-            //         let x213 = x69*(x197 - x198);
-            //         let x214 = x212 + x213;
-            //         let x215 = x210 + x211;
-            //         let x216 = k1*(x214 + x215) + x115*(two*x210 + two*x211 + two*x212 + two*x213);
-            //         let x217 = two*p2;
-            //         let x218 = x217*x69;
-            //         let x219 = x217*x89;
-            //         let x220 = x217*x99;
-            //         let x221 = x105*x69;
-            //         let x222 = x101*x68;
-            //         //final jacobian: (shape: 2 x 6)
-            //         j[(0,0)] = -fx*(p2*(three*x109 + three*x110 + x113) + x100*x98 + x106*x48 + x107*x108 + x116*x117 + x48*x71 + x84*x90);
-            //         j[(0,1)] = -fx*(p2*(three*x149 + three*x150 + x153) + x100*x147 + x106*x142 + x108*x148 + x117*x155 + x132*x90 + x142*x71);
-            //         j[(0,2)] = -fx*(p2*(three*x174 + three*x175 + x178) + x100*x172 + x106*x168 + x108*x173 + x117*x180 + x163*x90 + x168*x71);
-            //         j[(0,3)] = -fx*(p2*(three*x185 + three*x188 + x193) + x100*x184 + x106*x87 + x108*x55 + x117*x195 + x181*x90 + x71*x87);
-            //         j[(0,4)] = -fx*(p2*(three*x200 + three*x201 + x205) + x100*x199 + x106*x196 + x108*x52 + x117*x207 + x196*x71 + x67*x90);
-            //         j[(0,5)] = -fx*(p2*(three*x210 + three*x211 + x214) + x100*x209 + x106*x208 + x108*x59 + x117*x216 + x208*x71 + x65*x90);
-            //         j[(1,0)] = -fy*(p1*(three*x111 + three*x112 + x114) + x106*x84 + x107*x221 + x116*x222 + x218*x48 + x219*x84 + x220*x98);
-            //         j[(1,1)] = -fy*(p1*(three*x151 + three*x152 + x154) + x106*x132 + x132*x219 + x142*x218 + x147*x220 + x148*x221 + x155*x222);
-            //         j[(1,2)] = -fy*(p1*(three*x176 + three*x177 + x179) + x106*x163 + x163*x219 + x168*x218 + x172*x220 + x173*x221 + x180*x222);
-            //         j[(1,3)] = -fy*(p1*(three*x189 + three*x192 + x194) + x106*x181 + x181*x219 + x184*x220 + x195*x222 + x218*x87 + x221*x55);
-            //         j[(1,4)] = -fy*(p1*(three*x202 + three*x204 + x206) + x106*x67 + x196*x218 + x199*x220 + x207*x222 + x219*x67 + x221*x52);
-            //         j[(1,5)] = -fy*(p1*(three*x212 + three*x213 + x215) + x106*x65 + x208*x218 + x209*x220 + x216*x222 + x219*x65 + x221*x59);
-            //     }
-            // }
+            CameraModelType::ExtrinsicsOnly => {
+                let fx = i.fx();
+                let fy = i.fy();
+                #[cfg_attr(any(), rustfmt::skip)]
+                {
+                    let x0 = p_x - w_x;
+                    let x1 = Float::powi(r_y, 2);
+                    let x2 = Float::powi(r_x, 2);
+                    let x3 = Float::powi(r_z, 2);
+                    let x4 = x1 + x2 + x3;
+                    let x5 = Float::sqrt(x4);
+                    let x6 = Float::sin(x5);
+                    let x7 = Float::powf(x4, -three/two);
+                    let x8 = x6*x7;
+                    let x9 = x1*x8;
+                    let x10 = r_x*x9;
+                    let x11 = x3*x8;
+                    let x12 = r_x*x11;
+                    let x13 = Float::cos(x5);
+                    let x14 = one - x13;
+                    let x15 = Float::powi(x4, -2);
+                    let x16 = two*x14*x15;
+                    let x17 = r_x*x16;
+                    let x18 = x1*x17;
+                    let x19 = x17*x3;
+                    let x20 = x0*(-x10 - x12 + x18 + x19);
+                    let x21 = p_y - w_y;
+                    let x22 = Float::recip(x4);
+                    let x23 = x14*x22;
+                    let x24 = r_y*x23;
+                    let x25 = x2*x8;
+                    let x26 = r_y*x25;
+                    let x27 = x16*x2;
+                    let x28 = r_y*x27;
+                    let x29 = x26 - x28;
+                    let x30 = x24 + x29;
+                    let x31 = r_x*r_z;
+                    let x32 = x31*x8;
+                    let x33 = x13*x22;
+                    let x34 = x31*x33;
+                    let x35 = x32 - x34;
+                    let x36 = x21*(x30 + x35);
+                    let x37 = p_z - w_z;
+                    let x38 = r_z*x23;
+                    let x39 = r_z*x25;
+                    let x40 = r_z*x27;
+                    let x41 = x39 - x40;
+                    let x42 = x38 + x41;
+                    let x43 = r_x*r_y;
+                    let x44 = x33*x43;
+                    let x45 = x43*x8;
+                    let x46 = x44 - x45;
+                    let x47 = x37*(x42 + x46);
+                    let x48 = x20 + x36 + x47;
+                    let x49 = x6/x5;
+                    let x50 = r_x*x49;
+                    let x51 = r_y*x38;
+                    let x52 = x50 + x51;
+                    let x53 = r_y*x49;
+                    let x54 = r_x*x38;
+                    let x55 = -x53 + x54;
+                    let x56 = x1*x23;
+                    let x57 = x2*x23;
+                    let x58 = x57 - one;
+                    let x59 = -x56 - x58;
+                    let x60 = x0*x55 + x21*x52 + x37*x59;
+                    let x61 = Float::powi(x60, -2);
+                    let x62 = r_z*x49;
+                    let x63 = r_x*x24;
+                    let x64 = x62 + x63;
+                    let x65 = -r_y*r_z*x14*x22 + x50;
+                    let x66 = x23*x3;
+                    let x67 = x58 + x66;
+                    let x68 = x0*x64 - x21*x67 - x37*x65;
+                    let x69 = x61*x68;
+                    let x70 = two*p1;
+                    let x71 = x69*x70;
+                    let x72 = x2*x33 - x25 + x49;
+                    let x73 = r_z*x16;
+                    let x74 = x43*x73;
+                    let x75 = -r_x*r_y*r_z*x6*x7 + x74;
+                    let x76 = x37*(-x72 - x75);
+                    let x77 = -x32 + x34;
+                    let x78 = x0*(x30 + x77);
+                    let x79 = Float::powi(r_x, 3);
+                    let x80 = r_x*x23;
+                    let x81 = -two*x14*x15*x79 + x79*x8 + two*x80;
+                    let x82 = x12 - x19;
+                    let x83 = x21*(-x81 - x82);
+                    let x84 = x76 + x78 + x83;
+                    let x85 = x53 + x54;
+                    let x86 = -x62 + x63;
+                    let x87 = x56 + x66 - one;
+                    let x88 = -x0*x87 + x21*x86 + x37*x85;
+                    let x89 = x61*x88;
+                    let x90 = x70*x89;
+                    let x91 = Float::powi(x60, -3);
+                    let x92 = r_z*x45 - x74;
+                    let x93 = x21*(x72 + x92);
+                    let x94 = -x44 + x45;
+                    let x95 = x0*(x42 + x94);
+                    let x96 = x10 - x18;
+                    let x97 = x37*(-x81 - x96);
+                    let x98 = x91*(-two*x93 - two*x95 - two*x97);
+                    let x99 = x68*x88;
+                    let x100 = x70*x99;
+                    let x101 = Float::recip(x60);
+                    let x102 = Float::powi(x68, 2);
+                    let x103 = Float::powi(x88, 2);
+                    let x104 = x102*x61 + x103*x61;
+                    let x105 = Float::powi(x104, 2);
+                    let x106 = k1*x104 + k2*x105 + k3*Float::powi(x104, 3) + one;
+                    let x107 = x101*x106;
+                    let x108 = -x93 - x95 - x97;
+                    let x109 = x106*x89;
+                    let x110 = x102*x98;
+                    let x111 = x69*(two*x76 + two*x78 + two*x83);
+                    let x112 = x110 + x111;
+                    let x113 = x103*x98;
+                    let x114 = x89*(two*x20 + two*x36 + two*x47);
+                    let x115 = three*x113 + three*x114;
+                    let x116 = x113 + x114;
+                    let x117 = k2*x104;
+                    let x118 = three*x110 + three*x111;
+                    let x119 = k3*x105;
+                    let x120 = k1*(x112 + x116) + x117*(two*x110 + two*x111 + two*x113 + two*x114) + x119*(x115 + x118);
+                    let x121 = x101*x88;
+                    let x122 = r_y*x11;
+                    let x123 = r_y*x16*x3;
+                    let x124 = x21*(-x122 + x123 - x26 + x28);
+                    let x125 = x80 + x96;
+                    let x126 = r_y*r_z;
+                    let x127 = x126*x33;
+                    let x128 = x126*x8;
+                    let x129 = x127 - x128;
+                    let x130 = x0*(x125 + x129);
+                    let x131 = r_z*x9;
+                    let x132 = x1*x73;
+                    let x133 = x131 - x132;
+                    let x134 = x133 + x38;
+                    let x135 = x37*(x134 + x94);
+                    let x136 = x124 + x130 + x135;
+                    let x137 = x1*x33 - x9;
+                    let x138 = x49 + x92;
+                    let x139 = x37*(x137 + x138);
+                    let x140 = -x127 + x128;
+                    let x141 = x21*(x125 + x140);
+                    let x142 = Float::powi(r_y, 3);
+                    let x143 = -two*x14*x142*x15 + x142*x8 + two*x24;
+                    let x144 = x122 - x123;
+                    let x145 = x0*(-x143 - x144);
+                    let x146 = x139 + x141 + x145;
+                    let x147 = x49 + x75;
+                    let x148 = x0*(-x137 - x147);
+                    let x149 = x21*(x134 + x46);
+                    let x150 = x37*(-x143 - x29);
+                    let x151 = x91*(-two*x148 - two*x149 - two*x150);
+                    let x152 = -x148 - x149 - x150;
+                    let x153 = x102*x151;
+                    let x154 = x69*(two*x124 + two*x130 + two*x135);
+                    let x155 = x153 + x154;
+                    let x156 = x103*x151;
+                    let x157 = x89*(two*x139 + two*x141 + two*x145);
+                    let x158 = three*x156 + three*x157;
+                    let x159 = x156 + x157;
+                    let x160 = three*x153 + three*x154;
+                    let x161 = k1*(x155 + x159) + x117*(two*x153 + two*x154 + two*x156 + two*x157) + x119*(x158 + x160);
+                    let x162 = -x11 + x3*x33;
+                    let x163 = x0*(x138 + x162);
+                    let x164 = x144 + x24;
+                    let x165 = x37*(x164 + x35);
+                    let x166 = Float::powi(r_z, 3);
+                    let x167 = -two*x14*x15*x166 + x166*x8 + two*x38;
+                    let x168 = x21*(-x167 - x41);
+                    let x169 = x163 + x165 + x168;
+                    let x170 = x21*(-x147 - x162);
+                    let x171 = x80 + x82;
+                    let x172 = x37*(x129 + x171);
+                    let x173 = x0*(-x133 - x167);
+                    let x174 = x170 + x172 + x173;
+                    let x175 = x37*(-x131 + x132 - x39 + x40);
+                    let x176 = x0*(x140 + x171);
+                    let x177 = x21*(x164 + x77);
+                    let x178 = x91*(-two*x175 - two*x176 - two*x177);
+                    let x179 = -x175 - x176 - x177;
+                    let x180 = x102*x178;
+                    let x181 = x69*(two*x163 + two*x165 + two*x168);
+                    let x182 = x180 + x181;
+                    let x183 = x103*x178;
+                    let x184 = x89*(two*x170 + two*x172 + two*x173);
+                    let x185 = three*x183 + three*x184;
+                    let x186 = x183 + x184;
+                    let x187 = three*x180 + three*x181;
+                    let x188 = k1*(x182 + x186) + x117*(two*x180 + two*x181 + two*x183 + two*x184) + x119*(x185 + x187);
+                    let x189 = -x64;
+                    let x190 = two*x53;
+                    let x191 = two*x54;
+                    let x192 = x91*(-x190 + x191);
+                    let x193 = x102*x192;
+                    let x194 = two*x62;
+                    let x195 = two*x63;
+                    let x196 = x69*(-x194 - x195);
+                    let x197 = x193 + x196;
+                    let x198 = x103*x192;
+                    let x199 = two*x56;
+                    let x200 = two*x66 - two;
+                    let x201 = x89*(x199 + x200);
+                    let x202 = three*x198 + three*x201;
+                    let x203 = x198 + x201;
+                    let x204 = three*x193 + three*x196;
+                    let x205 = k1*(x197 + x203) + x117*(two*x193 + two*x196 + two*x198 + two*x201) + x119*(x202 + x204);
+                    let x206 = -x86;
+                    let x207 = two*x50;
+                    let x208 = two*x51;
+                    let x209 = x91*(x207 + x208);
+                    let x210 = x102*x209;
+                    let x211 = two*x57;
+                    let x212 = x69*(x200 + x211);
+                    let x213 = x210 + x212;
+                    let x214 = x103*x209;
+                    let x215 = x89*(x194 - x195);
+                    let x216 = three*x214 + three*x215;
+                    let x217 = x214 + x215;
+                    let x218 = three*x210 + three*x212;
+                    let x219 = k1*(x213 + x217) + x117*(two*x210 + two*x212 + two*x214 + two*x215) + x119*(x216 + x218);
+                    let x220 = -x85;
+                    let x221 = x91*(-x199 - x211 + two);
+                    let x222 = x102*x221;
+                    let x223 = x69*(x207 - x208);
+                    let x224 = x222 + x223;
+                    let x225 = x103*x221;
+                    let x226 = x89*(-x190 - x191);
+                    let x227 = three*x225 + three*x226;
+                    let x228 = x225 + x226;
+                    let x229 = three*x222 + three*x223;
+                    let x230 = k1*(x224 + x228) + x117*(two*x222 + two*x223 + two*x225 + two*x226) + x119*(x227 + x229);
+                    let x231 = two*p2;
+                    let x232 = x231*x69;
+                    let x233 = x231*x89;
+                    let x234 = x231*x99;
+                    let x235 = x106*x69;
+                    let x236 = x101*x68;
+                    //final jacobian: (shape: 2 x 6)
+                    j[(0,0)] = -fx*(p2*(x112 + x115) + x100*x98 + x107*x48 + x108*x109 + x120*x121 + x48*x71 + x84*x90);
+                    j[(0,1)] = -fx*(p2*(x155 + x158) + x100*x151 + x107*x146 + x109*x152 + x121*x161 + x136*x90 + x146*x71);
+                    j[(0,2)] = -fx*(p2*(x182 + x185) + x100*x178 + x107*x174 + x109*x179 + x121*x188 + x169*x90 + x174*x71);
+                    j[(0,3)] = -fx*(p2*(x197 + x202) + x100*x192 + x107*x87 + x109*x55 + x121*x205 + x189*x90 + x71*x87);
+                    j[(0,4)] = -fx*(p2*(x213 + x216) + x100*x209 + x107*x206 + x109*x52 + x121*x219 + x206*x71 + x67*x90);
+                    j[(0,5)] = -fx*(p2*(x224 + x227) + x100*x221 + x107*x220 + x109*x59 + x121*x230 + x220*x71 + x65*x90);
+                    j[(1,0)] = -fy*(p1*(x116 + x118) + x107*x84 + x108*x235 + x120*x236 + x232*x48 + x233*x84 + x234*x98);
+                    j[(1,1)] = -fy*(p1*(x159 + x160) + x107*x136 + x136*x233 + x146*x232 + x151*x234 + x152*x235 + x161*x236);
+                    j[(1,2)] = -fy*(p1*(x186 + x187) + x107*x169 + x169*x233 + x174*x232 + x178*x234 + x179*x235 + x188*x236);
+                    j[(1,3)] = -fy*(p1*(x203 + x204) + x107*x189 + x189*x233 + x192*x234 + x205*x236 + x232*x87 + x235*x55);
+                    j[(1,4)] = -fy*(p1*(x217 + x218) + x107*x67 + x206*x232 + x209*x234 + x219*x236 + x233*x67 + x235*x52);
+                    j[(1,5)] = -fy*(p1*(x228 + x229) + x107*x65 + x220*x232 + x221*x234 + x230*x236 + x233*x65 + x235*x59);
+                }
+            }
         }
     }
 }

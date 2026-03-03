@@ -234,8 +234,7 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
             for (cami, cam) in cams0.iter().enumerate() {
                 let i = cam.intrinsics();
                 let cam_name = &cam_names[cami];
-                // if model_type != CameraModelType::ExtrinsicsOnly && i.fx() != i.fy() {
-                if i.fx() != i.fy() {
+                if model_type != CameraModelType::ExtrinsicsOnly && i.fx() != i.fy() {
                     tracing::warn!(
                         "Camera {cam_name} has fx != fy ({} != {}), but model requires fx == fy. Using fx for both.",
                         i.fx(),
@@ -621,6 +620,172 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
         j: &mut na::OMatrix<F, Dyn, Dyn>,
         pt_sub: ((usize, usize), (usize, usize)),
     ) {
+        match self.model_type {
+            CameraModelType::ExtrinsicsOnly => {
+                self.eval_pt_jacobians_extrinsics_only(cam_num, pt_num, j, pt_sub)
+            }
+            _ => self.eval_pt_jacobians_intrinsics(cam_num, pt_num, j, pt_sub),
+        }
+    }
+
+    fn eval_pt_jacobians_extrinsics_only(
+        &self,
+        cam_num: NCamsType,
+        pt_num: usize,
+        j: &mut na::OMatrix<F, Dyn, Dyn>,
+        pt_sub: ((usize, usize), (usize, usize)),
+    ) {
+        // We pull the 3D point from self.points because we have already set this from the parameter vec.
+        let pt = self.points.column(pt_num);
+        let [p_x, p_y, p_z] = [pt.x, pt.y, pt.z];
+
+        let cam = &self.cams[usize(cam_num)];
+        let i = cam.intrinsics();
+        let fx = i.fx();
+        let fy = i.fy();
+        let _cx = i.cx();
+        let _cy = i.cy();
+        let d = i.distortion.opencv_vec().as_slice();
+        let [k1, k2, p1, p2, k3] = [d[0], d[1], d[2], d[3], d[4]];
+
+        let e = cam.extrinsics();
+        let rquat = e.pose().rotation;
+        let abc = rquat.scaled_axis();
+        let cc = e.camcenter();
+        let [r_x, r_y, r_z] = [abc.x, abc.y, abc.z];
+        let [w_x, w_y, w_z] = [cc.x, cc.y, cc.z];
+
+        // jacobian for world point
+        let (pt_start, pt_geom) = pt_sub;
+        let mut j = j.view_mut(pt_start, pt_geom);
+        debug_assert_eq!(j.nrows(), 2);
+        debug_assert_eq!(j.ncols(), 3);
+
+        #[cfg_attr(any(), rustfmt::skip)]
+        {
+            let one: F = na::convert(1.0);
+            let two: F = na::convert(2.0);
+            let three: F = na::convert(3.0);
+
+            let x0 = Float::powi(r_x, 2);
+            let x1 = Float::powi(r_y, 2);
+            let x2 = Float::powi(r_z, 2);
+            let x3 = x0 + x1 + x2;
+            let x4 = Float::sqrt(x3);
+            let x5 = Float::recip(x4);
+            let x6 = Float::sin(x4);
+            let x7 = x5*x6;
+            let x8 = r_z*x7;
+            let x9 = (one - Float::cos(x4))/x3;
+            let x10 = r_y*x9;
+            let x11 = r_x*x10;
+            let x12 = x11 + x8;
+            let x13 = p_y - w_y;
+            let x14 = r_x*x7;
+            let x15 = r_z*x10;
+            let x16 = x14 + x15;
+            let x17 = p_x - w_x;
+            let x18 = r_y*x7;
+            let x19 = r_x*r_z*x9;
+            let x20 = -x18 + x19;
+            let x21 = p_z - w_z;
+            let x22 = x1*x9;
+            let x23 = x0*x9;
+            let x24 = x23 - one;
+            let x25 = x22 + x24;
+            let x26 = x13*x16 + x17*x20 - x21*x25;
+            let x27 = Float::powi(x26, -2);
+            let x28 = x18 + x19;
+            let x29 = x11 - x8;
+            let x30 = x2*x9;
+            let x31 = -x22 - x30 + one;
+            let x32 = x13*x29 + x17*x31 + x21*x28;
+            let x33 = x27*x32;
+            let x34 = two*p1;
+            let x35 = x33*x34;
+            let x36 = -x14 + x15;
+            let x37 = -x24 - x30;
+            let x38 = x12*x17 + x13*x37 + x21*x36;
+            let x39 = x27*x38;
+            let x40 = x34*x39;
+            let x41 = Float::powi(x26, -3);
+            let x42 = two*x19;
+            let x43 = x41*(two*r_y*x5*x6 - x42);
+            let x44 = x32*x38;
+            let x45 = x34*x44;
+            let x46 = Float::powi(x38, 2);
+            let x47 = x43*x46;
+            let x48 = two*x8;
+            let x49 = two*x11;
+            let x50 = x39*(x48 + x49);
+            let x51 = x47 + x50;
+            let x52 = Float::powi(x32, 2);
+            let x53 = x43*x52;
+            let x54 = two*x22;
+            let x55 = two*x30 - two;
+            let x56 = x33*(-x54 - x55);
+            let x57 = three*x53 + three*x56;
+            let x58 = Float::recip(x26);
+            let x59 = x27*x46 + x27*x52;
+            let x60 = Float::powi(x59, 2);
+            let x61 = k1*x59 + k2*x60 + k3*Float::powi(x59, 3) + one;
+            let x62 = x58*x61;
+            let x63 = -x20;
+            let x64 = x33*x61;
+            let x65 = x53 + x56;
+            let x66 = k2*x59;
+            let x67 = three*x47 + three*x50;
+            let x68 = k3*x60;
+            let x69 = k1*(x51 + x65) + x66*(two*x47 + two*x50 + two*x53 + two*x56) + x68*(x57 + x67);
+            let x70 = x32*x58;
+            let x71 = two*x14;
+            let x72 = two*x15;
+            let x73 = x41*(-x71 - x72);
+            let x74 = x46*x73;
+            let x75 = two*x23;
+            let x76 = x39*(-x55 - x75);
+            let x77 = x74 + x76;
+            let x78 = x52*x73;
+            let x79 = x33*(-x48 + x49);
+            let x80 = three*x78 + three*x79;
+            let x81 = -x16;
+            let x82 = x78 + x79;
+            let x83 = three*x74 + three*x76;
+            let x84 = k1*(x77 + x82) + x66*(two*x74 + two*x76 + two*x78 + two*x79) + x68*(x80 + x83);
+            let x85 = x41*(x54 + x75 - two);
+            let x86 = x46*x85;
+            let x87 = x39*(-x71 + x72);
+            let x88 = x86 + x87;
+            let x89 = x52*x85;
+            let x90 = x33*(two*x18 + x42);
+            let x91 = three*x89 + three*x90;
+            let x92 = x89 + x90;
+            let x93 = three*x86 + three*x87;
+            let x94 = k1*(x88 + x92) + x66*(two*x86 + two*x87 + two*x89 + two*x90) + x68*(x91 + x93);
+            let x95 = two*p2;
+            let x96 = x33*x95;
+            let x97 = x39*x95;
+            let x98 = x44*x95;
+            let x99 = x39*x61;
+            let x100 = x38*x58;
+            //final jacobian: (shape: 2 x 3)
+            j[(0,0)] = -fx*(p2*(x51 + x57) + x12*x35 + x31*x40 + x31*x62 + x43*x45 + x63*x64 + x69*x70);
+            j[(0,1)] = -fx*(p2*(x77 + x80) + x29*x40 + x29*x62 + x35*x37 + x45*x73 + x64*x81 + x70*x84);
+            j[(0,2)] = -fx*(p2*(x88 + x91) + x25*x64 + x28*x40 + x28*x62 + x35*x36 + x45*x85 + x70*x94);
+            j[(1,0)] = -fy*(p1*(x65 + x67) + x100*x69 + x12*x62 + x12*x96 + x31*x97 + x43*x98 + x63*x99);
+            j[(1,1)] = -fy*(p1*(x82 + x83) + x100*x84 + x29*x97 + x37*x62 + x37*x96 + x73*x98 + x81*x99);
+            j[(1,2)] = -fy*(p1*(x92 + x93) + x100*x94 + x25*x99 + x28*x97 + x36*x62 + x36*x96 + x85*x98);
+
+        }
+    }
+
+    fn eval_pt_jacobians_intrinsics(
+        &self,
+        cam_num: NCamsType,
+        pt_num: usize,
+        j: &mut na::OMatrix<F, Dyn, Dyn>,
+        pt_sub: ((usize, usize), (usize, usize)),
+    ) {
         // We pull the 3D point from self.points because we have already set this from the parameter vec.
         let pt = self.points.column(pt_num);
         let [p_x, p_y, p_z] = [pt.x, pt.y, pt.z];
@@ -779,6 +944,7 @@ mod test {
 
         let labels3d: Vec<String> = (0..points.ncols()).map(|i| format!("pt {i}")).collect();
 
+        // Compute observed 2D points for each camera using full OpenCV5 model (including distortion).
         let cam_params = [
             // f, cx, cy, k1, radial1, radial2, tangential1, tangential2, radial3, rx, ry, rz, wx, wy, wz
             [
@@ -869,7 +1035,7 @@ mod test {
                 }
 
                 let (_result, report) = levenberg_marquardt::LevenbergMarquardt::new().minimize(ba);
-                println!("  Levenberg-Marquardt report:\n{:?}", report);
+                println!("  Levenberg-Marquardt report:\n    {:?}", report);
                 assert!(report.termination.was_successful());
                 // TODO: check that the result is closer to the original parameters.
             }
@@ -888,5 +1054,110 @@ mod test {
         na::OMatrix::from_fn_generic(na::Dyn(nrows), na::Dyn(ncols), |_row, _col| {
             na::convert::<f64, Real>(normal.sample(&mut rng))
         })
+    }
+
+    #[test]
+    fn test_extrinsics_only_camera_parameters() {
+        // intrinsics - linear
+        let fx = 800.0;
+        let fy = 820.0;
+        let cx = 320.0;
+        let cy = 240.0;
+        // intrinsics - distortion
+        let k1 = 0.01;
+        let k2 = 0.001;
+        let p1 = -0.002;
+        let p2 = 0.0005;
+        let k3 = 0.0;
+
+        // extrinsics
+        let rx = 0.1;
+        let ry = 0.4;
+        let rz = -0.2;
+        let wx = 1.0;
+        let wy = 0.5;
+        let wz = -2.0;
+
+        // 3d point
+        let px = 0.3;
+        let py = -0.7;
+        let pz = 5.0;
+
+        // observed 2d point
+        let u =  305.0;
+        let v =  198.0;
+
+        let observed = na::Matrix2xX::from_column_slice(&[u,v]);
+        let cam_idx = vec![0];
+        let pt_idx = vec![0];
+        let cam_names = vec!["Cam 0".to_string()];
+
+        #[cfg(feature = "with-rerun")] let cam_dims: Vec<(usize, usize)> = vec![(640,480)];
+
+        let cam_params = &[rx,ry,rz,wx,wy,wz];
+        let fixed_params = &[fx, fy, cx, cy, k1, k2, p1, p2, k3];
+
+        let model_type = CameraModelType::ExtrinsicsOnly;
+        let cam0 = to_cam(cam_params, model_type, fixed_params);
+
+        let cams = vec![cam0];
+
+        let points = na::Matrix3xX::<f64>::from_column_slice(&[px,py,pz]);
+        let labels3d = vec!["pt 0".to_string()];
+
+        let projected = cams[0].world_to_pixel(&cam_geom::Points::new(points.transpose())).data;
+        print!("Observed point: {observed}");
+        print!("Projected point: {projected}");
+
+        let diff = &observed.transpose() - projected;
+        print!("Difference between observed and projected: {diff}");
+
+        let optimize_points = false;
+        let ba = BundleAdjuster::<f64>::new(
+            observed,
+            cam_idx,
+            pt_idx,
+            cam_names,
+            #[cfg(feature = "with-rerun")]
+            cam_dims,
+            cams,
+            points.clone(),
+            labels3d,
+            model_type,
+            optimize_points,
+            #[cfg(feature = "with-rerun")]
+            None,
+        )
+        .unwrap();
+        let r = levenberg_marquardt::LeastSquaresProblem::residuals(&ba).unwrap();
+        print!("Residuals: {r}");
+
+        let j = levenberg_marquardt::LeastSquaresProblem::jacobian(&ba).unwrap();
+        println!("{:?}", ba.params_names());
+        print!("Jacobian: {j}");
+
+        let r = r.data.as_vec();
+        let diff = diff.data.as_vec();
+        assert_eq!(r.len(), diff.len());
+        assert_eq!(r.len(), 2);
+        approx::assert_relative_eq!(r[0], diff[0], epsilon = 1e-6);
+        approx::assert_relative_eq!(r[1], diff[1], epsilon = 1e-6);
+
+        // Compare with known good values computed externally.
+        approx::assert_relative_eq!(j[(0,0)], 62.758782, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(0,1)], -868.827040, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(0,2)], -194.626133, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(0,3)], 122.249236, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(0,4)], 23.629356, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(0,5)], 16.275670, epsilon = 1e-6);
+
+        approx::assert_relative_eq!(j[(1,0)], 908.971740, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(1,1)], 154.613985, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(1,2)], -41.189174, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(1,3)], -36.912150, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(1,4)], 123.729704, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(1,5)], 17.519591, epsilon = 1e-6);
+        println!("spot checks passed for extrinsics-only jacobian");
+
     }
 }
