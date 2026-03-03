@@ -8,15 +8,17 @@ const SHA256SUM: &str = "51f7958afcbeb5cc72859f4ea2e34b93dd3c739351b35496753662c
 async fn test_covariance() {
     env_tracing_logger::init();
 
+    let local_fname: String = format!("scratch/{}", FNAME);
+
     download_verify::download_verify(
         format!("{}/{}", URL_BASE, FNAME).as_str(),
-        FNAME,
+        &local_fname,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )
     .unwrap();
 
     let data_src =
-        braidz_parser::incremental_parser::IncrementalParser::open_braidz_file(FNAME).unwrap();
+        braidz_parser::incremental_parser::IncrementalParser::open_braidz_file(&local_fname).unwrap();
     let data_src = data_src.parse_basics().unwrap();
 
     let output_root = tempfile::tempdir().unwrap(); // will cleanup on drop

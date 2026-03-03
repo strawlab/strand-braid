@@ -417,16 +417,18 @@ async fn test_braid_vs_old_flydra_with_water() -> anyhow::Result<()> {
     //     Err((g, _err)) => Box::new(g),
     // };
 
+    let local_fname = format!("scratch/{}", FNAME);
+
     download_verify::download_verify(
         format!("{}/{}", URL_BASE, FNAME).as_str(),
-        FNAME,
+        &local_fname,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )
     .unwrap();
 
     let untracked_dir = tempfile::tempdir().unwrap().keep(); // must manually cleanup
 
-    run_test(FNAME, untracked_dir.clone()).await?;
+    run_test(&local_fname, untracked_dir.clone()).await?;
     // TODO: check that results are similar to original.
 
     // TODO: check that filesize is roughly equal to original.

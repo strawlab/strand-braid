@@ -8,17 +8,19 @@ async fn test_min_two_rays_needed() {
     const FNAME: &str = "20201013_140707.braidz";
     const SHA256SUM: &str = "500b235c321b81ca27a442801e716ec3dd1f12488a60cc9c7d5781855e8d4424";
 
+    let local_fname = format!("scratch/{}", FNAME);
+
     // env_tracing_logger::init();
 
     download_verify::download_verify(
         format!("{}/{}", URL_BASE, FNAME).as_str(),
-        FNAME,
+        &local_fname,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )
     .unwrap();
 
     let data_src =
-        braidz_parser::incremental_parser::IncrementalParser::open_braidz_file(FNAME).unwrap();
+        braidz_parser::incremental_parser::IncrementalParser::open_braidz_file(&local_fname).unwrap();
     let data_src = data_src.parse_basics().unwrap();
 
     let output_root = tempfile::tempdir().unwrap(); // will cleanup on drop
@@ -60,9 +62,10 @@ async fn test_retrack() -> anyhow::Result<()> {
 
     // env_tracing_logger::init();
 
+    let local_fname = format!("scratch/{}", FNAME);
     download_verify::download_verify(
         format!("{}/{}", URL_BASE, FNAME).as_str(),
-        FNAME,
+        &local_fname,
         &download_verify::Hash::Sha256(SHA256SUM.into()),
     )?;
 
@@ -70,7 +73,7 @@ async fn test_retrack() -> anyhow::Result<()> {
     let output = tmpdir.path().to_path_buf().join("test_retrack.braidz");
 
     let opt = braid_offline::Cli {
-        data_src: std::path::PathBuf::from(FNAME),
+        data_src: std::path::PathBuf::from(local_fname),
         output,
         no_progress: true,
         ..Default::default()
