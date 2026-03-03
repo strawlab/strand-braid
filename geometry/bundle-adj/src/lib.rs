@@ -932,8 +932,6 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use rand::distributions::Distribution;
-    use rand_distr::Normal;
 
     #[test]
     fn test_full_bundle_adjustment() {
@@ -1049,8 +1047,10 @@ mod test {
         nrows: usize,
         ncols: usize,
     ) -> na::OMatrix<Real, Dyn, Dyn> {
-        let normal = Normal::new(0.0, 1.0).expect("creating normal");
-        let mut rng = rand::thread_rng();
+        use rand::{distributions::Distribution, SeedableRng};
+
+        let normal = rand_distr::Normal::new(0.0, 1.0).expect("creating normal");
+        let mut rng = rand::rngs::StdRng::seed_from_u64(123456);
         na::OMatrix::from_fn_generic(na::Dyn(nrows), na::Dyn(ncols), |_row, _col| {
             na::convert::<f64, Real>(normal.sample(&mut rng))
         })
