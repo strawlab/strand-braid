@@ -113,7 +113,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                         source: Box::new(e),
                         filename: braid_types::BRAID_METADATA_YML_FNAME.into(),
                         what: "opening metadata file",
-                    })
+                    });
                 }
             }
         };
@@ -135,7 +135,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         let tracking_params: Option<TrackingParams> = {
             let mut fname = self.archive.path_starter();
             fname.push(braid_types::TEXTLOG_CSV_FNAME);
-            
+
             match open_maybe_gzipped(fname) {
                 Ok(rdr) => {
                     let mut tracking_parameters = None;
@@ -253,13 +253,12 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                         source: Box::new(e),
                         filename: braid_types::CALIBRATION_XML_FNAME.into(),
                         what: "opening calibration file",
-                    })
+                    });
                 }
             }
         };
 
         let reconstruction_latency_hlog = {
-            
             match self
                 .archive
                 .open(braid_types::RECONSTRUCT_LATENCY_HLOG_FNAME)
@@ -271,12 +270,11 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         };
 
         let reprojection_distance_hlog = {
-            
             match self.archive.open(braid_types::REPROJECTION_DIST_HLOG_FNAME) {
-                    Ok(rdr) => get_hlog(rdr).unwrap(),
-                    Err(zip_or_dir::Error::FileNotFound) => None,
-                    Err(e) => return Err(e.into()),
-                }
+                Ok(rdr) => get_hlog(rdr).unwrap(),
+                Err(zip_or_dir::Error::FileNotFound) => None,
+                Err(e) => return Err(e.into()),
+            }
         };
 
         let cam_info = {
@@ -498,11 +496,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                     Err(e) => return Err(e.into()),
                 }
             }
-            if !failed {
-                Some(result)
-            } else {
-                None
-            }
+            if !failed { Some(result) } else { None }
         };
 
         let cam_info = basics.cam_info;

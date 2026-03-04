@@ -379,11 +379,7 @@ impl<'a, R: Read + Seek> BraidzArchive<R> {
                 } else {
                     true
                 };
-                if keep_row {
-                    Some(res_row)
-                } else {
-                    None
-                }
+                if keep_row { Some(res_row) } else { None }
             } else {
                 Some(res_row)
             }
@@ -411,8 +407,8 @@ fn get_hlog<R: Read>(mut rdr: R) -> Result<Option<HistogramLog>, ()> {
     let iter = interval_log::IntervalLogIterator::new(&buf);
 
     use hdrhistogram::{
-        serialization::{interval_log::LogEntry, Deserializer},
         Histogram,
+        serialization::{Deserializer, interval_log::LogEntry},
     };
 
     let mut deserializer = Deserializer::new();
@@ -469,19 +465,11 @@ impl From<&D2DInfo> for Data2dSummary {
 }
 
 fn min(a: f64, b: f64) -> f64 {
-    if a > b {
-        b
-    } else {
-        a
-    }
+    if a > b { b } else { a }
 }
 
 fn max(a: f64, b: f64) -> f64 {
-    if a < b {
-        b
-    } else {
-        a
-    }
+    if a < b { b } else { a }
 }
 
 /// Append a suffix to a path.
