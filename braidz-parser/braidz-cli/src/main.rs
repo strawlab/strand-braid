@@ -2,6 +2,8 @@ use anyhow::Context;
 use clap::Parser;
 use std::path::PathBuf;
 
+mod frame_by_frame;
+
 #[derive(Debug, Parser)]
 #[command(author, version)]
 struct Opt {
@@ -11,6 +13,10 @@ struct Opt {
     /// print all data in the `data2d_distorted` table
     #[arg(short, long)]
     data2d_distorted: bool,
+
+    /// print frame-by-frame view of all data
+    #[arg(short, long)]
+    frame_by_frame: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -33,6 +39,10 @@ fn main() -> anyhow::Result<()> {
         for row in archive.iter_data2d_distorted()? {
             println!("{:?}", row);
         }
+    }
+
+    if opt.frame_by_frame {
+        frame_by_frame::print_frame_by_frame(archive)?;
     }
 
     Ok(())

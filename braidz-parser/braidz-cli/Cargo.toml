@@ -9,5 +9,9 @@ clap.workspace = true
 env-tracing-logger.workspace = true
 serde_yaml.workspace = true
 anyhow.workspace = true
+chrono.workspace = true
+tabled.workspace = true
 
 braidz-parser.workspace = true
+braid-types.workspace = true
+groupby.workspace = true

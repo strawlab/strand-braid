@@ -243,6 +243,7 @@ serde_yaml = "0.9"
 shellexpand = "2.0"
 simba = { version = "0.9", default-features = false }
 stream-cancel = "0.8"
+tabled = "0.20.0"
 tagger = "4.0"
 target = "2.0.0"
 tempfile = "3.20.0"
