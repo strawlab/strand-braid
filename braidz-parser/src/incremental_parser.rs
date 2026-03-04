@@ -29,6 +29,7 @@ pub struct FullyParsed {
     pub calibration_info: Option<CalibrationInfo>,
     pub kalman_estimates_info: Option<KalmanEstimatesInfo>, // TODO: rename to kalman_estimates
     pub kalman_estimates_table: Option<Vec<KalmanEstimatesRow>>,
+    pub data_association: Option<Vec<braid_types::DataAssocRow>>,
     pub reconstruction_latency_hlog: Option<HistogramLog>,
     pub reprojection_distance_hlog: Option<HistogramLog>,
     pub cam_info: CamInfo,
@@ -135,7 +136,6 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
         let tracking_params: Option<TrackingParams> = {
             let mut fname = self.archive.path_starter();
             fname.push(braid_types::TEXTLOG_CSV_FNAME);
-
             match open_maybe_gzipped(fname) {
                 Ok(rdr) => {
                     let mut tracking_parameters = None;
@@ -374,6 +374,34 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
             }
         });
 
+        let data_association: Option<Vec<braid_types::DataAssocRow>> = {
+            let mut fname = self.archive.path_starter();
+            fname.push(braid_types::DATA_ASSOCIATE_CSV_FNAME);
+            let mut data_association = Vec::new();
+            match open_maybe_gzipped(fname) {
+                Ok(rdr) => {
+                    let data_assoc_reader = csv::Reader::from_reader(rdr);
+                    for row in data_assoc_reader.into_deserialize().early_eof_ok() {
+                        let row: braid_types::DataAssocRow = row?;
+                        data_association.push(row);
+                    }
+                    Some(data_association)
+                }
+                Err(e) =>
+                {
+                    #[allow(unused_variables)]
+                    match e {
+                        Error::ZipOrDir {
+                            source: zip_or_dir::Error::FileNotFound,
+                        } => None,
+                        _ => {
+                            return Err(e);
+                        }
+                    }
+                }
+            }
+        };
+
         let (kalman_estimates_info, kalman_estimates_table) = {
             let mut fname = self.archive.path_starter();
             fname.push(braid_types::KALMAN_ESTIMATES_CSV_FNAME);
@@ -510,6 +538,7 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                 cam_info,
                 kalman_estimates_info,
                 kalman_estimates_table,
+                data_association,
                 data2d_distorted,
                 reconstruction_latency_hlog: basics.reconstruction_latency_hlog,
                 reprojection_distance_hlog: basics.reprojection_distance_hlog,
