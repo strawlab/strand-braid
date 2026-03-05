@@ -108,6 +108,7 @@ impl ConnectedCamerasManager {
         signal_all_cams_present: Arc<AtomicBool>,
         signal_all_cams_synced: Arc<AtomicBool>,
         periodic_signal_period_usec: Option<f64>,
+        predefined_cam_nums: Option<BTreeMap<RawCamName, CamNum>>,
     ) -> Self {
         let mut not_yet_connected = BTreeMap::new();
 
@@ -115,8 +116,14 @@ impl ConnectedCamerasManager {
         let next_cam_num = if let Some(recon) = recon {
             for (base_num, cam_name) in recon.cam_names().enumerate() {
                 let raw_cam_name = RawCamName::new(cam_name.to_string());
-                let cam_num: CamNum = safe_u8(base_num).into();
-                not_yet_connected.insert(raw_cam_name, cam_num);
+                if let Some(predefined_cam_nums) = &predefined_cam_nums
+                    && let Some(predefined_cam_num) = predefined_cam_nums.get(&raw_cam_name)
+                {
+                    not_yet_connected.insert(raw_cam_name, *predefined_cam_num);
+                } else {
+                    let cam_num: CamNum = safe_u8(base_num).into();
+                    not_yet_connected.insert(raw_cam_name, cam_num);
+                }
             }
             safe_u8(recon.len())
         } else {
@@ -259,6 +266,7 @@ impl ConnectedCamerasManager {
             signal_all_cams_present,
             signal_all_cams_synced,
             camera_periodic_signal_period_usec,
+            None,
         );
         {
             let raw_cam_name = raw_cam_name.clone();

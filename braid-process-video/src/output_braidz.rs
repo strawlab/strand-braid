@@ -91,6 +91,7 @@ impl BraidStorage {
             signal_all_cams_present,
             signal_all_cams_synced,
             None,
+            None,
         );
 
         for raw_cam_name in all_expected_cameras.iter() {

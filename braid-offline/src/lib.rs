@@ -239,14 +239,11 @@ where
 
     let metadata_builder = flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name);
 
+    let src_info = data_src.basic_info();
+    let camid2camn = src_info.cam_info.camid2camn.clone();
+
     let (local, metadata_fps, recon) = {
-        let src_info = data_src.basic_info();
-        let cam_ids: Vec<String> = src_info
-            .cam_info
-            .camid2camn
-            .keys()
-            .map(Clone::clone)
-            .collect();
+        let cam_ids: Vec<String> = camid2camn.keys().map(Clone::clone).collect();
         let local = src_info.metadata.original_recording_time;
 
         let recon = match (&src_info.calibration_info, new_calibration) {
@@ -332,12 +329,18 @@ where
     let signal_all_cams_present = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let signal_all_cams_synced = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
+    let predefined_cam_nums = camid2camn
+        .into_iter()
+        .map(|(cam_id, camn)| (RawCamName::new(cam_id), camn))
+        .collect();
+
     let mut cam_manager = flydra2::ConnectedCamerasManager::new(
         &Some(recon.clone()),
         all_expected_cameras,
         signal_all_cams_present,
         signal_all_cams_synced,
         None,
+        Some(predefined_cam_nums),
     );
 
     let (frame_data_tx, frame_data_rx) = tokio::sync::mpsc::channel(10);

@@ -706,6 +706,7 @@ mod test {
                 Arc::new(AtomicBool::new(true)),
                 Arc::new(AtomicBool::new(true)),
                 None,
+                None,
             );
             let tracking_params = Arc::new(braid_types::default_tracking_params_full_3d());
             let save_empty_data2d = false;
@@ -793,6 +794,7 @@ mod test {
                 std::collections::BTreeSet::new(),
                 Arc::new(AtomicBool::new(true)),
                 Arc::new(AtomicBool::new(true)),
+                None,
                 None,
             );
             let tracking_params = Arc::new(braid_types::default_tracking_params_full_3d());

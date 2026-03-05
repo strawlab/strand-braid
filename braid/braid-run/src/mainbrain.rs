@@ -483,6 +483,7 @@ pub(crate) async fn do_run_forever(
         signal_all_cams_present.clone(),
         signal_all_cams_synced.clone(),
         periodic_signal_period_usec,
+        None,
     );
 
     let jar: cookie_store::CookieStore = match Preferences::load(&APP_INFO, STRAND_CAM_COOKIE_KEY) {
