@@ -1,6 +1,9 @@
 use rerun::external::{anyhow, re_build_info, re_data_loader, re_log};
 
 fn main() -> anyhow::Result<std::process::ExitCode> {
+    // Until https://github.com/rerun-io/rerun/issues/9240 is fixed
+    // the .braidz file will have to be passed on the command line to this
+    // program.
     let main_thread_token = rerun::MainThreadToken::i_promise_i_am_on_the_main_thread();
     re_log::setup_logging();
 
