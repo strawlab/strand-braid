@@ -1,14 +1,14 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc, Mutex, RwLock,
+    atomic::{AtomicBool, Ordering},
 };
 use tracing::{debug, error, info};
 
-use crate::{safe_u8, CamInfoRow, MyFloat};
+use crate::{CamInfoRow, MyFloat, safe_u8};
 use braid_types::{
     BuiServerInfo, CamInfo, CamNum, ConnectedCameraSyncState, PtpStamp, PtpSyncConfig, RawCamName,
-    RecentStats, SyncFno, TriggerType, TRIGGERBOX_SYNC_SECONDS,
+    RecentStats, SyncFno, TRIGGERBOX_SYNC_SECONDS, TriggerType,
 };
 
 pub(crate) trait HasCameraList {
@@ -492,7 +492,7 @@ impl ConnectedCamerasManager {
             let frames_during_sync = {
                 // This scope is for the write lock on self.inner. Keep it minimal.
                 let mut inner = self.inner.write().unwrap();
-                
+
                 match inner.ccis.get_mut(&raw_cam_name) {
                     Some(cci) => {
                         cci.frames_during_sync += 1;
@@ -537,9 +537,10 @@ impl ConnectedCamerasManager {
                 .periodic_signal_period_usec
                 .expect("could not get period for PTP sync");
             if let Some(expected_period) = ptpcfg.periodic_signal_period_usec
-                && approx::relative_ne!(expected_period, camera_periodic_signal_period_usec) {
-                    panic!("camera period not set to expected period");
-                }
+                && approx::relative_ne!(expected_period, camera_periodic_signal_period_usec)
+            {
+                panic!("camera period not set to expected period");
+            }
             let device_timestamp = PtpStamp::new(
                 packet
                     .device_timestamp
@@ -557,7 +558,9 @@ impl ConnectedCamerasManager {
             {
                 dur
             } else {
-                tracing::warn!("Launch time precedes device timestamp {raw_cam_name}. Is time running backwards?");
+                tracing::warn!(
+                    "Launch time precedes device timestamp {raw_cam_name}. Is time running backwards?"
+                );
                 // This would happen if time runs backwards. I have not
                 // seen this scenario, but it shouldn't cause a panic.
                 return None;
@@ -575,7 +578,9 @@ impl ConnectedCamerasManager {
                 packet.framenumber,
                 self.launch_time_ptp
             );
-            tracing::trace!("elapsed_since_launch: {elapsed_since_launch:?}, camera_periodic_signal_period_nsec: {camera_periodic_signal_period_nsec}, raw_fno: {raw_fno}");
+            tracing::trace!(
+                "elapsed_since_launch: {elapsed_since_launch:?}, camera_periodic_signal_period_nsec: {camera_periodic_signal_period_nsec}, raw_fno: {raw_fno}"
+            );
 
             let mut do_check_if_all_cameras_present = false;
 

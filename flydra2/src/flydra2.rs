@@ -11,14 +11,14 @@ use std::{
 };
 
 use hdrhistogram::{
-    serialization::{interval_log, V2DeflateSerializer},
     Counter, Histogram,
+    serialization::{V2DeflateSerializer, interval_log},
 };
 
 use nalgebra::{
+    DefaultAllocator, OMatrix, OVector, Point3, RealField, Vector6,
     allocator::Allocator,
     dimension::{DimMin, U1, U2, U3, U6},
-    DefaultAllocator, OMatrix, OVector, Point3, RealField, Vector6,
 };
 
 #[allow(unused_imports)]
@@ -50,16 +50,16 @@ mod mini_arenas;
 pub use mini_arenas::MiniArenaDebugConfig;
 
 mod model_server;
-pub use crate::model_server::{new_model_server, SendKalmanEstimatesRow, SendType};
+pub use crate::model_server::{SendKalmanEstimatesRow, SendType, new_model_server};
 
 use crate::contiguous_stream::make_contiguous;
-use crate::frame_bundler::bundle_frames;
 pub use crate::frame_bundler::StreamItem;
+use crate::frame_bundler::bundle_frames;
 
 type MyFloat = braid_types::MyFloat;
 
 mod error;
-pub use error::{file_error, wrap_error, Error};
+pub use error::{Error, file_error, wrap_error};
 
 pub type Result<M> = std::result::Result<M, Error>;
 
@@ -605,9 +605,10 @@ fn finish_histogram(
     now_system: std::time::SystemTime,
 ) -> std::result::Result<(), hdrhistogram::RecordError> {
     if let Some(hist) = hist_store.take()
-        && let Ok(h) = hist.end(&file_start_time, now_system) {
-            histograms.push(h);
-        }
+        && let Ok(h) = hist.end(&file_start_time, now_system)
+    {
+        histograms.push(h);
+    }
     Ok(())
 }
 
@@ -642,9 +643,10 @@ fn histogram_record(
     *hist_store = Some(hist);
 
     if let Some(accum_dur) = accum_dur
-        && accum_dur.as_secs() >= 60 {
-            finish_histogram(hist_store, file_start_time, histograms, now_system)?;
-        }
+        && accum_dur.as_secs() >= 60
+    {
+        finish_histogram(hist_store, file_start_time, histograms, now_system)?;
+    }
     Ok(())
 }
 

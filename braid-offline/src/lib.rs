@@ -12,13 +12,13 @@ use ordered_float::NotNan;
 use tracing::{debug, info, warn};
 
 use braid_types::{
-    CamInfoRow, Data2dDistortedRow, PerCamSaveData, RawCamName, SyncFno, TrackingParams,
-    FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME,
+    CamInfoRow, Data2dDistortedRow, FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME,
+    PerCamSaveData, RawCamName, SyncFno, TrackingParams,
 };
 use braidz_parser::open_maybe_gzipped;
 use flydra2::{
-    new_model_server, CoordProcessor, CoordProcessorConfig, FrameData, FrameDataAndPoints,
-    NumberedRawUdpPoint, StreamItem,
+    CoordProcessor, CoordProcessorConfig, FrameData, FrameDataAndPoints, NumberedRawUdpPoint,
+    StreamItem, new_model_server,
 };
 use groupby::{AscendingGroupIter, BufferedSortIter};
 
@@ -274,7 +274,9 @@ where
                     }
                 }
                 if found > 0 && found == count {
-                    info!("Converting camera calibration names from original to ROS-compatible names.");
+                    info!(
+                        "Converting camera calibration names from original to ROS-compatible names."
+                    );
                     let mut new_cams = std::collections::BTreeMap::new();
                     for (orig_name, orig_value) in cams.cams_by_name().iter() {
                         let raw_name = RawCamName::new(orig_name.clone()).as_str().to_string();
@@ -547,14 +549,16 @@ where
                 let data_frame_rows: groupby::GroupedRows<i64, Data2dDistortedRow> =
                     data_frame_rows?;
                 if let Some(start_frame) = opt3.start_frame
-                    && safe_u64(data_frame_rows.group_key) < start_frame {
-                        continue;
-                    }
+                    && safe_u64(data_frame_rows.group_key) < start_frame
+                {
+                    continue;
+                }
                 let this_frame = safe_u64(data_frame_rows.group_key);
                 if let Some(stop_frame) = opt3.stop_frame
-                    && this_frame > stop_frame {
-                        break;
-                    }
+                    && this_frame > stop_frame
+                {
+                    break;
+                }
                 if this_frame < min_frame {
                     min_frame = this_frame;
                 }
@@ -605,14 +609,16 @@ where
 
             let opt = opt3.clone();
             if let Some(start) = &opt.start_frame
-                && synced_frame.0 < *start {
-                    continue;
-                }
+                && synced_frame.0 < *start
+            {
+                continue;
+            }
 
             if let Some(stop) = &opt.stop_frame
-                && synced_frame.0 > *stop {
-                    break;
-                }
+                && synced_frame.0 > *stop
+            {
+                break;
+            }
 
             if let Some(pb) = &pb {
                 // Increment the counter.

@@ -18,7 +18,8 @@ async fn test_covariance() {
     .unwrap();
 
     let data_src =
-        braidz_parser::incremental_parser::IncrementalParser::open_braidz_file(&local_fname).unwrap();
+        braidz_parser::incremental_parser::IncrementalParser::open_braidz_file(&local_fname)
+            .unwrap();
     let data_src = data_src.parse_basics().unwrap();
 
     let output_root = tempfile::tempdir().unwrap(); // will cleanup on drop

@@ -257,12 +257,16 @@ pub async fn new_model_server(
                                     if !i.distortion.is_linear() {
                                         // Drop distortions to log to rerun. See https://github.com/rerun-io/rerun/issues/2499
                                         if !did_show_rerun_warning {
-                                            tracing::warn!("Not showing distortions in rerun. See https://github.com/rerun-io/rerun/issues/2499");
+                                            tracing::warn!(
+                                                "Not showing distortions in rerun. See https://github.com/rerun-io/rerun/issues/2499"
+                                            );
                                             did_show_rerun_warning = true;
                                         }
                                     }
                                     if i.skew().abs() > 1e-15 {
-                                        tracing::warn!("Camera has skew, but rerun cameras do not support skew");
+                                        tracing::warn!(
+                                            "Camera has skew, but rerun cameras do not support skew"
+                                        );
                                     }
                                     let params = cam_geom::PerspectiveParams {
                                         fx: i.fx(),

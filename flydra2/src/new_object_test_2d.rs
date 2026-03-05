@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, sync::Arc};
 
-use crate::{tracking_core::HypothesisTest, CamAndDist, HypothesisTestResult};
+use crate::{CamAndDist, HypothesisTestResult, tracking_core::HypothesisTest};
 use braid_types::{MyFloat, RawCamName, TrackingParams};
 
 #[derive(Clone)]

@@ -3,11 +3,11 @@ use std::collections::BTreeMap;
 use braid_types::{MiniArenaConfig, RawCamName};
 use nalgebra::Point2;
 
+use crate::NumberedRawUdpPoint;
 use crate::connected_camera_manager::CameraList;
 use crate::mini_arenas::{MiniArenaImage, MiniArenaLocator};
-use crate::NumberedRawUdpPoint;
 use crate::{
-    contiguous_stream::Numbered, FrameDataAndPoints, MyFloat, SyncFno, TimeDataPassthrough,
+    FrameDataAndPoints, MyFloat, SyncFno, TimeDataPassthrough, contiguous_stream::Numbered,
 };
 
 #[derive(Clone, Debug)]

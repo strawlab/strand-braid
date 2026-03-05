@@ -3,17 +3,17 @@ use std::{io::Write, sync::Arc};
 use tracing::info;
 
 use braid_types::{
-    CamInfoRow, MyFloat, TextlogRow, TrackingParams, BRAID_SCHEMA, CAM_SETTINGS_DIRNAME,
-    FEATURE_DETECT_SETTINGS_DIRNAME, IMAGES_DIRNAME, RECONSTRUCT_LATENCY_HLOG_FNAME,
-    REPROJECTION_DIST_HLOG_FNAME,
+    BRAID_SCHEMA, CAM_SETTINGS_DIRNAME, CamInfoRow, FEATURE_DETECT_SETTINGS_DIRNAME,
+    IMAGES_DIRNAME, MyFloat, RECONSTRUCT_LATENCY_HLOG_FNAME, REPROJECTION_DIST_HLOG_FNAME,
+    TextlogRow, TrackingParams,
 };
 
 use braidz_types::BraidMetadata;
 
 use crate::{
-    finish_histogram, histogram_record, save_hlog, ConnectedCamerasManager, ExperimentInfoRow,
-    FrameDataAndPoints, HistogramWritingState, KalmanEstimateRecord, OrderingWriter, Result,
-    SaveToDiskMsg, StartSavingCsvConfig, TrackingParamsSaver,
+    ConnectedCamerasManager, ExperimentInfoRow, FrameDataAndPoints, HistogramWritingState,
+    KalmanEstimateRecord, OrderingWriter, Result, SaveToDiskMsg, StartSavingCsvConfig,
+    TrackingParamsSaver, finish_histogram, histogram_record, save_hlog,
 };
 
 struct WritingState {
@@ -570,28 +570,28 @@ pub(crate) fn writer_task_main(
 
                             if let Some(latency_usec) = elapsed.num_microseconds()
                                 && latency_usec >= 0
-                                    && let Some(reconstruction_latency_usec) =
-                                        &mut ws.reconstruction_latency_usec
-                                    {
-                                        // The latency should always be positive, but num_microseconds()
-                                        // can return negative and we don't want to panic if time goes
-                                        // backwards for some reason.
-                                        match histogram_record(
-                                            latency_usec as u64,
-                                            &mut reconstruction_latency_usec.current_store,
-                                            1000 * 1000 * 60,
-                                            2,
-                                            ws.file_start_time,
-                                            &mut reconstruction_latency_usec.histograms,
-                                            now_system,
-                                        ) {
-                                            Ok(()) => {}
-                                            Err(_) => tracing::error!(
-                                                "latency value {} out of expected range",
-                                                latency_usec
-                                            ),
-                                        }
-                                    }
+                                && let Some(reconstruction_latency_usec) =
+                                    &mut ws.reconstruction_latency_usec
+                            {
+                                // The latency should always be positive, but num_microseconds()
+                                // can return negative and we don't want to panic if time goes
+                                // backwards for some reason.
+                                match histogram_record(
+                                    latency_usec as u64,
+                                    &mut reconstruction_latency_usec.current_store,
+                                    1000 * 1000 * 60,
+                                    2,
+                                    ws.file_start_time,
+                                    &mut reconstruction_latency_usec.histograms,
+                                    now_system,
+                                ) {
+                                    Ok(()) => {}
+                                    Err(_) => tracing::error!(
+                                        "latency value {} out of expected range",
+                                        latency_usec
+                                    ),
+                                }
+                            }
                         }
                     }
 
@@ -601,20 +601,20 @@ pub(crate) fn writer_task_main(
 
                             if let Some(reproj_dist_pixels) = &mut ws.reproj_dist_pixels {
                                 match histogram_record(
-                                            mean_reproj_dist_100x,
-                                            &mut reproj_dist_pixels.current_store,
-                                            1000000,
-                                            2,
-                                            ws.file_start_time,
-                                            &mut reproj_dist_pixels.histograms,
-                                            now_system,
-                                        ) {
-                                            Ok(()) => {}
-                                            Err(_) => tracing::error!(
-                                                "mean reprojection 100x distance value {} out of expected range",
-                                                mean_reproj_dist_100x
-                                            ),
-                                        }
+                                    mean_reproj_dist_100x,
+                                    &mut reproj_dist_pixels.current_store,
+                                    1000000,
+                                    2,
+                                    ws.file_start_time,
+                                    &mut reproj_dist_pixels.histograms,
+                                    now_system,
+                                ) {
+                                    Ok(()) => {}
+                                    Err(_) => tracing::error!(
+                                        "mean reprojection 100x distance value {} out of expected range",
+                                        mean_reproj_dist_100x
+                                    ),
+                                }
                             }
                         }
                     }
@@ -667,9 +667,10 @@ pub(crate) fn writer_task_main(
         }
 
         if let Some(ref mut ws) = writing_state
-            && ws.last_flush.elapsed() > flush_interval {
-                ws.flush_all()?;
-            }
+            && ws.last_flush.elapsed() > flush_interval
+        {
+            ws.flush_all()?;
+        }
     }
     tracing::info!("Done with braidz writer task.");
     Ok(())

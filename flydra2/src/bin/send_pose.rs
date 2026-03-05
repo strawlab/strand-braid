@@ -2,7 +2,7 @@ use chrono::Local;
 use std::time::Instant;
 
 use braid_types::{FlydraFloatTimestampLocal, KalmanEstimatesRow, SyncFno, Triggerbox};
-use flydra2::{new_model_server, Result, SendType, TimeDataPassthrough};
+use flydra2::{Result, SendType, TimeDataPassthrough, new_model_server};
 
 #[tokio::main]
 async fn main() -> Result<()> {

@@ -23,12 +23,13 @@ use braid_types::{
 
 use crate::bundled_data::{MiniArenaPointPerCam, PerMiniArenaAllCamsOneFrameUndistorted};
 use crate::{
+    CameraObservationModel, ConnectedCamerasManager, HypothesisTestResult, KalmanEstimateRecord,
+    MyFloat, SaveToDiskMsg, TimeDataPassthrough,
     mini_arenas::MiniArenaIndex,
     model_server::{SendKalmanEstimatesRow, SendType},
     new_object_test_2d::NewObjectTestFlat3D,
     new_object_test_3d::NewObjectTestFull3D,
-    to_world_point, CameraObservationModel, ConnectedCamerasManager, HypothesisTestResult,
-    KalmanEstimateRecord, MyFloat, SaveToDiskMsg, TimeDataPassthrough,
+    to_world_point,
 };
 
 // -----------------------------------------------------------------------------
@@ -773,78 +774,77 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                     trace!("row_idx {}, best_col {:?}", row_idx, best_col);
 
                     if let Some((best_idx, best_wantedness)) = best_col
-                        && best_wantedness > self.mcinner.params.accept_observation_min_likelihood {
-                            // don't take unwanted point
-                            unused_col_idxs.remove(&best_idx);
+                        && best_wantedness > self.mcinner.params.accept_observation_min_likelihood
+                    {
+                        // don't take unwanted point
+                        unused_col_idxs.remove(&best_idx);
 
-                            // this point can no longer be used for other models
-                            for tmp_i in 0..wantedness.nrows() {
-                                wantedness[(tmp_i, best_idx)] = zero;
-                            }
-
-                            let this_pt = &arena_data[best_idx];
-                            let undist_pt = &this_pt.undistorted;
-                            trace!(
-                                "object {} is accepting undistorted point {:?}",
-                                next_model.lmi.obj_id,
-                                undist_pt
-                            );
-
-                            let observation_undistorted =
-                                OVector::<_, U2>::new(undist_pt.x, undist_pt.y);
-
-                            let model = &old_states[row_idx];
-                            let obs_model = match &model.obs_models_and_likelihoods[cam_idx] {
-                                ObservationModel::ObservationModelAndLikelihoods(oml) => {
-                                    &oml.observation_model
-                                }
-                                ObservationModel::NoObservations => {
-                                    // This should never happen.
-                                    panic!("non-zero wantedness for non-existent observation.");
-                                }
-                            };
-
-                            let estimate = &next_model.state.posterior;
-
-                            let form = adskalman::CovarianceUpdateMethod::JosephForm;
-                            let posterior = obs_model
-                                .update(&estimate.estimate, &observation_undistorted, form)
-                                // .map_err(|e| {
-                                //     format!(
-                                //         "While computing posterior for frame {}, camera {}: {}.",
-                                //         frame_cam_points.frame_data.synced_frame,
-                                //         frame_cam_points.frame_data.cam_name,
-                                //         e
-                                //     )
-                                // })
-                                .unwrap();
-
-                            trace!("previous estimate {:?}", estimate.estimate.state());
-                            trace!(" updated estimate {:?}", posterior.state());
-
-                            // Compute the coords of the estimated state.
-                            let reproj_undistorted =
-                                obs_model.predict_observation(posterior.state());
-                            let reproj_dist = ((reproj_undistorted.x - undist_pt.x).powi(2)
-                                + (reproj_undistorted.y - undist_pt.y).powi(2))
-                            .sqrt();
-
-                            next_model.state.posterior.estimate = posterior;
-                            let assoc = DataAssocInfo {
-                                pt_idx: undist_pt.idx,
-                                cam_num,
-                                reproj_dist,
-                            };
-
-                            // trace!(
-                            //     "object {} at frame {} using: {:?}",
-                            //     next_model.lmi.obj_id,
-                            //     bundle.frame().0,
-                            //     assoc
-                            // );
-
-                            next_model.state.data_assoc_this_timestamp.push(assoc);
+                        // this point can no longer be used for other models
+                        for tmp_i in 0..wantedness.nrows() {
+                            wantedness[(tmp_i, best_idx)] = zero;
                         }
+
+                        let this_pt = &arena_data[best_idx];
+                        let undist_pt = &this_pt.undistorted;
+                        trace!(
+                            "object {} is accepting undistorted point {:?}",
+                            next_model.lmi.obj_id, undist_pt
+                        );
+
+                        let observation_undistorted =
+                            OVector::<_, U2>::new(undist_pt.x, undist_pt.y);
+
+                        let model = &old_states[row_idx];
+                        let obs_model = match &model.obs_models_and_likelihoods[cam_idx] {
+                            ObservationModel::ObservationModelAndLikelihoods(oml) => {
+                                &oml.observation_model
+                            }
+                            ObservationModel::NoObservations => {
+                                // This should never happen.
+                                panic!("non-zero wantedness for non-existent observation.");
+                            }
+                        };
+
+                        let estimate = &next_model.state.posterior;
+
+                        let form = adskalman::CovarianceUpdateMethod::JosephForm;
+                        let posterior = obs_model
+                            .update(&estimate.estimate, &observation_undistorted, form)
+                            // .map_err(|e| {
+                            //     format!(
+                            //         "While computing posterior for frame {}, camera {}: {}.",
+                            //         frame_cam_points.frame_data.synced_frame,
+                            //         frame_cam_points.frame_data.cam_name,
+                            //         e
+                            //     )
+                            // })
+                            .unwrap();
+
+                        trace!("previous estimate {:?}", estimate.estimate.state());
+                        trace!(" updated estimate {:?}", posterior.state());
+
+                        // Compute the coords of the estimated state.
+                        let reproj_undistorted = obs_model.predict_observation(posterior.state());
+                        let reproj_dist = ((reproj_undistorted.x - undist_pt.x).powi(2)
+                            + (reproj_undistorted.y - undist_pt.y).powi(2))
+                        .sqrt();
+
+                        next_model.state.posterior.estimate = posterior;
+                        let assoc = DataAssocInfo {
+                            pt_idx: undist_pt.idx,
+                            cam_num,
+                            reproj_dist,
+                        };
+
+                        // trace!(
+                        //     "object {} at frame {} using: {:?}",
+                        //     next_model.lmi.obj_id,
+                        //     bundle.frame().0,
+                        //     assoc
+                        // );
+
+                        next_model.state.data_assoc_this_timestamp.push(assoc);
+                    }
                 }
 
                 // we will fill this point-by-point

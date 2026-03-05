@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use braid_types::MiniArenaConfig;
 
-use crate::{bundled_data::BundledAllCamsOneFrameUndistorted, MyFloat, Result};
+use crate::{MyFloat, Result, bundled_data::BundledAllCamsOneFrameUndistorted};
 
 /// Into a mini arena.
 ///

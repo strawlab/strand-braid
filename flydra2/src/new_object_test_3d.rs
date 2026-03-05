@@ -6,8 +6,8 @@ use braid_types::{RawCamName, TrackingParams};
 use braid_mvg::{MvgError, PointWorldFrameWithSumReprojError};
 
 use crate::{
-    safe_u8, set_of_subsets, tracking_core::HypothesisTest, CamAndDist, HypothesisTestResult,
-    MyFloat,
+    CamAndDist, HypothesisTestResult, MyFloat, safe_u8, set_of_subsets,
+    tracking_core::HypothesisTest,
 };
 
 const HTEST_MAX_N_CAMS: u8 = 3;
