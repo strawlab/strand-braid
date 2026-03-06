@@ -198,7 +198,7 @@ fn mp4_color_nvenc_h264() -> Result<()> {
     const URL_BASE: &str = "https://strawlab-cdn.com/assets/braid-mkvs/color_mono";
     const SHA256SUM: &str = "7f7cd84fb8b5934e34e03c875e6a1da0d1ef3737f125de0f3b586a0451e58885";
 
-    let dest = format!("scratch/{}", FNAME);
+    let dest = format!("scratch/for-mp4-{}", FNAME);
     download_verify::download_verify(
         format!("{URL_BASE}/{FNAME}").as_str(),
         &dest,
