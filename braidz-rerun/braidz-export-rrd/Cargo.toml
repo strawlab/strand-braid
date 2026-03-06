@@ -12,7 +12,7 @@ tracing.workspace = true
 re_sdk.workspace = true
 re_sdk_types.workspace = true
 
-rayon = "1.9.0"
+rayon = "1.11.0"
 
 braidz-parser.workspace = true
 braidz-rerun.workspace = true

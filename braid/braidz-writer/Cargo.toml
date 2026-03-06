@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-walkdir = "2.2"
+walkdir = "2.5"
 libflate.workspace = true
 zip.workspace = true
 thiserror.workspace = true

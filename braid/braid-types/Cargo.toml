@@ -15,9 +15,9 @@ tokio-util = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
 ordered-float.workspace = true
 static_assertions = "1.1.0"
-num-integer = "0.1"
+num-integer = "0.1.45"
 http.workspace = true
-percent-encoding = "2.3.1"
+percent-encoding = "2.3.2"
 tracing.workspace = true
 eyre = { workspace = true, optional = true }
 axum-token-auth = { workspace = true, optional = true }

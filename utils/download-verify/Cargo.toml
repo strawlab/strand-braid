@@ -9,5 +9,5 @@ edition = "2024"
 [dependencies]
 ureq = "3.0.9"
 thiserror.workspace = true
-sha2 = "0.10.2"
-hex = "0.4"
+sha2 = "0.10.9"
+hex = "0.4.3"

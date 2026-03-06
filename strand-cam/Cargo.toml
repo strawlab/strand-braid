@@ -21,7 +21,7 @@ serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 serde_cbor.workspace = true
-webbrowser = "1.0.4"
+webbrowser = "1.0.5"
 clap.workspace = true
 preferences-serde1.workspace = true
 base64.workspace = true
@@ -65,7 +65,7 @@ flydra-pt-detect-cfg.workspace = true
 strand-datetime-conversion.workspace = true
 strand-http-video-streaming-types.workspace = true
 strand-http-video-streaming.workspace = true
-semver = { version = "1", features = ["serde"] }
+semver = { version = "1.0.27", features = ["serde"] }
 shellexpand.workspace = true
 imops.workspace = true
 strand-led-box-comms.workspace = true
