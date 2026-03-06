@@ -100,7 +100,8 @@ impl PerSender {
                         .frame
                         .borrow()
                         .to_encoded_buffer(convert_image::EncoderOptions::Jpeg(80))?;
-                    let firehose_frame_base64 = base64::encode(bytes);
+                    use base64::Engine;
+                    let firehose_frame_base64 = base64::engine::general_purpose::STANDARD.encode(bytes);
                     let data_url = format!("data:image/jpeg;base64,{}", firehose_frame_base64);
                     // most_recent_frame_data.data_url = Some(data_url.clone()); // todo: cache like this
                     let mut annotations = most_recent_frame_data.annotations.clone();

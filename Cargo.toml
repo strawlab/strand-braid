@@ -143,7 +143,7 @@ approx = "0.5"
 async-change-tracker = "0.3.4"
 axum = "0.8.1"
 axum-token-auth = "0.2.0"
-base64 = "0.12"
+base64 = "0.22"
 byteorder = "1"
 bytes = "1.6"
 cam-geom = { version = "0.16", features = ["serde-serialize"] }

@@ -266,6 +266,7 @@ async fn launch_braid_http_backend(
     mainbrain_server_info: BuiServerAddrInfo,
     app_state: BraidAppState,
 ) -> Result<impl futures::Future<Output = Result<()>>> {
+    use base64::Engine;
     let persistent_secret_base64 = if let Some(secret) = secret_base64 {
         secret
     } else {
@@ -274,14 +275,14 @@ async fn launch_braid_http_backend(
             Err(_) => {
                 tracing::debug!("No secret loaded from preferences file, generating new.");
                 let persistent_secret = cookie::Key::generate();
-                let persistent_secret_base64 = base64::encode(persistent_secret.master());
+                let persistent_secret_base64 = base64::engine::general_purpose::STANDARD.encode(persistent_secret.master());
                 persistent_secret_base64.save(&APP_INFO, COOKIE_SECRET_KEY)?;
                 persistent_secret_base64
             }
         }
     };
 
-    let persistent_secret = base64::decode(persistent_secret_base64)?;
+    let persistent_secret = base64::engine::general_purpose::STANDARD.decode(persistent_secret_base64)?;
     let persistent_secret = cookie::Key::try_from(persistent_secret.as_slice())?;
 
     // Setup our auth layer.

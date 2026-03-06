@@ -211,7 +211,8 @@ impl<'lib, 'fonts> VideoStorage<'lib, 'fonts> {
                     .build(|w| {
                         // Draw image from camera
                         if let Some(png_buf) = &cam_render_data.png_buf {
-                            let png_base64_buf = base64::encode(png_buf);
+                            use base64::Engine;
+                            let png_base64_buf = base64::engine::general_purpose::STANDARD.encode(png_buf);
                             let data_url = format!("data:image/png;base64,{}", png_base64_buf);
                             w.single("image", |d| {
                                 d.attr("x", 0)?;

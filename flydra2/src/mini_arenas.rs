@@ -167,10 +167,11 @@ fn annotate_mini_arena_image(
         d.attr("viewBox", format_args!("0 0 {} {}", svg_width, svg_height))
     })?
     .build(|w| {
+        use base64::Engine;
 
         // Draw background image
         if let Some(jpeg_buf) = &cfg.background_image_jpeg_buf {
-            let jpeg_base64_buf = base64::encode(jpeg_buf);
+            let jpeg_base64_buf = base64::engine::general_purpose::STANDARD.encode(jpeg_buf);
             let data_url = format!("data:image/jpeg;base64,{}", jpeg_base64_buf);
             w.single("image", |d| {
                 d.attr("x", 0)?;
@@ -183,7 +184,7 @@ fn annotate_mini_arena_image(
 
         // Draw well image
         {
-            let jpeg_base64_buf = base64::encode(well_jpeg_buf);
+            let jpeg_base64_buf = base64::engine::general_purpose::STANDARD.encode(well_jpeg_buf);
             let data_url = format!("data:image/jpeg;base64,{}", jpeg_base64_buf);
             w.single("image", |d| {
                 d.attr("x", 0)?;

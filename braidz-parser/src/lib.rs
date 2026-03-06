@@ -420,8 +420,9 @@ fn get_hlog<R: Read>(mut rdr: R) -> Result<Option<HistogramLog>, ()> {
         let interval = interval.map_err(|_| ())?;
         match interval {
             LogEntry::Interval(ilh) => {
+                use base64::Engine;
                 let serialized_histogram =
-                    base64::decode(ilh.encoded_histogram()).map_err(|_| ())?;
+                    base64::engine::general_purpose::STANDARD.decode(ilh.encoded_histogram()).map_err(|_| ())?;
                 let decoded_hist: Histogram<u64> = deserializer
                     .deserialize(&mut std::io::Cursor::new(&serialized_histogram))
                     .map_err(|_| ())?;
