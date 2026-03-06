@@ -10,6 +10,6 @@ machine-vision-formats.workspace = true
 openh264.workspace = true
 image.workspace = true
 y4m.workspace = true
-tiff = "0.9.0"
+tiff.workspace = true
 
 convert-image.workspace = true

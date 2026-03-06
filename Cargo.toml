@@ -247,6 +247,7 @@ tabled = "0.20.0"
 tagger = "4.0"
 target = "2.0.0"
 tempfile = "3.20.0"
+test-log = { version = "0.2.16", default-features = false }
 thiserror = "2.0.11"
 tiff = "0.9.0"
 tokio = { version = "1", features = ["full"] }
