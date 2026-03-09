@@ -568,7 +568,6 @@ extern "C" {
 
 pub fn main() {
     wasm_logger::init(wasm_logger::Config::new(log::Level::Info));
-    #[allow(unused_variables)]
     let app_handle = yew::Renderer::<Model>::new().render();
 
     {

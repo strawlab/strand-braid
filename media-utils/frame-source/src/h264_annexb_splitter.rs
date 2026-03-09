@@ -2,7 +2,7 @@
 use bytes::Buf;
 use std::io::Read;
 
-use crate::{h264_source::AnnexBLocation, Result};
+use crate::{Result, h264_source::AnnexBLocation};
 
 pub(crate) fn find_nals<R: Read>(mut rdr: R) -> Result<Vec<AnnexBLocation>> {
     let mut read_buf: Vec<u8> = vec![0u8; 4 * 1024 * 1024]; // 4 MB

@@ -2,7 +2,7 @@ use eyre::Result;
 use ordered_float::NotNan;
 use std::io::Write;
 
-use crate::{output_braidz::BraidStorage, output_video::VideoStorage, PerCamRenderFrame};
+use crate::{PerCamRenderFrame, output_braidz::BraidStorage, output_video::VideoStorage};
 
 pub(crate) enum OutputStorage<'lib, 'fonts> {
     Video(Box<VideoStorage<'lib, 'fonts>>),

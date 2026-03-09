@@ -1,7 +1,7 @@
 use std::env;
 
 // This function was modified from pkg-config-rs and should have same behavior.
-#[allow(clippy::if_same_then_else, clippy::needless_bool)]
+#[expect(clippy::if_same_then_else, clippy::needless_bool)]
 fn infer_static(name: &str) -> bool {
     if env::var_os(format!("{}_STATIC", name)).is_some() {
         true

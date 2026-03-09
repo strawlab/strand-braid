@@ -6,25 +6,25 @@ use std::{
 
 use chrono::{DateTime, FixedOffset, Utc};
 use h264_reader::{
+    Context as H264ParsingContext,
     nal::{
-        sei::{HeaderType, SeiMessage, SeiReader},
         Nal, RefNal, UnitType,
+        sei::{HeaderType, SeiMessage, SeiReader},
     },
     rbsp::BitReaderError,
-    Context as H264ParsingContext,
 };
 use serde::{Deserialize, Serialize};
 
-use strand_cam_remote_control::{H264Metadata, H264_METADATA_UUID, H264_METADATA_VERSION};
+use strand_cam_remote_control::{H264_METADATA_UUID, H264_METADATA_VERSION, H264Metadata};
 
 #[cfg(feature = "openh264")]
 use machine_vision_formats::owned::OImage;
 
 use crate::{
-    ntp_timestamp::NtpTimestamp,
-    srt_reader::{self, Stanza},
     EncodedH264, Error, FrameData, FrameDataSource, H264EncodingVariant, ImageData, MyAsStr,
     Result, Timestamp, TimestampSource,
+    ntp_timestamp::NtpTimestamp,
+    srt_reader::{self, Stanza},
 };
 
 struct SrtData {
@@ -309,6 +309,7 @@ where
     H: SeekableH264Source,
     <H as SeekableH264Source>::NalLocation: Clone,
 {
+    #[expect(clippy::too_many_arguments, reason="we grudgingly accept this ugliness")]
     pub(crate) fn from_seekable_h264_source_with_timestamp_source(
         mut seekable_h264_source: H,
         do_decode_h264: bool,
@@ -382,14 +383,21 @@ where
         }
 
         // iterate through all NAL units.
-        let (frame_time_info, frame0_precision_time, frame0_frameinfo, h264_metadata, tz_offset) =
-            load_timing_data(
-                &nal_locations,
-                &mut seekable_h264_source,
-                &mut parsing_ctx,
-                show_progress,
-                preparser,
-            )?;
+        let timing_data = load_timing_data(
+            &nal_locations,
+            &mut seekable_h264_source,
+            &mut parsing_ctx,
+            show_progress,
+            preparser,
+        )?;
+
+        let TimingData {
+            frame_time_info,
+            frame0_precision_time,
+            frame0_frameinfo,
+            h264_metadata,
+            tz_offset,
+        } = timing_data;
 
         let mut widthheight = None;
         for sps in parsing_ctx.sps() {
@@ -449,13 +457,14 @@ where
         };
 
         if let Some(mp4_pts) = mp4_pts.as_ref()
-            && mp4_pts.len() != frame_time_info.len() {
-                return Err(Error::H264TimestampError(format!(
-                    "We have {} frames of MP4 PTS timing, but computed {} frames of video.",
-                    mp4_pts.len(),
-                    frame_time_info.len()
-                )));
-            }
+            && mp4_pts.len() != frame_time_info.len()
+        {
+            return Err(Error::H264TimestampError(format!(
+                "We have {} frames of MP4 PTS timing, but computed {} frames of video.",
+                mp4_pts.len(),
+                frame_time_info.len()
+            )));
+        }
         let average_fps = calc_avg_fps(&frame_time_info[..]);
 
         Ok(Self {
@@ -500,19 +509,21 @@ fn calc_avg_fps(fti: &[FrameTimeInfo]) -> Option<f64> {
     }
 }
 
+struct TimingData {
+    frame_time_info: Vec<FrameTimeInfo>,
+    frame0_precision_time: Option<DateTime<Utc>>,
+    frame0_frameinfo: Option<FrameInfo>,
+    h264_metadata: Option<H264Metadata>,
+    tz_offset: Option<FixedOffset>,
+}
+
 fn load_timing_data<H>(
     nal_locations: &[H::NalLocation],
     seekable_h264_source: &mut H,
     parsing_ctx: &mut H264ParsingContext,
     show_progress: bool,
     mut preparser: Option<Box<dyn H264Preparser>>,
-) -> Result<(
-    Vec<FrameTimeInfo>,
-    Option<DateTime<Utc>>,
-    Option<FrameInfo>,
-    Option<H264Metadata>,
-    Option<FixedOffset>,
-)>
+) -> Result<TimingData>
 where
     H: SeekableH264Source,
     <H as SeekableH264Source>::NalLocation: Clone,
@@ -610,7 +621,7 @@ where
                                                 }
                                                 if h264_metadata.is_some() {
                                                     return Err(Error::H264Error(
-                                                        "multiple SEI messages, but expected exactly one"
+                                                        "multiple SEI messages, but expected exactly one",
                                                     ));
                                                 }
 
@@ -628,8 +639,8 @@ where
                                             }
                                             VIDEOTOOLBOX_UUID => {
                                                 tracing::trace!(
-                                                "Ignoring SEI UserDataUnregistered from videotoolbox."
-                                            );
+                                                    "Ignoring SEI UserDataUnregistered from videotoolbox."
+                                                );
                                             }
                                             b"MISPmicrosectime" => {
                                                 let ts = parse_precision_time(udu.payload)?;
@@ -748,13 +759,13 @@ where
 
     tracing::debug!("Done iterating through all NAL units.");
 
-    Ok((
+    Ok(TimingData {
         frame_time_info,
         frame0_precision_time,
         frame0_frameinfo,
         h264_metadata,
         tz_offset,
-    ))
+    })
 }
 
 struct RawH264Iter<'parent, H: SeekableH264Source> {

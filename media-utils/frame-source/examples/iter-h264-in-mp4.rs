@@ -1,5 +1,5 @@
 use eyre::Result;
-use frame_source::{h264_source::SeekableH264Source, FrameDataSource};
+use frame_source::{FrameDataSource, h264_source::SeekableH264Source};
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();

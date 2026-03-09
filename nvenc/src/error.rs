@@ -13,7 +13,7 @@ mod test {
     #[test]
     fn test_from_dynlink_cuda_error() {
         let orig = dynlink_cuda::CudaError::ErrCode { status: 2 };
-        #[allow(unused_variables)]
+        #[expect(unused_variables)]
         let converted = crate::NvEncError::from(orig);
     }
 
@@ -26,7 +26,7 @@ mod test {
             fname: file!(),
             message: dynlink_nvidia_encode::error::code_to_string(status),
         };
-        #[allow(unused_variables)]
+        #[expect(unused_variables)]
         let converted = crate::NvEncError::from(orig);
     }
 }

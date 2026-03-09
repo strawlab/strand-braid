@@ -827,7 +827,7 @@ fn build_xform<R: RealField + Copy>(s: R, rot: Matrix3<R>, t: Vector3<R>) -> Mat
     m2
 }
 
-#[allow(clippy::many_single_char_names)]
+#[expect(clippy::many_single_char_names)]
 fn pmat2cam_center<R: RealField + Copy>(p: &OMatrix<R, U3, U4>) -> Point3<R> {
     let x = (*p).remove_column(0).determinant();
     let y = -(*p).remove_column(1).determinant();

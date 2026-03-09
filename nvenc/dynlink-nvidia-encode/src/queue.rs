@@ -4,7 +4,7 @@
 /// a potentially lagging index ("pending"). Get an available item and then,
 ///
 /// modeled after CNvQueue in nvidia Samples in Video Codec SDK
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub struct Queue<T> {
     m_pBuffer: Vec<T>,
     m_uPendingCount: usize,
@@ -12,9 +12,9 @@ pub struct Queue<T> {
     m_uPendingndex: usize,
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 impl<T> Queue<T> {
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     pub fn new(pBuffer: Vec<T>) -> Self {
         Self {
             m_pBuffer: pBuffer,

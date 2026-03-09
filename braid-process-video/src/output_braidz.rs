@@ -4,8 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use braid_types::{PerCamSaveData, RawCamName};
 
 use crate::{
-    config::{BraidRetrackVideoConfig, CameraCalibrationSource, TrackingParametersSource},
     PerCamRenderFrame,
+    config::{BraidRetrackVideoConfig, CameraCalibrationSource, TrackingParametersSource},
 };
 
 pub(crate) struct BraidStorage {
@@ -58,8 +58,8 @@ impl BraidStorage {
                     tracking_parameters.clone()
                 } else {
                     anyhow::bail!(
-                                        "No tracking parameter source needed because braidz output is 'CopyExisting'."
-                                    );
+                        "No tracking parameter source needed because braidz output is 'CopyExisting'."
+                    );
                 }
             }
         };

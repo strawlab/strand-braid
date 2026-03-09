@@ -1,4 +1,4 @@
-use crate::{fastim_mod, Result};
+use crate::{Result, fastim_mod};
 
 use fastim_mod::FastImage;
 use machine_vision_formats::{self as formats, ImageBuffer, ImageBufferRef};

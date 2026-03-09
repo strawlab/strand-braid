@@ -394,7 +394,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         anyhow::bail!("Cannot specify both mp4 encoder and export image sequence.");
     }
 
-    #[allow(unused_assignments)]
+    #[expect(unused_assignments)]
     let mut nvenc_libs = None;
 
     let h264_bitrate = None;

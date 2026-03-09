@@ -27,6 +27,6 @@ eyre.workspace = true
 font-drawing.workspace = true
 image.workspace = true
 tempfile.workspace = true
-test-log = { version = "0.2.16", default-features = false, features = [
+test-log = { workspace = true, features = [
     "trace",
 ] }

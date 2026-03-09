@@ -287,7 +287,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
         parry3d_f64::query::Ray::new(camcenter.to_f64(), dir.to_f64())
     }
 
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case, reason="uppercase to match mathematical notation for a matrix")]
     pub fn linearize_numerically_at(
         &self,
         center: &PointWorldFrame<R>,
@@ -929,7 +929,7 @@ impl<R: RealField + Copy + serde::Serialize> FlydraCamera<R> for Camera<R> {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 pub fn from_flydra_with_limited_skew<R: RealField + Copy + serde::Serialize>(
     cam: &SingleCameraCalibration<R>,
     epsilon: f64,
@@ -1044,7 +1044,7 @@ pub fn from_flydra_with_limited_skew<R: RealField + Copy + serde::Serialize>(
 }
 
 /// helper function (duplicated from braid_mvg)
-#[allow(clippy::many_single_char_names)]
+#[expect(clippy::many_single_char_names)]
 fn pmat2cam_center<R: RealField + Copy>(p: &OMatrix<R, U3, U4>) -> Point3<R> {
     let x = (*p).remove_column(0).determinant();
     let y = -(*p).remove_column(1).determinant();

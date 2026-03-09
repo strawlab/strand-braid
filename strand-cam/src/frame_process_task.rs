@@ -24,9 +24,9 @@ use flydra_feature_detector_types::ImPtDetectCfg;
 use fmf::FMFWriter;
 use machine_vision_formats::{owned::OImage, pixel_format::Mono8};
 use strand_cam_bui_types::RecordingPath;
-use strand_dynamic_frame::match_all_dynamic_fmts;
 #[cfg(feature = "fiducial")]
 use strand_dynamic_frame::DynamicFrame;
+use strand_dynamic_frame::match_all_dynamic_fmts;
 use strand_http_video_streaming::AnnotatedFrame;
 
 use strand_cam_storetype::StoreType;
@@ -35,12 +35,15 @@ use strand_cam_storetype::StoreType;
 use ads_apriltag as apriltag;
 
 use crate::{
-    convert_stream, open_braid_destination_addr, post_trigger_buffer, video_streaming,
-    CentroidToDevice, FinalMp4RecordingConfig, FmfWriteInfo, FpsCalc, MomentCentroid, Msg,
-    TimestampSource, LED_BOX_HEARTBEAT_INTERVAL_MSEC, MOMENT_CENTROID_SCHEMA_VERSION,
+    CentroidToDevice, FinalMp4RecordingConfig, FmfWriteInfo, FpsCalc,
+    LED_BOX_HEARTBEAT_INTERVAL_MSEC, MOMENT_CENTROID_SCHEMA_VERSION, MomentCentroid, Msg,
+    TimestampSource, convert_stream, open_braid_destination_addr, post_trigger_buffer,
+    video_streaming,
 };
 
 /// Perform image analysis
+#[cfg_attr(not(target_os = "linux"), expect(clippy::extra_unused_lifetimes))]
+#[expect(clippy::too_many_arguments, reason="this is ugly and should be refactored")]
 pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydratrax")] model_server_data_tx: tokio::sync::mpsc::Sender<(
         flydra2::SendType,
@@ -112,7 +115,6 @@ pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydra_feat_detect")]
     let mut ufmf_state = Some(flydra_feature_detector::UfmfState::Stopped);
     #[cfg(feature = "flydra_feat_detect")]
-    #[allow(unused_assignments)]
     let mut is_doing_object_detection = is_braid;
 
     let transmit_feature_detect_settings_tx = if is_braid {
@@ -220,11 +222,12 @@ pub(crate) async fn frame_process_task<'a>(
         #[cfg(feature = "flydra_feat_detect")]
         {
             if let Some(ref ssa) = shared_store_arc
-                && let Ok(store) = ssa.try_read() {
-                    let tracker = store.as_ref();
-                    is_doing_object_detection = tracker.is_doing_object_detection;
-                    // make copy. TODO only copy on change.
-                }
+                && let Ok(store) = ssa.try_read()
+            {
+                let tracker = store.as_ref();
+                is_doing_object_detection = tracker.is_doing_object_detection;
+                // make copy. TODO only copy on change.
+            }
         }
 
         #[cfg(feature = "flydratrax")]
@@ -386,37 +389,41 @@ pub(crate) async fn frame_process_task<'a>(
                                 std::mem::drop((msg_handler_jh, flydra_jh)); // todo: keep these join handles.
                             }
                             video_streaming::Shape::Everything => {
-                                error!("cannot start tracking without circular region to use as camera calibration");
+                                error!(
+                                    "cannot start tracking without circular region to use as camera calibration"
+                                );
                             }
                         }
                     }
                 }
                 if let Some(cam) = new_cam
-                    && let Some(ref mut store) = shared_store_arc {
-                        let mut tracker = store.write().unwrap();
-                        tracker.modify(|tracker| {
-                            tracker.camera_calibration = Some(cam);
-                        });
-                    }
+                    && let Some(ref mut store) = shared_store_arc
+                {
+                    let mut tracker = store.write().unwrap();
+                    tracker.modify(|tracker| {
+                        tracker.camera_calibration = Some(cam);
+                    });
+                }
             }
 
             if !is_doing_object_detection | !kalman_tracking_enabled {
                 // drop all flydra2 stuff if we are not tracking
                 maybe_flydra2_stream = None;
                 if let Some(braidz_write_tx_weak) = opt_braidz_write_tx_weak.take()
-                    && let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
-                        // `braidz_write_tx` will be dropped after this scope.
-                        match braidz_write_tx
-                            .send(flydra2::SaveToDiskMsg::StopSavingCsv)
-                            .await
-                        {
-                            Ok(()) => {}
-                            Err(_) => {
-                                info!("Channel to data writing task closed. Ending.");
-                                break;
-                            }
+                    && let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade()
+                {
+                    // `braidz_write_tx` will be dropped after this scope.
+                    match braidz_write_tx
+                        .send(flydra2::SaveToDiskMsg::StopSavingCsv)
+                        .await
+                    {
+                        Ok(()) => {}
+                        Err(_) => {
+                            info!("Channel to data writing task closed. Ending.");
+                            break;
                         }
                     }
+                }
             }
         }
 
@@ -448,10 +455,11 @@ pub(crate) async fn frame_process_task<'a>(
                     }
                 }
                 if let Some(ref clpcs) = current_led_program_config_state
-                    && &store_cache_ref.led_program_config != clpcs {
-                        current_led_program_config_state =
-                            Some(store_cache_ref.led_program_config.clone());
-                    }
+                    && &store_cache_ref.led_program_config != clpcs
+                {
+                    current_led_program_config_state =
+                        Some(store_cache_ref.led_program_config.clone());
+                }
             }
         }
 
@@ -685,13 +693,10 @@ pub(crate) async fn frame_process_task<'a>(
 
                 #[cfg(not(feature = "checkercal"))]
                 let checkercal_tmp: Option<()> = None;
-
-                #[allow(unused_mut)]
-                let (mut found_points, valid_display) = if let Some(inner) = checkercal_tmp {
-                    #[allow(unused_mut)]
+                let (found_points, valid_display) = if let Some(inner) = checkercal_tmp {
+                    #[cfg_attr(not(feature="checkercal"), expect(unused_mut))]
                     let mut results = Vec::new();
-                    #[cfg(not(feature = "checkercal"))]
-                    #[allow(clippy::let_unit_value)]
+                    #[cfg_attr(not(feature = "checkercal"), expect(clippy::let_unit_value))]
                     let _ = inner;
                     #[cfg(feature = "checkercal")]
                     {
@@ -736,14 +741,13 @@ pub(crate) async fn frame_process_task<'a>(
                                         _,
                                         formats::pixel_format::RGB8,
                                     >(&x)?);
-                                    let corners = opencv_calibrate::find_chessboard_corners(
+                                    opencv_calibrate::find_chessboard_corners(
                                         rgb.image_data(),
                                         rgb.width(),
                                         rgb.height(),
                                         checkerboard_data.width as usize,
                                         checkerboard_data.height as usize,
-                                    )?;
-                                    corners
+                                    )?
                                 },
                                 eyre::eyre!("unknown pixel format in checkerboard finder")
                             );
@@ -759,12 +763,12 @@ pub(crate) async fn frame_process_task<'a>(
 
                             if let Some(debug_dir) = &checkerboard_save_debug {
                                 let format_str = "input_%Y%m%d_%H%M%S.yaml";
-                                let stamped = debug_image_stamp.format(&format_str).to_string();
+                                let stamped = debug_image_stamp.format(format_str).to_string();
 
                                 let debug_path = std::path::PathBuf::from(debug_dir);
                                 let yaml_path = debug_path.join(stamped);
 
-                                let mut f = File::create(&yaml_path).expect("create file");
+                                let f = File::create(&yaml_path).expect("create file");
 
                                 #[derive(Serialize)]
                                 struct CornerData<'a> {
@@ -822,94 +826,94 @@ pub(crate) async fn frame_process_task<'a>(
                     (results, None)
                 } else {
                     let mut all_points = Vec::new();
+                    #[cfg_attr(not(feature = "flydra_feat_detect"), expect(unused_mut))]
                     let mut blkajdsfads = None;
 
                     {
                         if let Some(ref store_cache_ref) = store_cache
                             && let (true, Some(framenumber)) =
                                 (store_cache_ref.im_ops_state.do_detection, block_id)
-                            {
-                                let src = frame.image.borrow();
-                                let mono8 = if let Some(mono8) = src.as_static::<Mono8>() {
-                                    mono8
-                                } else {
-                                    eyre::bail!("imops only implemented for Mono8 pixel format");
-                                };
+                        {
+                            let src = frame.image.borrow();
+                            let mono8 = if let Some(mono8) = src.as_static::<Mono8>() {
+                                mono8
+                            } else {
+                                eyre::bail!("imops only implemented for Mono8 pixel format");
+                            };
 
-                                let thresholded = imops::threshold(
-                                    OImage::copy_from(&mono8),
-                                    imops::CmpOp::LessThan,
-                                    store_cache_ref.im_ops_state.threshold,
-                                    0,
-                                    255,
-                                );
+                            let thresholded = imops::threshold(
+                                OImage::copy_from(&mono8),
+                                imops::CmpOp::LessThan,
+                                store_cache_ref.im_ops_state.threshold,
+                                0,
+                                255,
+                            );
 
-                                let mu00 = imops::spatial_moment_00(&thresholded);
-                                let mu01 = imops::spatial_moment_01(&thresholded);
-                                let mu10 = imops::spatial_moment_10(&thresholded);
-                                let mc = {
-                                    let mc = CentroidToDevice::Centroid(MomentCentroid {
-                                        schema_version: MOMENT_CENTROID_SCHEMA_VERSION,
-                                        framenumber,
-                                        timestamp: save_mp4_fmf_stamp,
-                                        timestamp_source,
-                                        mu00,
-                                        mu01,
-                                        mu10,
-                                        center_x: store_cache_ref.im_ops_state.center_x,
-                                        center_y: store_cache_ref.im_ops_state.center_y,
-                                        cam_name: cam_name.as_str().to_string(),
+                            let mu00 = imops::spatial_moment_00(&thresholded);
+                            let mu01 = imops::spatial_moment_01(&thresholded);
+                            let mu10 = imops::spatial_moment_10(&thresholded);
+                            let mc = {
+                                let mc = CentroidToDevice::Centroid(MomentCentroid {
+                                    schema_version: MOMENT_CENTROID_SCHEMA_VERSION,
+                                    framenumber,
+                                    timestamp: save_mp4_fmf_stamp,
+                                    timestamp_source,
+                                    mu00,
+                                    mu01,
+                                    mu10,
+                                    center_x: store_cache_ref.im_ops_state.center_x,
+                                    center_y: store_cache_ref.im_ops_state.center_y,
+                                    cam_name: cam_name.as_str().to_string(),
+                                });
+                                if mu00 != 0.0 {
+                                    // If mu00 is 0.0, these will be NaN.
+                                    let x = mu10 / mu00;
+                                    let y = mu01 / mu00;
+
+                                    all_points.push(video_streaming::Point {
+                                        x,
+                                        y,
+                                        area: None,
+                                        theta: None,
                                     });
-                                    if mu00 != 0.0 {
-                                        // If mu00 is 0.0, these will be NaN.
-                                        let x = mu10 / mu00;
-                                        let y = mu01 / mu00;
-
-                                        all_points.push(video_streaming::Point {
-                                            x,
-                                            y,
-                                            area: None,
-                                            theta: None,
-                                        });
-                                    }
-
-                                    mc
-                                };
-
-                                let need_new_socket = if let Some(socket) = &im_ops_socket {
-                                    socket.local_addr().unwrap().ip()
-                                        != store_cache_ref.im_ops_state.source
-                                } else {
-                                    true
-                                };
-
-                                if need_new_socket {
-                                    let mut iter = std::net::ToSocketAddrs::to_socket_addrs(&(
-                                        store_cache_ref.im_ops_state.source,
-                                        0u16,
-                                    ))
-                                    .unwrap();
-                                    let sockaddr = iter.next().unwrap();
-
-                                    im_ops_socket = std::net::UdpSocket::bind(sockaddr)
-                                        .map_err(|e| {
-                                            error!("failed opening socket: {}", e);
-                                        })
-                                        .ok();
                                 }
 
-                                if let Some(socket) = &mut im_ops_socket {
-                                    let buf = serde_cbor::to_vec(&mc).unwrap();
-                                    match socket
-                                        .send_to(&buf, store_cache_ref.im_ops_state.destination)
-                                    {
-                                        Ok(_n_bytes) => {}
-                                        Err(e) => {
-                                            error!("Unable to send image moment data. {}", e);
-                                        }
+                                mc
+                            };
+
+                            let need_new_socket = if let Some(socket) = &im_ops_socket {
+                                socket.local_addr().unwrap().ip()
+                                    != store_cache_ref.im_ops_state.source
+                            } else {
+                                true
+                            };
+
+                            if need_new_socket {
+                                let mut iter = std::net::ToSocketAddrs::to_socket_addrs(&(
+                                    store_cache_ref.im_ops_state.source,
+                                    0u16,
+                                ))
+                                .unwrap();
+                                let sockaddr = iter.next().unwrap();
+
+                                im_ops_socket = std::net::UdpSocket::bind(sockaddr)
+                                    .map_err(|e| {
+                                        error!("failed opening socket: {}", e);
+                                    })
+                                    .ok();
+                            }
+
+                            if let Some(socket) = &mut im_ops_socket {
+                                let buf = serde_cbor::to_vec(&mc).unwrap();
+                                match socket.send_to(&buf, store_cache_ref.im_ops_state.destination)
+                                {
+                                    Ok(_n_bytes) => {}
+                                    Err(e) => {
+                                        error!("Unable to send image moment data. {}", e);
                                     }
                                 }
                             }
+                        }
                     }
 
                     #[cfg(feature = "fiducial")]
@@ -975,17 +979,20 @@ pub(crate) async fn frame_process_task<'a>(
                     {
                         if is_doing_object_detection {
                             let inner_ufmf_state = ufmf_state.take().unwrap();
+                            let timing_info = flydra_feature_detector::TimingInfo {
+                                fno: frame.host_timing.fno,
+                                timestamp_utc: frame.host_timing.datetime,
+                                device_timestamp,
+                                block_id,
+                                braid_ts,
+                            };
                             // Detect features in the image and send them to the
                             // mainbrain for 3D processing.
                             let (tracker_annotation, new_ufmf_state) = im_tracker
                                 .process_new_frame(
                                     &frame.image.borrow(),
-                                    frame.host_timing.fno,
-                                    frame.host_timing.datetime,
                                     inner_ufmf_state,
-                                    device_timestamp,
-                                    block_id,
-                                    braid_ts,
+                                    timing_info,
                                 )?;
                             if let Some(ref coord_socket) = coord_socket {
                                 // Send the data to the mainbrain
@@ -1140,7 +1147,10 @@ pub(crate) async fn frame_process_task<'a>(
                                         writeln!(fd, "# -- end of yaml config --")?;
                                     }
 
-                                    writeln!(fd, "time_microseconds,frame,x_px,y_px,orientation_radians_mod_pi,central_moment,led_1,led_2,led_3")?;
+                                    writeln!(
+                                        fd,
+                                        "time_microseconds,frame,x_px,y_px,orientation_radians_mod_pi,central_moment,led_1,led_2,led_3"
+                                    )?;
                                     fd.flush()?;
 
                                     let min_interval_sec = if let Some(fps) = rate_limit {
@@ -1186,20 +1196,20 @@ pub(crate) async fn frame_process_task<'a>(
                                             if let Some(ref store) = store_cache
                                                 && let Some(ref device_state) =
                                                     store.led_box_device_state
-                                                {
-                                                    led1 = format!(
-                                                        "{}",
-                                                        crate::get_intensity(device_state, 1)
-                                                    );
-                                                    led2 = format!(
-                                                        "{}",
-                                                        crate::get_intensity(device_state, 2)
-                                                    );
-                                                    led3 = format!(
-                                                        "{}",
-                                                        crate::get_intensity(device_state, 3)
-                                                    );
-                                                }
+                                            {
+                                                led1 = format!(
+                                                    "{}",
+                                                    crate::get_intensity(device_state, 1)
+                                                );
+                                                led2 = format!(
+                                                    "{}",
+                                                    crate::get_intensity(device_state, 2)
+                                                );
+                                                led3 = format!(
+                                                    "{}",
+                                                    crate::get_intensity(device_state, 3)
+                                                );
+                                            }
                                         }
                                         for pt in points.iter() {
                                             let orientation_mod_pi =
@@ -1408,19 +1418,20 @@ pub(crate) async fn frame_process_task<'a>(
                     {
                         if let Some(ref mut braidz_write_tx_weak) =
                             opt_braidz_write_tx_weak.as_mut()
-                            && let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
-                                // `braidz_write_tx` will be dropped after this scope.
-                                match braidz_write_tx
-                                    .send(flydra2::SaveToDiskMsg::StopSavingCsv)
-                                    .await
-                                {
-                                    Ok(()) => {}
-                                    Err(_) => {
-                                        info!("Channel to data writing task closed. Ending.");
-                                        break;
-                                    }
+                            && let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade()
+                        {
+                            // `braidz_write_tx` will be dropped after this scope.
+                            match braidz_write_tx
+                                .send(flydra2::SaveToDiskMsg::StopSavingCsv)
+                                .await
+                            {
+                                Ok(()) => {}
+                                Err(_) => {
+                                    info!("Channel to data writing task closed. Ending.");
+                                    break;
                                 }
                             }
+                        }
                     }
 
                     // update UI

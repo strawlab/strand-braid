@@ -5,7 +5,7 @@ use std::io::Write;
 use strand_cam_remote_control::{Mp4Codec, Mp4RecordingConfig};
 use strand_dynamic_frame::DynamicFrameOwned;
 
-use crate::{config::VideoOutputOptions, OutTimepointPerCamera, PerCamRenderFrame};
+use crate::{OutTimepointPerCamera, PerCamRenderFrame, config::VideoOutputOptions};
 
 pub(crate) struct VideoStorage<'lib, 'fonts> {
     pub(crate) path: std::path::PathBuf,
@@ -212,7 +212,8 @@ impl<'lib, 'fonts> VideoStorage<'lib, 'fonts> {
                         // Draw image from camera
                         if let Some(png_buf) = &cam_render_data.png_buf {
                             use base64::Engine;
-                            let png_base64_buf = base64::engine::general_purpose::STANDARD.encode(png_buf);
+                            let png_base64_buf =
+                                base64::engine::general_purpose::STANDARD.encode(png_buf);
                             let data_url = format!("data:image/png;base64,{}", png_base64_buf);
                             w.single("image", |d| {
                                 d.attr("x", 0)?;

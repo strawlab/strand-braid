@@ -16,14 +16,13 @@ use borrow_fastimage::BorrowedFrame;
 use tokio::sync::mpsc;
 
 use machine_vision_formats as formats;
-use serde::Serialize;
 
 use chrono::{DateTime, Utc};
 use std::fs::File;
 
 use fastim_mod::{
-    ipp_ctypes, ripp, AlgorithmHint, CompareOp, FastImage, FastImageData, FastImageRegion,
-    FastImageSize, FastImageView, MomentState, MutableFastImage, MutableFastImageView,
+    AlgorithmHint, CompareOp, FastImage, FastImageData, FastImageRegion, FastImageSize,
+    FastImageView, MomentState, MutableFastImage, MutableFastImageView, ipp_ctypes, ripp,
 };
 
 use braid_types::{FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, RawCamName};
@@ -71,22 +70,6 @@ fn compute_slope(moments: &MomentState) -> Result<(f64, f64)> {
     };
     let slope = rise / run;
     Ok((slope, eccentricity))
-}
-
-#[allow(dead_code)]
-#[derive(Serialize)]
-enum ImageTrackerState {
-    RosInfoRunLoop,
-    RosInfoRosFrame,
-    RosInfoPeriodicImage,
-    RosInfoCamInfo,
-    RosInfoPeriodic,
-    SendingRosImage,
-    TakeNewBG,
-    ProcessFrameStart(usize),
-    AcquireDuration(f64),
-    ProcessFrameTiming(Vec<(f64, u32)>),
-    ProcessFrameEnd(usize),
 }
 
 #[derive(Debug, PartialEq)]
@@ -378,12 +361,11 @@ impl TrackingState {
 }
 
 #[derive(Debug)]
-#[allow(clippy::large_enum_variant)]
 enum BackgroundAcquisitionState {
     Initialization,
     StartupMode(StartupState),
     ClearToValue(f32),
-    NormalUpdates(TrackingState),
+    NormalUpdates(Box<TrackingState>),
     TemporaryHold,
 }
 
@@ -423,8 +405,6 @@ pub struct FlydraFeatureDetector {
     raw_cam_name: RawCamName,
     cfg: ImPtDetectCfg,
     roi_sz: FastImageSize,
-    #[allow(dead_code)]
-    last_sent_raw_image_time: std::time::Instant,
     mask_image: Option<FastImageData<u8>>,
     background_update_state: BackgroundAcquisitionState, // command from UI "take a new bg image"
     acquisition_histogram: AcquisitionHistogram,
@@ -475,17 +455,18 @@ impl AcquisitionHistogram {
         if msecs < 0.0 {
             if let Some(acquisition_duration_allowed_imprecision_msec) =
                 self.acquisition_duration_allowed_imprecision_msec
-                && msecs < acquisition_duration_allowed_imprecision_msec {
-                    // A little bit of deviation is expected occasionally due to
-                    // noise in fitting the time measurements, so do not log warning
-                    // unless it exceeds 5 msec.
-                    error!(
-                        "{} frame {} acquisition duration negative? ({} msecs)",
-                        self.raw_cam_name.as_str(),
-                        frameno,
-                        msecs
-                    );
-                }
+                && msecs < acquisition_duration_allowed_imprecision_msec
+            {
+                // A little bit of deviation is expected occasionally due to
+                // noise in fitting the time measurements, so do not log warning
+                // unless it exceeds 5 msec.
+                error!(
+                    "{} frame {} acquisition duration negative? ({} msecs)",
+                    self.raw_cam_name.as_str(),
+                    frameno,
+                    msecs
+                );
+            }
             return;
         }
         let bin_num = if msecs > NUM_MSEC_BINS as f64 {
@@ -511,11 +492,7 @@ impl AcquisitionHistogram {
             let (argmax, _max) = self.msec_bins.iter().enumerate().fold(
                 (0, 0),
                 |acc: (usize, u32), (idx, count): (usize, &u32)| {
-                    if count > &acc.1 {
-                        (idx, *count)
-                    } else {
-                        acc
-                    }
+                    if count > &acc.1 { (idx, *count) } else { acc }
                 },
             );
 
@@ -546,6 +523,27 @@ impl AcquisitionHistogram {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct TimingInfo {
+    pub fno: usize,
+    pub timestamp_utc: DateTime<Utc>,
+    pub device_timestamp: Option<u64>,
+    pub block_id: Option<u64>,
+    pub braid_ts: Option<FlydraFloatTimestampLocal<braid_types::Triggerbox>>,
+}
+
+impl TimingInfo {
+    pub fn minimal(fno: usize, timestamp_utc: DateTime<Utc>) -> Self {
+        Self {
+            fno,
+            timestamp_utc,
+            device_timestamp: None,
+            block_id: None,
+            braid_ts: None,
+        }
+    }
+}
+
 impl FlydraFeatureDetector {
     /// Create new [FlydraFeatureDetector].
     pub fn new(
@@ -566,7 +564,6 @@ impl FlydraFeatureDetector {
             cfg,
             roi_sz: FastImageSize::new(w as ipp_ctypes::c_int, h as ipp_ctypes::c_int),
             mask_image: None,
-            last_sent_raw_image_time: std::time::Instant::now(),
             background_update_state: BackgroundAcquisitionState::Initialization,
             acquisition_histogram,
             acquisition_duration_allowed_imprecision_msec,
@@ -623,13 +620,17 @@ impl FlydraFeatureDetector {
     pub fn process_new_frame(
         &mut self,
         orig_frame: &DynamicFrame<'_>,
-        fno: usize,
-        timestamp_utc: DateTime<Utc>,
         ufmf_state: UfmfState,
-        device_timestamp: Option<u64>,
-        block_id: Option<u64>,
-        braid_ts: Option<FlydraFloatTimestampLocal<braid_types::Triggerbox>>,
+        timing_info: TimingInfo,
     ) -> Result<(FlydraRawUdpPacket, UfmfState)> {
+        let TimingInfo {
+            fno,
+            timestamp_utc,
+            device_timestamp,
+            block_id,
+            braid_ts,
+        } = timing_info;
+
         let mut saved_bg_image = None;
         let acquire_stamp = FlydraFloatTimestampLocal::from_dt(&timestamp_utc);
         let acquire_duration = match braid_ts {
@@ -749,14 +750,14 @@ impl FlydraFeatureDetector {
                 let complete_stamp = timestamp_utc;
 
                 if startup_state.n_frames >= NUM_BG_START_IMAGES {
-                    let state = TrackingState::new(
+                    let state = Box::new(TrackingState::new(
                         &raw_im_full,
                         startup_state.running_mean,
                         startup_state.mean_squared_im,
                         &self.cfg,
                         pixel_format,
                         complete_stamp,
-                    )?;
+                    )?);
                     (packet, BackgroundAcquisitionState::NormalUpdates(state))
                 } else {
                     (
@@ -774,14 +775,14 @@ impl FlydraFeatureDetector {
 
                 let complete_stamp = timestamp_utc;
 
-                let state = TrackingState::new(
+                let state = Box::new(TrackingState::new(
                     &raw_im_full,
                     running_mean,
                     mean_squared_im,
                     &self.cfg,
                     pixel_format,
                     complete_stamp,
-                )?;
+                )?);
                 debug!("cleared background model to value {}", value);
                 (packet, BackgroundAcquisitionState::NormalUpdates(state))
             }

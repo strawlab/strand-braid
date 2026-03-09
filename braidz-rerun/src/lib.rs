@@ -42,7 +42,7 @@ struct CachedCamData {
     /// The camera number
     camn: CamNum,
     /// The camera name (also called "cam_id").
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     cam_name: String,
 }
 

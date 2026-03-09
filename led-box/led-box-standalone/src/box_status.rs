@@ -93,7 +93,6 @@ pub async fn handle_box(
 
     info!("connecting to {device_name}");
 
-    #[allow(unused_mut)]
     let mut port = tokio_serial::new(&device_name, strand_led_box_comms::BAUD_RATE)
         .open_native_async()
         .unwrap();

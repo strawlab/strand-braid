@@ -18,7 +18,6 @@ use hyper_rustls::HttpsConnector;
 
 use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 use machine_vision_formats as formats;
-#[allow(unused_imports)]
 use preferences_serde1::{AppInfo, Preferences};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::error::SendError;
@@ -34,7 +33,7 @@ use strand_dynamic_frame::DynamicFrame;
 
 use video_streaming::AnnotatedFrame;
 
-use std::{path::PathBuf, result::Result as StdResult};
+use std::{path::PathBuf, pin::Pin, result::Result as StdResult};
 
 #[cfg(feature = "checkercal")]
 use std::fs::File;
@@ -56,7 +55,7 @@ use strand_cam_csv_config_types::CameraCfgFview2_0_26;
 #[cfg(feature = "fiducial")]
 use strand_cam_storetype::ApriltagState;
 use strand_cam_storetype::{
-    CallbackType, ImOpsState, RangedValue, StoreType, ToLedBoxDevice, STRAND_CAM_EVENT_NAME,
+    CallbackType, ImOpsState, RangedValue, STRAND_CAM_EVENT_NAME, StoreType, ToLedBoxDevice,
 };
 
 use strand_cam_bui_types::RecordingPath;
@@ -121,7 +120,7 @@ pub mod cli_app;
 
 const LED_BOX_HEARTBEAT_INTERVAL_MSEC: u64 = 5000;
 
-use eyre::{eyre, Result, WrapErr};
+use eyre::{Result, WrapErr, eyre};
 
 pub(crate) enum Msg {
     StartMp4,
@@ -325,7 +324,7 @@ struct StrandCamCallbackSenders {
     firehose_callback_tx: tokio::sync::mpsc::Sender<ConnectionKey>,
     cam_args_tx: tokio::sync::mpsc::Sender<CamArg>,
     led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
-    #[allow(dead_code)]
+    #[cfg_attr(not(feature = "flydra_feat_detect"), expect(unused))]
     tx_frame: tokio::sync::mpsc::Sender<Msg>,
 }
 
@@ -409,8 +408,8 @@ async fn check_version(
 }
 
 fn display_qr_url(url: &str) -> Result<()> {
-    use qrcode::render::unicode;
     use qrcode::QrCode;
+    use qrcode::render::unicode;
     use std::io::stdout;
 
     let qr = QrCode::new(url)?;
@@ -830,9 +829,14 @@ struct FirstMsgForced {
 }
 
 impl FirstMsgForced {
-    /// Wrap a sender.
-    fn new(tx: tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>) -> Self {
-        Self { tx }
+    fn channel(
+        sz: usize,
+    ) -> (
+        Self,
+        tokio::sync::mpsc::Receiver<braid_types::BraidHttpApiCallback>,
+    ) {
+        let (tx, rx) = tokio::sync::mpsc::channel(sz);
+        (Self { tx }, rx)
     }
 
     /// Send the first message and return the Sender.
@@ -1108,7 +1112,9 @@ where
     info!("Compiled with features: {}", target_feature_string);
 
     if !imops::COMPILED_WITH_SIMD_SUPPORT {
-        warn!("Package 'imops' was not compiled with simd support. Image processing with imops will be slow.");
+        warn!(
+            "Package 'imops' was not compiled with simd support. Image processing with imops will be slow."
+        );
     }
 
     let requested_camera_name = match &args.standalone_or_braid {
@@ -1176,6 +1182,26 @@ where
 
 // -----------
 
+/// Forward messages from elsewhere in Strand Cam to mainbrain.
+///
+/// The future runs until the trainsmit_msg_rx channel is closed otherwise ends
+/// only on error.
+async fn forward_to_mainbrain(
+    mut transmit_msg_rx: tokio::sync::mpsc::Receiver<braid_types::BraidHttpApiCallback>,
+    mut mainbrain_session: braid_http_session::MainbrainSession,
+) -> Result<()> {
+    while let Some(msg) = transmit_msg_rx.recv().await {
+        // We have a message from elsewhere in Strand Cam to send to mainbrain.
+        mainbrain_session
+            .post_callback_message(msg)
+            .await
+            .context("failed sending message to mainbrain")?;
+    }
+    Ok(())
+}
+
+// -----------
+
 /// This is the main function where we spend all time after parsing startup args
 /// and, in case of connecting to braid, getting the inital connection
 /// information.
@@ -1191,6 +1217,10 @@ where
     gui_singleton,
     data_dir
 ))]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "oh this is ugly. refactor at some point."
+)]
 async fn run<M, C, G>(
     mut mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
@@ -1419,7 +1449,7 @@ where
         ImPtDetectCfgSource::ChangesNotSavedToDisk(cfg) => cfg.clone(),
     };
 
-    let (mut mainbrain_session, trigger_type) = match braid_info {
+    let (mainbrain_session, trigger_type) = match braid_info {
         Some(bi) => (
             Some(bi.mainbrain_session),
             Some(bi.config_from_braid.trig_config),
@@ -1565,28 +1595,17 @@ where
         .borrow()
         .to_encoded_buffer(convert_image::EncoderOptions::Png)?;
 
-    // spawn channel to send data to mainbrain
-    let (mainbrain_msg_tx, mut mainbrain_msg_rx) = tokio::sync::mpsc::channel(10);
-
-    let first_msg_tx = if mainbrain_session.is_some() {
-        // Wrap Sender to force a specific first message type.
-        Some(FirstMsgForced::new(mainbrain_msg_tx))
-    } else {
-        // Drop Sender as we'll never need it.
-        None
-    };
-
-    let mainbrain_transmitter_fut = async move {
-        while let Some(msg) = mainbrain_msg_rx.recv().await {
-            if let Some(mainbrain_session) = &mut mainbrain_session {
-                match mainbrain_session.post_callback_message(msg).await {
-                    Ok(()) => {}
-                    Err(e) => {
-                        tracing::error!("failed sending message to mainbrain: {e}");
-                        break;
-                    }
-                }
-            }
+    // If we have a session with mainbrain, create a channel that collects
+    // messages from within Strand Cam to forward to mainbrain and create the
+    // forwarding future. If we don't have a session, just create a dummy future
+    // that never resolves.
+    let (first_msg_tx, forward_to_mainbrain_fut): (_, Pin<Box<dyn Future<Output = _>>>) = {
+        if let Some(mainbrain_session) = mainbrain_session {
+            let (tx, rx) = FirstMsgForced::channel(10);
+            let fut = forward_to_mainbrain(rx, mainbrain_session);
+            (Some(tx), Box::pin(fut))
+        } else {
+            (None, Box::pin(std::future::pending()))
         }
     };
 
@@ -1735,17 +1754,18 @@ where
     }
 
     if camera_settings_filename.is_none()
-        && let StartSoftwareFrameRateLimit::Enable(fps_limit) = &software_limit_framerate {
-            // Set the camera.
-            cam.set_software_frame_rate_limit(*fps_limit).unwrap();
-            // Store the values we set.
-            if let Some(ref mut ranged) = frame_rate_limit {
-                ranged.current = cam.acquisition_frame_rate()?;
-            } else {
-                panic!("cannot set software frame rate limit");
-            }
-            frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
+        && let StartSoftwareFrameRateLimit::Enable(fps_limit) = &software_limit_framerate
+    {
+        // Set the camera.
+        cam.set_software_frame_rate_limit(*fps_limit).unwrap();
+        // Store the values we set.
+        if let Some(ref mut ranged) = frame_rate_limit {
+            ranged.current = cam.acquisition_frame_rate()?;
+        } else {
+            panic!("cannot set software frame rate limit");
         }
+        frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
+    }
 
     let trigger_mode = cam.trigger_mode()?;
     let trigger_selector = cam.trigger_selector()?;
@@ -2024,14 +2044,16 @@ where
             Err(_) => {
                 tracing::debug!("No secret loaded from preferences file, generating new.");
                 let persistent_secret = cookie::Key::generate();
-                let persistent_secret_base64 = base64::engine::general_purpose::STANDARD.encode(persistent_secret.master());
+                let persistent_secret_base64 =
+                    base64::engine::general_purpose::STANDARD.encode(persistent_secret.master());
                 persistent_secret_base64.save(&APP_INFO, COOKIE_SECRET_KEY)?;
                 persistent_secret_base64
             }
         }
     };
 
-    let persistent_secret = base64::engine::general_purpose::STANDARD.decode(persistent_secret_base64)?;
+    let persistent_secret =
+        base64::engine::general_purpose::STANDARD.decode(persistent_secret_base64)?;
     let persistent_secret = cookie::Key::try_from(persistent_secret.as_slice())?;
 
     // Setup our auth layer.
@@ -2104,8 +2126,7 @@ where
         }
     }
 
-    #[cfg(not(feature = "eframe-gui"))]
-    #[allow(clippy::let_unit_value)]
+    #[cfg_attr(not(feature = "eframe-gui"), expect(clippy::let_unit_value))]
     let _ = gui_singleton;
 
     // Display where we are listening.
@@ -2259,7 +2280,9 @@ where
                                     }
                                 }
                             });
-                            error!("Channel full sending frame to process thread. Dropping frame data.");
+                            error!(
+                                "Channel full sending frame to process thread. Dropping frame data."
+                            );
                         } else {
                             tx_frame
                                 .send(Msg::Mframe(fframe.clone()))
@@ -2273,34 +2296,35 @@ where
                 }
 
                 if let ci2_async::FrameResult::Frame(frame) = &frame_msg
-                    && let Some(transmit_msg_tx) = transmit_msg_tx.as_mut() {
-                        // Check if we need to send this frame to braid because our timer elapsed.
-                        if send_image_to_braid_timer.elapsed() >= send_image_to_braid_duration {
-                            // If yes, encode frame to png buffer.
-                            let current_image_png = frame
-                                .image
-                                .borrow()
-                                .to_encoded_buffer(convert_image::EncoderOptions::Png)
-                                .unwrap();
+                    && let Some(transmit_msg_tx) = transmit_msg_tx.as_mut()
+                {
+                    // Check if we need to send this frame to braid because our timer elapsed.
+                    if send_image_to_braid_timer.elapsed() >= send_image_to_braid_duration {
+                        // If yes, encode frame to png buffer.
+                        let current_image_png = frame
+                            .image
+                            .borrow()
+                            .to_encoded_buffer(convert_image::EncoderOptions::Png)
+                            .unwrap();
 
-                            // Prepare and send message to Braid.
-                            let msg = braid_types::BraidHttpApiCallback::UpdateCurrentImage(
-                                braid_types::PerCam {
-                                    raw_cam_name: raw_cam_name.clone(),
-                                    inner: braid_types::UpdateImage {
-                                        current_image_png: current_image_png.into(),
-                                    },
+                        // Prepare and send message to Braid.
+                        let msg = braid_types::BraidHttpApiCallback::UpdateCurrentImage(
+                            braid_types::PerCam {
+                                raw_cam_name: raw_cam_name.clone(),
+                                inner: braid_types::UpdateImage {
+                                    current_image_png: current_image_png.into(),
                                 },
-                            );
-                            transmit_msg_tx.send(msg).await?;
+                            },
+                        );
+                        transmit_msg_tx.send(msg).await?;
 
-                            // Update timer for next iteration.
-                            send_image_to_braid_timer = std::time::Instant::now();
-                            if let Some(dur) = send_image_to_braid_interval {
-                                send_image_to_braid_duration = dur;
-                            }
+                        // Update timer for next iteration.
+                        send_image_to_braid_timer = std::time::Instant::now();
+                        if let Some(dur) = send_image_to_braid_interval {
+                            send_image_to_braid_duration = dur;
                         }
                     }
+                }
             }
             debug!("cam_stream_future future done {}:{}", file!(), line!());
             Ok::<_, eyre::Report>(())
@@ -2384,7 +2408,7 @@ where
             // DoQuit message.
             while let Some(cam_args) = cam_args_rx.next().await {
                 debug!("handling camera command {:?}", cam_args);
-                #[allow(unused_variables)]
+                #[expect(unused_variables)]
                 match cam_args {
                     CamArg::SetIngoreFutureFrameProcessingErrors(v) => {
                         let mut state = frame_processing_error_state.write().unwrap();
@@ -2992,7 +3016,7 @@ where
                                         let local: chrono::DateTime<chrono::Local> =
                                             chrono::Local::now();
                                         let format_str = "checkerboard_debug_%Y%m%d_%H%M%S";
-                                        let stamped = local.format(&format_str).to_string();
+                                        let stamped = local.format(format_str).to_string();
                                         let dirname = basedir.join(stamped);
                                         info!(
                                             "Saving checkerboard debug data to: {}",
@@ -3187,17 +3211,20 @@ where
                 .map_err(to_eyre)?;
 
             info!("attempting to nicely stop camera");
-            match cam.control_and_join_handle() { Some((control, join_handle)) => {
-                control.stop();
-                while !control.is_done() {
-                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            match cam.control_and_join_handle() {
+                Some((control, join_handle)) => {
+                    control.stop();
+                    while !control.is_done() {
+                        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                    }
+                    info!("camera thread stopped");
+                    join_handle.join().expect("join camera thread");
+                    info!("camera thread joined");
                 }
-                info!("camera thread stopped");
-                join_handle.join().expect("join camera thread");
-                info!("camera thread joined");
-            } _ => {
-                error!("camera thread not running!?");
-            }}
+                _ => {
+                    error!("camera thread not running!?");
+                }
+            }
 
             info!("cam_args_rx future is resolved");
             Ok::<_, eyre::Report>(())
@@ -3214,10 +3241,22 @@ where
     let no_browser = true;
 
     if !no_browser {
-        tokio::spawn(async move {
+        // Spawn a task which first waits for the Strand Cam webserver to be
+        // ready and then itself opens a browser.
+        let _launcher_task = tokio::spawn(async move {
             // Let the webserver start before opening browser.
             launched_rx.changed().await.unwrap();
-            open_browser(format!("{}", urls[0])).unwrap();
+            let url = format!("{}", urls[0]);
+            let blocking_task = tokio::task::spawn_blocking(move || {
+                info!("Opening browser at {}", url);
+                match webbrowser::open(&url) {
+                    Ok(_) => trace!("Browser opened"),
+                    Err(e) => error!("Error opening brower: {:?}", e),
+                };
+                debug!("browser thread done {}:{}", file!(), line!());
+            });
+            blocking_task.await?;
+            Ok::<_, eyre::Report>(())
         });
     }
 
@@ -3273,7 +3312,6 @@ where
             if let Some(serial_device) = shared.led_box_device_path.as_ref() {
                 info!("opening LED box \"{}\"", serial_device);
                 // open with default settings 9600 8N1
-                #[allow(unused_mut)]
                 let mut port = tokio_serial::new(serial_device, strand_led_box_comms::BAUD_RATE)
                     .open_native_async()
                     .unwrap();
@@ -3309,17 +3347,24 @@ where
                         );
                     }
                     msg => {
-                        eyre::bail!("Unexpected response from LED Box {:?}. Is your firmware version correct? (Needed version: {})",
-                            msg, strand_led_box_comms::COMM_VERSION);
+                        eyre::bail!(
+                            "Unexpected response from LED Box {:?}. Is your firmware version correct? (Needed version: {})",
+                            msg,
+                            strand_led_box_comms::COMM_VERSION
+                        );
                     }
                 },
                 Err(_elapsed) => {
-                    eyre::bail!("Timeout connecting to LED Box. Is your firmware version correct? (Needed version: {})",
-                        strand_led_box_comms::COMM_VERSION);
+                    eyre::bail!(
+                        "Timeout connecting to LED Box. Is your firmware version correct? (Needed version: {})",
+                        strand_led_box_comms::COMM_VERSION
+                    );
                 }
                 Ok(None) | Ok(Some(Err(_))) => {
-                    eyre::bail!("Failed connecting to LED Box. Is your firmware version correct? (Needed version: {})",
-                          strand_led_box_comms::COMM_VERSION);
+                    eyre::bail!(
+                        "Failed connecting to LED Box. Is your firmware version correct? (Needed version: {})",
+                        strand_led_box_comms::COMM_VERSION
+                    );
                 }
             }
 
@@ -3415,13 +3460,14 @@ where
     tokio::select! {
         res = http_serve_future => {res?},
         res = cam_arg_future => {res?},
-        _ = mainbrain_transmitter_fut => {},
+        res = forward_to_mainbrain_fut => {res?},
         _ = send_updates_future => {},
         res = frame_process_task_fut => {res?},
         res = firehose_task_join_handle => {res?},
         _ = quit_rx.recv() => {},
     }
     info!("Strand Cam ending nicely. :)");
+    // All other futures above are now dropped, thus cancelled.
 
     Ok(mymod)
 }
@@ -3440,23 +3486,6 @@ where
     let remote_in_local = start + remote_offset_symmetric;
     tracing::debug!("Camera timestamp: {remote_in_local} {remote} {max_err}.");
     Ok((remote_in_local, remote))
-}
-
-fn open_browser(url: String) -> Result<()> {
-    // Spawn a new thread because xdg-open blocks forever
-    // if it must open a new browser.
-    std::thread::Builder::new()
-        .name("browser opener".to_string())
-        .spawn(move || {
-            // ignore browser
-            info!("Opening browser at {}", url);
-            match webbrowser::open(&url) {
-                Ok(_) => trace!("Browser opened"),
-                Err(e) => error!("Error opening brower: {:?}", e),
-            };
-            debug!("browser thread done {}:{}", file!(), line!());
-        })?;
-    Ok(())
 }
 
 async fn send_cam_settings_to_braid(

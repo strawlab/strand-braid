@@ -18,7 +18,7 @@ use std::rc::Rc;
 
 #[cfg(feature = "nv-encode")]
 use machine_vision_formats::image_ref::ImageRefMut;
-use strand_cam_remote_control::{H264Metadata, Mp4RecordingConfig, H264_METADATA_UUID};
+use strand_cam_remote_control::{H264_METADATA_UUID, H264Metadata, Mp4RecordingConfig};
 #[cfg(feature = "nv-encode")]
 use tracing::info;
 use tracing::{debug, trace};
@@ -112,10 +112,10 @@ enum MyEncoder<'lib> {
     #[cfg(feature = "nv-encode")]
     Nvidia(NvEncoder<'lib>),
     #[cfg(not(feature = "nv-encode"))]
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     NoNvidia(std::marker::PhantomData<&'lib u8>),
     #[cfg(feature = "openh264")]
-    OpenH264(OpenH264Encoder),
+    OpenH264(Box<OpenH264Encoder>),
     LessH264(LessEncoderWrapper),
 }
 
@@ -321,7 +321,7 @@ where
                     strand_cam_remote_control::Mp4Codec::H264OpenH264(_) => {}
                     #[cfg(not(feature = "nv-encode"))]
                     strand_cam_remote_control::Mp4Codec::H264NvEnc(_) => {
-                        return Err(Error::NoNvencCompiledError)
+                        return Err(Error::NoNvencCompiledError);
                     }
                     #[cfg(feature = "nv-encode")]
                     strand_cam_remote_control::Mp4Codec::H264NvEnc(opts) => {
@@ -442,7 +442,7 @@ where
                             first_timestamp: timestamp,
                         })
                     }
-                    #[allow(unused_variables)]
+                    #[cfg_attr(not(feature="openh264"), expect(unused_variables))]
                     strand_cam_remote_control::Mp4Codec::H264OpenH264(opts) => {
                         #[cfg(feature = "openh264")]
                         {
@@ -454,14 +454,14 @@ where
                                 ))
                                 .bitrate(openh264::encoder::BitRate::from_bps(opts.bitrate_bps()));
 
-                            MyEncoder::OpenH264(OpenH264Encoder {
+                            MyEncoder::OpenH264(Box::new(OpenH264Encoder {
                                 encoder: openh264::encoder::Encoder::with_api_config(
                                     openh264::OpenH264API::from_source(),
                                     cfg,
                                 )?,
                                 h264_parser,
                                 first_timestamp: timestamp,
-                            })
+                            }))
                         }
                         #[cfg(not(feature = "openh264"))]
                         {
@@ -547,13 +547,13 @@ where
     /// any errors will result in a panic.
     pub fn finish(&mut self) -> Result<()> {
         let inner = self.inner.take();
-        #[allow(unused_mut)]
         match inner {
             Some(WriteState::Configured(_)) => {
                 // no frames written.
                 self.inner = Some(WriteState::Finished);
                 Ok(())
             }
+            #[cfg_attr(not(feature="nv-encode"), expect(unused_mut))]
             Some(WriteState::Recording(mut state)) => {
                 match state.my_encoder {
                     MyEncoder::CopyRawH264 { h264_parser: _ } | MyEncoder::LessH264(_) => { /* nothing to do */
@@ -794,7 +794,7 @@ where
 }
 
 struct RecordingStateInner {
-    #[allow(dead_code)]
+    #[cfg_attr(not(feature="nv-encode"), expect(unused))]
     first_timestamp: chrono::DateTime<chrono::Local>,
     previous_timestamp: chrono::DateTime<chrono::Local>,
     /// limits the maximum framerate
@@ -1421,7 +1421,6 @@ fn parse_h264_is_idr_frame(data: &frame_source::H264EncodingVariant) -> Result<b
             _ => {}
         }
     }
-    #[allow(clippy::unnecessary_lazy_evaluations)]
     is_keyframe.ok_or_else(|| Error::BadInputData {})
 }
 

@@ -39,7 +39,7 @@ const FRAME_CHUNK: u8 = 1;
 const INDEX_DICT_CHUNK: u8 = 2;
 
 fn pack_header(v: u32, index_loc: u64, w: u16, h: u16, cl: u8) -> std::io::Result<Vec<u8>> {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     structure!("<4sIQHHB").pack(b"ufmf", v, index_loc, w, h, cl)
 }
 
@@ -423,7 +423,7 @@ mod tests {
     };
     use strand_dynamic_frame::DynamicFrameOwned;
 
-    #[allow(clippy::float_cmp)]
+    #[expect(clippy::float_cmp)]
     fn arange(start: u8, timestamp: f64) -> (DynamicFrameOwned, DateTime<Utc>) {
         let w = 10;
         let h = 10;
@@ -449,7 +449,7 @@ mod tests {
         )
     }
 
-    #[allow(clippy::float_cmp)]
+    #[expect(clippy::float_cmp)]
     fn arange_float(start: f32, timestamp: f64) -> (DynamicFrameOwned, DateTime<Utc>) {
         let w = 10;
         let h = 10;

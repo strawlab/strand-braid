@@ -1,7 +1,7 @@
 use chrono::{DateTime, FixedOffset};
 use eyre::{self as anyhow, Result};
 
-use crate::{peek2::Peek2, SyncedPictures};
+use crate::{SyncedPictures, peek2::Peek2};
 use frame_source::FrameData;
 
 /// Iterate across multiple movies using the frame timestamps to synchronize.

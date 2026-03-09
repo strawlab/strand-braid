@@ -1,5 +1,5 @@
 use chrono::DateTime;
-use flydra_feature_detector::{FlydraFeatureDetector, UfmfState};
+use flydra_feature_detector::{FlydraFeatureDetector, TimingInfo, UfmfState};
 use strand_dynamic_frame::DynamicFrame;
 
 fn init() {
@@ -34,7 +34,8 @@ async fn track_small() -> eyre::Result<()> {
     let ufmf_state = UfmfState::Stopped;
     let fno = 0;
     let timestamp = DateTime::from_timestamp(1431648000, 0).unwrap();
-    let maybe_found = ft.process_new_frame(&frame, fno, timestamp, ufmf_state, None, None, None)?;
+    let maybe_found =
+        ft.process_new_frame(&frame, ufmf_state, TimingInfo::minimal(fno, timestamp))?;
     println!("maybe_found: {:?}", maybe_found);
     assert_eq!(maybe_found.0.points.len(), 0);
     Ok(())
@@ -72,9 +73,10 @@ async fn track_moving_stride() -> eyre::Result<()> {
         let pixel_format = machine_vision_formats::PixFmt::Mono8;
         let frame = DynamicFrame::from_buf(W, H, STRIDE, buf, pixel_format).unwrap();
         let ufmf_state = UfmfState::Stopped;
-        let timestamp = DateTime::from_timestamp(1431648000, 0).unwrap();
+        let timing_info =
+            TimingInfo::minimal(fno, DateTime::from_timestamp(1431648000, 0).unwrap());
         let found_points = ft
-            .process_new_frame(&frame, fno, timestamp, ufmf_state, None, None, None)?
+            .process_new_frame(&frame, ufmf_state, timing_info)?
             .0
             .points
             .into_iter()

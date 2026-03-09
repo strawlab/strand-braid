@@ -1,4 +1,4 @@
-use flydra_feature_detector::{FlydraFeatureDetector, UfmfState};
+use flydra_feature_detector::{FlydraFeatureDetector, TimingInfo, UfmfState};
 
 const FNAME: &str = "movie20190115_221756.fmf";
 const URL_BASE: &str = "https://strawlab-cdn.com/assets";
@@ -36,15 +36,10 @@ async fn track_fmf() -> eyre::Result<()> {
     for (fno, res_frame_ts) in buffered_frames.into_iter().enumerate() {
         let (frame, timestamp) = res_frame_ts;
         let ufmf_state = UfmfState::Stopped;
-
         let maybe_found = ft.process_new_frame(
             &frame.borrow(),
-            fno,
-            timestamp,
             ufmf_state,
-            None,
-            None,
-            None,
+            TimingInfo::minimal(fno, timestamp),
         )?;
         count += 1;
         n_pts += maybe_found.0.points.len();

@@ -5,8 +5,8 @@ edition = "2024"
 
 [dependencies]
 tracing.workspace = true
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-serde_json = "1.0"
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 serde_yaml.workspace = true
 itertools.workspace = true
 nalgebra.workspace = true
@@ -19,7 +19,7 @@ argmin = { version = "0.11.0", features = [
 ], default-features = false }
 argmin-math = "0.5.0"
 sqpnp = "0.4.0"
-glam = "0.30"
+glam = "0.30.8"
 
 apriltag-detection-writer.workspace = true
 braid-apriltag-types.workspace = true

@@ -19,7 +19,6 @@ async fn try_serial(serial_device: &str, next_state: &DeviceState) {
         strand_led_box_comms::BAUD_RATE,
         "JSON + newlines"
     );
-    #[allow(unused_mut)]
     let mut port = tokio_serial::new(serial_device, strand_led_box_comms::BAUD_RATE)
         .open_native_async()
         .unwrap();

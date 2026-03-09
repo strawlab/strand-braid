@@ -9,7 +9,7 @@ use vmbc_sys::{
 
 fn err_str(err: i32) -> &'static str {
     use VmbErrorType::*;
-    #[allow(non_upper_case_globals)]
+    #[expect(non_upper_case_globals)]
     match err {
         VmbErrorSuccess => "VmbErrorSuccess",
         VmbErrorInternalFault => "VmbErrorInternalFault",
@@ -798,7 +798,7 @@ impl Frame {
 pub fn pixel_format_code(code: u32) -> Result<formats::PixFmt> {
     use formats::PixFmt::*;
     use vmbc_sys::VmbPixelFormatType::*;
-    #[allow(non_upper_case_globals)]
+    #[expect(non_upper_case_globals)]
     let fmt = match code {
         VmbPixelFormatMono8 => Mono8,
         VmbPixelFormatBayerGR8 => BayerGR8,
@@ -891,7 +891,7 @@ pub fn pixel_format_to_str(pixfmt: formats::pixel_format::PixFmt) -> Result<&'st
 //     pub fn new(orig: vmbc_sys::VmbFeatureData_t) -> Self {
 //         use vmbc_sys::VmbFeatureDataType::*;
 //         use DataType::*;
-//         #[allow(non_upper_case_globals)]
+//         #[expect(non_upper_case_globals)]
 //         match orig as i32 {
 //             VmbFeatureDataUnknown => Unknown,
 //             VmbFeatureDataInt => Int,

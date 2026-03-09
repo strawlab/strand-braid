@@ -43,7 +43,7 @@ flytrax-io.workspace = true
 
 [dev-dependencies]
 env_logger.workspace = true
-test-log = "0.2.12"
+test-log.workspace = true
 download-verify.workspace = true
 
 [features]

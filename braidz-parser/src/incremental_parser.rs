@@ -387,18 +387,14 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                     }
                     Some(data_association)
                 }
-                Err(e) =>
-                {
-                    #[allow(unused_variables)]
-                    match e {
-                        Error::ZipOrDir {
-                            source: zip_or_dir::Error::FileNotFound,
-                        } => None,
-                        _ => {
-                            return Err(e);
-                        }
+                Err(e) => match e {
+                    Error::ZipOrDir {
+                        source: zip_or_dir::Error::FileNotFound,
+                    } => None,
+                    _ => {
+                        return Err(e);
                     }
-                }
+                },
             }
         };
 
@@ -480,18 +476,14 @@ impl<R: Read + Seek> IncrementalParser<R, BasicInfoParsed> {
                         Some(kalman_estimates_table),
                     )
                 }
-                Err(e) =>
-                {
-                    #[allow(unused_variables)]
-                    match e {
-                        Error::ZipOrDir {
-                            source: zip_or_dir::Error::FileNotFound,
-                        } => (None, None),
-                        _ => {
-                            return Err(e);
-                        }
+                Err(e) => match e {
+                    Error::ZipOrDir {
+                        source: zip_or_dir::Error::FileNotFound,
+                    } => (None, None),
+                    _ => {
+                        return Err(e);
                     }
-                }
+                },
             }
         };
 

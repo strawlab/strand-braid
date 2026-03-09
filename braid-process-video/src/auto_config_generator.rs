@@ -1,8 +1,8 @@
 use eyre::{self as anyhow, Result};
 
 use crate::config::{
-    path_to_string, BraidRetrackVideoConfig, DebugOutputConfig, OutputConfig, Valid, Validate,
-    VideoOutputConfig, VideoOutputOptions, VideoSourceConfig,
+    BraidRetrackVideoConfig, DebugOutputConfig, OutputConfig, Valid, Validate, VideoOutputConfig,
+    VideoOutputOptions, VideoSourceConfig, path_to_string,
 };
 
 pub fn auto_config<P: AsRef<std::path::Path>>(

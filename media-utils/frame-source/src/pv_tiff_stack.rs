@@ -141,10 +141,10 @@ impl PvTiffStack {
             .ok_or_else(json_parse_err)?
             .parse()?;
 
-        let pvcam_fmd_exposure_str = frame0_metadata.json["UserData"]["PVCAM-FMD-ExposureTimePs"]
-            ["scalar"]
-            .as_str()
-            .ok_or_else(json_parse_err)?;
+        let pvcam_fmd_exposure_str =
+            frame0_metadata.json["UserData"]["PVCAM-FMD-ExposureTimePs"]["scalar"]
+                .as_str()
+                .ok_or_else(json_parse_err)?;
         let exposure_duration =
             chrono::Duration::from_std(parse_picosecs(pvcam_fmd_exposure_str)?)?;
         frame0_time -= exposure_duration;

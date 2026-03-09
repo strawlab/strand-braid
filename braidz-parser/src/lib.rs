@@ -421,8 +421,9 @@ fn get_hlog<R: Read>(mut rdr: R) -> Result<Option<HistogramLog>, ()> {
         match interval {
             LogEntry::Interval(ilh) => {
                 use base64::Engine;
-                let serialized_histogram =
-                    base64::engine::general_purpose::STANDARD.decode(ilh.encoded_histogram()).map_err(|_| ())?;
+                let serialized_histogram = base64::engine::general_purpose::STANDARD
+                    .decode(ilh.encoded_histogram())
+                    .map_err(|_| ())?;
                 let decoded_hist: Histogram<u64> = deserializer
                     .deserialize(&mut std::io::Cursor::new(&serialized_histogram))
                     .map_err(|_| ())?;
@@ -484,7 +485,6 @@ fn append_to_path(path: &std::path::Path, suffix: &str) -> std::path::PathBuf {
 
 #[test]
 fn test_append_to_path() {
-    #[allow(clippy::disallowed_names)]
     let foo = std::path::Path::new("foo");
     assert!(append_to_path(foo, ".gz") == std::path::Path::new("foo.gz"));
 

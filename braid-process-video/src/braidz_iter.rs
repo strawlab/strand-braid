@@ -8,7 +8,7 @@ use braid_types::{CamNum, Data2dDistortedRow, KalmanEstimatesRow, SyncFno};
 use flydra_mvg::FlydraMultiCameraSystem;
 use frame_source::FrameData;
 
-use crate::{argmin::Argmin, peek2::Peek2, SyncedPictures};
+use crate::{SyncedPictures, argmin::Argmin, peek2::Peek2};
 
 fn clocks_within<TZ1, TZ2>(a: DateTime<TZ1>, b: DateTime<TZ2>, dur: chrono::Duration) -> bool
 where
@@ -170,7 +170,11 @@ impl Iterator for BraidArchiveNoVideoData {
                     if next_row_ref.frame < self.frame_num {
                         // Unexpected data from the past.
                         // TODO: could use `AscendingGroupIter` to handle this case.
-                        tracing::error!("skipping data from the past (received data from frame {} while processing {}", next_row_ref.frame, self.frame_num);
+                        tracing::error!(
+                            "skipping data from the past (received data from frame {} while processing {}",
+                            next_row_ref.frame,
+                            self.frame_num
+                        );
                         let _skipped_row = self.my_iter_peekable.next().unwrap().unwrap();
                         continue;
                     }

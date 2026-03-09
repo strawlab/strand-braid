@@ -73,7 +73,7 @@ impl Default for ModelServerAppState {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case, reason="fields with covariance are `PXY` to match the Kalman filter covariance matrix layout")]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SendKalmanEstimatesRow {
     pub obj_id: u32,
@@ -327,9 +327,9 @@ pub async fn new_model_server(
     // Wait for one of our futures to finish...
     tokio::select! {
         result = new_data_processor_future => {result?}
-        _ = http_serve_future => {}
+        result = http_serve_future => {result?}
     }
-    // ...then exit.
+    // ...then exit. The other future will be dropped, thus cancelling it.
 
     Ok(())
 }

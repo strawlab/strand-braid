@@ -85,7 +85,7 @@ pub struct CorrespondingPoint {
 }
 
 pub fn calibrate_camera(
-    all_pts: &Vec<Vec<CorrespondingPoint>>,
+    all_pts: &[Vec<CorrespondingPoint>],
     width: i32,
     height: i32,
 ) -> Result<CalibrationResult, Error> {
@@ -217,8 +217,9 @@ impl VecPoint2f {
     fn as_slice(&self) -> &[(f32, f32)] {
         let data: Result<SliceData, Error> = unsafe { ffi::vec_point2f_slice(self.inner) }.into();
         let data: SliceData = data.expect("slice");
-        
-        (unsafe { std::slice::from_raw_parts(data.ptr as *const (f32, f32), data.num_elements) }) as _
+
+        (unsafe { std::slice::from_raw_parts(data.ptr as *const (f32, f32), data.num_elements) })
+            as _
     }
 
     fn inner(&mut self) -> *mut c_void {

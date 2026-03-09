@@ -2,11 +2,11 @@ use std::path::PathBuf;
 
 use clap::{Arg, ArgAction, Args, FromArgMatches};
 
-use crate::{run_strand_cam_app, BraidArgs, StandaloneArgs, StandaloneOrBraid, StrandCamArgs};
+use crate::{BraidArgs, StandaloneArgs, StandaloneOrBraid, StrandCamArgs, run_strand_cam_app};
 
 use crate::APP_INFO;
 
-use eyre::{eyre, Result, WrapErr};
+use eyre::{Result, WrapErr, eyre};
 
 pub fn cli_main<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
@@ -22,10 +22,12 @@ where
 
     if std::env::var_os("RUST_LOG").is_none() {
         // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var(
-            "RUST_LOG",
-            "strand_cam=info,flydra_feature_detector=info,bg_movie_writer=info,warn",
-        ) };
+        unsafe {
+            std::env::set_var(
+                "RUST_LOG",
+                "strand_cam=info,flydra_feature_detector=info,bg_movie_writer=info,warn",
+            )
+        };
     }
 
     let args = parse_args(app_name).with_context(|| "parsing args".to_string())?;
@@ -353,7 +355,6 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
 
     // There are some fields set by `Default::default()` but only when various
     // cargo features are used. So turn off this clippy warning.
-    #[allow(clippy::needless_update)]
     Ok(StrandCamArgs {
         standalone_or_braid,
         secret,

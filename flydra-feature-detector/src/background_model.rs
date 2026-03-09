@@ -1,4 +1,4 @@
-use crate::{errors::Error, fastim_mod, Result};
+use crate::{Result, errors::Error, fastim_mod};
 
 use tracing::{debug, error};
 
@@ -8,7 +8,7 @@ use machine_vision_formats as formats;
 
 use strand_dynamic_frame::{DynamicFrame, DynamicFrameOwned};
 
-use fastim_mod::{ripp, CompareOp, FastImage, FastImageData, FastImageRegion, RoundMode};
+use fastim_mod::{CompareOp, FastImage, FastImageData, FastImageRegion, RoundMode, ripp};
 
 type ToWorker = (DynamicFrameOwned, DateTime<Utc>, ImPtDetectCfg);
 type FromWorker = (

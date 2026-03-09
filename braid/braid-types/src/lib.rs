@@ -120,7 +120,10 @@ pub struct CamInfoRow {
 
 /// Kalman filter state estimate record for CSV output.
 // Changes to this struct should update BraidMetadataSchemaTag.
-#[allow(non_snake_case)]
+#[expect(
+    non_snake_case,
+    reason = "fields with covariance are named after the standard Kalman filter covariance matrix notation."
+)]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct KalmanEstimatesRow {
     /// Object ID being tracked.
@@ -407,7 +410,9 @@ fn raise_grab_thread_priority_deser<'de, D>(de: D) -> Result<bool, D::Error>
 where
     D: Deserializer<'de>,
 {
-    tracing::error!("The parameter 'raise_grab_thread_priority' is no longer used. Remove this parameter from your configuration.");
+    tracing::error!(
+        "The parameter 'raise_grab_thread_priority' is no longer used. Remove this parameter from your configuration."
+    );
     bool::deserialize(de)
 }
 
@@ -771,7 +776,7 @@ pub enum MiniArenaConfig {
     XYGrid(XYGridConfig),
 }
 
-#[allow(clippy::len_without_is_empty)]
+#[expect(clippy::len_without_is_empty)]
 impl MiniArenaConfig {
     fn is_none(&self) -> bool {
         self == &Self::NoMiniArena
@@ -1058,7 +1063,7 @@ pub use cam_num::CamNum;
 
 mod timestamp;
 pub use crate::timestamp::{
-    triggerbox_time, FlydraFloatTimestampLocal, HostClock, Source, Triggerbox,
+    FlydraFloatTimestampLocal, HostClock, Source, Triggerbox, triggerbox_time,
 };
 
 /// Timestamp serialization for f64 format.
