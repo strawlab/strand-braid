@@ -79,7 +79,9 @@ pub enum Error {
     UnsupportedOption,
     #[error("input {0} is a file, but the extension was not recognized.")]
     UnknownExtensionForFile(PathBuf),
-    #[error("Attempting to open \"{0}\" as directory with TIFF stack failed because it is not a directory.")]
+    #[error(
+        "Attempting to open \"{0}\" as directory with TIFF stack failed because it is not a directory."
+    )]
     TiffStackNotDir(PathBuf),
     #[error("{0}")]
     FmfError(#[from] fmf::FMFError),

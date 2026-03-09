@@ -3,12 +3,12 @@ use std::{io::Read, time::Duration};
 use crate::Result;
 
 use winnow::{
+    BStr,
     ascii::{dec_uint, digit1, line_ending},
     combinator::{eof, opt, seq, terminated, trace},
     error::{ContextError, ErrMode, InputError},
     prelude::*,
     token::{take, take_until, take_while},
-    BStr,
 };
 
 fn parse_digits<'s>(input: &mut &'s BStr) -> ModalResult<u64> {
@@ -78,14 +78,17 @@ fn parse_stanza(input: &mut &BStr) -> ModalResult<Stanza> {
         // TODO: match against two `line_ending`s (rather than only '\n')
         let till_newlines = take_until(0.., "\n\n");
 
-        let res: ModalResult<&[u8]> = match opt(till_newlines).parse_next(input)? { Some(lines0) => {
-            // Clear one trailing newline. (Leave other as stanza seperator.)
-            "\n".parse_next(input)?;
-            Ok(lines0)
-        } _ => {
-            // We reached EOF
-            terminated(take_while(0.., |_| true), eof).parse_next(input)
-        }};
+        let res: ModalResult<&[u8]> = match opt(till_newlines).parse_next(input)? {
+            Some(lines0) => {
+                // Clear one trailing newline. (Leave other as stanza seperator.)
+                "\n".parse_next(input)?;
+                Ok(lines0)
+            }
+            _ => {
+                // We reached EOF
+                terminated(take_while(0.., |_| true), eof).parse_next(input)
+            }
+        };
         let lines0 = res?;
         let lines = String::from_utf8(lines0.to_vec()).unwrap();
 

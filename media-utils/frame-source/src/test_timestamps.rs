@@ -2,7 +2,7 @@ use chrono::{DateTime, Duration, Utc};
 use machine_vision_formats::pixel_format::RGB8;
 use strand_dynamic_frame::DynamicFrameOwned;
 
-use crate::{h264_source::SeekRead, FrameDataSource, Result};
+use crate::{FrameDataSource, Result, h264_source::SeekRead};
 use strand_cam_remote_control::Mp4RecordingConfig;
 
 #[test]

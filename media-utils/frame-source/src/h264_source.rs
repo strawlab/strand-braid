@@ -6,25 +6,25 @@ use std::{
 
 use chrono::{DateTime, FixedOffset, Utc};
 use h264_reader::{
+    Context as H264ParsingContext,
     nal::{
-        sei::{HeaderType, SeiMessage, SeiReader},
         Nal, RefNal, UnitType,
+        sei::{HeaderType, SeiMessage, SeiReader},
     },
     rbsp::BitReaderError,
-    Context as H264ParsingContext,
 };
 use serde::{Deserialize, Serialize};
 
-use strand_cam_remote_control::{H264Metadata, H264_METADATA_UUID, H264_METADATA_VERSION};
+use strand_cam_remote_control::{H264_METADATA_UUID, H264_METADATA_VERSION, H264Metadata};
 
 #[cfg(feature = "openh264")]
 use machine_vision_formats::owned::OImage;
 
 use crate::{
-    ntp_timestamp::NtpTimestamp,
-    srt_reader::{self, Stanza},
     EncodedH264, Error, FrameData, FrameDataSource, H264EncodingVariant, ImageData, MyAsStr,
     Result, Timestamp, TimestampSource,
+    ntp_timestamp::NtpTimestamp,
+    srt_reader::{self, Stanza},
 };
 
 struct SrtData {
@@ -449,13 +449,14 @@ where
         };
 
         if let Some(mp4_pts) = mp4_pts.as_ref()
-            && mp4_pts.len() != frame_time_info.len() {
-                return Err(Error::H264TimestampError(format!(
-                    "We have {} frames of MP4 PTS timing, but computed {} frames of video.",
-                    mp4_pts.len(),
-                    frame_time_info.len()
-                )));
-            }
+            && mp4_pts.len() != frame_time_info.len()
+        {
+            return Err(Error::H264TimestampError(format!(
+                "We have {} frames of MP4 PTS timing, but computed {} frames of video.",
+                mp4_pts.len(),
+                frame_time_info.len()
+            )));
+        }
         let average_fps = calc_avg_fps(&frame_time_info[..]);
 
         Ok(Self {
@@ -610,7 +611,7 @@ where
                                                 }
                                                 if h264_metadata.is_some() {
                                                     return Err(Error::H264Error(
-                                                        "multiple SEI messages, but expected exactly one"
+                                                        "multiple SEI messages, but expected exactly one",
                                                     ));
                                                 }
 
@@ -628,8 +629,8 @@ where
                                             }
                                             VIDEOTOOLBOX_UUID => {
                                                 tracing::trace!(
-                                                "Ignoring SEI UserDataUnregistered from videotoolbox."
-                                            );
+                                                    "Ignoring SEI UserDataUnregistered from videotoolbox."
+                                                );
                                             }
                                             b"MISPmicrosectime" => {
                                                 let ts = parse_precision_time(udu.payload)?;
