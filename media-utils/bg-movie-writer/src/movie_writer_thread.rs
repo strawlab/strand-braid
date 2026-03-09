@@ -36,7 +36,7 @@ enum RawWriter<'lib, T>
 where
     T: Write + Seek,
 {
-    Mp4Writer(Mp4Writer<'lib, T>),
+    Mp4Writer(Box<Mp4Writer<'lib, T>>),
     FfmpegReWriter(Box<MyFfmpegWriter>),
 }
 
@@ -146,11 +146,11 @@ fn create_writer<'a>(
                 _ => None,
             };
 
-            RawWriter::Mp4Writer(mp4_writer::Mp4Writer::new(
+            RawWriter::Mp4Writer(Box::new(mp4_writer::Mp4Writer::new(
                 mp4_file,
                 mp4_recording_config.clone(),
                 nv_enc,
-            )?)
+            )?))
         }
         Ffmpeg(c) => RawWriter::FfmpegReWriter(Box::new(MyFfmpegWriter::new(mp4_path, c)?)),
     };
