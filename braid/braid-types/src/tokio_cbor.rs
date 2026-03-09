@@ -11,10 +11,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use tokio_util::codec::{Decoder, Encoder};
-
-use crate::{
-    FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, HostClock, Triggerbox,
-};
+use crate::FlydraRawUdpPacket;
 
 /// CBOR codec for FlydraRawUdpPacket encoding and decoding.
 ///
@@ -74,72 +71,77 @@ impl Encoder<FlydraRawUdpPacket> for CborPacketCodec {
     }
 }
 
-// tests below here ---------------------
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::{
+        FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, HostClock, Triggerbox,
+    };
 
-#[test]
-fn cbor_decoder() {
-    use bytes::{BufMut, BytesMut};
+    #[test]
+    fn cbor_decoder() {
+        use bytes::{BufMut, BytesMut};
 
-    let p1 = make_test_packet(1);
-    let p1_bytes = serde_cbor::to_vec(&p1).unwrap();
+        let p1 = make_test_packet(1);
+        let p1_bytes = serde_cbor::to_vec(&p1).unwrap();
 
-    let p2 = make_test_packet(2);
-    let p2_bytes = serde_cbor::to_vec(&p2).unwrap();
+        let p2 = make_test_packet(2);
+        let p2_bytes = serde_cbor::to_vec(&p2).unwrap();
 
-    let p1234 = make_test_packet(1234);
-    let p1234_bytes = serde_cbor::to_vec(&p1234).unwrap();
+        let p1234 = make_test_packet(1234);
+        let p1234_bytes = serde_cbor::to_vec(&p1234).unwrap();
 
-    let mut codec = CborPacketCodec::default();
-    let buf = &mut BytesMut::new();
-    buf.reserve(2000);
-    buf.put_slice(&p1_bytes);
-    buf.put_slice(&p2_bytes);
-    buf.put_slice(&p1234_bytes);
+        let mut codec = CborPacketCodec::default();
+        let buf = &mut BytesMut::new();
+        buf.reserve(2000);
+        buf.put_slice(&p1_bytes);
+        buf.put_slice(&p2_bytes);
+        buf.put_slice(&p1234_bytes);
 
-    assert_eq!(p1, codec.decode(buf).unwrap().unwrap());
-    assert_eq!(p2, codec.decode(buf).unwrap().unwrap());
-    assert_eq!(p1234, codec.decode(buf).unwrap().unwrap());
-    assert_eq!(None, codec.decode(buf).unwrap());
-    assert_eq!(None, codec.decode_eof(buf).unwrap());
-    let p2_bytes = serde_cbor::to_vec(&p2).unwrap();
-    buf.put_slice(&p2_bytes);
-    assert_eq!(p2, codec.decode(buf).unwrap().unwrap());
-    assert_eq!(None, codec.decode(buf).unwrap());
-    assert_eq!(None, codec.decode_eof(buf).unwrap());
-}
+        assert_eq!(p1, codec.decode(buf).unwrap().unwrap());
+        assert_eq!(p2, codec.decode(buf).unwrap().unwrap());
+        assert_eq!(p1234, codec.decode(buf).unwrap().unwrap());
+        assert_eq!(None, codec.decode(buf).unwrap());
+        assert_eq!(None, codec.decode_eof(buf).unwrap());
+        let p2_bytes = serde_cbor::to_vec(&p2).unwrap();
+        buf.put_slice(&p2_bytes);
+        assert_eq!(p2, codec.decode(buf).unwrap().unwrap());
+        assert_eq!(None, codec.decode(buf).unwrap());
+        assert_eq!(None, codec.decode_eof(buf).unwrap());
+    }
 
-#[test]
-fn cbor_roundtrip() {
-    use bytes::BytesMut;
+    #[test]
+    fn cbor_roundtrip() {
+        use bytes::BytesMut;
 
-    let p1234 = make_test_packet(1234);
+        let p1234 = make_test_packet(1234);
 
-    let mut codec = CborPacketCodec::default();
-    let mut buf = BytesMut::new();
+        let mut codec = CborPacketCodec::default();
+        let mut buf = BytesMut::new();
 
-    codec.encode(p1234.clone(), &mut buf).unwrap();
-    assert_eq!(p1234, codec.decode(&mut buf).unwrap().unwrap());
-}
+        codec.encode(p1234.clone(), &mut buf).unwrap();
+        assert_eq!(p1234, codec.decode(&mut buf).unwrap().unwrap());
+    }
 
-#[allow(dead_code)]
-fn make_test_packet(framenumber: i32) -> FlydraRawUdpPacket {
-    let cam_name = "cam_id".to_string();
-    let timestamp = 12.34;
-    let timestamp = Some(FlydraFloatTimestampLocal::<Triggerbox>::from_f64(timestamp));
+    fn make_test_packet(framenumber: i32) -> FlydraRawUdpPacket {
+        let cam_name = "cam_id".to_string();
+        let timestamp = 12.34;
+        let timestamp = Some(FlydraFloatTimestampLocal::<Triggerbox>::from_f64(timestamp));
 
-    let cam_received_time = FlydraFloatTimestampLocal::<HostClock>::from_f64(123.456);
-    let device_timestamp = Some(123456);
-    let block_id = Some(987654);
+        let cam_received_time = FlydraFloatTimestampLocal::<HostClock>::from_f64(123.456);
+        let device_timestamp = Some(123456);
+        let block_id = Some(987654);
 
-    let points: Vec<FlydraRawUdpPoint> = vec![];
+        let points: Vec<FlydraRawUdpPoint> = vec![];
 
-    FlydraRawUdpPacket {
-        cam_name,
-        timestamp,
-        cam_received_time,
-        device_timestamp,
-        block_id,
-        framenumber,
-        points,
+        FlydraRawUdpPacket {
+            cam_name,
+            timestamp,
+            cam_received_time,
+            device_timestamp,
+            block_id,
+            framenumber,
+            points,
+        }
     }
 }
