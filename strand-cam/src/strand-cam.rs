@@ -3239,7 +3239,8 @@ where
     let no_browser = true;
 
     if !no_browser {
-        // Spawn a task which first waits for the Strand Cam webserver to be ready and then itself opens a browser.
+        // Spawn a task which first waits for the Strand Cam webserver to be
+        // ready and then itself opens a browser.
         let _launcher_task = tokio::spawn(async move {
             // Let the webserver start before opening browser.
             launched_rx.changed().await.unwrap();
