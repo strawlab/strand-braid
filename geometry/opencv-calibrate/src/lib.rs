@@ -85,7 +85,7 @@ pub struct CorrespondingPoint {
 }
 
 pub fn calibrate_camera(
-    all_pts: &Vec<Vec<CorrespondingPoint>>,
+    all_pts: &[Vec<CorrespondingPoint>],
     width: i32,
     height: i32,
 ) -> Result<CalibrationResult, Error> {
