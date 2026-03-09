@@ -1218,6 +1218,10 @@ async fn forward_to_mainbrain(
     gui_singleton,
     data_dir
 ))]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "oh this is ugly. refactor at some point."
+)]
 async fn run<M, C, G>(
     mut mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
