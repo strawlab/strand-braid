@@ -407,7 +407,9 @@ fn raise_grab_thread_priority_deser<'de, D>(de: D) -> Result<bool, D::Error>
 where
     D: Deserializer<'de>,
 {
-    tracing::error!("The parameter 'raise_grab_thread_priority' is no longer used. Remove this parameter from your configuration.");
+    tracing::error!(
+        "The parameter 'raise_grab_thread_priority' is no longer used. Remove this parameter from your configuration."
+    );
     bool::deserialize(de)
 }
 
@@ -1058,7 +1060,7 @@ pub use cam_num::CamNum;
 
 mod timestamp;
 pub use crate::timestamp::{
-    triggerbox_time, FlydraFloatTimestampLocal, HostClock, Source, Triggerbox,
+    FlydraFloatTimestampLocal, HostClock, Source, Triggerbox, triggerbox_time,
 };
 
 /// Timestamp serialization for f64 format.
