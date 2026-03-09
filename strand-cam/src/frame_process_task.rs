@@ -744,14 +744,13 @@ pub(crate) async fn frame_process_task<'a>(
                                         _,
                                         formats::pixel_format::RGB8,
                                     >(&x)?);
-                                    let corners = opencv_calibrate::find_chessboard_corners(
+                                    opencv_calibrate::find_chessboard_corners(
                                         rgb.image_data(),
                                         rgb.width(),
                                         rgb.height(),
                                         checkerboard_data.width as usize,
                                         checkerboard_data.height as usize,
-                                    )?;
-                                    corners
+                                    )?
                                 },
                                 eyre::eyre!("unknown pixel format in checkerboard finder")
                             );
@@ -767,12 +766,12 @@ pub(crate) async fn frame_process_task<'a>(
 
                             if let Some(debug_dir) = &checkerboard_save_debug {
                                 let format_str = "input_%Y%m%d_%H%M%S.yaml";
-                                let stamped = debug_image_stamp.format(&format_str).to_string();
+                                let stamped = debug_image_stamp.format(format_str).to_string();
 
                                 let debug_path = std::path::PathBuf::from(debug_dir);
                                 let yaml_path = debug_path.join(stamped);
 
-                                let mut f = File::create(&yaml_path).expect("create file");
+                                let f = File::create(&yaml_path).expect("create file");
 
                                 #[derive(Serialize)]
                                 struct CornerData<'a> {

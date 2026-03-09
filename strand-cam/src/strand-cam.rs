@@ -3017,7 +3017,7 @@ where
                                         let local: chrono::DateTime<chrono::Local> =
                                             chrono::Local::now();
                                         let format_str = "checkerboard_debug_%Y%m%d_%H%M%S";
-                                        let stamped = local.format(&format_str).to_string();
+                                        let stamped = local.format(format_str).to_string();
                                         let dirname = basedir.join(stamped);
                                         info!(
                                             "Saving checkerboard debug data to: {}",
