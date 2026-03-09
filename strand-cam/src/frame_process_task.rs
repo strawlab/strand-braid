@@ -982,17 +982,20 @@ pub(crate) async fn frame_process_task<'a>(
                     {
                         if is_doing_object_detection {
                             let inner_ufmf_state = ufmf_state.take().unwrap();
+                            let timing_info = flydra_feature_detector::TimingInfo {
+                                fno: frame.host_timing.fno,
+                                timestamp_utc: frame.host_timing.datetime,
+                                device_timestamp,
+                                block_id,
+                                braid_ts,
+                            };
                             // Detect features in the image and send them to the
                             // mainbrain for 3D processing.
                             let (tracker_annotation, new_ufmf_state) = im_tracker
                                 .process_new_frame(
                                     &frame.image.borrow(),
-                                    frame.host_timing.fno,
-                                    frame.host_timing.datetime,
                                     inner_ufmf_state,
-                                    device_timestamp,
-                                    block_id,
-                                    braid_ts,
+                                    timing_info,
                                 )?;
                             if let Some(ref coord_socket) = coord_socket {
                                 // Send the data to the mainbrain

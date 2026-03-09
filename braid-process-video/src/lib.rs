@@ -991,14 +991,14 @@ fn gather_frame_data<'a>(
                         .into_pixel_format::<machine_vision_formats::pixel_format::Mono8>()?;
                     let dyn_mono8 = DynamicFrame::from_static_ref(&mono8);
 
-                    let (detections, _) = entry.process_new_frame(
-                        &dyn_mono8,
+                    let timing_info = flydra_feature_detector::TimingInfo::minimal(
                         out_fno,
                         per_cam.timestamp.into(),
+                    );
+                    let (detections, _) = entry.process_new_frame(
+                        &dyn_mono8,
                         flydra_feature_detector::UfmfState::Stopped,
-                        None,
-                        None,
-                        None,
+                        timing_info,
                     )?;
                     for point in detections.points.into_iter() {
                         let x = NotNan::new(point.x0_abs)?;

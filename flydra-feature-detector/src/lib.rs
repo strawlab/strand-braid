@@ -543,6 +543,27 @@ impl AcquisitionHistogram {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct TimingInfo {
+    pub fno: usize,
+    pub timestamp_utc: DateTime<Utc>,
+    pub device_timestamp: Option<u64>,
+    pub block_id: Option<u64>,
+    pub braid_ts: Option<FlydraFloatTimestampLocal<braid_types::Triggerbox>>,
+}
+
+impl TimingInfo {
+    pub fn minimal(fno: usize, timestamp_utc: DateTime<Utc>) -> Self {
+        Self {
+            fno,
+            timestamp_utc,
+            device_timestamp: None,
+            block_id: None,
+            braid_ts: None,
+        }
+    }
+}
+
 impl FlydraFeatureDetector {
     /// Create new [FlydraFeatureDetector].
     pub fn new(
@@ -620,13 +641,17 @@ impl FlydraFeatureDetector {
     pub fn process_new_frame(
         &mut self,
         orig_frame: &DynamicFrame<'_>,
-        fno: usize,
-        timestamp_utc: DateTime<Utc>,
         ufmf_state: UfmfState,
-        device_timestamp: Option<u64>,
-        block_id: Option<u64>,
-        braid_ts: Option<FlydraFloatTimestampLocal<braid_types::Triggerbox>>,
+        timing_info: TimingInfo,
     ) -> Result<(FlydraRawUdpPacket, UfmfState)> {
+        let TimingInfo {
+            fno,
+            timestamp_utc,
+            device_timestamp,
+            block_id,
+            braid_ts,
+        } = timing_info;
+
         let mut saved_bg_image = None;
         let acquire_stamp = FlydraFloatTimestampLocal::from_dt(&timestamp_utc);
         let acquire_duration = match braid_ts {
