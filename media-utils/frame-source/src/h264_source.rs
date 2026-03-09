@@ -309,6 +309,7 @@ where
     H: SeekableH264Source,
     <H as SeekableH264Source>::NalLocation: Clone,
 {
+    #[expect(clippy::too_many_arguments, reason="we grudgingly accept this ugliness")]
     pub(crate) fn from_seekable_h264_source_with_timestamp_source(
         mut seekable_h264_source: H,
         do_decode_h264: bool,
@@ -382,14 +383,21 @@ where
         }
 
         // iterate through all NAL units.
-        let (frame_time_info, frame0_precision_time, frame0_frameinfo, h264_metadata, tz_offset) =
-            load_timing_data(
-                &nal_locations,
-                &mut seekable_h264_source,
-                &mut parsing_ctx,
-                show_progress,
-                preparser,
-            )?;
+        let timing_data = load_timing_data(
+            &nal_locations,
+            &mut seekable_h264_source,
+            &mut parsing_ctx,
+            show_progress,
+            preparser,
+        )?;
+
+        let TimingData {
+            frame_time_info,
+            frame0_precision_time,
+            frame0_frameinfo,
+            h264_metadata,
+            tz_offset,
+        } = timing_data;
 
         let mut widthheight = None;
         for sps in parsing_ctx.sps() {
@@ -501,19 +509,21 @@ fn calc_avg_fps(fti: &[FrameTimeInfo]) -> Option<f64> {
     }
 }
 
+struct TimingData {
+    frame_time_info: Vec<FrameTimeInfo>,
+    frame0_precision_time: Option<DateTime<Utc>>,
+    frame0_frameinfo: Option<FrameInfo>,
+    h264_metadata: Option<H264Metadata>,
+    tz_offset: Option<FixedOffset>,
+}
+
 fn load_timing_data<H>(
     nal_locations: &[H::NalLocation],
     seekable_h264_source: &mut H,
     parsing_ctx: &mut H264ParsingContext,
     show_progress: bool,
     mut preparser: Option<Box<dyn H264Preparser>>,
-) -> Result<(
-    Vec<FrameTimeInfo>,
-    Option<DateTime<Utc>>,
-    Option<FrameInfo>,
-    Option<H264Metadata>,
-    Option<FixedOffset>,
-)>
+) -> Result<TimingData>
 where
     H: SeekableH264Source,
     <H as SeekableH264Source>::NalLocation: Clone,
@@ -749,13 +759,13 @@ where
 
     tracing::debug!("Done iterating through all NAL units.");
 
-    Ok((
+    Ok(TimingData {
         frame_time_info,
         frame0_precision_time,
         frame0_frameinfo,
         h264_metadata,
         tz_offset,
-    ))
+    })
 }
 
 struct RawH264Iter<'parent, H: SeekableH264Source> {
