@@ -2,7 +2,7 @@
 
 use eyre::{Context, Result};
 
-use machine_vision_formats::{pixel_format::Mono8, ImageData};
+use machine_vision_formats::{ImageData, pixel_format::Mono8};
 use strand_cam_remote_control::Mp4RecordingConfig;
 
 #[test]

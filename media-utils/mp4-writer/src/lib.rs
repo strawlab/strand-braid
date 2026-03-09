@@ -18,7 +18,7 @@ use std::rc::Rc;
 
 #[cfg(feature = "nv-encode")]
 use machine_vision_formats::image_ref::ImageRefMut;
-use strand_cam_remote_control::{H264Metadata, Mp4RecordingConfig, H264_METADATA_UUID};
+use strand_cam_remote_control::{H264_METADATA_UUID, H264Metadata, Mp4RecordingConfig};
 #[cfg(feature = "nv-encode")]
 use tracing::info;
 use tracing::{debug, trace};
@@ -321,7 +321,7 @@ where
                     strand_cam_remote_control::Mp4Codec::H264OpenH264(_) => {}
                     #[cfg(not(feature = "nv-encode"))]
                     strand_cam_remote_control::Mp4Codec::H264NvEnc(_) => {
-                        return Err(Error::NoNvencCompiledError)
+                        return Err(Error::NoNvencCompiledError);
                     }
                     #[cfg(feature = "nv-encode")]
                     strand_cam_remote_control::Mp4Codec::H264NvEnc(opts) => {
