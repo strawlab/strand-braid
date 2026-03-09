@@ -22,8 +22,8 @@ use chrono::{DateTime, Utc};
 use std::fs::File;
 
 use fastim_mod::{
-    ipp_ctypes, ripp, AlgorithmHint, CompareOp, FastImage, FastImageData, FastImageRegion,
-    FastImageSize, FastImageView, MomentState, MutableFastImage, MutableFastImageView,
+    AlgorithmHint, CompareOp, FastImage, FastImageData, FastImageRegion, FastImageSize,
+    FastImageView, MomentState, MutableFastImage, MutableFastImageView, ipp_ctypes, ripp,
 };
 
 use braid_types::{FlydraFloatTimestampLocal, FlydraRawUdpPacket, FlydraRawUdpPoint, RawCamName};
@@ -475,17 +475,18 @@ impl AcquisitionHistogram {
         if msecs < 0.0 {
             if let Some(acquisition_duration_allowed_imprecision_msec) =
                 self.acquisition_duration_allowed_imprecision_msec
-                && msecs < acquisition_duration_allowed_imprecision_msec {
-                    // A little bit of deviation is expected occasionally due to
-                    // noise in fitting the time measurements, so do not log warning
-                    // unless it exceeds 5 msec.
-                    error!(
-                        "{} frame {} acquisition duration negative? ({} msecs)",
-                        self.raw_cam_name.as_str(),
-                        frameno,
-                        msecs
-                    );
-                }
+                && msecs < acquisition_duration_allowed_imprecision_msec
+            {
+                // A little bit of deviation is expected occasionally due to
+                // noise in fitting the time measurements, so do not log warning
+                // unless it exceeds 5 msec.
+                error!(
+                    "{} frame {} acquisition duration negative? ({} msecs)",
+                    self.raw_cam_name.as_str(),
+                    frameno,
+                    msecs
+                );
+            }
             return;
         }
         let bin_num = if msecs > NUM_MSEC_BINS as f64 {
@@ -511,11 +512,7 @@ impl AcquisitionHistogram {
             let (argmax, _max) = self.msec_bins.iter().enumerate().fold(
                 (0, 0),
                 |acc: (usize, u32), (idx, count): (usize, &u32)| {
-                    if count > &acc.1 {
-                        (idx, *count)
-                    } else {
-                        acc
-                    }
+                    if count > &acc.1 { (idx, *count) } else { acc }
                 },
             );
 
