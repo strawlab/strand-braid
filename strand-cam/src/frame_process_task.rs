@@ -42,6 +42,7 @@ use crate::{
 };
 
 /// Perform image analysis
+#[cfg_attr(not(target_os = "linux"), expect(clippy::extra_unused_lifetimes))]
 pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydratrax")] model_server_data_tx: tokio::sync::mpsc::Sender<(
         flydra2::SendType,
