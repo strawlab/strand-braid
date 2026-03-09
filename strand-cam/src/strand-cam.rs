@@ -3239,10 +3239,21 @@ where
     let no_browser = true;
 
     if !no_browser {
-        tokio::spawn(async move {
+        // Spawn a task which first waits for the Strand Cam webserver to be ready and then itself opens a browser.
+        let _launcher_task = tokio::spawn(async move {
             // Let the webserver start before opening browser.
             launched_rx.changed().await.unwrap();
-            open_browser(format!("{}", urls[0])).unwrap();
+            let url = format!("{}", urls[0]);
+            let blocking_task = tokio::task::spawn_blocking(move || {
+                info!("Opening browser at {}", url);
+                match webbrowser::open(&url) {
+                    Ok(_) => trace!("Browser opened"),
+                    Err(e) => error!("Error opening brower: {:?}", e),
+                };
+                debug!("browser thread done {}:{}", file!(), line!());
+            });
+            blocking_task.await?;
+            Ok::<_, eyre::Report>(())
         });
     }
 
@@ -3473,23 +3484,6 @@ where
     let remote_in_local = start + remote_offset_symmetric;
     tracing::debug!("Camera timestamp: {remote_in_local} {remote} {max_err}.");
     Ok((remote_in_local, remote))
-}
-
-fn open_browser(url: String) -> Result<()> {
-    // Spawn a new thread because xdg-open blocks forever
-    // if it must open a new browser.
-    std::thread::Builder::new()
-        .name("browser opener".to_string())
-        .spawn(move || {
-            // ignore browser
-            info!("Opening browser at {}", url);
-            match webbrowser::open(&url) {
-                Ok(_) => trace!("Browser opened"),
-                Err(e) => error!("Error opening brower: {:?}", e),
-            };
-            debug!("browser thread done {}:{}", file!(), line!());
-        })?;
-    Ok(())
 }
 
 async fn send_cam_settings_to_braid(
