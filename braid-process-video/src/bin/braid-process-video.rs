@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use eyre::{self as anyhow, Result, WrapErr};
 
-use braid_process_video::{auto_config, run_config, BraidRetrackVideoConfig, Validate};
+use braid_process_video::{BraidRetrackVideoConfig, Validate, auto_config, run_config};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]

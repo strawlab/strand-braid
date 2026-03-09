@@ -1,6 +1,6 @@
 use eyre::{self as anyhow};
 
-use machine_vision_formats::{pixel_format::RGBA8, ImageBuffer, ImageBufferRef, ImageData, Stride};
+use machine_vision_formats::{ImageBuffer, ImageBufferRef, ImageData, Stride, pixel_format::RGBA8};
 
 pub(crate) struct Frame {
     pixmap: resvg::tiny_skia::Pixmap,

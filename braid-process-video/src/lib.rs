@@ -331,9 +331,7 @@ impl CameraSource {
         &mut self,
     ) -> Option<Peek2<Box<dyn Iterator<Item = frame_source::Result<FrameData>>>>> {
         match &mut self.cam_id {
-            CameraIdentifier::MovieOnly(m) | CameraIdentifier::Both((m, _)) => {
-                m.reader.take()
-            }
+            CameraIdentifier::MovieOnly(m) | CameraIdentifier::Both((m, _)) => m.reader.take(),
             CameraIdentifier::BraidzOnly(_) => None,
         }
     }
@@ -844,9 +842,10 @@ pub async fn run_config(
         let synced_data = synced_data?;
 
         if let Some(start_frame) = cfg.skip_n_first_output_frames
-            && out_fno < start_frame {
-                continue;
-            }
+            && out_fno < start_frame
+        {
+            continue;
+        }
 
         for output in output_storage.iter_mut() {
             if let OutputStorage::Debug(d) = output {
