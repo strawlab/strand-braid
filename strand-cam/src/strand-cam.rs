@@ -56,7 +56,7 @@ use strand_cam_csv_config_types::CameraCfgFview2_0_26;
 #[cfg(feature = "fiducial")]
 use strand_cam_storetype::ApriltagState;
 use strand_cam_storetype::{
-    CallbackType, ImOpsState, RangedValue, StoreType, ToLedBoxDevice, STRAND_CAM_EVENT_NAME,
+    CallbackType, ImOpsState, RangedValue, STRAND_CAM_EVENT_NAME, StoreType, ToLedBoxDevice,
 };
 
 use strand_cam_bui_types::RecordingPath;
@@ -121,7 +121,7 @@ pub mod cli_app;
 
 const LED_BOX_HEARTBEAT_INTERVAL_MSEC: u64 = 5000;
 
-use eyre::{eyre, Result, WrapErr};
+use eyre::{Result, WrapErr, eyre};
 
 pub(crate) enum Msg {
     StartMp4,
@@ -409,8 +409,8 @@ async fn check_version(
 }
 
 fn display_qr_url(url: &str) -> Result<()> {
-    use qrcode::render::unicode;
     use qrcode::QrCode;
+    use qrcode::render::unicode;
     use std::io::stdout;
 
     let qr = QrCode::new(url)?;
@@ -1108,7 +1108,9 @@ where
     info!("Compiled with features: {}", target_feature_string);
 
     if !imops::COMPILED_WITH_SIMD_SUPPORT {
-        warn!("Package 'imops' was not compiled with simd support. Image processing with imops will be slow.");
+        warn!(
+            "Package 'imops' was not compiled with simd support. Image processing with imops will be slow."
+        );
     }
 
     let requested_camera_name = match &args.standalone_or_braid {
@@ -1735,17 +1737,18 @@ where
     }
 
     if camera_settings_filename.is_none()
-        && let StartSoftwareFrameRateLimit::Enable(fps_limit) = &software_limit_framerate {
-            // Set the camera.
-            cam.set_software_frame_rate_limit(*fps_limit).unwrap();
-            // Store the values we set.
-            if let Some(ref mut ranged) = frame_rate_limit {
-                ranged.current = cam.acquisition_frame_rate()?;
-            } else {
-                panic!("cannot set software frame rate limit");
-            }
-            frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
+        && let StartSoftwareFrameRateLimit::Enable(fps_limit) = &software_limit_framerate
+    {
+        // Set the camera.
+        cam.set_software_frame_rate_limit(*fps_limit).unwrap();
+        // Store the values we set.
+        if let Some(ref mut ranged) = frame_rate_limit {
+            ranged.current = cam.acquisition_frame_rate()?;
+        } else {
+            panic!("cannot set software frame rate limit");
         }
+        frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
+    }
 
     let trigger_mode = cam.trigger_mode()?;
     let trigger_selector = cam.trigger_selector()?;
@@ -2024,14 +2027,16 @@ where
             Err(_) => {
                 tracing::debug!("No secret loaded from preferences file, generating new.");
                 let persistent_secret = cookie::Key::generate();
-                let persistent_secret_base64 = base64::engine::general_purpose::STANDARD.encode(persistent_secret.master());
+                let persistent_secret_base64 =
+                    base64::engine::general_purpose::STANDARD.encode(persistent_secret.master());
                 persistent_secret_base64.save(&APP_INFO, COOKIE_SECRET_KEY)?;
                 persistent_secret_base64
             }
         }
     };
 
-    let persistent_secret = base64::engine::general_purpose::STANDARD.decode(persistent_secret_base64)?;
+    let persistent_secret =
+        base64::engine::general_purpose::STANDARD.decode(persistent_secret_base64)?;
     let persistent_secret = cookie::Key::try_from(persistent_secret.as_slice())?;
 
     // Setup our auth layer.
@@ -2259,7 +2264,9 @@ where
                                     }
                                 }
                             });
-                            error!("Channel full sending frame to process thread. Dropping frame data.");
+                            error!(
+                                "Channel full sending frame to process thread. Dropping frame data."
+                            );
                         } else {
                             tx_frame
                                 .send(Msg::Mframe(fframe.clone()))
@@ -2273,34 +2280,35 @@ where
                 }
 
                 if let ci2_async::FrameResult::Frame(frame) = &frame_msg
-                    && let Some(transmit_msg_tx) = transmit_msg_tx.as_mut() {
-                        // Check if we need to send this frame to braid because our timer elapsed.
-                        if send_image_to_braid_timer.elapsed() >= send_image_to_braid_duration {
-                            // If yes, encode frame to png buffer.
-                            let current_image_png = frame
-                                .image
-                                .borrow()
-                                .to_encoded_buffer(convert_image::EncoderOptions::Png)
-                                .unwrap();
+                    && let Some(transmit_msg_tx) = transmit_msg_tx.as_mut()
+                {
+                    // Check if we need to send this frame to braid because our timer elapsed.
+                    if send_image_to_braid_timer.elapsed() >= send_image_to_braid_duration {
+                        // If yes, encode frame to png buffer.
+                        let current_image_png = frame
+                            .image
+                            .borrow()
+                            .to_encoded_buffer(convert_image::EncoderOptions::Png)
+                            .unwrap();
 
-                            // Prepare and send message to Braid.
-                            let msg = braid_types::BraidHttpApiCallback::UpdateCurrentImage(
-                                braid_types::PerCam {
-                                    raw_cam_name: raw_cam_name.clone(),
-                                    inner: braid_types::UpdateImage {
-                                        current_image_png: current_image_png.into(),
-                                    },
+                        // Prepare and send message to Braid.
+                        let msg = braid_types::BraidHttpApiCallback::UpdateCurrentImage(
+                            braid_types::PerCam {
+                                raw_cam_name: raw_cam_name.clone(),
+                                inner: braid_types::UpdateImage {
+                                    current_image_png: current_image_png.into(),
                                 },
-                            );
-                            transmit_msg_tx.send(msg).await?;
+                            },
+                        );
+                        transmit_msg_tx.send(msg).await?;
 
-                            // Update timer for next iteration.
-                            send_image_to_braid_timer = std::time::Instant::now();
-                            if let Some(dur) = send_image_to_braid_interval {
-                                send_image_to_braid_duration = dur;
-                            }
+                        // Update timer for next iteration.
+                        send_image_to_braid_timer = std::time::Instant::now();
+                        if let Some(dur) = send_image_to_braid_interval {
+                            send_image_to_braid_duration = dur;
                         }
                     }
+                }
             }
             debug!("cam_stream_future future done {}:{}", file!(), line!());
             Ok::<_, eyre::Report>(())
@@ -3187,17 +3195,20 @@ where
                 .map_err(to_eyre)?;
 
             info!("attempting to nicely stop camera");
-            match cam.control_and_join_handle() { Some((control, join_handle)) => {
-                control.stop();
-                while !control.is_done() {
-                    tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            match cam.control_and_join_handle() {
+                Some((control, join_handle)) => {
+                    control.stop();
+                    while !control.is_done() {
+                        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+                    }
+                    info!("camera thread stopped");
+                    join_handle.join().expect("join camera thread");
+                    info!("camera thread joined");
                 }
-                info!("camera thread stopped");
-                join_handle.join().expect("join camera thread");
-                info!("camera thread joined");
-            } _ => {
-                error!("camera thread not running!?");
-            }}
+                _ => {
+                    error!("camera thread not running!?");
+                }
+            }
 
             info!("cam_args_rx future is resolved");
             Ok::<_, eyre::Report>(())
@@ -3309,17 +3320,24 @@ where
                         );
                     }
                     msg => {
-                        eyre::bail!("Unexpected response from LED Box {:?}. Is your firmware version correct? (Needed version: {})",
-                            msg, strand_led_box_comms::COMM_VERSION);
+                        eyre::bail!(
+                            "Unexpected response from LED Box {:?}. Is your firmware version correct? (Needed version: {})",
+                            msg,
+                            strand_led_box_comms::COMM_VERSION
+                        );
                     }
                 },
                 Err(_elapsed) => {
-                    eyre::bail!("Timeout connecting to LED Box. Is your firmware version correct? (Needed version: {})",
-                        strand_led_box_comms::COMM_VERSION);
+                    eyre::bail!(
+                        "Timeout connecting to LED Box. Is your firmware version correct? (Needed version: {})",
+                        strand_led_box_comms::COMM_VERSION
+                    );
                 }
                 Ok(None) | Ok(Some(Err(_))) => {
-                    eyre::bail!("Failed connecting to LED Box. Is your firmware version correct? (Needed version: {})",
-                          strand_led_box_comms::COMM_VERSION);
+                    eyre::bail!(
+                        "Failed connecting to LED Box. Is your firmware version correct? (Needed version: {})",
+                        strand_led_box_comms::COMM_VERSION
+                    );
                 }
             }
 

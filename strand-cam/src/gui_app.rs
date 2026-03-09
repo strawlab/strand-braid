@@ -1,7 +1,7 @@
 use eframe::egui::{self, Color32, ColorImage, TextureHandle, TextureOptions};
-use machine_vision_formats::{pixel_format::Mono8, ImageData};
+use machine_vision_formats::{ImageData, pixel_format::Mono8};
 
-use std::sync::{mpsc::Sender, Arc};
+use std::sync::{Arc, mpsc::Sender};
 
 pub(crate) type ImType = Arc<strand_dynamic_frame::DynamicFrameOwned>;
 
