@@ -1107,11 +1107,16 @@ pub(crate) async fn do_run_forever(
         _ = event_broadcast_fut => {
             info!("Event broadcaster finished.");
         },
-        _ = http_serve_future => {
+        http_serve_res = http_serve_future => {
             info!("HTTP Server finished.");
+            http_serve_res?;
         },
-        _ = strand_cam_set.join_next() => {
-            info!("Strand Camera future set finished.");
+        strand_cam_set_opt_res = strand_cam_set.join_next() => {
+            // One of the strand camera tasks has finished.
+            info!("Strand Camera future set member finished.");
+            if let Some(strand_cam_res) = strand_cam_set_opt_res {
+                strand_cam_res?;
+            }
         },
         res_writer_jh = coord_proc_fut => {
             info!("Coordinate processor finished.");
@@ -1120,6 +1125,8 @@ pub(crate) async fn do_run_forever(
             res_writer_jh?.await??;
         },
     };
+    // We reach here after the first of the above futures finishes. We now drop
+    // the other futures, thus cancelling them.
 
     debug!("braid-run finishing.");
 
