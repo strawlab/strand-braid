@@ -49,12 +49,12 @@ fn main() -> eyre::Result<()> {
                 let out_fd = std::fs::File::create(&output_fname)?;
 
                 #[cfg(feature = "nv-encode")]
-                #[allow(unused_assignments)]
+                #[expect(unused_assignments)]
                 let mut nvenc_libs = None;
 
                 let h264_bitrate = None;
 
-                #[allow(unused_variables)]
+                #[cfg_attr(not(feature="nv-encode"), expect(unused_variables))]
                 let (codec, libs_and_nv_enc) = match cli.encoder {
                     Encoder::OpenH264 => {
                         let codec = strand_cam_remote_control::Mp4Codec::H264OpenH264({

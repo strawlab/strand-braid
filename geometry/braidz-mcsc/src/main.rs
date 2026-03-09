@@ -358,7 +358,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
         points: observations.clone(),
     };
 
-    #[allow(unused_variables)]
+    #[expect(unused_variables)]
     let mut output_root_guard = None; // will cleanup on drop
 
     let input_str = opt
@@ -374,7 +374,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
     } else {
         let output_root = tempfile::tempdir()?;
         let out_dir_name = Utf8Path::from_path(output_root.path()).unwrap().to_owned();
-        #[allow(unused_assignments)]
+        #[expect(unused_assignments)]
         {
             output_root_guard = Some(output_root);
         }

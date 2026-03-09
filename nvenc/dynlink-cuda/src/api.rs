@@ -13,7 +13,7 @@ macro_rules! api_call {
     }};
 }
 
-#[allow(non_snake_case, dead_code)]
+#[expect(non_snake_case)]
 pub struct LibCuda<'lib> {
     cuInit: libloading::Symbol<'lib, extern "C" fn(::std::os::raw::c_uint) -> CUresult>,
     cuDriverGetVersion:

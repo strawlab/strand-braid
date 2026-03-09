@@ -7,7 +7,7 @@ use frame_source::pv_tiff_stack::TiffImage;
 use strand_dynamic_frame::DynamicFrameOwned;
 
 /// Configuration describing how to handle high dynamic range source material.
-#[allow(non_camel_case_types)]
+#[expect(non_camel_case_types)]
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, clap::ValueEnum, Debug)]
 pub enum HdrConfig {
     /// Preserve full dynamic range

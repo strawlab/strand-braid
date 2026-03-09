@@ -530,18 +530,16 @@ pub fn copy_archive_to_zipfile<R: Read + Seek>(
     dest: &mut File,
 ) -> Result<()> {
     let mut zip_writer = zip::ZipWriter::new(dest);
-    copy_dir(src, None, &mut zip_writer, 0)?;
+    copy_dir(src, None, &mut zip_writer)?;
     zip_writer.finish()?;
     Ok(())
 }
 
 /// copy from src into zip file
-#[allow(clippy::only_used_in_recursion)]
 fn copy_dir<R: Read + Seek>(
     src: &mut ZipDirArchive<R>,
     relname: Option<&Path>,
     zip_writer: &mut zip::ZipWriter<&mut File>,
-    depth: usize,
 ) -> zip::result::ZipResult<()> {
     let parent = match relname {
         None => PathBuf::new(),
@@ -584,7 +582,7 @@ fn copy_dir<R: Read + Seek>(
                 Some(_) => full_entry, //PathBuf::from(parent).join(entry),
             };
 
-            copy_dir(src, Some(&subpath), zip_writer, depth + 1)?;
+            copy_dir(src, Some(&subpath), zip_writer)?;
         }
     }
 

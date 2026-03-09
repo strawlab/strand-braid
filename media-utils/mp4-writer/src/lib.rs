@@ -112,7 +112,7 @@ enum MyEncoder<'lib> {
     #[cfg(feature = "nv-encode")]
     Nvidia(NvEncoder<'lib>),
     #[cfg(not(feature = "nv-encode"))]
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     NoNvidia(std::marker::PhantomData<&'lib u8>),
     #[cfg(feature = "openh264")]
     OpenH264(Box<OpenH264Encoder>),
@@ -442,7 +442,7 @@ where
                             first_timestamp: timestamp,
                         })
                     }
-                    #[allow(unused_variables)]
+                    #[cfg_attr(not(feature="openh264"), expect(unused_variables))]
                     strand_cam_remote_control::Mp4Codec::H264OpenH264(opts) => {
                         #[cfg(feature = "openh264")]
                         {
@@ -547,13 +547,13 @@ where
     /// any errors will result in a panic.
     pub fn finish(&mut self) -> Result<()> {
         let inner = self.inner.take();
-        #[allow(unused_mut)]
         match inner {
             Some(WriteState::Configured(_)) => {
                 // no frames written.
                 self.inner = Some(WriteState::Finished);
                 Ok(())
             }
+            #[cfg_attr(not(feature="nv-encode"), expect(unused_mut))]
             Some(WriteState::Recording(mut state)) => {
                 match state.my_encoder {
                     MyEncoder::CopyRawH264 { h264_parser: _ } | MyEncoder::LessH264(_) => { /* nothing to do */
@@ -794,7 +794,7 @@ where
 }
 
 struct RecordingStateInner {
-    #[allow(dead_code)]
+    #[cfg_attr(not(feature="nv-encode"), expect(unused))]
     first_timestamp: chrono::DateTime<chrono::Local>,
     previous_timestamp: chrono::DateTime<chrono::Local>,
     /// limits the maximum framerate
@@ -1421,7 +1421,6 @@ fn parse_h264_is_idr_frame(data: &frame_source::H264EncodingVariant) -> Result<b
             _ => {}
         }
     }
-    #[allow(clippy::unnecessary_lazy_evaluations)]
     is_keyframe.ok_or_else(|| Error::BadInputData {})
 }
 

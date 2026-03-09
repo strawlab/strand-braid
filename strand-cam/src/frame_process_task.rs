@@ -43,6 +43,7 @@ use crate::{
 
 /// Perform image analysis
 #[cfg_attr(not(target_os = "linux"), expect(clippy::extra_unused_lifetimes))]
+#[expect(clippy::too_many_arguments, reason="this is ugly and should be refactored")]
 pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydratrax")] model_server_data_tx: tokio::sync::mpsc::Sender<(
         flydra2::SendType,
@@ -114,7 +115,6 @@ pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydra_feat_detect")]
     let mut ufmf_state = Some(flydra_feature_detector::UfmfState::Stopped);
     #[cfg(feature = "flydra_feat_detect")]
-    #[allow(unused_assignments)]
     let mut is_doing_object_detection = is_braid;
 
     let transmit_feature_detect_settings_tx = if is_braid {
@@ -693,13 +693,10 @@ pub(crate) async fn frame_process_task<'a>(
 
                 #[cfg(not(feature = "checkercal"))]
                 let checkercal_tmp: Option<()> = None;
-
-                #[allow(unused_mut)]
-                let (mut found_points, valid_display) = if let Some(inner) = checkercal_tmp {
-                    #[allow(unused_mut)]
+                let (found_points, valid_display) = if let Some(inner) = checkercal_tmp {
+                    #[cfg_attr(not(feature="checkercal"), expect(unused_mut))]
                     let mut results = Vec::new();
-                    #[cfg(not(feature = "checkercal"))]
-                    #[allow(clippy::let_unit_value)]
+                    #[cfg_attr(not(feature = "checkercal"), expect(clippy::let_unit_value))]
                     let _ = inner;
                     #[cfg(feature = "checkercal")]
                     {
@@ -829,6 +826,7 @@ pub(crate) async fn frame_process_task<'a>(
                     (results, None)
                 } else {
                     let mut all_points = Vec::new();
+                    #[cfg_attr(not(feature = "flydra_feat_detect"), expect(unused_mut))]
                     let mut blkajdsfads = None;
 
                     {

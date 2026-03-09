@@ -195,7 +195,10 @@ pub struct KalmanizeOptions {
 /// only on upon completed tracking is this converted to the output .braidz
 /// file.
 #[tracing::instrument(level = "debug", skip_all)]
-#[allow(clippy::too_many_arguments)]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "this is ugly and should be refactored"
+)]
 pub async fn kalmanize<Q, R>(
     mut data_src: braidz_parser::incremental_parser::IncrementalParser<
         R,

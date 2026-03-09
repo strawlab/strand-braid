@@ -34,8 +34,7 @@ pub enum Error {
 
 pub type Result<T> = std::result::Result<T, Error>;
 
-#[allow(non_camel_case_types)]
-#[allow(non_snake_case)]
+#[expect(non_snake_case)]
 #[derive(PartialEq, Eq, Debug)]
 struct YUV444 {
     Y: u8,
@@ -251,7 +250,7 @@ impl std::fmt::Debug for Y4MFrame {
 }
 
 impl Y4MFrame {
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn new(
         data: Vec<u8>,
         width: u32,

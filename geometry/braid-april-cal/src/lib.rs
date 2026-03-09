@@ -151,14 +151,11 @@ pub fn get_apriltag_cfg<R: std::io::Read>(rdr: R) -> Result<AprilConfig, MyError
             }
             ReaderState::InYaml(ref mut yaml_lines) =>
             {
-                #[allow(clippy::manual_strip)]
-                if line.starts_with("# ") {
-                    if line == "# -- end of yaml config --" {
+                if let Some(cleaned) = line.strip_prefix("# ") {
+                    if cleaned == "-- end of yaml config --" {
                         break;
-                    } else {
-                        let cleaned: &str = &line[2..];
-                        yaml_lines.push(cleaned.to_string());
                     }
+                    yaml_lines.push(cleaned.to_string());
                 } else {
                     return Err(MyError::new(
                         "YAML section started but never finished".into(),
@@ -216,7 +213,7 @@ impl CalibrationResult {
 
 #[derive(Default, Debug)]
 struct NoCorresp {
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     ids_3d: BTreeSet<u32>,
     ids_2d: BTreeSet<i32>,
 }

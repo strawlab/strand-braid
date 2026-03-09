@@ -485,7 +485,6 @@ fn append_to_path(path: &std::path::Path, suffix: &str) -> std::path::PathBuf {
 
 #[test]
 fn test_append_to_path() {
-    #[allow(clippy::disallowed_names)]
     let foo = std::path::Path::new("foo");
     assert!(append_to_path(foo, ".gz") == std::path::Path::new("foo.gz"));
 

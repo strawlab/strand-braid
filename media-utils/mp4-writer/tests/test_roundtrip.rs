@@ -55,12 +55,11 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
         let out_fd = std::fs::File::create(&output_name)?;
 
         #[cfg(feature = "nv-encode")]
-        #[allow(unused_assignments)]
+        #[expect(unused_assignments)]
         let mut nvenc_libs = None;
 
         let h264_bitrate = None;
 
-        #[allow(unused_variables)]
         let (codec, libs_and_nv_enc, max_diff) = match codec_str.as_str() {
             "open-h264" => {
                 let codec = strand_cam_remote_control::Mp4Codec::H264OpenH264({
@@ -95,6 +94,9 @@ fn test_save_then_read_with_ffmpeg() -> Result<()> {
                 panic!("unknown codec str");
             }
         };
+
+        #[cfg(not(feature = "nv-encode"))]
+        let _ = libs_and_nv_enc;
 
         let cfg = Mp4RecordingConfig {
             codec,

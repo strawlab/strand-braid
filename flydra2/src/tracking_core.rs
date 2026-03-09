@@ -53,7 +53,7 @@ struct ModelFrameStarted {
 }
 
 #[derive(Debug)]
-#[allow(clippy::large_enum_variant)]
+#[expect(clippy::large_enum_variant)]
 enum ObservationModel {
     ObservationModelAndLikelihoods(ObservationModelAndLikelihoods),
     NoObservations,

@@ -14,7 +14,6 @@ pub struct VirtualDisplayName(pub String);
 /// has an independent set of extrinsic parameters.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
-#[allow(non_snake_case)]
 pub struct Display {
     pub width: usize,
     pub height: usize,
@@ -25,7 +24,6 @@ pub struct Display {
 /// A SimpleDisplay has a single VirtualDisplay
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(deny_unknown_fields)]
-#[allow(non_snake_case)]
 pub struct SimpleDisplay {
     pub width: usize,
     pub height: usize,

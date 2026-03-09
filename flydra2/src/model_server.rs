@@ -73,7 +73,7 @@ impl Default for ModelServerAppState {
     }
 }
 
-#[allow(non_snake_case)]
+#[expect(non_snake_case, reason="fields with covariance are `PXY` to match the Kalman filter covariance matrix layout")]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SendKalmanEstimatesRow {
     pub obj_id: u32,

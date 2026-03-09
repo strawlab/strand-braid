@@ -2126,8 +2126,7 @@ where
         }
     }
 
-    #[cfg(not(feature = "eframe-gui"))]
-    #[expect(clippy::let_unit_value)]
+    #[cfg_attr(not(feature = "eframe-gui"), expect(clippy::let_unit_value))]
     let _ = gui_singleton;
 
     // Display where we are listening.

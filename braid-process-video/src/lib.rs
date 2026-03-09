@@ -1029,10 +1029,6 @@ fn gather_frame_data<'a>(
                         source.cam_id.best_name(),
                         per_cam.timestamp,
                     )?;
-                    #[allow(unused_assignments)]
-                    {
-                        wrote_debug = true;
-                    }
                 }
             }
         }

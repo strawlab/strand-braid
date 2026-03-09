@@ -16,7 +16,6 @@ use borrow_fastimage::BorrowedFrame;
 use tokio::sync::mpsc;
 
 use machine_vision_formats as formats;
-use serde::Serialize;
 
 use chrono::{DateTime, Utc};
 use std::fs::File;
@@ -71,22 +70,6 @@ fn compute_slope(moments: &MomentState) -> Result<(f64, f64)> {
     };
     let slope = rise / run;
     Ok((slope, eccentricity))
-}
-
-#[allow(dead_code)]
-#[derive(Serialize)]
-enum ImageTrackerState {
-    RosInfoRunLoop,
-    RosInfoRosFrame,
-    RosInfoPeriodicImage,
-    RosInfoCamInfo,
-    RosInfoPeriodic,
-    SendingRosImage,
-    TakeNewBG,
-    ProcessFrameStart(usize),
-    AcquireDuration(f64),
-    ProcessFrameTiming(Vec<(f64, u32)>),
-    ProcessFrameEnd(usize),
 }
 
 #[derive(Debug, PartialEq)]
@@ -378,12 +361,11 @@ impl TrackingState {
 }
 
 #[derive(Debug)]
-#[allow(clippy::large_enum_variant)]
 enum BackgroundAcquisitionState {
     Initialization,
     StartupMode(StartupState),
     ClearToValue(f32),
-    NormalUpdates(TrackingState),
+    NormalUpdates(Box<TrackingState>),
     TemporaryHold,
 }
 
@@ -423,8 +405,6 @@ pub struct FlydraFeatureDetector {
     raw_cam_name: RawCamName,
     cfg: ImPtDetectCfg,
     roi_sz: FastImageSize,
-    #[allow(dead_code)]
-    last_sent_raw_image_time: std::time::Instant,
     mask_image: Option<FastImageData<u8>>,
     background_update_state: BackgroundAcquisitionState, // command from UI "take a new bg image"
     acquisition_histogram: AcquisitionHistogram,
@@ -584,7 +564,6 @@ impl FlydraFeatureDetector {
             cfg,
             roi_sz: FastImageSize::new(w as ipp_ctypes::c_int, h as ipp_ctypes::c_int),
             mask_image: None,
-            last_sent_raw_image_time: std::time::Instant::now(),
             background_update_state: BackgroundAcquisitionState::Initialization,
             acquisition_histogram,
             acquisition_duration_allowed_imprecision_msec,
@@ -771,14 +750,14 @@ impl FlydraFeatureDetector {
                 let complete_stamp = timestamp_utc;
 
                 if startup_state.n_frames >= NUM_BG_START_IMAGES {
-                    let state = TrackingState::new(
+                    let state = Box::new(TrackingState::new(
                         &raw_im_full,
                         startup_state.running_mean,
                         startup_state.mean_squared_im,
                         &self.cfg,
                         pixel_format,
                         complete_stamp,
-                    )?;
+                    )?);
                     (packet, BackgroundAcquisitionState::NormalUpdates(state))
                 } else {
                     (
@@ -796,14 +775,14 @@ impl FlydraFeatureDetector {
 
                 let complete_stamp = timestamp_utc;
 
-                let state = TrackingState::new(
+                let state = Box::new(TrackingState::new(
                     &raw_im_full,
                     running_mean,
                     mean_squared_im,
                     &self.cfg,
                     pixel_format,
                     complete_stamp,
-                )?;
+                )?);
                 debug!("cleared background model to value {}", value);
                 (packet, BackgroundAcquisitionState::NormalUpdates(state))
             }

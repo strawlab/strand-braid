@@ -234,7 +234,7 @@ fn display_filename(p: &Option<PathBuf>, default: &str) -> PathBuf {
 
 fn info(path: PathBuf) -> Result<()> {
     #[derive(Debug)]
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     struct Info {
         width: u32,
         height: u32,

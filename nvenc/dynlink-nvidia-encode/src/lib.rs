@@ -6,7 +6,7 @@
 
 pub mod api;
 pub mod error;
-#[allow(clippy::all)]
+#[expect(clippy::all)]
 mod ffi;
 pub mod guids;
 pub mod load;

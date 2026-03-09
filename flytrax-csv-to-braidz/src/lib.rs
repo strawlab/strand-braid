@@ -90,7 +90,7 @@ fn load_yaml_calibration(
     ))
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 async fn kalmanize_2d<R>(
     mut point_detection_csv_reader: R,
     braid_csv_dest_dir: &camino::Utf8Path,
@@ -503,7 +503,7 @@ pub struct ExtrinsicsArgs {
 /// - `output_braidz` is used to initially create a "braid dir" (typically
 ///   ending with `.braid` in the name). Upon closing, this directory will be
 ///   converted to a file that ends with `.braidz`.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub async fn parse_configs_and_run<R>(
     point_detection_csv_reader: R,
     braid_csv_dest_dir: &camino::Utf8Path,

@@ -60,7 +60,7 @@ pub fn init(library: &SharedLibrary) -> Result<Rc<LibNvEncode<'_>>, NvencError> 
     Ok(Rc::new(lib_nv_encode))
 }
 
-#[allow(non_snake_case, dead_code)]
+#[expect(non_snake_case)]
 pub struct LibNvEncode<'lib> {
     NvEncodeAPICreateInstance:
         libloading::Symbol<'lib, extern "C" fn(*mut NV_ENCODE_API_FUNCTION_LIST) -> NVENCSTATUS>,

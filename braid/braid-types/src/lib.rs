@@ -120,7 +120,10 @@ pub struct CamInfoRow {
 
 /// Kalman filter state estimate record for CSV output.
 // Changes to this struct should update BraidMetadataSchemaTag.
-#[allow(non_snake_case)]
+#[expect(
+    non_snake_case,
+    reason = "fields with covariance are named after the standard Kalman filter covariance matrix notation."
+)]
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct KalmanEstimatesRow {
     /// Object ID being tracked.
@@ -773,7 +776,7 @@ pub enum MiniArenaConfig {
     XYGrid(XYGridConfig),
 }
 
-#[allow(clippy::len_without_is_empty)]
+#[expect(clippy::len_without_is_empty)]
 impl MiniArenaConfig {
     fn is_none(&self) -> bool {
         self == &Self::NoMiniArena

@@ -1,7 +1,6 @@
 use mkv_parser_kit::{ebml_parse, BoxData, EbmlElement, Tag};
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 struct MyBlockData {
     timestamp: chrono::DateTime<chrono::Utc>,
     start_idx: u64,
@@ -25,7 +24,6 @@ struct Accum {
     codec: Option<String>,
 }
 
-#[allow(dead_code)]
 fn line_summary(e: &EbmlElement) -> String {
     let name = format!("{:?}", e.tag());
     let position = e.position();

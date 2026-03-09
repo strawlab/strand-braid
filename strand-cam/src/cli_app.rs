@@ -355,7 +355,6 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
 
     // There are some fields set by `Default::default()` but only when various
     // cargo features are used. So turn off this clippy warning.
-    #[allow(clippy::needless_update)]
     Ok(StrandCamArgs {
         standalone_or_braid,
         secret,

@@ -14,7 +14,6 @@ use na::{Matrix3, Vector3};
 use nalgebra as na;
 
 use na::RealField;
-#[allow(unused_imports)]
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use cam_geom::{coordinate_system::WorldFrame, Ray};

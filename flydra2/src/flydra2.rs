@@ -21,8 +21,7 @@ use nalgebra::{
     dimension::{DimMin, U1, U2, U3, U6},
 };
 
-#[allow(unused_imports)]
-use braid_mvg::{DistortedPixel, PointWorldFrame, PointWorldFrameWithSumReprojError};
+use braid_mvg::PointWorldFrame;
 
 use braid_types::{
     CamInfoRow, CamNum, ConnectedCameraSyncState, Data2dDistortedRowF32, DataAssocRow,

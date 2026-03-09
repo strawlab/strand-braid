@@ -27,7 +27,7 @@ where
 }
 
 trait ToR<T: RealField> {
-    #[allow(non_snake_case)]
+    #[expect(non_snake_case)]
     fn R(&self) -> T;
 }
 

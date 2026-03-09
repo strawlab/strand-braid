@@ -31,7 +31,6 @@ fn missing(what: &str) -> Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct BlockData {
     pub pts: std::time::Duration,
     pub start_idx: u64,
@@ -100,7 +99,6 @@ struct Accum {
     codec: Option<String>,
 }
 
-#[allow(dead_code)]
 fn line_summary(e: &EbmlElement) -> String {
     let name = format!("{:?}", e.tag());
     let position = e.position();
