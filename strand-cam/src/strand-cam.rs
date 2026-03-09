@@ -34,7 +34,7 @@ use strand_dynamic_frame::DynamicFrame;
 
 use video_streaming::AnnotatedFrame;
 
-use std::{path::PathBuf, result::Result as StdResult};
+use std::{path::PathBuf, pin::Pin, result::Result as StdResult};
 
 #[cfg(feature = "checkercal")]
 use std::fs::File;
@@ -830,9 +830,14 @@ struct FirstMsgForced {
 }
 
 impl FirstMsgForced {
-    /// Wrap a sender.
-    fn new(tx: tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>) -> Self {
-        Self { tx }
+    fn channel(
+        sz: usize,
+    ) -> (
+        Self,
+        tokio::sync::mpsc::Receiver<braid_types::BraidHttpApiCallback>,
+    ) {
+        let (tx, rx) = tokio::sync::mpsc::channel(sz);
+        (Self { tx }, rx)
     }
 
     /// Send the first message and return the Sender.
@@ -1178,6 +1183,26 @@ where
 
 // -----------
 
+/// Forward messages from elsewhere in Strand Cam to mainbrain.
+///
+/// The future runs until the trainsmit_msg_rx channel is closed otherwise ends
+/// only on error.
+async fn forward_to_mainbrain(
+    mut transmit_msg_rx: tokio::sync::mpsc::Receiver<braid_types::BraidHttpApiCallback>,
+    mut mainbrain_session: braid_http_session::MainbrainSession,
+) -> Result<()> {
+    while let Some(msg) = transmit_msg_rx.recv().await {
+        // We have a message from elsewhere in Strand Cam to send to mainbrain.
+        mainbrain_session
+            .post_callback_message(msg)
+            .await
+            .context("failed sending message to mainbrain")?;
+    }
+    Ok(())
+}
+
+// -----------
+
 /// This is the main function where we spend all time after parsing startup args
 /// and, in case of connecting to braid, getting the inital connection
 /// information.
@@ -1421,7 +1446,7 @@ where
         ImPtDetectCfgSource::ChangesNotSavedToDisk(cfg) => cfg.clone(),
     };
 
-    let (mut mainbrain_session, trigger_type) = match braid_info {
+    let (mainbrain_session, trigger_type) = match braid_info {
         Some(bi) => (
             Some(bi.mainbrain_session),
             Some(bi.config_from_braid.trig_config),
@@ -1567,28 +1592,17 @@ where
         .borrow()
         .to_encoded_buffer(convert_image::EncoderOptions::Png)?;
 
-    // spawn channel to send data to mainbrain
-    let (mainbrain_msg_tx, mut mainbrain_msg_rx) = tokio::sync::mpsc::channel(10);
-
-    let first_msg_tx = if mainbrain_session.is_some() {
-        // Wrap Sender to force a specific first message type.
-        Some(FirstMsgForced::new(mainbrain_msg_tx))
-    } else {
-        // Drop Sender as we'll never need it.
-        None
-    };
-
-    let mainbrain_transmitter_fut = async move {
-        while let Some(msg) = mainbrain_msg_rx.recv().await {
-            if let Some(mainbrain_session) = &mut mainbrain_session {
-                match mainbrain_session.post_callback_message(msg).await {
-                    Ok(()) => {}
-                    Err(e) => {
-                        tracing::error!("failed sending message to mainbrain: {e}");
-                        break;
-                    }
-                }
-            }
+    // If we have a session with mainbrain, create a channel that collects
+    // messages from within Strand Cam to forward to mainbrain and create the
+    // forwarding future. If we don't have a session, just create a dummy future
+    // that never resolves.
+    let (first_msg_tx, forward_to_mainbrain_fut): (_, Pin<Box<dyn Future<Output = _>>>) = {
+        if let Some(mainbrain_session) = mainbrain_session {
+            let (tx, rx) = FirstMsgForced::channel(10);
+            let fut = forward_to_mainbrain(rx, mainbrain_session);
+            (Some(tx), Box::pin(fut))
+        } else {
+            (None, Box::pin(std::future::pending()))
         }
     };
 
@@ -3433,13 +3447,14 @@ where
     tokio::select! {
         res = http_serve_future => {res?},
         res = cam_arg_future => {res?},
-        _ = mainbrain_transmitter_fut => {},
+        res = forward_to_mainbrain_fut => {res?},
         _ = send_updates_future => {},
         res = frame_process_task_fut => {res?},
         res = firehose_task_join_handle => {res?},
         _ = quit_rx.recv() => {},
     }
     info!("Strand Cam ending nicely. :)");
+    // All other futures above are now dropped, thus cancelled.
 
     Ok(mymod)
 }
