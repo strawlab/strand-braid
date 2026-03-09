@@ -115,7 +115,7 @@ enum MyEncoder<'lib> {
     #[allow(dead_code)]
     NoNvidia(std::marker::PhantomData<&'lib u8>),
     #[cfg(feature = "openh264")]
-    OpenH264(OpenH264Encoder),
+    OpenH264(Box<OpenH264Encoder>),
     LessH264(LessEncoderWrapper),
 }
 
@@ -454,14 +454,14 @@ where
                                 ))
                                 .bitrate(openh264::encoder::BitRate::from_bps(opts.bitrate_bps()));
 
-                            MyEncoder::OpenH264(OpenH264Encoder {
+                            MyEncoder::OpenH264(Box::new(OpenH264Encoder {
                                 encoder: openh264::encoder::Encoder::with_api_config(
                                     openh264::OpenH264API::from_source(),
                                     cfg,
                                 )?,
                                 h264_parser,
                                 first_timestamp: timestamp,
-                            })
+                            }))
                         }
                         #[cfg(not(feature = "openh264"))]
                         {
