@@ -18,7 +18,6 @@ use hyper_rustls::HttpsConnector;
 
 use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 use machine_vision_formats as formats;
-#[allow(unused_imports)]
 use preferences_serde1::{AppInfo, Preferences};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::error::SendError;
@@ -325,7 +324,7 @@ struct StrandCamCallbackSenders {
     firehose_callback_tx: tokio::sync::mpsc::Sender<ConnectionKey>,
     cam_args_tx: tokio::sync::mpsc::Sender<CamArg>,
     led_box_tx_std: tokio::sync::mpsc::Sender<ToLedBoxDevice>,
-    #[allow(dead_code)]
+    #[cfg_attr(not(feature = "flydra_feat_detect"), expect(unused))]
     tx_frame: tokio::sync::mpsc::Sender<Msg>,
 }
 
@@ -2128,7 +2127,7 @@ where
     }
 
     #[cfg(not(feature = "eframe-gui"))]
-    #[allow(clippy::let_unit_value)]
+    #[expect(clippy::let_unit_value)]
     let _ = gui_singleton;
 
     // Display where we are listening.
@@ -2410,7 +2409,7 @@ where
             // DoQuit message.
             while let Some(cam_args) = cam_args_rx.next().await {
                 debug!("handling camera command {:?}", cam_args);
-                #[allow(unused_variables)]
+                #[expect(unused_variables)]
                 match cam_args {
                     CamArg::SetIngoreFutureFrameProcessingErrors(v) => {
                         let mut state = frame_processing_error_state.write().unwrap();
@@ -3314,7 +3313,6 @@ where
             if let Some(serial_device) = shared.led_box_device_path.as_ref() {
                 info!("opening LED box \"{}\"", serial_device);
                 // open with default settings 9600 8N1
-                #[allow(unused_mut)]
                 let mut port = tokio_serial::new(serial_device, strand_led_box_comms::BAUD_RATE)
                     .open_native_async()
                     .unwrap();
