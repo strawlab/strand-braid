@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    io::{Read, Write},
+    io::{Read, Seek, Write},
     path::{Path, PathBuf},
     sync::{Arc, LazyLock, Mutex},
 };
@@ -21,6 +21,8 @@ pub enum DlError {
     #[error("Multiple hashes for the same url and destination")]
     MultipleHashes,
 }
+
+const CHUNK_SIZE: usize = 8192;
 pub enum Hash {
     Sha256(String),
 }
@@ -52,10 +54,6 @@ static CURRENT_DOWNLOADS: LazyLock<
 /// perhaps expected because [std::fs::canonicalize] requires that the path
 /// already exists, but creating files temporarily can easily lead to a race
 /// condition.
-///
-/// Currently, this is done in one big chunk and thus enough memory is necessary
-/// to load the entire file. A future update could read individual chunks and
-/// thus reduce the memory footprint.
 pub fn download_verify<P: AsRef<Path>>(url: &str, dest: P, hash: &Hash) -> Result<(), DlError> {
     let dest = dest.as_ref().to_path_buf();
     // We use a global hashmap to track currently active downloads. The key is
@@ -89,16 +87,20 @@ pub fn download_verify<P: AsRef<Path>>(url: &str, dest: P, hash: &Hash) -> Resul
 
         // If the file already exists,
         if dest.exists() {
-            // read it,
-            let bytes = std::fs::read(dest)?;
-            // and validate that it matches the checksum.
-            validate(&bytes, hash)?;
-        } else {
-            // create the dir, if it does not already exist.
-            if let Some(dest_dir) = dest.parent() {
-                std::fs::create_dir_all(dest_dir)?;
+            // Validate the existing file. Read chunk-by-chunk and update hash.
+            let mut hasher = sha2::Sha256::new();
+            let mut rdr = std::fs::File::open(&dest)?;
+            loop {
+                let mut chunk = [0u8; CHUNK_SIZE];
+                let n = rdr.read(&mut chunk)?;
+                if n == 0 {
+                    break;
+                }
+                let slice = &chunk[..n];
+                hasher.update(slice);
             }
-
+            validate(hasher.finalize().as_slice(), hash)?;
+        } else {
             // If the file does not exist, download the contents,
             let agent: ureq::Agent = ureq::Agent::config_builder()
                 .timeout_connect(Some(std::time::Duration::from_secs(10))) // max 10 seconds
@@ -110,15 +112,33 @@ pub fn download_verify<P: AsRef<Path>>(url: &str, dest: P, hash: &Hash) -> Resul
             })?;
 
             let mut rdr = response.into_body().into_reader();
+            let mut tmp_dest = tempfile::tempfile()?; // file automatically deleted on drop
+            let mut hasher = sha2::Sha256::new();
+            // Read the response chunk-by-chunk and save to disk at the same
+            // time, so that we don't have to hold the entire file in memory.
+            // Compute the checksum along the way.
+            loop {
+                let mut chunk = [0u8; CHUNK_SIZE];
+                let n = rdr.read(&mut chunk)?;
+                if n == 0 {
+                    break;
+                }
+                let slice = &chunk[..n];
+                hasher.update(slice);
+                tmp_dest.write_all(slice)?;
+            }
 
-            let mut bytes = vec![];
-            rdr.read_to_end(&mut bytes)?;
+            // validate the response,
+            validate(hasher.finalize().as_slice(), hash)?;
 
-            // validate them,
-            validate(bytes.as_ref(), hash)?;
-            // and save them to disk.
+            // copy the file.
+            // create the dir, if it does not already exist.
+            if let Some(dest_dir) = dest.parent() {
+                std::fs::create_dir_all(dest_dir)?;
+            }
             let mut fd = std::fs::File::create(dest)?;
-            fd.write_all(bytes.as_ref())?;
+            tmp_dest.seek(std::io::SeekFrom::Start(0))?;
+            std::io::copy(&mut tmp_dest, &mut fd)?;
             fd.sync_all()?;
         }
     }
@@ -133,15 +153,14 @@ pub fn download_verify<P: AsRef<Path>>(url: &str, dest: P, hash: &Hash) -> Resul
     Ok(())
 }
 
-fn validate(bytes: &[u8], hash: &Hash) -> Result<(), DlError> {
+fn validate(digest: &[u8], hash: &Hash) -> Result<(), DlError> {
     match hash {
         Hash::Sha256(sum) => {
             let expected = hex::decode(sum.as_bytes())?;
-            let digest = sha2::Sha256::digest(bytes);
-            if &digest[..] == expected.as_slice() {
+            if digest == expected.as_slice() {
                 Ok(())
             } else {
-                let found = format!("{:x}", digest);
+                let found = hex::encode(digest);
                 Err(DlError::HashMismatch {
                     expected: sum.clone(),
                     found,
