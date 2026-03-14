@@ -133,7 +133,6 @@ test_flydra2:
     GIT_SUBMODULE_STRATEGY: recursive
   image: ubuntu:noble
   script:
-    - _packaging/setup-ubuntu-apt-proxy.sh
     - _packaging/setup-ubuntu-base.sh
     # Put cargo and rust on the path
     - . "$HOME/.cargo/env"
