@@ -1,4 +1,4 @@
-name: Source source code in repository
+name: Check source code in repository
 
 on:
   push:
@@ -10,7 +10,7 @@ jobs:
   check-readme-updated:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Test that README.md is up to date
         run: |
           cargo run -p workspace-docs -- --check
@@ -18,7 +18,7 @@ jobs:
   check-cargo-fmt:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Test that `cargo fmt` is happy
         run: |
           cargo fmt --check

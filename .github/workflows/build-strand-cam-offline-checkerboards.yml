@@ -16,7 +16,7 @@ jobs:
       run:
         working-directory: strand-cam/strand-cam-offline-checkerboards
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: install OpenCV
         run: |
           # See https://github.com/actions/runner-images/issues/10977

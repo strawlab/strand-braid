@@ -16,7 +16,7 @@ jobs:
       run:
         working-directory: ads-apriltag/apriltag-track-movie
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build app
         run: |
           cargo build --release
@@ -34,7 +34,7 @@ jobs:
       run:
         working-directory: ads-apriltag/apriltag-track-movie
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install pthread
         uses: lukka/run-vcpkg@v7
         id: vcpkg

@@ -16,7 +16,7 @@ jobs:
       run:
         working-directory: media-utils/show-timestamps
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Setup Rust
         run: |
           rustup toolchain install stable --profile minimal --no-self-update

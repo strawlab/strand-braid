@@ -13,7 +13,7 @@ jobs:
       run:
         working-directory: media-utils/fmf/fmf-cli
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build FMF CLI app
         run: |
           cargo build --release
@@ -28,7 +28,7 @@ jobs:
       run:
         working-directory: media-utils/fmf/fmf-cli
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build FMF CLI app
         run: |
           cargo build --release
@@ -43,7 +43,7 @@ jobs:
       run:
         working-directory: media-utils/fmf/fmf-cli
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Build FMF CLI app
         run: |
           cargo build --release
