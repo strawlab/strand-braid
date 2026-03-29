@@ -121,6 +121,7 @@ members = [
     "utils/strand-cam-enum-iter",
     "utils/strand-datetime-conversion",
     "utils/strand-withkey",
+    "utils/workspace-docs",
     "write-debian-changelog",
     "zip-or-dir",
     "zip-or-dir/dir2zip",

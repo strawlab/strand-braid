@@ -1,0 +1,18 @@
+[package]
+name = "workspace-docs"
+description = "CLI program to maintain repository overview in workspace README.md"
+version = "0.1.0"
+edition = "2024"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+license = "MIT/Apache-2.0"
+
+[dependencies]
+camino.workspace = true
+clap.workspace = true
+eyre.workspace = true
+tracing.workspace = true
+
+env-tracing-logger.workspace = true
+cargo_metadata = "0.23.1"
+toml.workspace = true
+serde.workspace = true

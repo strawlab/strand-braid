@@ -1,0 +1,25 @@
+# configuration for workspace-docs program for repository overview in README.md
+
+[[section]]
+name = "braid"
+description = "multi-camera realtime 3D tracker"
+
+[[section]]
+name = "strand-cam"
+description = "single camera application"
+
+[[section]]
+name = "camera"
+description = "camera drivers"
+
+[[section]]
+name = "media-utils"
+description = "video I/O and image processing"
+
+[[section]]
+name = "geometry"
+description = "camera geometry, calibration, and 3D math"
+
+[[section]]
+name = "utils"
+description = "general-purpose utilities"
