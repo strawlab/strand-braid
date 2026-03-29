@@ -169,6 +169,19 @@ test_flydra2:
     # TODO: test 3D retracking using `rust-cam-testing-data`
     # cargo run --bin braid-offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
+check_repository_source:
+  stage: build
+  dependencies: []
+  image: rust:1.93
+  script:
+    - rustup component add rustfmt
+
+    # Test that code is formatted correctly
+    - cargo fmt --check
+
+    # Test that README.md is up to date
+    - cargo run -p workspace-docs -- --check
+
 test_crates_rust_stable:
   dependencies: []
   image: rust:1.93

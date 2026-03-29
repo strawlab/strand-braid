@@ -1,0 +1,24 @@
+name: Source source code in repository
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  check-readme-updated:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test that README.md is up to date
+        run: |
+          cargo run -p workspace-docs -- --check
+
+  check-cargo-fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test that `cargo fmt` is happy
+        run: |
+          cargo fmt --check
