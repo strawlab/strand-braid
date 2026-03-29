@@ -249,10 +249,12 @@ fn multi_display(c: MultiDisplayExr) -> anyhow::Result<()> {
 fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var(
-            "RUST_LOG",
-            "freemovr_calibration=info,freemovr_calibration_cli=info,warn",
-        ) };
+        unsafe {
+            std::env::set_var(
+                "RUST_LOG",
+                "freemovr_calibration=info,freemovr_calibration_cli=info,warn",
+            )
+        };
     }
 
     env_logger::init();

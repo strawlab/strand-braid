@@ -3,8 +3,8 @@ use std::{convert::TryInto, pin::Pin};
 use machine_vision_formats as formats;
 
 use vmbc_sys::{
-    VmbCameraInfo_t, VmbErrorType, VmbFeaturePersistSettings_t, VmbFrameCallback,
-    VmbFrameStatusType, VmbFrame_t, VmbHandle_t, VmbVersionInfo_t,
+    VmbCameraInfo_t, VmbErrorType, VmbFeaturePersistSettings_t, VmbFrame_t, VmbFrameCallback,
+    VmbFrameStatusType, VmbHandle_t, VmbVersionInfo_t,
 };
 
 fn err_str(err: i32) -> &'static str {
@@ -196,9 +196,10 @@ impl VimbaLibrary {
 
     pub fn n_cameras(&self) -> Result<usize> {
         let mut n_count = 0;
-        vimba_call!(self
-            .vimba_lib
-            .VmbCamerasList(std::ptr::null_mut(), 0, &mut n_count, 0))?;
+        vimba_call!(
+            self.vimba_lib
+                .VmbCamerasList(std::ptr::null_mut(), 0, &mut n_count, 0)
+        )?;
         Ok(n_count as usize)
     }
 
@@ -381,9 +382,10 @@ impl<'lib> Camera<'lib> {
     pub fn feature_enum(&self, feature_name: &str) -> Result<&'static str> {
         let mut result: *const std::os::raw::c_char = std::ptr::null_mut();
         let data = std::ffi::CString::new(feature_name)?;
-        vimba_call!(self
-            .vimba_lib
-            .VmbFeatureEnumGet(self.handle, data.as_ptr(), &mut result))?;
+        vimba_call!(
+            self.vimba_lib
+                .VmbFeatureEnumGet(self.handle, data.as_ptr(), &mut result)
+        )?;
         Ok(unsafe { std::ffi::CStr::from_ptr(result).to_str()? })
     }
 
@@ -494,34 +496,38 @@ impl<'lib> Camera<'lib> {
     pub fn feature_int(&self, feature_name: &str) -> Result<i64> {
         let mut result = 0;
         let data = std::ffi::CString::new(feature_name)?;
-        vimba_call!(self
-            .vimba_lib
-            .VmbFeatureIntGet(self.handle, data.as_ptr(), &mut result))?;
+        vimba_call!(
+            self.vimba_lib
+                .VmbFeatureIntGet(self.handle, data.as_ptr(), &mut result)
+        )?;
         Ok(result)
     }
 
     pub fn feature_int_set(&self, feature_name: &str, value: i64) -> Result<()> {
         let data = std::ffi::CString::new(feature_name)?;
-        vimba_call!(self
-            .vimba_lib
-            .VmbFeatureIntSet(self.handle, data.as_ptr(), value))?;
+        vimba_call!(
+            self.vimba_lib
+                .VmbFeatureIntSet(self.handle, data.as_ptr(), value)
+        )?;
         Ok(())
     }
 
     pub fn feature_float(&self, feature_name: &str) -> Result<f64> {
         let mut result = 0.0;
         let data = std::ffi::CString::new(feature_name)?;
-        vimba_call!(self
-            .vimba_lib
-            .VmbFeatureFloatGet(self.handle, data.as_ptr(), &mut result))?;
+        vimba_call!(
+            self.vimba_lib
+                .VmbFeatureFloatGet(self.handle, data.as_ptr(), &mut result)
+        )?;
         Ok(result)
     }
 
     pub fn feature_float_set(&self, feature_name: &str, value: f64) -> Result<()> {
         let data = std::ffi::CString::new(feature_name)?;
-        vimba_call!(self
-            .vimba_lib
-            .VmbFeatureFloatSet(self.handle, data.as_ptr(), value))?;
+        vimba_call!(
+            self.vimba_lib
+                .VmbFeatureFloatSet(self.handle, data.as_ptr(), value)
+        )?;
         Ok(())
     }
 
@@ -541,26 +547,29 @@ impl<'lib> Camera<'lib> {
     pub fn feature_boolean(&self, feature_name: &str) -> Result<bool> {
         let mut result = 0;
         let data = std::ffi::CString::new(feature_name)?;
-        vimba_call!(self
-            .vimba_lib
-            .VmbFeatureBoolGet(self.handle, data.as_ptr(), &mut result))?;
+        vimba_call!(
+            self.vimba_lib
+                .VmbFeatureBoolGet(self.handle, data.as_ptr(), &mut result)
+        )?;
         Ok(result != 0)
     }
     pub fn feature_boolean_set(&self, feature_name: &str, value: bool) -> Result<()> {
         let value_u8 = if value { 1 } else { 0 };
         let data = std::ffi::CString::new(feature_name)?;
-        vimba_call!(self
-            .vimba_lib
-            .VmbFeatureBoolSet(self.handle, data.as_ptr(), value_u8))?;
+        vimba_call!(
+            self.vimba_lib
+                .VmbFeatureBoolSet(self.handle, data.as_ptr(), value_u8)
+        )?;
         Ok(())
     }
 
     pub fn command_run(&self, command_name: &str) -> Result<()> {
         tracing::debug!("camera {:?} command_run {}", self, command_name);
         let data = std::ffi::CString::new(command_name)?;
-        vimba_call!(self
-            .vimba_lib
-            .VmbFeatureCommandRun(self.handle, data.as_ptr()))?;
+        vimba_call!(
+            self.vimba_lib
+                .VmbFeatureCommandRun(self.handle, data.as_ptr())
+        )?;
         Ok(())
     }
 
@@ -611,9 +620,10 @@ impl<'lib> Camera<'lib> {
 
     pub fn capture_frame_queue(&self, frame: &mut Frame) -> Result<()> {
         tracing::debug!("camera {:?} queueing frame {:?}", self, frame);
-        vimba_call!(self
-            .vimba_lib
-            .VmbCaptureFrameQueue(self.handle, &*frame.frame, None))?;
+        vimba_call!(
+            self.vimba_lib
+                .VmbCaptureFrameQueue(self.handle, &*frame.frame, None)
+        )?;
         Ok(())
     }
     pub fn capture_frame_queue_with_callback(
@@ -622,9 +632,10 @@ impl<'lib> Camera<'lib> {
         callback: VmbFrameCallback,
     ) -> Result<()> {
         tracing::debug!("camera {:?} queueing frame {:?}", self, frame);
-        vimba_call!(self
-            .vimba_lib
-            .VmbCaptureFrameQueue(self.handle, &*frame.frame, callback))?;
+        vimba_call!(
+            self.vimba_lib
+                .VmbCaptureFrameQueue(self.handle, &*frame.frame, callback)
+        )?;
         Ok(())
     }
 
@@ -635,9 +646,10 @@ impl<'lib> Camera<'lib> {
 
     pub fn capture_frame_wait(&self, frame: &mut Frame, timeout: u32) -> Result<()> {
         tracing::debug!("camera {:?} waiting for frame {:?}", self, frame);
-        vimba_call!(self
-            .vimba_lib
-            .VmbCaptureFrameWait(self.handle, &*frame.frame, timeout))?;
+        vimba_call!(
+            self.vimba_lib
+                .VmbCaptureFrameWait(self.handle, &*frame.frame, timeout)
+        )?;
         Ok(())
     }
 

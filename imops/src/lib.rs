@@ -8,7 +8,7 @@ const THE_SIMD_FEATURE_IS_DEPRECATED__SIMD_IS_NOW_ALWAYS_ENABLED: () = ();
 // in this crate that this results in significant speedups.
 
 use machine_vision_formats::{
-    iter::HasRowChunksExact, iter::HasRowChunksExactMut, pixel_format::Mono8, ImageMutData,
+    ImageMutData, iter::HasRowChunksExact, iter::HasRowChunksExactMut, pixel_format::Mono8,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]

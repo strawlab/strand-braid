@@ -6,12 +6,12 @@ pub use error::NvEncError;
 
 pub use dynlink_cuda::api::CudaDevice;
 pub use dynlink_nvidia_encode::{
+    NV_ENC_CODEC_H264_GUID, NV_ENC_PRESET_HP_GUID, Queue,
     api::{
         ApiVersion, BufferFormat, Encoder, InitParamsBuilder, InputBuffer, LibNvEncode,
         OutputBuffer, RateControlMode,
     },
     guids::*,
-    Queue, NV_ENC_CODEC_H264_GUID, NV_ENC_PRESET_HP_GUID,
 };
 
 pub struct NvEnc<'lib> {

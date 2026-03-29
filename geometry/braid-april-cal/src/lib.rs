@@ -4,8 +4,8 @@ use opencv_ros_camera::NamedIntrinsicParameters;
 use serde::{Deserialize, Serialize};
 
 use nalgebra::{
-    geometry::{Point2, Point3},
     RealField, Vector5,
+    geometry::{Point2, Point3},
 };
 
 use argmin::core::{CostFunction, Error as ArgminError};
@@ -149,8 +149,7 @@ pub fn get_apriltag_cfg<R: std::io::Read>(rdr: R) -> Result<AprilConfig, MyError
                     state = ReaderState::InYaml(Vec::new());
                 }
             }
-            ReaderState::InYaml(ref mut yaml_lines) =>
-            {
+            ReaderState::InYaml(ref mut yaml_lines) => {
                 if let Some(cleaned) = line.strip_prefix("# ") {
                     if cleaned == "-- end of yaml config --" {
                         break;
@@ -453,7 +452,12 @@ pub fn run_sqpnp_or_dlt(src_data: &CalData) -> Result<CalibrationResult, MyError
         let points = match gather_points_per_cam(&object_points, cam_data) {
             Ok(points) => points,
             Err(err) => {
-                return Err(MyError{cam_name: Some(cam_name.clone()), msg:format!("Camera {cam_name}: no matching April Tags in 3D coords and 2D detections {err:?}")});
+                return Err(MyError {
+                    cam_name: Some(cam_name.clone()),
+                    msg: format!(
+                        "Camera {cam_name}: no matching April Tags in 3D coords and 2D detections {err:?}"
+                    ),
+                });
             }
         };
 
@@ -461,8 +465,9 @@ pub fn run_sqpnp_or_dlt(src_data: &CalData) -> Result<CalibrationResult, MyError
             if points.len() < 4 {
                 return Err(MyError {
                     cam_name: Some(cam_name.clone()),
-                    msg:
-                        format!("For camera \"{cam_name}\": Need minimum 4 corresponding 3D and 2D points to run SQPnP."),
+                    msg: format!(
+                        "For camera \"{cam_name}\": Need minimum 4 corresponding 3D and 2D points to run SQPnP."
+                    ),
                 });
             }
             let known_good_intrinsics = kgi.get(cam_name).unwrap();

@@ -14,9 +14,9 @@ use std::path::Path;
 
 pub use crate::exr::ExrWriter;
 pub use crate::pinhole_wizard_yaml_support::{
-    compute_mask, merge_vdisps, parse_obj_from_reader, solve_no_distortion_display_camera,
     FromFileGeom, Geom, LoadedPinholeInputFile, MultiDisplayInputFile, PinholeInputFile,
-    SimplePinholeInputFile, SphereGeom, TriMeshGeom,
+    SimplePinholeInputFile, SphereGeom, TriMeshGeom, compute_mask, merge_vdisps,
+    parse_obj_from_reader, solve_no_distortion_display_camera,
 };
 pub use error::Error;
 pub mod types;

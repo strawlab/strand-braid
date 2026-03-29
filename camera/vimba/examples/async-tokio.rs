@@ -1,9 +1,9 @@
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Mutex,
+    atomic::{AtomicBool, Ordering},
 };
 
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc::{Receiver, Sender, channel};
 
 use lazy_static::lazy_static;
 
@@ -28,59 +28,61 @@ pub unsafe extern "C" fn callback_c(
     camera_handle: vmbc_sys::VmbHandle_t,
     _stream_handle: vmbc_sys::VmbHandle_t,
     frame: *mut vmbc_sys::VmbFrame_t,
-) { unsafe {
-    match std::panic::catch_unwind(|| {
-        if !IS_DONE.load(Ordering::Relaxed) {
-            let err = {
-                VIMBA
-                    .vimba_lib
-                    .VmbCaptureFrameQueue(camera_handle, frame, Some(callback_c))
-            };
-
-            if err != vmbc_sys::VmbErrorType::VmbErrorSuccess {
-                eprintln!("CB: capture error: {}", err);
-            } else {
-                // no error
-
-                let buf_ref1 = (*frame).buffer;
-                let buf_len = (*frame).bufferSize as usize;
-
-                let buf_ref = std::slice::from_raw_parts(buf_ref1 as *const u8, buf_len);
-                let buffer = buf_ref.to_vec(); // makes copy
-
-                let msg = Frame {
-                    buffer,
-                    width: (*frame).width,
-                    height: (*frame).height,
-                    pixel_format: (*frame).pixelFormat,
+) {
+    unsafe {
+        match std::panic::catch_unwind(|| {
+            if !IS_DONE.load(Ordering::Relaxed) {
+                let err = {
+                    VIMBA
+                        .vimba_lib
+                        .VmbCaptureFrameQueue(camera_handle, frame, Some(callback_c))
                 };
 
-                {
-                    // In this scope, we keep the lock on the SENDER mutex.
-                    let opt_sender = &mut *SENDER.lock().unwrap();
-                    if let Some(sender) = opt_sender {
-                        // We could clone the sender here and release the lock,
-                        // but since this loop will be the only thing acquiring
-                        // the lock, there's no point in doing so.
-                        match sender.blocking_send(msg) {
-                            Ok(()) => {}
-                            Err(e) => {
-                                eprintln!("CB: send frame error: {}", e);
-                                IS_DONE.store(true, Ordering::Relaxed); // indicate we are done
+                if err != vmbc_sys::VmbErrorType::VmbErrorSuccess {
+                    eprintln!("CB: capture error: {}", err);
+                } else {
+                    // no error
+
+                    let buf_ref1 = (*frame).buffer;
+                    let buf_len = (*frame).bufferSize as usize;
+
+                    let buf_ref = std::slice::from_raw_parts(buf_ref1 as *const u8, buf_len);
+                    let buffer = buf_ref.to_vec(); // makes copy
+
+                    let msg = Frame {
+                        buffer,
+                        width: (*frame).width,
+                        height: (*frame).height,
+                        pixel_format: (*frame).pixelFormat,
+                    };
+
+                    {
+                        // In this scope, we keep the lock on the SENDER mutex.
+                        let opt_sender = &mut *SENDER.lock().unwrap();
+                        if let Some(sender) = opt_sender {
+                            // We could clone the sender here and release the lock,
+                            // but since this loop will be the only thing acquiring
+                            // the lock, there's no point in doing so.
+                            match sender.blocking_send(msg) {
+                                Ok(()) => {}
+                                Err(e) => {
+                                    eprintln!("CB: send frame error: {}", e);
+                                    IS_DONE.store(true, Ordering::Relaxed); // indicate we are done
+                                }
                             }
                         }
-                    }
-                };
+                    };
+                }
+            }
+        }) {
+            Ok(()) => {}
+            Err(e) => {
+                eprintln!("CB: Error: Panic {:?}", e);
+                IS_DONE.store(true, Ordering::Relaxed); // indicate we are done
             }
         }
-    }) {
-        Ok(()) => {}
-        Err(e) => {
-            eprintln!("CB: Error: Panic {:?}", e);
-            IS_DONE.store(true, Ordering::Relaxed); // indicate we are done
-        }
     }
-}}
+}
 
 async fn handle_frames(mut rx: Receiver<Frame>) {
     while let Some(frame) = rx.recv().await {

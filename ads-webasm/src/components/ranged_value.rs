@@ -1,7 +1,7 @@
 use web_sys::HtmlInputElement;
 use yew::TargetCast;
 use yew::{
-    events::KeyboardEvent, html, Callback, Component, Context, Html, InputEvent, Properties,
+    Callback, Component, Context, Html, InputEvent, Properties, events::KeyboardEvent, html,
 };
 
 pub struct RangedValue {
@@ -56,9 +56,10 @@ impl Component for RangedValue {
             }
             Msg::SendValue => {
                 if let Some(ref callback) = ctx.props().onsignal
-                    && let Some(value) = self.local_float {
-                        callback.emit(value);
-                    }
+                    && let Some(value) = self.local_float
+                {
+                    callback.emit(value);
+                }
                 return false; // no need to rerender DOM
             }
             Msg::Ignore => {

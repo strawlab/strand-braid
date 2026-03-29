@@ -10,8 +10,8 @@
 // or http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use tokio_util::codec::{Decoder, Encoder};
 use crate::FlydraRawUdpPacket;
+use tokio_util::codec::{Decoder, Encoder};
 
 /// CBOR codec for FlydraRawUdpPacket encoding and decoding.
 ///

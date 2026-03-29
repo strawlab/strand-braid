@@ -191,7 +191,7 @@ impl StrandCamHttpSessionHandler {
     }
 
     pub(crate) async fn send_quit_all(&mut self) {
-        use futures::{stream, StreamExt};
+        use futures::{StreamExt, stream};
         // Based on https://stackoverflow.com/a/51047786
         const CONCURRENT_REQUESTS: usize = 5;
         let results = stream::iter(self.cam_manager.all_raw_cam_names())

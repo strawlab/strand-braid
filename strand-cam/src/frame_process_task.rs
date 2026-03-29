@@ -43,7 +43,10 @@ use crate::{
 
 /// Perform image analysis
 #[cfg_attr(not(target_os = "linux"), expect(clippy::extra_unused_lifetimes))]
-#[expect(clippy::too_many_arguments, reason="this is ugly and should be refactored")]
+#[expect(
+    clippy::too_many_arguments,
+    reason = "this is ugly and should be refactored"
+)]
 pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydratrax")] model_server_data_tx: tokio::sync::mpsc::Sender<(
         flydra2::SendType,
@@ -694,7 +697,7 @@ pub(crate) async fn frame_process_task<'a>(
                 #[cfg(not(feature = "checkercal"))]
                 let checkercal_tmp: Option<()> = None;
                 let (found_points, valid_display) = if let Some(inner) = checkercal_tmp {
-                    #[cfg_attr(not(feature="checkercal"), expect(unused_mut))]
+                    #[cfg_attr(not(feature = "checkercal"), expect(unused_mut))]
                     let mut results = Vec::new();
                     #[cfg_attr(not(feature = "checkercal"), expect(clippy::let_unit_value))]
                     let _ = inner;

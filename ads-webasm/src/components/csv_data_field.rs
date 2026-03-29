@@ -1,8 +1,8 @@
 use std::collections::HashMap;
-use yew::{html, Callback, Component, Context, Html, Properties};
+use yew::{Callback, Component, Context, Html, Properties, html};
 
-use gloo_file::callbacks::FileReader;
 use gloo_file::File;
+use gloo_file::callbacks::FileReader;
 
 use crate::components::file_input::FileInput;
 

@@ -1,6 +1,6 @@
 use wasm_bindgen::prelude::*;
 use web_sys::{DragEvent, Event, HtmlInputElement};
-use yew::{html, Callback, Component, Context, Html, Properties, TargetCast};
+use yew::{Callback, Component, Context, Html, Properties, TargetCast, html};
 
 use gloo_file::File;
 

@@ -398,7 +398,6 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
 
     #[cfg(feature = "with-rerun")]
     let rec = if rerun_url.is_some() || rerun_save.is_some() {
-
         // If we are using Rerun and rerun does not support distortion, we eliminate
         // all distortion prior to sending to bundle-adjust. This is because
         // bundle-adjust sends data to rerun.

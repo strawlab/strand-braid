@@ -4,8 +4,8 @@ use crate::video_data::VideoData;
 use gloo_timers::callback::{Interval, Timeout};
 use serde::{Deserialize, Serialize};
 use strand_bui_backend_session_types::ConnectionKey;
-use wasm_bindgen::{closure::Closure, JsCast, JsValue, UnwrapThrowExt};
-use yew::{classes, html, Callback, Component, Context, Html, MouseEvent, Properties};
+use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt, closure::Closure};
+use yew::{Callback, Component, Context, Html, MouseEvent, Properties, classes, html};
 
 use yew_tincture::components::{Button, CheckboxLabel};
 

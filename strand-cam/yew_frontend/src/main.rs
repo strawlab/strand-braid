@@ -633,14 +633,15 @@ impl Model {
 
     fn view_led_box(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state
-            && let Some(ref device_state) = shared.led_box_device_state {
-                return html! {
-                    <LedBoxControl
-                        device_state={*device_state}
-                        onsignal={ctx.link().callback(Msg::LedBoxControlEvent)}
-                    />
-                };
-            }
+            && let Some(ref device_state) = shared.led_box_device_state
+        {
+            return html! {
+                <LedBoxControl
+                    device_state={*device_state}
+                    onsignal={ctx.link().callback(Msg::LedBoxControlEvent)}
+                />
+            };
+        }
         html! {
             <div>{""}</div>
         }
@@ -695,24 +696,25 @@ impl Model {
 
     fn frame_processing_error_dialog(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state
-            && shared.had_frame_processing_error {
-                return {
-                    html! {
-                    <div class="modal-container">
-                        <h1> { "Error: frame processing too slow" } </h1>
-                        <p>{"Processing of image frames is taking too long. Reduce the computational cost of image processing."}</p>
-                        <p><Toggle
-                                label={"Ignore all future errors"}
-                                value={self.ignore_all_future_frame_processing_errors}
-                                ontoggle={ctx.link().callback(|checked| {
-                                    Msg::SetIgnoreAllFutureErrors(checked)
-                                })}
-                            /></p>
-                        <p><Button title={"Dismiss"} onsignal={ctx.link().callback(|_| Msg::DismissProcessingErrorModal)} /></p>
-                    </div>
-                    }
-                };
-            }
+            && shared.had_frame_processing_error
+        {
+            return {
+                html! {
+                <div class="modal-container">
+                    <h1> { "Error: frame processing too slow" } </h1>
+                    <p>{"Processing of image frames is taking too long. Reduce the computational cost of image processing."}</p>
+                    <p><Toggle
+                            label={"Ignore all future errors"}
+                            value={self.ignore_all_future_frame_processing_errors}
+                            ontoggle={ctx.link().callback(|checked| {
+                                Msg::SetIgnoreAllFutureErrors(checked)
+                            })}
+                        /></p>
+                    <p><Button title={"Dismiss"} onsignal={ctx.link().callback(|_| Msg::DismissProcessingErrorModal)} /></p>
+                </div>
+                }
+            };
+        }
         html! {
             <div>
             </div>
@@ -1044,65 +1046,66 @@ impl Model {
 
     fn point_detection_ui(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state
-            && shared.has_image_tracker_compiled {
-                let cfg_clone = shared.im_pt_detect_cfg.clone();
-                return html! {
-                    <div class="wrap-collapsible">
-                        <CheckboxLabel label="Object Detection" initially_checked=true />
+            && shared.has_image_tracker_compiled
+        {
+            let cfg_clone = shared.im_pt_detect_cfg.clone();
+            return html! {
+                <div class="wrap-collapsible">
+                    <CheckboxLabel label="Object Detection" initially_checked=true />
+                    <div>
+
                         <div>
-
-                            <div>
-                                <Toggle
-                                    label={"Enable object detection"}
-                                    value={shared.is_doing_object_detection}
-                                    ontoggle={ctx.link().callback(|checked| {Msg::ToggleObjDetection(checked)})}
-                                    />
-                            </div>
-
-                            <div>
-                                <RecordingPathWidget
-                                    label={"Record CSV file"}
-                                    value={shared.is_saving_im_pt_detect_csv.clone()}
-                                    ontoggle={ctx.link().callback(|checked| {Msg::ToggleObjDetectionSaveCsv(checked)})}
-                                    />
-                            </div>
-
-                            <div>
-                                <h5>{"CSV Max Rate"}</h5>
-                                <EnumToggle<RecordingFrameRate>
-                                    value={self.csv_recording_rate.clone()}
-                                    onsignal={ctx.link().callback(Msg::ToggleCsvRecordingRate)}
+                            <Toggle
+                                label={"Enable object detection"}
+                                value={shared.is_doing_object_detection}
+                                ontoggle={ctx.link().callback(|checked| {Msg::ToggleObjDetection(checked)})}
                                 />
-                            </div>
+                        </div>
 
-                            <div>
-                                <Toggle
-                                    label={"Update background model"}
-                                    value={shared.im_pt_detect_cfg.do_update_background_model}
-                                    ontoggle={ctx.link().callback(move |checked| {
-                                        let mut cfg_clone2 = cfg_clone.clone();
-                                        cfg_clone2.do_update_background_model = checked;
-                                        let cfg_str = serde_yaml::to_string(&cfg_clone2).unwrap();
-                                        Msg::SetObjDetectionConfig(cfg_str)
-                                    })}
-                                    />
-                            </div>
-                            <div>
-                                <h5>{"Detailed configuration"}</h5>
-                                <ConfigField<ImPtDetectCfg>
-                                    server_version={Some(shared.im_pt_detect_cfg.clone())}
-                                    rows={16}
-                                    onsignal={ctx.link().callback(|cfg| {Msg::SetObjDetectionConfig(cfg)})}
-                                    />
-                                <div class="reset-background-btn">
-                                    <Button title={"Take Current Image As Background"} onsignal={ctx.link().callback(|_| Msg::TakeCurrentImageAsBackground)}/>
-                                    <Button title={"Set background to mid-gray"} onsignal={ctx.link().callback(|_| Msg::ClearBackground(127.0))}/>
-                                </div>
+                        <div>
+                            <RecordingPathWidget
+                                label={"Record CSV file"}
+                                value={shared.is_saving_im_pt_detect_csv.clone()}
+                                ontoggle={ctx.link().callback(|checked| {Msg::ToggleObjDetectionSaveCsv(checked)})}
+                                />
+                        </div>
+
+                        <div>
+                            <h5>{"CSV Max Rate"}</h5>
+                            <EnumToggle<RecordingFrameRate>
+                                value={self.csv_recording_rate.clone()}
+                                onsignal={ctx.link().callback(Msg::ToggleCsvRecordingRate)}
+                            />
+                        </div>
+
+                        <div>
+                            <Toggle
+                                label={"Update background model"}
+                                value={shared.im_pt_detect_cfg.do_update_background_model}
+                                ontoggle={ctx.link().callback(move |checked| {
+                                    let mut cfg_clone2 = cfg_clone.clone();
+                                    cfg_clone2.do_update_background_model = checked;
+                                    let cfg_str = serde_yaml::to_string(&cfg_clone2).unwrap();
+                                    Msg::SetObjDetectionConfig(cfg_str)
+                                })}
+                                />
+                        </div>
+                        <div>
+                            <h5>{"Detailed configuration"}</h5>
+                            <ConfigField<ImPtDetectCfg>
+                                server_version={Some(shared.im_pt_detect_cfg.clone())}
+                                rows={16}
+                                onsignal={ctx.link().callback(|cfg| {Msg::SetObjDetectionConfig(cfg)})}
+                                />
+                            <div class="reset-background-btn">
+                                <Button title={"Take Current Image As Background"} onsignal={ctx.link().callback(|_| Msg::TakeCurrentImageAsBackground)}/>
+                                <Button title={"Set background to mid-gray"} onsignal={ctx.link().callback(|_| Msg::ClearBackground(127.0))}/>
                             </div>
                         </div>
                     </div>
-                };
-            }
+                </div>
+            };
+        }
         html! {
             <div></div>
         }
@@ -1110,85 +1113,85 @@ impl Model {
 
     fn checkerboard_calibration_ui(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state
-            && shared.has_checkercal_compiled {
-                let (ncs, disabled) = {
-                    let cdata = &shared.checkerboard_data;
-                    let ncs = format!("{}", cdata.num_checkerboards_collected);
-                    (ncs, cdata.num_checkerboards_collected == 0)
-                };
+            && shared.has_checkercal_compiled
+        {
+            let (ncs, disabled) = {
+                let cdata = &shared.checkerboard_data;
+                let ncs = format!("{}", cdata.num_checkerboards_collected);
+                (ncs, cdata.num_checkerboards_collected == 0)
+            };
 
-                let is_active = true;
+            let is_active = true;
 
-                // TODO: add UI for setting checkerboard width and height (num corners)
+            // TODO: add UI for setting checkerboard width and height (num corners)
 
-                let num_checkerboards_collected =
-                    format!("Number of checkerboards collected: {}", ncs);
+            let num_checkerboards_collected = format!("Number of checkerboards collected: {}", ncs);
 
-                let checkerboard_debug = if let Some(debug) = &shared.checkerboard_save_debug {
-                    format!("Saving debug data to {}", debug)
-                } else {
-                    "".to_string()
-                };
+            let checkerboard_debug = if let Some(debug) = &shared.checkerboard_save_debug {
+                format!("Saving debug data to {}", debug)
+            } else {
+                "".to_string()
+            };
 
-                return html! {
-                    <div class="wrap-collapsible">
-                        <CheckboxLabel label={"Checkerboard Calibration"} />
-                        <div>
-                            <p>{"This enables estimation of lens distortion parameters."}</p>
-                        </div>
-                        <div>
-
-                            <Toggle
-                                label={"Enable checkerboard calibration"}
-                                value={shared.checkerboard_data.enabled}
-                                ontoggle={ctx.link().callback(|checked| {Msg::ToggleCheckerboardDetection(checked)})}
-                                />
-
-                            <Toggle
-                                label={"Save debug information"}
-                                value={shared.checkerboard_save_debug.is_some()}
-                                ontoggle={ctx.link().callback(|checked| {Msg::ToggleCheckerboardDebug(checked)})}
-                                />
-
-                            <div>{checkerboard_debug}</div>
-
-                            <h2>{"Input: Checkerboard Size"}</h2>
-                            <p>{"Enter the size of your checkerboard in number of inner corners (e.g. 7 x 7 for a standard chessboard)."}</p>
-                            <label>{"width"}
-                                <TypedInput<u32>
-                                    storage={self.checkerboard_width.clone()}
-                                    on_send_valid={ctx.link().callback(Msg::SetCheckerboardWidth)}
-                                    />
-                            </label>
-                            <label>{"height"}
-                                <TypedInput<u32>
-                                    storage={self.checkerboard_height.clone()}
-                                    on_send_valid={ctx.link().callback(Msg::SetCheckerboardHeight)}
-                                    />
-                            </label>
-
-                            <h2>{"Action: Perform Calibration"}</h2>
-
-                            <div>
-                                {num_checkerboards_collected}
-                            </div>
-
-                            <Button
-                                title={"Clear Checkerboards"}
-                                onsignal={ctx.link().callback(move |_| Msg::ClearCheckerboards)}
-                                />
-
-                            <Button
-                                title={"Perform and Save Calibration"}
-                                disabled={disabled}
-                                is_active={is_active}
-                                onsignal={ctx.link().callback(move |_| Msg::PerformCheckerboardCalibration)}
-                                />
-
-                        </div>
+            return html! {
+                <div class="wrap-collapsible">
+                    <CheckboxLabel label={"Checkerboard Calibration"} />
+                    <div>
+                        <p>{"This enables estimation of lens distortion parameters."}</p>
                     </div>
-                };
-            }
+                    <div>
+
+                        <Toggle
+                            label={"Enable checkerboard calibration"}
+                            value={shared.checkerboard_data.enabled}
+                            ontoggle={ctx.link().callback(|checked| {Msg::ToggleCheckerboardDetection(checked)})}
+                            />
+
+                        <Toggle
+                            label={"Save debug information"}
+                            value={shared.checkerboard_save_debug.is_some()}
+                            ontoggle={ctx.link().callback(|checked| {Msg::ToggleCheckerboardDebug(checked)})}
+                            />
+
+                        <div>{checkerboard_debug}</div>
+
+                        <h2>{"Input: Checkerboard Size"}</h2>
+                        <p>{"Enter the size of your checkerboard in number of inner corners (e.g. 7 x 7 for a standard chessboard)."}</p>
+                        <label>{"width"}
+                            <TypedInput<u32>
+                                storage={self.checkerboard_width.clone()}
+                                on_send_valid={ctx.link().callback(Msg::SetCheckerboardWidth)}
+                                />
+                        </label>
+                        <label>{"height"}
+                            <TypedInput<u32>
+                                storage={self.checkerboard_height.clone()}
+                                on_send_valid={ctx.link().callback(Msg::SetCheckerboardHeight)}
+                                />
+                        </label>
+
+                        <h2>{"Action: Perform Calibration"}</h2>
+
+                        <div>
+                            {num_checkerboards_collected}
+                        </div>
+
+                        <Button
+                            title={"Clear Checkerboards"}
+                            onsignal={ctx.link().callback(move |_| Msg::ClearCheckerboards)}
+                            />
+
+                        <Button
+                            title={"Perform and Save Calibration"}
+                            disabled={disabled}
+                            is_active={is_active}
+                            onsignal={ctx.link().callback(move |_| Msg::PerformCheckerboardCalibration)}
+                            />
+
+                    </div>
+                </div>
+            };
+        }
         html! {
             <div></div>
         }
@@ -1196,23 +1199,24 @@ impl Model {
 
     fn view_kalman_tracking(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state
-            && shared.has_flydratrax_compiled {
-                return html! {
-                    <div class="wrap-collapsible">
-                        <CheckboxLabel label="Kalman tracking" initially_checked=false />
+            && shared.has_flydratrax_compiled
+        {
+            return html! {
+                <div class="wrap-collapsible">
+                    <CheckboxLabel label="Kalman tracking" initially_checked=false />
+                    <div>
                         <div>
-                            <div>
-                                <h5>{"Kalman tracking configuration"}</h5>
-                                <ConfigField<KalmanTrackingConfig>
-                                    server_version={Some(shared.kalman_tracking_config.clone())}
-                                    rows=5
-                                    onsignal={ctx.link().callback(|cfg| {Msg::CamArgSetKalmanTrackingConfig(cfg)})}
-                                    />
-                            </div>
+                            <h5>{"Kalman tracking configuration"}</h5>
+                            <ConfigField<KalmanTrackingConfig>
+                                server_version={Some(shared.kalman_tracking_config.clone())}
+                                rows=5
+                                onsignal={ctx.link().callback(|cfg| {Msg::CamArgSetKalmanTrackingConfig(cfg)})}
+                                />
                         </div>
                     </div>
-                };
-            }
+                </div>
+            };
+        }
         html! {
             <div></div>
         }
@@ -1220,22 +1224,23 @@ impl Model {
 
     fn view_led_triggering(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state
-            && shared.has_flydratrax_compiled {
-                return html! {
-                    <div class="wrap-collapsible">
-                        <CheckboxLabel label="Online LED triggering" initially_checked=false />
+            && shared.has_flydratrax_compiled
+        {
+            return html! {
+                <div class="wrap-collapsible">
+                    <CheckboxLabel label="Online LED triggering" initially_checked=false />
 
-                            <div>
-                                <h5>{"Led program configuration"}</h5>
-                                <ConfigField<LedProgramConfig>
-                                    server_version={Some(shared.led_program_config.clone())}
-                                    rows=7
-                                    onsignal={ctx.link().callback(|cfg| {Msg::CamArgSetLedProgramConfig(cfg)})}
-                                    />
-                            </div>
-                    </div>
-                };
-            }
+                        <div>
+                            <h5>{"Led program configuration"}</h5>
+                            <ConfigField<LedProgramConfig>
+                                server_version={Some(shared.led_program_config.clone())}
+                                rows=7
+                                onsignal={ctx.link().callback(|cfg| {Msg::CamArgSetLedProgramConfig(cfg)})}
+                                />
+                        </div>
+                </div>
+            };
+        }
         html! {
             <div></div>
         }
@@ -1243,25 +1248,26 @@ impl Model {
 
     fn view_gain(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state
-            && let Some(gain_auto) = shared.gain_auto {
-                return html! {
-                    <div class={classes!("gain-main","cam-range-main")}>
-                        <h3>{ "Gain" }</h3>
-                        <div class="cam-range-inner">
-                            <AutoModeSelect mode={gain_auto} onsignal={ctx.link().callback(|g| {Msg::SetGainAuto(g)})} />
-                            <RangedValue
-                                unit={shared.gain.unit.clone()}
-                                min={shared.gain.min as f32}
-                                max={shared.gain.max as f32}
-                                current={shared.gain.current as f32}
-                                current_value_label={LAST_DETECTED_VALUE_LABEL}
-                                placeholder={shared.gain.name.clone()}
-                                onsignal={ctx.link().callback(|v| {Msg::SetGainValue(v as f64)})}
-                                />
-                        </div>
+            && let Some(gain_auto) = shared.gain_auto
+        {
+            return html! {
+                <div class={classes!("gain-main","cam-range-main")}>
+                    <h3>{ "Gain" }</h3>
+                    <div class="cam-range-inner">
+                        <AutoModeSelect mode={gain_auto} onsignal={ctx.link().callback(|g| {Msg::SetGainAuto(g)})} />
+                        <RangedValue
+                            unit={shared.gain.unit.clone()}
+                            min={shared.gain.min as f32}
+                            max={shared.gain.max as f32}
+                            current={shared.gain.current as f32}
+                            current_value_label={LAST_DETECTED_VALUE_LABEL}
+                            placeholder={shared.gain.name.clone()}
+                            onsignal={ctx.link().callback(|v| {Msg::SetGainValue(v as f64)})}
+                            />
                     </div>
-                };
-            }
+                </div>
+            };
+        }
         html! {
             <div></div>
         }
@@ -1269,25 +1275,26 @@ impl Model {
 
     fn view_exposure(&self, ctx: &Context<Self>) -> Html {
         if let Some(ref shared) = self.server_state
-            && let Some(exposure_auto) = shared.exposure_auto {
-                return html! {
-                    <div class={classes!("exposure-main","cam-range-main")}>
-                        <h3>{ "Exposure Time" }</h3>
-                        <div class="cam-range-inner">
-                            <AutoModeSelect mode={exposure_auto} onsignal={ctx.link().callback(|g| {Msg::SetExposureAuto(g)}) }/>
-                            <RangedValue
-                                unit={shared.exposure_time.unit.clone()}
-                                min={shared.exposure_time.min as f32}
-                                max={shared.exposure_time.max as f32}
-                                current={shared.exposure_time.current as f32}
-                                current_value_label={LAST_DETECTED_VALUE_LABEL}
-                                placeholder={shared.exposure_time.name.clone()}
-                                onsignal={ctx.link().callback(|v| {Msg::SetExposureValue(v as f64)})}
-                                />
-                        </div>
+            && let Some(exposure_auto) = shared.exposure_auto
+        {
+            return html! {
+                <div class={classes!("exposure-main","cam-range-main")}>
+                    <h3>{ "Exposure Time" }</h3>
+                    <div class="cam-range-inner">
+                        <AutoModeSelect mode={exposure_auto} onsignal={ctx.link().callback(|g| {Msg::SetExposureAuto(g)}) }/>
+                        <RangedValue
+                            unit={shared.exposure_time.unit.clone()}
+                            min={shared.exposure_time.min as f32}
+                            max={shared.exposure_time.max as f32}
+                            current={shared.exposure_time.current as f32}
+                            current_value_label={LAST_DETECTED_VALUE_LABEL}
+                            placeholder={shared.exposure_time.name.clone()}
+                            onsignal={ctx.link().callback(|v| {Msg::SetExposureValue(v as f64)})}
+                            />
                     </div>
-                };
-            }
+                </div>
+            };
+        }
         html! {
             <div></div>
         }

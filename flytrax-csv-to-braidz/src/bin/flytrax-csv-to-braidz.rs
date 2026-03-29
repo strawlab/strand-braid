@@ -5,7 +5,7 @@ use eyre::{self as anyhow, Context};
 use tracing::info;
 
 use braid_types::{MiniArenaConfig, XYGridConfig};
-use flytrax_csv_to_braidz::{parse_configs_and_run, PseudoCalParams, RowFilter};
+use flytrax_csv_to_braidz::{PseudoCalParams, RowFilter, parse_configs_and_run};
 
 use clap::Parser;
 
@@ -135,11 +135,11 @@ async fn open_files_and_run() -> anyhow::Result<()> {
 
     if cli.apriltags_3d_fiducial_coords.is_some() && tracking_params_buf.is_none() {
         anyhow::bail!(
-                "AprilTag coordinates were given without tracking parameters specified. This \
+            "AprilTag coordinates were given without tracking parameters specified. This \
                 is almost certainly a mistake because the tracking parameters include a \
                 specification of mini-arena coordinates which are needed for tracking. \
                 (Hint: if --apriltags-3d-fiducial-coords is given, --tracking-params must also be given.)"
-            );
+        );
     }
 
     // This temporary directory will be automatically deleted when it goes out

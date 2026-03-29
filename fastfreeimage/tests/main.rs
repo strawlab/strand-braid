@@ -1,8 +1,8 @@
 use anyhow::Result;
 
 use fastfreeimage::{
-    ripp, CompareOp, FastImage, FastImageData, FastImageView, MomentState, MutableFastImage,
-    MutableFastImageView, PixelType,
+    CompareOp, FastImage, FastImageData, FastImageView, MomentState, MutableFastImage,
+    MutableFastImageView, PixelType, ripp,
 };
 
 trait BackCompat<S> {

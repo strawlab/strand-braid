@@ -14,28 +14,30 @@ pub unsafe extern "C" fn callback_c(
     camera_handle: vmbc_sys::VmbHandle_t,
     _stream_handle: vmbc_sys::VmbHandle_t,
     frame: *mut vmbc_sys::VmbFrame_t,
-) { unsafe {
-    match std::panic::catch_unwind(|| {
-        println!("got frame {}", (*frame).frameID);
-        if !IS_DONE.load(Ordering::Relaxed) {
-            let err = {
-                VIMBA
-                    .vimba_lib
-                    .VmbCaptureFrameQueue(camera_handle, frame, Some(callback_c))
-            };
+) {
+    unsafe {
+        match std::panic::catch_unwind(|| {
+            println!("got frame {}", (*frame).frameID);
+            if !IS_DONE.load(Ordering::Relaxed) {
+                let err = {
+                    VIMBA
+                        .vimba_lib
+                        .VmbCaptureFrameQueue(camera_handle, frame, Some(callback_c))
+                };
 
-            if err != vmbc_sys::VmbErrorType::VmbErrorSuccess {
-                println!("CB: err: {}", err);
+                if err != vmbc_sys::VmbErrorType::VmbErrorSuccess {
+                    println!("CB: err: {}", err);
+                }
+            }
+        }) {
+            Ok(_) => {}
+            Err(_) => {
+                println!("CB: ERROR: ignoring panic");
+                IS_DONE.store(true, Ordering::Relaxed); // indicate we are done
             }
         }
-    }) {
-        Ok(_) => {}
-        Err(_) => {
-            println!("CB: ERROR: ignoring panic");
-            IS_DONE.store(true, Ordering::Relaxed); // indicate we are done
-        }
     }
-}}
+}
 
 fn main() -> anyhow::Result<()> {
     env_logger::init();

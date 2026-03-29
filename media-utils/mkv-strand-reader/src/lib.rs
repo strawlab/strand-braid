@@ -1,5 +1,5 @@
 // Copyright 2022-2023 Andrew D. Straw.
-use mkv_parser_kit::{ebml_parse, BoxData, EbmlElement, Tag};
+use mkv_parser_kit::{BoxData, EbmlElement, Tag, ebml_parse};
 
 const STRAND_MKV_FILENAME_TEMPLATE: &str = "movie%Y%m%d_%H%M%S.%f";
 
@@ -131,9 +131,10 @@ fn do_parse(
         None
     };
     if let Some(prefix) = &verbose_prefix
-        && PRINT_ALL {
-            println!("{}+ {}", prefix, line_summary(element));
-        }
+        && PRINT_ALL
+    {
+        println!("{}+ {}", prefix, line_summary(element));
+    }
     for child in element.children().iter() {
         let mut child_tag_path = tag_path.to_vec();
         child_tag_path.push(child.tag());
@@ -141,12 +142,13 @@ fn do_parse(
     }
 
     if let Some(prefix) = &verbose_prefix
-        && let Some(bd) = &element.box_data() {
-            if !PRINT_ALL {
-                println!("{}+ {}", prefix, line_summary(element));
-            }
-            println!("{prefix}+           {bd:?}");
+        && let Some(bd) = &element.box_data()
+    {
+        if !PRINT_ALL {
+            println!("{}+ {}", prefix, line_summary(element));
         }
+        println!("{prefix}+           {bd:?}");
+    }
 
     match tag_path {
         [Tag::Segment] => {
@@ -216,7 +218,13 @@ fn do_parse(
         [Tag::Segment, Tag::Tracks, Tag::TrackEntry, Tag::CodecID] => {
             accum.codec = Some(get_ascii_string(element));
         }
-        [Tag::Segment, Tag::Tracks, Tag::TrackEntry, Tag::Video, Tag::UncompressedFourCC] => {
+        [
+            Tag::Segment,
+            Tag::Tracks,
+            Tag::TrackEntry,
+            Tag::Video,
+            Tag::UncompressedFourCC,
+        ] => {
             accum.uncompressed_fourcc =
                 if let Some(BoxData::UncompressedFourCC(s)) = &element.box_data() {
                     Some(s.clone())
@@ -224,10 +232,22 @@ fn do_parse(
                     panic!("expected UncompressedFourCC in {:?}", element.tag());
                 }
         }
-        [Tag::Segment, Tag::Tracks, Tag::TrackEntry, Tag::Video, Tag::PixelWidth] => {
+        [
+            Tag::Segment,
+            Tag::Tracks,
+            Tag::TrackEntry,
+            Tag::Video,
+            Tag::PixelWidth,
+        ] => {
             accum.width = Some(get_uint(element));
         }
-        [Tag::Segment, Tag::Tracks, Tag::TrackEntry, Tag::Video, Tag::PixelHeight] => {
+        [
+            Tag::Segment,
+            Tag::Tracks,
+            Tag::TrackEntry,
+            Tag::Video,
+            Tag::PixelHeight,
+        ] => {
             accum.height = Some(get_uint(element));
         }
         _ => {

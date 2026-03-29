@@ -3,8 +3,8 @@ use std::{
     net::SocketAddr,
     path::PathBuf,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, RwLock,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
@@ -21,10 +21,10 @@ use tower_http::trace::TraceLayer;
 use tracing::{debug, error, info};
 
 use braid_types::{
+    BRAID_EVENT_NAME, BRAID_EVENTS_URL_PATH, BraidHttpApiSharedState, CamInfo, CborPacketCodec,
+    FakeSyncConfig, FlydraFloatTimestampLocal, PerCamSaveData, RawCamName, SyncFno,
+    TRIGGERBOX_SYNC_SECONDS, TriggerType, Triggerbox,
     braid_http::{CAM_PROXY_PATH, REMOTE_CAMERA_INFO_PATH},
-    BraidHttpApiSharedState, CamInfo, CborPacketCodec, FakeSyncConfig, FlydraFloatTimestampLocal,
-    PerCamSaveData, RawCamName, SyncFno, TriggerType, Triggerbox, BRAID_EVENTS_URL_PATH,
-    BRAID_EVENT_NAME, TRIGGERBOX_SYNC_SECONDS,
 };
 use event_stream_types::{AcceptsEventStream, EventBroadcaster};
 use flydra2::{CoordProcessor, CoordProcessorConfig, FrameDataAndPoints, StreamItem};
@@ -275,14 +275,16 @@ async fn launch_braid_http_backend(
             Err(_) => {
                 tracing::debug!("No secret loaded from preferences file, generating new.");
                 let persistent_secret = cookie::Key::generate();
-                let persistent_secret_base64 = base64::engine::general_purpose::STANDARD.encode(persistent_secret.master());
+                let persistent_secret_base64 =
+                    base64::engine::general_purpose::STANDARD.encode(persistent_secret.master());
                 persistent_secret_base64.save(&APP_INFO, COOKIE_SECRET_KEY)?;
                 persistent_secret_base64
             }
         }
     };
 
-    let persistent_secret = base64::engine::general_purpose::STANDARD.decode(persistent_secret_base64)?;
+    let persistent_secret =
+        base64::engine::general_purpose::STANDARD.decode(persistent_secret_base64)?;
     let persistent_secret = cookie::Key::try_from(persistent_secret.as_slice())?;
 
     // Setup our auth layer.
@@ -402,9 +404,9 @@ impl flydra2::ConnectedCamCallback for SendConnectedCamToBuiBackend {
 }
 
 fn display_qr_url(url: &str) -> Result<()> {
-    use qrcode::render::unicode;
     use qrcode::QrCode;
-    use std::io::{stdout, Write};
+    use qrcode::render::unicode;
+    use std::io::{Write, stdout};
 
     let qr = QrCode::new(url)?;
 
@@ -440,7 +442,9 @@ pub(crate) async fn do_run_forever(
     let lowlatency_camdata_udp_port = &mainbrain_config.lowlatency_camdata_udp_port;
     let mut ensure_camdata_ip = None;
     if let Some(lowlatency_camdata_udp_addr) = &mainbrain_config.lowlatency_camdata_udp_addr {
-        tracing::warn!("Using deprecated configuration `lowlatency_camdata_udp_addr`. Use `lowlatency_camdata_udp_port` instead.");
+        tracing::warn!(
+            "Using deprecated configuration `lowlatency_camdata_udp_addr`. Use `lowlatency_camdata_udp_port` instead."
+        );
         let lowlatency_camdata_udp_addr = lowlatency_camdata_udp_addr.parse::<SocketAddr>()?;
         if lowlatency_camdata_udp_addr.port() != *lowlatency_camdata_udp_port {
             eyre::bail!("camdata UDP port specified two different ways");
@@ -614,11 +618,12 @@ pub(crate) async fn do_run_forever(
             // unspecified.
             let mainbrain_tcp_addr = listener.local_addr()?;
             if let Some(ensure_camdata_ip) = ensure_camdata_ip
-                && mainbrain_tcp_addr.ip() != ensure_camdata_ip {
-                    eyre::bail!(
-                        "requested camdata UDP IP address not equal to mainbrain TCP IP address"
-                    );
-                }
+                && mainbrain_tcp_addr.ip() != ensure_camdata_ip
+            {
+                eyre::bail!(
+                    "requested camdata UDP IP address not equal to mainbrain TCP IP address"
+                );
+            }
             let mut camdata_addr_unspecified_port = mainbrain_tcp_addr;
             camdata_addr_unspecified_port.set_port(*lowlatency_camdata_udp_port);
             camdata_addr_unspecified_port
@@ -785,7 +790,7 @@ pub(crate) async fn do_run_forever(
             let fps = &cfg.framerate;
             let query_dt = &cfg.query_dt;
 
-            use braid_triggerbox::{make_trig_fps_cmd, Cmd};
+            use braid_triggerbox::{Cmd, make_trig_fps_cmd};
 
             let tx = triggerbox_cmd.clone().unwrap();
             let cmd_rx = triggerbox_rx.unwrap();
@@ -1239,16 +1244,19 @@ pub(crate) async fn toggle_saving_csv_tables(
             save_performance_histograms: true,
         };
 
-        match braidz_write_tx_weak.upgrade() { Some(braidz_write_tx) => {
-            // `braidz_write_tx` will be dropped after this scope.
-            braidz_write_tx
-                .send(flydra2::SaveToDiskMsg::StartSavingCsv(cfg))
-                .await
-                .unwrap();
-            info!("saving data to \"{}\"", my_dir.display());
-        } _ => {
-            error!("data writing thread lost. Not saving data as requested");
-        }}
+        match braidz_write_tx_weak.upgrade() {
+            Some(braidz_write_tx) => {
+                // `braidz_write_tx` will be dropped after this scope.
+                braidz_write_tx
+                    .send(flydra2::SaveToDiskMsg::StartSavingCsv(cfg))
+                    .await
+                    .unwrap();
+                info!("saving data to \"{}\"", my_dir.display());
+            }
+            _ => {
+                error!("data writing thread lost. Not saving data as requested");
+            }
+        }
 
         {
             let mut tracker = shared_data.write().unwrap();
@@ -1257,16 +1265,19 @@ pub(crate) async fn toggle_saving_csv_tables(
             });
         }
     } else {
-        match braidz_write_tx_weak.upgrade() { Some(braidz_write_tx) => {
-            // `braidz_write_tx` will be dropped after this scope.
-            braidz_write_tx
-                .send(flydra2::SaveToDiskMsg::StopSavingCsv)
-                .await
-                .unwrap_or(()); // ignore error on shutdown
-            info!("stopping saving");
-        } _ => {
-            error!("data writing thread lost. Could not stop saving data as requested");
-        }}
+        match braidz_write_tx_weak.upgrade() {
+            Some(braidz_write_tx) => {
+                // `braidz_write_tx` will be dropped after this scope.
+                braidz_write_tx
+                    .send(flydra2::SaveToDiskMsg::StopSavingCsv)
+                    .await
+                    .unwrap_or(()); // ignore error on shutdown
+                info!("stopping saving");
+            }
+            _ => {
+                error!("data writing thread lost. Could not stop saving data as requested");
+            }
+        }
 
         {
             let mut tracker = shared_data.write().unwrap();

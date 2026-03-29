@@ -100,11 +100,11 @@ where
 }
 
 impl<
-        K: std::cmp::Ord + std::fmt::Debug + std::cmp::PartialEq + std::cmp::PartialOrd + Clone,
-        I,
-        T,
-        E: std::fmt::Debug,
-    > Iterator for BufferedSortIter<K, I, T, E>
+    K: std::cmp::Ord + std::fmt::Debug + std::cmp::PartialEq + std::cmp::PartialOrd + Clone,
+    I,
+    T,
+    E: std::fmt::Debug,
+> Iterator for BufferedSortIter<K, I, T, E>
 where
     I: Iterator<Item = std::result::Result<T, E>>,
     T: WithKey<K>,
@@ -198,8 +198,11 @@ where
                                                 if val.key().partial_cmp(&item.group_key)
                                                     != Some(std::cmp::Ordering::Greater)
                                                 {
-                                                    panic!("key is not monotonically ascending ({:?} < {:?})",
-                                                        val.key(), item.group_key);
+                                                    panic!(
+                                                        "key is not monotonically ascending ({:?} < {:?})",
+                                                        val.key(),
+                                                        item.group_key
+                                                    );
                                                 }
                                                 self.peek = Some(Ok(val));
                                                 break;

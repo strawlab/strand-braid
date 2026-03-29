@@ -91,63 +91,63 @@ impl PerSender {
         // TODO include sent time in message to clients so we don't maintain that
 
         if let Some(ref most_recent_frame_data) = self.frame_lifo
-            && self.ready_to_send {
-                // sent_time computed early so that latency includes duration to encode, etc.
-                let sent_time = chrono::Local::now();
-                let tc = {
-                    let most_recent_frame_data = most_recent_frame_data.lock().unwrap();
-                    let bytes = &most_recent_frame_data
-                        .frame
-                        .borrow()
-                        .to_encoded_buffer(convert_image::EncoderOptions::Jpeg(80))?;
-                    use base64::Engine;
-                    let firehose_frame_base64 = base64::engine::general_purpose::STANDARD.encode(bytes);
-                    let data_url = format!("data:image/jpeg;base64,{}", firehose_frame_base64);
-                    // most_recent_frame_data.data_url = Some(data_url.clone()); // todo: cache like this
-                    let mut annotations = most_recent_frame_data.annotations.clone();
-                    // Convert found points into normal annotations. (This should perhaps be done earlier.)
-                    for found_point in most_recent_frame_data.found_points.iter() {
-                        let line_width = 5.0;
-                        let shape = Shape::Circle(CircleParams {
-                            center_x: found_point.x.round() as i16,
-                            center_y: found_point.y.round() as i16,
-                            radius: 10,
-                        });
-                        let green_shape =
-                            strand_http_video_streaming_types::DrawableShape::from_shape(
-                                &shape,
-                                &self.green_stroke,
-                                line_width,
-                            );
-                        annotations.push(green_shape);
-                    }
-                    ToClient {
-                        firehose_frame_data_url: data_url,
-                        valid_display: most_recent_frame_data.valid_display.clone(),
-                        annotations,
-                        fno: self.fno,
-                        ts_rfc3339: sent_time.to_rfc3339(),
-                        ck: self.conn_key,
-                    }
-                };
-                let buf = serde_json::to_string(&tc).expect("encode");
-                let buf = format!(
-                    "event: {}\ndata: {}\n\n",
-                    strand_http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
-                    buf
-                );
-                let chunk = http_body::Frame::data(bytes::Bytes::from(buf));
-
-                match self.conn_tx.send(chunk).await {
-                    Ok(()) => {}
-                    Err(_) => {
-                        tracing::info!("failed to send data to connection. dropping.");
-                        // Failed to send data to event stream key.
-                        // TODO: drop this sender.
-                    }
+            && self.ready_to_send
+        {
+            // sent_time computed early so that latency includes duration to encode, etc.
+            let sent_time = chrono::Local::now();
+            let tc = {
+                let most_recent_frame_data = most_recent_frame_data.lock().unwrap();
+                let bytes = &most_recent_frame_data
+                    .frame
+                    .borrow()
+                    .to_encoded_buffer(convert_image::EncoderOptions::Jpeg(80))?;
+                use base64::Engine;
+                let firehose_frame_base64 = base64::engine::general_purpose::STANDARD.encode(bytes);
+                let data_url = format!("data:image/jpeg;base64,{}", firehose_frame_base64);
+                // most_recent_frame_data.data_url = Some(data_url.clone()); // todo: cache like this
+                let mut annotations = most_recent_frame_data.annotations.clone();
+                // Convert found points into normal annotations. (This should perhaps be done earlier.)
+                for found_point in most_recent_frame_data.found_points.iter() {
+                    let line_width = 5.0;
+                    let shape = Shape::Circle(CircleParams {
+                        center_x: found_point.x.round() as i16,
+                        center_y: found_point.y.round() as i16,
+                        radius: 10,
+                    });
+                    let green_shape = strand_http_video_streaming_types::DrawableShape::from_shape(
+                        &shape,
+                        &self.green_stroke,
+                        line_width,
+                    );
+                    annotations.push(green_shape);
                 }
-                self.ready_to_send = false;
+                ToClient {
+                    firehose_frame_data_url: data_url,
+                    valid_display: most_recent_frame_data.valid_display.clone(),
+                    annotations,
+                    fno: self.fno,
+                    ts_rfc3339: sent_time.to_rfc3339(),
+                    ck: self.conn_key,
+                }
+            };
+            let buf = serde_json::to_string(&tc).expect("encode");
+            let buf = format!(
+                "event: {}\ndata: {}\n\n",
+                strand_http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
+                buf
+            );
+            let chunk = http_body::Frame::data(bytes::Bytes::from(buf));
+
+            match self.conn_tx.send(chunk).await {
+                Ok(()) => {}
+                Err(_) => {
+                    tracing::info!("failed to send data to connection. dropping.");
+                    // Failed to send data to event stream key.
+                    // TODO: drop this sender.
+                }
             }
+            self.ready_to_send = false;
+        }
 
         self.frame_lifo = None;
 

@@ -285,7 +285,7 @@ pub mod align_points;
 pub mod rerun_io;
 
 mod camera;
-pub use crate::camera::{rq_decomposition, Camera};
+pub use crate::camera::{Camera, rq_decomposition};
 
 mod multi_cam_system;
 pub use crate::multi_cam_system::MultiCameraSystem;
@@ -798,8 +798,8 @@ mod tests {
     pub(crate) fn get_test_cameras() -> Vec<(String, Camera<f64>)> {
         let mut result = Vec::new();
 
-        use na::core::dimension::U4;
         use na::core::OMatrix;
+        use na::core::dimension::U4;
 
         #[rustfmt::skip]
         let pmat = OMatrix::<f64,U3,U4>::new(100.0, 0.0, 0.0, 0.01,

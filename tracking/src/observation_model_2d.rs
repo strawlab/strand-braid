@@ -1,9 +1,9 @@
 use num_traits::{One, Zero};
 
 use nalgebra::{
+    DefaultAllocator, OMatrix, OVector, RealField,
     allocator::Allocator,
     dimension::{DimMin, U2, U4},
-    DefaultAllocator, OMatrix, OVector, RealField,
 };
 
 use adskalman::ObservationModel;

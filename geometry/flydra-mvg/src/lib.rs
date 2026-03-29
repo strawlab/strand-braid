@@ -287,7 +287,10 @@ impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
         parry3d_f64::query::Ray::new(camcenter.to_f64(), dir.to_f64())
     }
 
-    #[expect(non_snake_case, reason="uppercase to match mathematical notation for a matrix")]
+    #[expect(
+        non_snake_case,
+        reason = "uppercase to match mathematical notation for a matrix"
+    )]
     pub fn linearize_numerically_at(
         &self,
         center: &PointWorldFrame<R>,
@@ -984,25 +987,30 @@ pub fn from_flydra_with_limited_skew<R: RealField + Copy + serde::Serialize>(
     }
 
     if let Some(fc1p) = cam.non_linear_parameters.fc1p
-        && fc1p != cam.non_linear_parameters.fc1 {
-            return Err(FlydraMvgError::NotImplemented);
-        }
+        && fc1p != cam.non_linear_parameters.fc1
+    {
+        return Err(FlydraMvgError::NotImplemented);
+    }
     if let Some(fc2p) = cam.non_linear_parameters.fc2p
-        && fc2p != cam.non_linear_parameters.fc2 {
-            return Err(FlydraMvgError::NotImplemented);
-        }
+        && fc2p != cam.non_linear_parameters.fc2
+    {
+        return Err(FlydraMvgError::NotImplemented);
+    }
     if let Some(cc1p) = cam.non_linear_parameters.cc1p
-        && cc1p != cam.non_linear_parameters.cc1 {
-            return Err(FlydraMvgError::NotImplemented);
-        }
+        && cc1p != cam.non_linear_parameters.cc1
+    {
+        return Err(FlydraMvgError::NotImplemented);
+    }
     if let Some(cc2p) = cam.non_linear_parameters.cc2p
-        && cc2p != cam.non_linear_parameters.cc2 {
-            return Err(FlydraMvgError::NotImplemented);
-        }
+        && cc2p != cam.non_linear_parameters.cc2
+    {
+        return Err(FlydraMvgError::NotImplemented);
+    }
     if let Some(scale_factor) = cam.scale_factor
-        && scale_factor != one {
-            return Err(FlydraMvgError::NotImplemented);
-        }
+        && scale_factor != one
+    {
+        return Err(FlydraMvgError::NotImplemented);
+    }
 
     // This craziness abuses the rectification matrix of the ROS/OpenCV
     // model to compensate for the issue that the intrinsic parameters used

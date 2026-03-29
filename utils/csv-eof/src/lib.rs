@@ -56,9 +56,10 @@ where
 /// check a `csv::Error` and return `true` iff it is an UnexpectedEof error
 fn is_early_eof(e: &csv::Error) -> bool {
     if let csv::ErrorKind::Io(io_err) = e.kind()
-        && let ErrorKind::UnexpectedEof = io_err.kind() {
-            return true;
-        }
+        && let ErrorKind::UnexpectedEof = io_err.kind()
+    {
+        return true;
+    }
     false
 }
 

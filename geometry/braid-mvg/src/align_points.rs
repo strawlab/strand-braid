@@ -6,8 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 use nalgebra::{
-    allocator::Allocator, DefaultAllocator, Dyn, Matrix, Matrix3, Matrix3x1, OMatrix, RealField,
-    VecStorage, U1, U3,
+    DefaultAllocator, Dyn, Matrix, Matrix3, Matrix3x1, OMatrix, RealField, U1, U3, VecStorage,
+    allocator::Allocator,
 };
 use num_traits::float::TotalOrder;
 

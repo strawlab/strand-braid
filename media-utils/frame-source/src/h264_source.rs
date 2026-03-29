@@ -309,7 +309,10 @@ where
     H: SeekableH264Source,
     <H as SeekableH264Source>::NalLocation: Clone,
 {
-    #[expect(clippy::too_many_arguments, reason="we grudgingly accept this ugliness")]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "we grudgingly accept this ugliness"
+    )]
     pub(crate) fn from_seekable_h264_source_with_timestamp_source(
         mut seekable_h264_source: H,
         do_decode_h264: bool,

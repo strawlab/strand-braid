@@ -749,11 +749,13 @@ pub struct EncodeConfig {
 
 impl Debug for EncodeConfig {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(f, "{{rcParams.rateControlMode: {}, rcParams.averageBitRate: {}, rcParams.maxBitRate: {} }}",
-        self.config.rcParams.rateControlMode,
-        self.config.rcParams.averageBitRate,
-        self.config.rcParams.maxBitRate,
-    )
+        write!(
+            f,
+            "{{rcParams.rateControlMode: {}, rcParams.averageBitRate: {}, rcParams.maxBitRate: {} }}",
+            self.config.rcParams.rateControlMode,
+            self.config.rcParams.averageBitRate,
+            self.config.rcParams.maxBitRate,
+        )
     }
 }
 

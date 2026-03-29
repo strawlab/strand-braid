@@ -1,4 +1,4 @@
-use yew::{html, Callback, Component, Context, Html, Properties};
+use yew::{Callback, Component, Context, Html, Properties, html};
 
 pub struct Toggle {}
 

@@ -1,4 +1,4 @@
-use mkv_parser_kit::{ebml_parse, BoxData, EbmlElement, Tag};
+use mkv_parser_kit::{BoxData, EbmlElement, Tag, ebml_parse};
 
 #[derive(Debug, Clone)]
 struct MyBlockData {
@@ -122,7 +122,13 @@ fn accumulate(element: &EbmlElement, depth: u8, accum: &mut Accum, tag_path: &[T
         &[Tag::Segment, Tag::Tracks, Tag::TrackEntry, Tag::CodecID] => {
             accum.codec = Some(get_ascii_string(element));
         }
-        &[Tag::Segment, Tag::Tracks, Tag::TrackEntry, Tag::Video, Tag::UncompressedFourCC] => {
+        &[
+            Tag::Segment,
+            Tag::Tracks,
+            Tag::TrackEntry,
+            Tag::Video,
+            Tag::UncompressedFourCC,
+        ] => {
             accum.uncompressed_fourcc =
                 if let Some(BoxData::UncompressedFourCC(s)) = &element.box_data() {
                     Some(s.clone())
@@ -130,10 +136,22 @@ fn accumulate(element: &EbmlElement, depth: u8, accum: &mut Accum, tag_path: &[T
                     panic!("expected UncompressedFourCC in {:?}", element.tag());
                 }
         }
-        &[Tag::Segment, Tag::Tracks, Tag::TrackEntry, Tag::Video, Tag::PixelWidth] => {
+        &[
+            Tag::Segment,
+            Tag::Tracks,
+            Tag::TrackEntry,
+            Tag::Video,
+            Tag::PixelWidth,
+        ] => {
             accum.width = Some(get_uint(element));
         }
-        &[Tag::Segment, Tag::Tracks, Tag::TrackEntry, Tag::Video, Tag::PixelHeight] => {
+        &[
+            Tag::Segment,
+            Tag::Tracks,
+            Tag::TrackEntry,
+            Tag::Video,
+            Tag::PixelHeight,
+        ] => {
             accum.height = Some(get_uint(element));
         }
         _ => {

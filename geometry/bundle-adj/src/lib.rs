@@ -991,7 +991,9 @@ mod test {
 
         for optimize_points in [true, false] {
             for model_type in clap::ValueEnum::value_variants() {
-                println!("Testing model type: {model_type:?}, optimize 3d world point locations: {optimize_points}");
+                println!(
+                    "Testing model type: {model_type:?}, optimize 3d world point locations: {optimize_points}"
+                );
                 let ba = BundleAdjuster::<f64>::new(
                     noisy.clone(),
                     cam_idx.clone(),
@@ -1047,7 +1049,7 @@ mod test {
         nrows: usize,
         ncols: usize,
     ) -> na::OMatrix<Real, Dyn, Dyn> {
-        use rand::{distributions::Distribution, SeedableRng};
+        use rand::{SeedableRng, distributions::Distribution};
 
         let normal = rand_distr::Normal::new(0.0, 1.0).expect("creating normal");
         let mut rng = rand::rngs::StdRng::seed_from_u64(123456);
@@ -1084,17 +1086,18 @@ mod test {
         let pz = 5.0;
 
         // observed 2d point
-        let u =  305.0;
-        let v =  198.0;
+        let u = 305.0;
+        let v = 198.0;
 
-        let observed = na::Matrix2xX::from_column_slice(&[u,v]);
+        let observed = na::Matrix2xX::from_column_slice(&[u, v]);
         let cam_idx = vec![0];
         let pt_idx = vec![0];
         let cam_names = vec!["Cam 0".to_string()];
 
-        #[cfg(feature = "with-rerun")] let cam_dims: Vec<(usize, usize)> = vec![(640,480)];
+        #[cfg(feature = "with-rerun")]
+        let cam_dims: Vec<(usize, usize)> = vec![(640, 480)];
 
-        let cam_params = &[rx,ry,rz,wx,wy,wz];
+        let cam_params = &[rx, ry, rz, wx, wy, wz];
         let fixed_params = &[fx, fy, cx, cy, k1, k2, p1, p2, k3];
 
         let model_type = CameraModelType::ExtrinsicsOnly;
@@ -1102,10 +1105,12 @@ mod test {
 
         let cams = vec![cam0];
 
-        let points = na::Matrix3xX::<f64>::from_column_slice(&[px,py,pz]);
+        let points = na::Matrix3xX::<f64>::from_column_slice(&[px, py, pz]);
         let labels3d = vec!["pt 0".to_string()];
 
-        let projected = cams[0].world_to_pixel(&cam_geom::Points::new(points.transpose())).data;
+        let projected = cams[0]
+            .world_to_pixel(&cam_geom::Points::new(points.transpose()))
+            .data;
         print!("Observed point: {observed}");
         print!("Projected point: {projected}");
 
@@ -1144,20 +1149,19 @@ mod test {
         approx::assert_relative_eq!(r[1], diff[1], epsilon = 1e-6);
 
         // Compare with known good values computed externally.
-        approx::assert_relative_eq!(j[(0,0)], 62.758782, epsilon = 1e-6);
-        approx::assert_relative_eq!(j[(0,1)], -868.827040, epsilon = 1e-6);
-        approx::assert_relative_eq!(j[(0,2)], -194.626133, epsilon = 1e-6);
-        approx::assert_relative_eq!(j[(0,3)], 122.249236, epsilon = 1e-6);
-        approx::assert_relative_eq!(j[(0,4)], 23.629356, epsilon = 1e-6);
-        approx::assert_relative_eq!(j[(0,5)], 16.275670, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(0, 0)], 62.758782, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(0, 1)], -868.827040, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(0, 2)], -194.626133, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(0, 3)], 122.249236, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(0, 4)], 23.629356, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(0, 5)], 16.275670, epsilon = 1e-6);
 
-        approx::assert_relative_eq!(j[(1,0)], 908.971740, epsilon = 1e-6);
-        approx::assert_relative_eq!(j[(1,1)], 154.613985, epsilon = 1e-6);
-        approx::assert_relative_eq!(j[(1,2)], -41.189174, epsilon = 1e-6);
-        approx::assert_relative_eq!(j[(1,3)], -36.912150, epsilon = 1e-6);
-        approx::assert_relative_eq!(j[(1,4)], 123.729704, epsilon = 1e-6);
-        approx::assert_relative_eq!(j[(1,5)], 17.519591, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(1, 0)], 908.971740, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(1, 1)], 154.613985, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(1, 2)], -41.189174, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(1, 3)], -36.912150, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(1, 4)], 123.729704, epsilon = 1e-6);
+        approx::assert_relative_eq!(j[(1, 5)], 17.519591, epsilon = 1e-6);
         println!("spot checks passed for extrinsics-only jacobian");
-
     }
 }

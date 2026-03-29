@@ -1,6 +1,6 @@
 use eyre::{Context, Result};
 
-use flytrax_apriltags_calibration::{compute_extrinsics, ComputeExtrinsicsArgs};
+use flytrax_apriltags_calibration::{ComputeExtrinsicsArgs, compute_extrinsics};
 
 const URL_BASE: &str = "https://strawlab-cdn.com/assets/flytrax-apriltags";
 

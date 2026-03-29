@@ -14,7 +14,7 @@ use ordered_float::NotNan;
 
 use strand_cam_remote_control::H264Metadata;
 
-use frame_source::{fmf_source, pv_tiff_stack, FrameData, FrameDataSource, ImageData};
+use frame_source::{FrameData, FrameDataSource, ImageData, fmf_source, pv_tiff_stack};
 use strand_dynamic_frame::DynamicFrame;
 use tiff_decoder::HdrConfig;
 
@@ -356,7 +356,12 @@ fn is_needed_now(
         let result = diff < *desired_precision;
         tracing::debug!(
             "is_needed_now(next_dest_pts: {}, next_src_pts: {}, prev_dest_pts: {}, {}) -> next_src_pts: {} -> diff: {} -> result: {result}",
-            next_dest_pts.to_display(),next_src_pts.to_display(),prev_dest_pts.to_display(),desired_precision.to_display(),next_src_pts.to_display(),diff.to_display(),
+            next_dest_pts.to_display(),
+            next_src_pts.to_display(),
+            prev_dest_pts.to_display(),
+            desired_precision.to_display(),
+            next_src_pts.to_display(),
+            diff.to_display(),
         );
 
         let last_expected = prev_dest_pts + (*desired_interval * 100);
@@ -432,9 +437,10 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         let mut ext: Option<&str> = input_path.extension().and_then(|x| x.to_str());
         if ext == Some("gz")
             && let Some(input_path) = input_path.as_os_str().to_str()
-                && input_path.to_lowercase().ends_with(".fmf.gz") {
-                    ext = Some("fmf.gz");
-                }
+            && input_path.to_lowercase().ends_with(".fmf.gz")
+        {
+            ext = Some("fmf.gz");
+        }
 
         let do_decode_h264 = cli.export_pngs || cli.skip.is_some();
         match ext {
@@ -571,8 +577,10 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                     let min_delta = deltas.iter().min().unwrap().into_inner();
                     let max_delta = deltas.iter().max().unwrap().into_inner();
                     if max_delta / min_delta > 1.05 {
-                        anyhow::bail!("Cannot estimate frame interval reliably. Frame interval varies by more than 5%. \
-                        Specify with `frame_interval_msec` or set `ignore_timing`.")
+                        anyhow::bail!(
+                            "Cannot estimate frame interval reliably. Frame interval varies by more than 5%. \
+                        Specify with `frame_interval_msec` or set `ignore_timing`."
+                        )
                     }
                     let sum_delta = deltas.iter().sum::<NotNan<f64>>().into_inner();
                     let avg_delta = Duration::from_secs_f64(sum_delta / deltas.len() as f64);
@@ -687,15 +695,16 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         TimingInfo::Desired {
             desired_interval,
             desired_precision: _,
-        } =>
-            tracing::info!(
-        "size: {width}x{height}, start time: {frame0_time}, desired_interval: {} ({:.1} fps), num frames: {}",
-        desired_interval.to_display(),
-        1.0 / desired_interval.as_secs_f64(), n_src_frames_expected,
-    ),
-        TimingInfo::Ignore =>
-            tracing::info!("size: {width}x{height}, start time: {frame0_time}, num frames: {}",n_src_frames_expected),
-
+        } => tracing::info!(
+            "size: {width}x{height}, start time: {frame0_time}, desired_interval: {} ({:.1} fps), num frames: {}",
+            desired_interval.to_display(),
+            1.0 / desired_interval.as_secs_f64(),
+            n_src_frames_expected,
+        ),
+        TimingInfo::Ignore => tracing::info!(
+            "size: {width}x{height}, start time: {frame0_time}, num frames: {}",
+            n_src_frames_expected
+        ),
     }
 
     // Custom progress bar with space at right end to prevent obscuring last

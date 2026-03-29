@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::UnwrapThrowExt;
 
-use crate::{VDispInfo, EXR_COMMENT};
+use crate::{EXR_COMMENT, VDispInfo};
 
 pub enum MyWorkerMsg {}
 

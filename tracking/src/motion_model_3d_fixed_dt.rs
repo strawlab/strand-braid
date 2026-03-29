@@ -1,5 +1,5 @@
 use nalgebra as na;
-use nalgebra::{allocator::Allocator, dimension::U6, DefaultAllocator, OMatrix, RealField};
+use nalgebra::{DefaultAllocator, OMatrix, RealField, allocator::Allocator, dimension::U6};
 
 use adskalman::TransitionModelLinearNoControl;
 

@@ -6,7 +6,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use clap::{Parser, ValueEnum};
-use machine_vision_formats::{pixel_format::pixfmt, ImageStride, OwnedImageStride, PixelFormat};
+use machine_vision_formats::{ImageStride, OwnedImageStride, PixelFormat, pixel_format::pixfmt};
 use openh264::formats::YUVSource;
 
 #[derive(Parser, Debug)]

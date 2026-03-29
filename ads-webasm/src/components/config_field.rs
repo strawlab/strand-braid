@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use web_sys::HtmlInputElement;
-use yew::{classes, html, Callback, Component, Context, Html, InputEvent, Properties, TargetCast};
+use yew::{Callback, Component, Context, Html, InputEvent, Properties, TargetCast, classes, html};
 use yew_tincture::components::Button;
 
 pub struct ConfigField<Cfg>

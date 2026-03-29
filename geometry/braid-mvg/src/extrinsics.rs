@@ -6,9 +6,9 @@
 // copied, modified, or distributed except according to those terms.
 
 use nalgebra as na;
+use nalgebra::RealField;
 use nalgebra::core::Vector3;
 use nalgebra::geometry::{Point3, UnitQuaternion};
-use nalgebra::RealField;
 
 use cam_geom::ExtrinsicParameters;
 
@@ -96,8 +96,8 @@ pub fn from_rquat_translation<R: RealField + Copy>(
 #[cfg(test)]
 mod tests {
     use cam_geom::ExtrinsicParameters;
-    use na::geometry::Point3;
     use na::Vector3;
+    use na::geometry::Point3;
     use nalgebra as na;
 
     #[test]

@@ -21,17 +21,19 @@ pub struct Zarray<T: ArrayDealloc> {
 }
 
 impl<T: ArrayDealloc> Zarray<T> {
-    unsafe fn from_raw(inner: *mut apriltag_sys::zarray_t) -> Zarray<T> { unsafe {
-        assert!(!inner.is_null());
-        assert!((*inner).el_sz == std::mem::size_of::<T>());
-        // Note that we cannot assume the size is non-zero nor that the data
-        // pointer is not null.
+    unsafe fn from_raw(inner: *mut apriltag_sys::zarray_t) -> Zarray<T> {
+        unsafe {
+            assert!(!inner.is_null());
+            assert!((*inner).el_sz == std::mem::size_of::<T>());
+            // Note that we cannot assume the size is non-zero nor that the data
+            // pointer is not null.
 
-        Self {
-            inner,
-            marker: std::marker::PhantomData,
+            Self {
+                inner,
+                marker: std::marker::PhantomData,
+            }
         }
-    }}
+    }
 
     /// Return the length of the array.
     pub fn len(&self) -> usize {
@@ -449,9 +451,11 @@ impl std::fmt::Debug for Detection {
 }
 
 impl ArrayDealloc for Detection {
-    unsafe fn array_dealloc(zarray_ptr: *mut apriltag_sys::zarray) { unsafe {
-        apriltag_sys::apriltag_detections_destroy(zarray_ptr);
-    }}
+    unsafe fn array_dealloc(zarray_ptr: *mut apriltag_sys::zarray) {
+        unsafe {
+            apriltag_sys::apriltag_detections_destroy(zarray_ptr);
+        }
+    }
 }
 
 #[cfg(test)]

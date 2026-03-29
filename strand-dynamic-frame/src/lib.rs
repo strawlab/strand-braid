@@ -30,7 +30,7 @@ use std::borrow::Cow;
 
 use machine_vision_formats as formats;
 
-use formats::{image_ref::ImageRef, ImageStride, PixFmt, PixelFormat, Stride};
+use formats::{ImageStride, PixFmt, PixelFormat, Stride, image_ref::ImageRef};
 
 #[cfg(feature = "convert-image")]
 use formats::{cow::CowImage, owned::OImage};
@@ -44,11 +44,11 @@ use formats::{cow::CowImage, owned::OImage};
 macro_rules! match_all_dynamic_fmts {
     ($self:expr_2021, $x:ident, $block:expr_2021, $err:expr_2021) => {{
         use machine_vision_formats::{
-            pixel_format::{
-                BayerBG32f, BayerBG8, BayerGB32f, BayerGB8, BayerGR32f, BayerGR8, BayerRG32f,
-                BayerRG8, Mono32f, Mono8, NV12, RGB8, RGBA8, YUV422, YUV444,
-            },
             PixFmt,
+            pixel_format::{
+                BayerBG8, BayerBG32f, BayerGB8, BayerGB32f, BayerGR8, BayerGR32f, BayerRG8,
+                BayerRG32f, Mono8, Mono32f, NV12, RGB8, RGBA8, YUV422, YUV444,
+            },
         };
         match $self.pixel_format() {
             PixFmt::Mono8 => {

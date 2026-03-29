@@ -1,6 +1,6 @@
-use braid_mvg::align_points::{align_points, Algorithm};
+use braid_mvg::align_points::{Algorithm, align_points};
 use clap::Parser;
-use eyre::{bail, Context, Result};
+use eyre::{Context, Result, bail};
 use flydra_mvg::FlydraMultiCameraSystem;
 use nalgebra::{Dyn, OMatrix, U1, U3};
 use serde::{Deserialize, Serialize};

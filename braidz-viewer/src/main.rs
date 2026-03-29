@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use gloo::timers::callback::Timeout;
-use gloo_file::{callbacks::FileReader, File};
+use gloo_file::{File, callbacks::FileReader};
 
 use wasm_bindgen::prelude::*;
 
@@ -9,7 +9,7 @@ use yew::prelude::*;
 
 use plotters::{
     drawing::IntoDrawingArea,
-    prelude::{ChartBuilder, Circle, FontDesc, LineSeries, GREEN, RED, WHITE},
+    prelude::{ChartBuilder, Circle, FontDesc, GREEN, LineSeries, RED, WHITE},
     style::Color,
 };
 use plotters_canvas::CanvasBackend;
@@ -324,12 +324,13 @@ fn update_canvas(model: &mut Model) {
     let mut ylim = -1.0..1.0;
     let mut zlim = -1.0..1.0;
     if let MaybeValidBraidzFile::Valid(fd) = &model.braidz_file
-        && let Some(k) = &fd.archive.kalman_estimates_info {
-            trajectories = Some(&k.trajectories);
-            xlim = k.xlim[0]..k.xlim[1];
-            ylim = k.ylim[0]..k.ylim[1];
-            zlim = k.zlim[0]..k.zlim[1];
-        }
+        && let Some(k) = &fd.archive.kalman_estimates_info
+    {
+        trajectories = Some(&k.trajectories);
+        xlim = k.xlim[0]..k.xlim[1];
+        ylim = k.ylim[0]..k.ylim[1];
+        zlim = k.zlim[0]..k.zlim[1];
+    }
 
     if trajectories.is_none() {
         return;
@@ -348,12 +349,13 @@ fn update_canvas(model: &mut Model) {
 
     // top view
     if do_3d_plots {
-        let backend = match CanvasBackend::new(TOPVIEW) { Some(be) => {
-            be
-        } _ => {
-            model.did_error = true;
-            return;
-        }};
+        let backend = match CanvasBackend::new(TOPVIEW) {
+            Some(be) => be,
+            _ => {
+                model.did_error = true;
+                return;
+            }
+        };
         let root = backend.into_drawing_area();
         let _font: FontDesc = ("Arial", 20.0).into();
 

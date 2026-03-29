@@ -2,7 +2,7 @@
 extern crate approx;
 
 use eyre as anyhow;
-use opencv_ros_camera::{from_ros_yaml, Distortion, NamedIntrinsicParameters, RosOpenCvIntrinsics};
+use opencv_ros_camera::{Distortion, NamedIntrinsicParameters, RosOpenCvIntrinsics, from_ros_yaml};
 
 use nalgebra::{
     self as na,

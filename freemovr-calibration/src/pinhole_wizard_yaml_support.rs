@@ -11,7 +11,7 @@ use crate::{
     {DisplayGeometry, Result},
 };
 use nalgebra::geometry::{Point2, Point3};
-use ncollide_geom::{mask_from_points, Mask};
+use ncollide_geom::{Mask, mask_from_points};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -611,9 +611,8 @@ pub fn merge_vdisps<D: PinholeCalib>(
 mod tests {
 
     use crate::{
-        as_ncollide_mesh, parse_obj_from_reader,
-        pinhole_wizard_yaml_support::{mask_from_points, LoadedSphere, WorldCoord},
-        DisplayGeometry, SphereGeom, TriMeshGeom,
+        DisplayGeometry, SphereGeom, TriMeshGeom, as_ncollide_mesh, parse_obj_from_reader,
+        pinhole_wizard_yaml_support::{LoadedSphere, WorldCoord, mask_from_points},
     };
     use nalgebra::geometry::{Point2, Point3};
 
@@ -759,7 +758,7 @@ mod tests {
 
     #[test]
     fn obj_test() {
-        use crate::{compute_image_for_camera_view, Computable};
+        use crate::{Computable, compute_image_for_camera_view};
         use nalgebra::Vector3;
 
         let camcenter = Vector3::new(0.5, 0.5, 10.0);

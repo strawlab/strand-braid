@@ -59,7 +59,7 @@ pub fn mirror<R: RealField + Copy>(
 mod tests {
     use na::geometry::Point2;
     use nalgebra as na;
-    use nalgebra::{allocator::Allocator, DefaultAllocator, U3, U7};
+    use nalgebra::{DefaultAllocator, U3, U7, allocator::Allocator};
 
     #[test]
     fn test_serde() {
@@ -77,7 +77,7 @@ mod tests {
         use cam_geom::{IntrinsicParameters, Points};
         use nalgebra::{OMatrix, U3, U7};
 
-        use crate::intrinsics::{mirror, MirrorAxis::*};
+        use crate::intrinsics::{MirrorAxis::*, mirror};
 
         #[rustfmt::skip]
         let pts = Points::new(

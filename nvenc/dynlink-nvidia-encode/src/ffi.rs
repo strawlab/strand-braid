@@ -8420,7 +8420,7 @@ pub type NV_ENCODE_API_FUNCTION_LIST = _NV_ENCODE_API_FUNCTION_LIST;
 unsafe extern "C" {
     #[doc = " \\ingroup ENCODE_FUNC\n Entry Point to the NvEncodeAPI interface.\n\n Creates an instance of the NvEncodeAPI interface, and populates the\n pFunctionList with function pointers to the API routines implemented by the\n NvEncodeAPI interface.\n\n \\param [out] functionList\n\n \\return\n ::NV_ENC_SUCCESS\n ::NV_ENC_ERR_INVALID_PTR"]
     pub fn NvEncodeAPICreateInstance(functionList: *mut NV_ENCODE_API_FUNCTION_LIST)
-        -> NVENCSTATUS;
+    -> NVENCSTATUS;
 }
 pub const NVENCAPI_VERSION: u32 = 11;
 pub const NV_ENC_CAPS_PARAM_VER: u32 = 1879113739;

@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use formats::PixFmt;
 use strand_dynamic_frame::DynamicFrameOwned;
 
-use crate::{pixel_formats, FMFError, FMFResult};
+use crate::{FMFError, FMFResult, pixel_formats};
 
 const TIMESTAMP_SIZE: usize = 8;
 

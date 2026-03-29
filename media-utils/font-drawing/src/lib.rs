@@ -1,6 +1,6 @@
 use eyre::Result;
-use machine_vision_formats::{pixel_format, ImageMutStride};
-use rusttype::{point, Scale};
+use machine_vision_formats::{ImageMutStride, pixel_format};
+use rusttype::{Scale, point};
 
 struct Rgba(pub [u8; 4]);
 

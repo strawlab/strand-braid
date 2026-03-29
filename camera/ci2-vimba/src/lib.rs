@@ -1,8 +1,8 @@
 use std::{
     convert::TryInto,
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, Ordering},
     },
 };
 use tracing::{error, warn};
@@ -265,10 +265,7 @@ impl Drop for VimbaTerminateGuard {
 }
 
 pub fn make_singleton_guard<'a>(
-    _vimba_module: &dyn ci2::CameraModule<
-        CameraType = WrappedCamera<'a>,
-        Guard = VimbaTerminateGuard,
-    >,
+    _vimba_module: &dyn ci2::CameraModule<CameraType = WrappedCamera<'a>, Guard = VimbaTerminateGuard>,
 ) -> ci2::Result<VimbaTerminateGuard> {
     Ok(VimbaTerminateGuard {
         already_dropped: false,
@@ -767,7 +764,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
                 return Err(ci2::Error::from(format!(
                     "unknown TriggerSelector mode: {:?}",
                     val
-                )))
+                )));
             }
         };
         let c = self.camera.lock().unwrap();
@@ -789,7 +786,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
                 return Err(ci2::Error::from(format!(
                     "unknown AcquisitionMode: {:?}",
                     val
-                )))
+                )));
             }
         })
     }

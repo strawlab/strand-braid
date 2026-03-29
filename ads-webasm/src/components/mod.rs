@@ -7,7 +7,7 @@ pub use self::config_field::ConfigField;
 #[cfg(feature = "csv-widget")]
 mod csv_data_field;
 #[cfg(feature = "csv-widget")]
-pub use self::csv_data_field::{parse_csv, CsvData, CsvDataField, MaybeCsvData};
+pub use self::csv_data_field::{CsvData, CsvDataField, MaybeCsvData, parse_csv};
 
 mod toggle;
 pub use self::toggle::Toggle;

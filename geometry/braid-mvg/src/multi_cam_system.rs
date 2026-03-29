@@ -14,9 +14,9 @@ use na::{Matrix3, Vector3};
 use nalgebra as na;
 
 use na::RealField;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
-use cam_geom::{coordinate_system::WorldFrame, Ray};
+use cam_geom::{Ray, coordinate_system::WorldFrame};
 
 use crate::pymvg_support::PymvgMultiCameraSystemV1;
 use crate::{

@@ -71,7 +71,8 @@ pub(crate) fn draw_cam_render_data<P: AsRef<std::path::Path>>(
         .build(|w| {
             // Draw image from camera
             use base64::Engine;
-            let jpeg_base64_buf = base64::engine::general_purpose::STANDARD.encode(cam_render_data.jpeg_buf);
+            let jpeg_base64_buf =
+                base64::engine::general_purpose::STANDARD.encode(cam_render_data.jpeg_buf);
             let data_url = format!("data:image/jpeg;base64,{}", jpeg_base64_buf);
             w.single("image", |d| {
                 d.attr("x", 0)?;

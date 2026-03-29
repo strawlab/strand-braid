@@ -8,7 +8,7 @@ extern crate criterion;
 use criterion::Criterion;
 use itertools::multizip;
 
-use fastfreeimage::{ipp_ctypes, ripp, CompareOp, FastImage, FastImageData};
+use fastfreeimage::{CompareOp, FastImage, FastImageData, ipp_ctypes, ripp};
 
 const W: usize = 1280;
 const H: usize = 1024;

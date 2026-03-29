@@ -6,9 +6,9 @@ use std::f64;
 use std::io::{Seek, SeekFrom, Write};
 
 use chrono::{DateTime, Utc};
-use formats::{pixel_format::PixFmt, ImageStride, PixelFormat};
+use formats::{ImageStride, PixelFormat, pixel_format::PixFmt};
 use machine_vision_formats as formats;
-use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use strand_dynamic_frame::{DynamicFrame, match_all_dynamic_fmts};
 
 pub type UFMFResult<M> = std::result::Result<M, UFMFError>;
 
@@ -200,9 +200,10 @@ where
         frame_timestamp0: Option<(&DynamicFrame, DateTime<Utc>)>,
     ) -> UFMFResult<Self> {
         if let Some((frame0, _timestamp0)) = frame_timestamp0.as_ref()
-            && frame0.pixel_format() != pixel_format {
-                return Err(UFMFError::FormatChanged);
-            }
+            && frame0.pixel_format() != pixel_format
+        {
+            return Err(UFMFError::FormatChanged);
+        }
         let pos = write_header(&mut f, 0, max_width, max_height, pixel_format)?;
 
         use PixFmt::*;
@@ -419,7 +420,7 @@ mod tests {
     use byteorder::WriteBytesExt;
     use formats::{
         owned::OImage,
-        pixel_format::{Mono32f, Mono8},
+        pixel_format::{Mono8, Mono32f},
     };
     use strand_dynamic_frame::DynamicFrameOwned;
 
@@ -437,9 +438,9 @@ mod tests {
 
         let roundtrip = strand_datetime_conversion::datetime_to_f64(&host_timestamp);
         assert_eq!(timestamp, roundtrip); // Although this is a float and thus
-                                          // not guaranteed in general to roundtrip without change, it must pass
-                                          // through the roundtrip without change in order to hope that the byte-
-                                          // by-byte comparison in the test will succeed.
+        // not guaranteed in general to roundtrip without change, it must pass
+        // through the roundtrip without change in order to hope that the byte-
+        // by-byte comparison in the test will succeed.
 
         (
             DynamicFrameOwned::from_static(
@@ -465,9 +466,9 @@ mod tests {
 
         let roundtrip = strand_datetime_conversion::datetime_to_f64(&ts_utc);
         assert_eq!(timestamp, roundtrip); // Although this is a float and thus
-                                          // not guaranteed in general to roundtrip without change, it must pass
-                                          // through the roundtrip without change in order to hope that the byte-
-                                          // by-byte comparison in the test will succeed.
+        // not guaranteed in general to roundtrip without change, it must pass
+        // through the roundtrip without change in order to hope that the byte-
+        // by-byte comparison in the test will succeed.
 
         (
             DynamicFrameOwned::from_static(
@@ -482,7 +483,9 @@ mod tests {
         let buf = pack_header(1, 2, 3, 4, 5).unwrap();
         assert_eq!(
             buf,
-            &[b'u', b'f', b'm', b'f', 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 4, 0, 5,]
+            &[
+                b'u', b'f', b'm', b'f', 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 4, 0, 5,
+            ]
         );
     }
 

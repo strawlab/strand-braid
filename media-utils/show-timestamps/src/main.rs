@@ -195,9 +195,9 @@ fn main() -> Result<()> {
             OutputFormat::Csv => {
                 println!(
                     "# Path:{input_path}, Start time: {start_time_str}, Dimensions: {w}x{h}, Timestamp source: {tss:?}",
-                    w=src.width(),
-                    h=src.height(),
-                    tss=src.timestamp_source(),
+                    w = src.width(),
+                    h = src.height(),
+                    tss = src.timestamp_source(),
                 );
                 let col_name = if has_timestamps {
                     "timestamp_msec"
@@ -298,15 +298,16 @@ fn main() -> Result<()> {
         match cli.output {
             OutputFormat::EveryFrame | OutputFormat::Summary => {
                 if let Some(frame_source::Timestamp::Duration(prev_timestamp)) = prev_timestamp
-                    && count > 0 {
-                        let fps = count as f64 / prev_timestamp.as_secs_f64();
-                        println!(
-                            "  {} frames in {}: {:.2} frames per second",
-                            count,
-                            prev_timestamp.to_display(),
-                            fps
-                        );
-                    }
+                    && count > 0
+                {
+                    let fps = count as f64 / prev_timestamp.as_secs_f64();
+                    println!(
+                        "  {} frames in {}: {:.2} frames per second",
+                        count,
+                        prev_timestamp.to_display(),
+                        fps
+                    );
+                }
             }
             _ => {}
         }

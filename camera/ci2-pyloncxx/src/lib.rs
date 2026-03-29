@@ -250,11 +250,15 @@ impl<'a> WrappedCamera<'a> {
                                         usbfs_memory_mb.trim().parse().unwrap();
                                     let desired_mb = 1000;
                                     if usbfs_memory_mb < desired_mb {
-                                        tracing::warn!("You seem to be using a USB3 camera on linux but the file \"{}\" \
+                                        tracing::warn!(
+                                            "You seem to be using a USB3 camera on linux but the file \"{}\" \
                                         is set to only {}. For best performance, consider setting it to {}. \
                                         For more information, see \
                                         https://web.archive.org/web/20230318224225/https://www.baslerweb.com/en/sales-support/knowledge-base/frequently-asked-questions/how-can-i-set-the-usbfs-on-linux-or-linux-for-arm-to-prevent-image-losses-with-pylon-and-usb-cameras/29826/.",
-                                        fname, usbfs_memory_mb, desired_mb);
+                                            fname,
+                                            usbfs_memory_mb,
+                                            desired_mb
+                                        );
                                     } else {
                                         tracing::debug!(
                                             "File \"{}\" indicates a value of {}.",
@@ -264,7 +268,11 @@ impl<'a> WrappedCamera<'a> {
                                     }
                                 }
                                 Err(e) => {
-                                    tracing::warn!("Could not read {} to check USB subsystem memory due to error: {}", fname, e);
+                                    tracing::warn!(
+                                        "Could not read {} to check USB subsystem memory due to error: {}",
+                                        fname,
+                                        e
+                                    );
                                 }
                             }
 
@@ -274,14 +282,20 @@ impl<'a> WrappedCamera<'a> {
                                 Ok((soft, _hard)) => {
                                     let desired = 4096;
                                     if soft < desired {
-                                        tracing::warn!("You seem to be using linux but you have only {} file descriptors available. \
+                                        tracing::warn!(
+                                            "You seem to be using linux but you have only {} file descriptors available. \
                                         For best performance, set this to at least {}. See https://github.com/basler/pypylon/issues/80#issuecomment-461727225 \
                                         for more information. Hint: use 'ulimit -n 4096' to update.",
-                                        soft, desired);
+                                            soft,
+                                            desired
+                                        );
                                     }
                                 }
                                 Err(e) => {
-                                    tracing::warn!("Could not check max number of open file descriptors due to error: {}", e);
+                                    tracing::warn!(
+                                        "Could not check max number of open file descriptors due to error: {}",
+                                        e
+                                    );
                                 }
                             }
                         }

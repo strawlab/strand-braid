@@ -2242,8 +2242,8 @@ pub union CUstreamBatchMemOpParams_union_CUstreamMemOpWaitValueParams_st__bindge
     _bindgen_union_align: u64,
 }
 #[test]
-fn bindgen_test_layout_CUstreamBatchMemOpParams_union_CUstreamMemOpWaitValueParams_st__bindgen_ty_1(
-) {
+fn bindgen_test_layout_CUstreamBatchMemOpParams_union_CUstreamMemOpWaitValueParams_st__bindgen_ty_1()
+ {
     assert_eq!(
         ::std::mem::size_of::<
             CUstreamBatchMemOpParams_union_CUstreamMemOpWaitValueParams_st__bindgen_ty_1,
@@ -2397,8 +2397,8 @@ pub union CUstreamBatchMemOpParams_union_CUstreamMemOpWriteValueParams_st__bindg
     _bindgen_union_align: u64,
 }
 #[test]
-fn bindgen_test_layout_CUstreamBatchMemOpParams_union_CUstreamMemOpWriteValueParams_st__bindgen_ty_1(
-) {
+fn bindgen_test_layout_CUstreamBatchMemOpParams_union_CUstreamMemOpWriteValueParams_st__bindgen_ty_1()
+ {
     assert_eq!(
         ::std::mem::size_of::<
             CUstreamBatchMemOpParams_union_CUstreamMemOpWriteValueParams_st__bindgen_ty_1,
@@ -13371,7 +13371,7 @@ unsafe extern "C" {
     #[doc = " ::cuStreamGetFlags,"]
     #[doc = " ::cudaStreamGetPriority"]
     pub fn cuStreamGetPriority(hStream: CUstream, priority: *mut ::std::os::raw::c_int)
-        -> CUresult;
+    -> CUresult;
 }
 unsafe extern "C" {
     #[doc = " \\brief Query the flags of a given stream"]
@@ -19137,7 +19137,7 @@ unsafe extern "C" {
     #[doc = " ::cuCtxDisablePeerAccess,"]
     #[doc = " ::cudaDeviceEnablePeerAccess"]
     pub fn cuCtxEnablePeerAccess(peerContext: CUcontext, Flags: ::std::os::raw::c_uint)
-        -> CUresult;
+    -> CUresult;
 }
 unsafe extern "C" {
     #[doc = " \\brief Disables direct access to memory allocations in a peer context and"]

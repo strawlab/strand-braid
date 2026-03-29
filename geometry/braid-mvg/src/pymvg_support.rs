@@ -20,13 +20,13 @@
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
+use nalgebra::DefaultAllocator;
+use nalgebra::RealField;
 use nalgebra::allocator::Allocator;
 use nalgebra::core::dimension::{U3, U4};
 use nalgebra::core::{Matrix3, OMatrix, Vector5};
 use nalgebra::dimension::DimName;
 use nalgebra::geometry::Point3;
-use nalgebra::DefaultAllocator;
-use nalgebra::RealField;
 
 /// Multi-camera system in PyMVG JSON format.
 ///

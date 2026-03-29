@@ -54,7 +54,7 @@ fn main() -> eyre::Result<()> {
 
                 let h264_bitrate = None;
 
-                #[cfg_attr(not(feature="nv-encode"), expect(unused_variables))]
+                #[cfg_attr(not(feature = "nv-encode"), expect(unused_variables))]
                 let (codec, libs_and_nv_enc) = match cli.encoder {
                     Encoder::OpenH264 => {
                         let codec = strand_cam_remote_control::Mp4Codec::H264OpenH264({

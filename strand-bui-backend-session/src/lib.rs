@@ -49,7 +49,7 @@
 #![warn(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-use http::{header::ACCEPT, HeaderValue};
+use http::{HeaderValue, header::ACCEPT};
 use std::{
     net::SocketAddr,
     sync::{Arc, RwLock},

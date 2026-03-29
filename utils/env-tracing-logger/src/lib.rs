@@ -1,4 +1,4 @@
-use time::{format_description::well_known::Iso8601, UtcOffset};
+use time::{UtcOffset, format_description::well_known::Iso8601};
 use tracing_subscriber::{
     fmt::{self, time::OffsetTime},
     layer::SubscriberExt,

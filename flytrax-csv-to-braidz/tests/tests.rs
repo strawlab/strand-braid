@@ -1,6 +1,6 @@
 use test_log::test;
 
-use flytrax_csv_to_braidz::{parse_configs_and_run, RowFilter};
+use flytrax_csv_to_braidz::{RowFilter, parse_configs_and_run};
 
 #[test(tokio::test)]
 async fn test_run_end_to_end() {

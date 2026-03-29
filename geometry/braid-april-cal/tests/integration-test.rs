@@ -1,4 +1,4 @@
-use ads_webasm::components::{parse_csv, MaybeCsvData};
+use ads_webasm::components::{MaybeCsvData, parse_csv};
 use braid_april_cal::*;
 use braid_apriltag_types::AprilTagCoords2D;
 

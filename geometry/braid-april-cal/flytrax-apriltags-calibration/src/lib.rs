@@ -3,11 +3,11 @@ use std::path::Path;
 use braid_april_cal::*;
 use eyre::{self as anyhow, Context};
 use flytrax_io::read_csv_commented_header;
-use machine_vision_formats::{pixel_format::Mono8, ImageData};
+use machine_vision_formats::{ImageData, pixel_format::Mono8};
 use opencv_ros_camera::NamedIntrinsicParameters;
 
 use ads_apriltag as apriltag;
-use ads_webasm::components::{parse_csv, MaybeCsvData};
+use ads_webasm::components::{MaybeCsvData, parse_csv};
 
 use apriltag_detection_writer::AprilConfig;
 use braid_apriltag_types::AprilTagCoords2D;
@@ -41,8 +41,8 @@ fn read_apriltags<P: AsRef<std::path::Path>>(
     for vertical_flip in [false, true] {
         let im = if vertical_flip {
             use machine_vision_formats::{
-                iter::{HasRowChunksExact, HasRowChunksExactMut},
                 ImageData, Stride,
+                iter::{HasRowChunksExact, HasRowChunksExactMut},
             };
             flipped_mono8 = machine_vision_formats::owned::OImage::<Mono8>::zeros(
                 mono8.width(),

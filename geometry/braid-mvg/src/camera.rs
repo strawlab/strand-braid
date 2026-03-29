@@ -12,7 +12,7 @@ use serde::Deserialize;
 use na::core::dimension::{U1, U2, U3, U4};
 use na::core::{Matrix3, Matrix4, OMatrix, Vector3, Vector5};
 use na::geometry::{Point2, Point3, Rotation3, UnitQuaternion};
-use na::{allocator::Allocator, DefaultAllocator, RealField};
+use na::{DefaultAllocator, RealField, allocator::Allocator};
 use nalgebra as na;
 use num_traits::{One, Zero};
 
@@ -392,7 +392,7 @@ impl<R: RealField + Copy> Camera<R> {
     /// The returned camera has the same 3D->2D projection. (The 2D->3D
     /// projection results in a vector in the opposite direction.)
     pub fn flip(&self) -> Option<Camera<R>> {
-        use crate::intrinsics::{mirror, MirrorAxis::LeftRight};
+        use crate::intrinsics::{MirrorAxis::LeftRight, mirror};
         if !self.intrinsics().rect.is_identity(na::convert(1.0e-7)) {
             return None;
         }

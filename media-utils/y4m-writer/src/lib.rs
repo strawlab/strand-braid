@@ -4,10 +4,10 @@ use machine_vision_formats as formats;
 use strand_dynamic_frame::DynamicFrame;
 
 use formats::{
+    ImageData, PixelFormat, Stride,
     iter::HasRowChunksExact,
     owned::OImage,
     pixel_format::{self, Mono8, PixFmt},
-    ImageData, PixelFormat, Stride,
 };
 
 use convert_image::{convert_owned, convert_ref};
@@ -244,8 +244,19 @@ impl<'a> From<&'a Y4MFrame> for y4m::Frame<'a> {
 
 impl std::fmt::Debug for Y4MFrame {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Y4MFrame{{width: {}, height: {}, y_stride: {}, chroma_stride: {}, data.len(): {}, alloc_rows: {}, alloc_chroma_rows: {}, is_known_mono_only: {}, forced_block_size: {:?}}}",
-            self.width, self.height, self.y_stride, self.chroma_stride, self.data.len(), self.alloc_rows, self.alloc_chroma_rows, self.is_known_mono_only, self.forced_block_size)
+        write!(
+            f,
+            "Y4MFrame{{width: {}, height: {}, y_stride: {}, chroma_stride: {}, data.len(): {}, alloc_rows: {}, alloc_chroma_rows: {}, is_known_mono_only: {}, forced_block_size: {:?}}}",
+            self.width,
+            self.height,
+            self.y_stride,
+            self.chroma_stride,
+            self.data.len(),
+            self.alloc_rows,
+            self.alloc_chroma_rows,
+            self.is_known_mono_only,
+            self.forced_block_size
+        )
     }
 }
 
@@ -698,9 +709,10 @@ where
     match out_colorspace {
         y4m::Colorspace::Cmono => {
             if let Some(block_size) = forced_block_size
-                && !((frame.width() % block_size == 0) && (frame.height() % block_size == 0)) {
-                    unimplemented!("conversion to mono with forced block size");
-                }
+                && !((frame.width() % block_size == 0) && (frame.height() % block_size == 0))
+            {
+                unimplemented!("conversion to mono with forced block size");
+            }
             let frame = convert_ref::<_, Mono8>(frame)?;
             if frame.width() as usize != frame.stride() {
                 // Copy into new buffer with no padding.

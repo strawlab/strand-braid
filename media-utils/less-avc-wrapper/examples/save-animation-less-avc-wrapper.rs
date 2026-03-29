@@ -1,10 +1,10 @@
 // Copyright 2022-2026 Andrew D. Straw.
 use font_drawing::stamp_frame;
 use machine_vision_formats::{
+    ImageMutStride, Stride,
     image_ref::ImageRef,
     owned::OImage,
     pixel_format::{Mono8, RGB8},
-    ImageMutStride, Stride,
 };
 use strand_dynamic_frame::{CowDynamicFrame, DynamicFrame, DynamicFrameOwned};
 use tracing::info;

@@ -13,7 +13,7 @@ use braid_types::{
 };
 use strand_cam_bui_types::RecordingPath;
 
-use yew::{html, Component, Context, Event, Html};
+use yew::{Component, Context, Event, Html, html};
 use yew_tincture::components::{Button, CheckboxLabel, TypedInput, TypedInputStorage};
 
 use ads_webasm::components::{RecordingPathWidget, ReloadButton};

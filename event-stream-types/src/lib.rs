@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use futures::StreamExt;
-use http::{header::ACCEPT, request::Parts, StatusCode};
+use http::{StatusCode, header::ACCEPT, request::Parts};
 use http_body::Frame;
 use std::{
     collections::HashMap,
@@ -234,8 +234,6 @@ fn json_content_type(headers: &http::HeaderMap) -> bool {
     } else {
         return false;
     };
-
-    
 
     mime.type_() == "application"
         && (mime.subtype() == "json" || mime.suffix().is_some_and(|name| name == "json"))

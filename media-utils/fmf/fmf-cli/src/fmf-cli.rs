@@ -3,10 +3,10 @@ use tracing::{debug, info};
 
 use clap::Parser;
 use convert_image::EncoderOptions;
-use machine_vision_formats::{pixel_format, pixel_format::PixFmt, Stride};
+use machine_vision_formats::{Stride, pixel_format, pixel_format::PixFmt};
 use std::path::{Path, PathBuf};
 use strand_cam_remote_control::{Mp4RecordingConfig, NvidiaH264Options, OpenH264Options};
-use strand_dynamic_frame::{match_all_dynamic_fmts, DynamicFrame};
+use strand_dynamic_frame::{DynamicFrame, match_all_dynamic_fmts};
 use y4m::Colorspace;
 
 /*

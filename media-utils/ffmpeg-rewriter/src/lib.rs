@@ -1,5 +1,5 @@
 use chrono::{DateTime, Local};
-use frame_source::{h264_source::SeekableH264Source, FrameDataSource};
+use frame_source::{FrameDataSource, h264_source::SeekableH264Source};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -145,7 +145,8 @@ impl FfmpegReWriter {
         // Create new .mp4 file, also with original h264 metadata.
         let fname2 = format!("{}-rewritten.mp4", self.mp4_filename);
         tracing::debug!(
-            "Copying original .mp4 file into new .mp4 files with timestamps and metadata. frame0_time: {frame0_time}, mp4_cfg: {:?}", self.mp4_cfg
+            "Copying original .mp4 file into new .mp4 files with timestamps and metadata. frame0_time: {frame0_time}, mp4_cfg: {:?}",
+            self.mp4_cfg
         );
         let fd = std::fs::File::create(&fname2)?;
         let mut new_mp4 = mp4_writer::Mp4Writer::new(fd, self.mp4_cfg, None)?;

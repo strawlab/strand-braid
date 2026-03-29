@@ -103,7 +103,8 @@ pub fn read_tiff_image(
                 HdrConfig::Preserve => {
                     anyhow::bail!(
                         "HDR configuration '{}': export to HDR mp4 not yet implemented. (Hint: use --hdr-config {})",
-                        HdrConfig::Preserve, HdrConfig::Downscale_To_8Bit
+                        HdrConfig::Preserve,
+                        HdrConfig::Downscale_To_8Bit
                     );
                 }
                 HdrConfig::Downscale_To_8Bit => {

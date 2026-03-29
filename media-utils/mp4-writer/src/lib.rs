@@ -442,7 +442,7 @@ where
                             first_timestamp: timestamp,
                         })
                     }
-                    #[cfg_attr(not(feature="openh264"), expect(unused_variables))]
+                    #[cfg_attr(not(feature = "openh264"), expect(unused_variables))]
                     strand_cam_remote_control::Mp4Codec::H264OpenH264(opts) => {
                         #[cfg(feature = "openh264")]
                         {
@@ -553,7 +553,7 @@ where
                 self.inner = Some(WriteState::Finished);
                 Ok(())
             }
-            #[cfg_attr(not(feature="nv-encode"), expect(unused_mut))]
+            #[cfg_attr(not(feature = "nv-encode"), expect(unused_mut))]
             Some(WriteState::Recording(mut state)) => {
                 match state.my_encoder {
                     MyEncoder::CopyRawH264 { h264_parser: _ } | MyEncoder::LessH264(_) => { /* nothing to do */
@@ -794,7 +794,7 @@ where
 }
 
 struct RecordingStateInner {
-    #[cfg_attr(not(feature="nv-encode"), expect(unused))]
+    #[cfg_attr(not(feature = "nv-encode"), expect(unused))]
     first_timestamp: chrono::DateTime<chrono::Local>,
     previous_timestamp: chrono::DateTime<chrono::Local>,
     /// limits the maximum framerate

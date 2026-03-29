@@ -1,6 +1,6 @@
 use num_traits::{One, Zero};
 
-use nalgebra::{allocator::Allocator, dimension::U6, DefaultAllocator, OMatrix, RealField};
+use nalgebra::{DefaultAllocator, OMatrix, RealField, allocator::Allocator, dimension::U6};
 
 use crate::motion_model_3d_fixed_dt::MotionModel3D;
 use crate::motion_model_3d_fixed_dt::MotionModel3DFixedDt;

@@ -49,8 +49,8 @@ pub enum RecordingFrameRate {
 impl RecordingFrameRate {
     /// Returns the duration between frames for this frame rate.
     pub fn interval(&self) -> std::time::Duration {
-        use std::time::Duration;
         use RecordingFrameRate::*;
+        use std::time::Duration;
         match self {
             Fps1 => Duration::from_millis(1000),
             Fps2 => Duration::from_millis(500),

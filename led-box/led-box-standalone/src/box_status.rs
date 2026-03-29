@@ -187,7 +187,9 @@ pub async fn handle_box(
                     info!("Found comm version {found}.");
                     let expected = strand_led_box_comms::COMM_VERSION;
                     if found != expected {
-                        panic!("This program compiled to support comm version {expected}, but found version {found}.");
+                        panic!(
+                            "This program compiled to support comm version {expected}, but found version {found}."
+                        );
                     }
                 }
                 Err(e) => {

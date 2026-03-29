@@ -166,7 +166,9 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
         &opt.checkerboard_cal_dir
     {
         if opt.force_allow_no_checkerboard_cal {
-            eyre::bail!("--checkerboard-cal-dir was specified but --force-allow-no-checkerboard-cal is set.");
+            eyre::bail!(
+                "--checkerboard-cal-dir was specified but --force-allow-no-checkerboard-cal is set."
+            );
         }
         let mut radfiles = vec![];
         let mut checkerboard_intrinsics = vec![];
@@ -571,7 +573,9 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
                         let prev_xyz = point_locs.entry(j).or_insert_with(|| xyz);
                         for ii in 0..3 {
                             if !approx::relative_eq!(xyz[ii], prev_xyz[ii]) {
-                                todo!("return error: MCSC returned different 3D points for the same 3D point?");
+                                todo!(
+                                    "return error: MCSC returned different 3D points for the same 3D point?"
+                                );
                             }
                         }
                     }
@@ -729,8 +733,8 @@ fn print_reproj_and_params(
     observations: &DatMat<f64>,
 ) -> Result<()> {
     println!(
-            "CamId           name           std     mean  #inliers    fx      skew    fy      cx      cy      k1      k2      k3      p1      p2"
-        );
+        "CamId           name           std     mean  #inliers    fx      skew    fy      cx      cy      k1      k2      k3      p1      p2"
+    );
     assert_eq!(system.len(), visibility.nrows());
     for (i, (name, cam)) in system.system().cams_by_name().iter().enumerate() {
         // for i in 0..visibility.nrows() {
@@ -764,19 +768,19 @@ fn print_reproj_and_params(
         let mean = cam_dists.mean().unwrap();
         let std = cam_dists.std(1).unwrap();
         println!(
-                "{camid:>3}   {name:>20} {std:>8.2} {mean:>7.2}     {count:>5}   {fx:>7.2} {skew:>7.2} {fy:>7.2} {cx:>7.2} {cy:>7.2} {k1:>7.2} {k2:>7.2} {k3:>7.2} {p1:>7.2} {p2:>7.2}",
-                camid = i + 1,
-                fx = cam.intrinsics().fx(),
-                skew = cam.intrinsics().skew(),
-                fy = cam.intrinsics().fy(),
-                cx = cam.intrinsics().cx(),
-                cy = cam.intrinsics().cy(),
-                k1 = cam.intrinsics().distortion.opencv_vec()[0],
-                k2 = cam.intrinsics().distortion.opencv_vec()[1],
-                p1 = cam.intrinsics().distortion.opencv_vec()[2],
-                p2 = cam.intrinsics().distortion.opencv_vec()[3],
-                k3 = cam.intrinsics().distortion.opencv_vec()[4],
-            );
+            "{camid:>3}   {name:>20} {std:>8.2} {mean:>7.2}     {count:>5}   {fx:>7.2} {skew:>7.2} {fy:>7.2} {cx:>7.2} {cy:>7.2} {k1:>7.2} {k2:>7.2} {k3:>7.2} {p1:>7.2} {p2:>7.2}",
+            camid = i + 1,
+            fx = cam.intrinsics().fx(),
+            skew = cam.intrinsics().skew(),
+            fy = cam.intrinsics().fy(),
+            cx = cam.intrinsics().cx(),
+            cy = cam.intrinsics().cy(),
+            k1 = cam.intrinsics().distortion.opencv_vec()[0],
+            k2 = cam.intrinsics().distortion.opencv_vec()[1],
+            p1 = cam.intrinsics().distortion.opencv_vec()[2],
+            p2 = cam.intrinsics().distortion.opencv_vec()[3],
+            k3 = cam.intrinsics().distortion.opencv_vec()[4],
+        );
     }
     Ok(())
 }

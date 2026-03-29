@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use strand_cam_enum_iter::EnumIter;
-use yew::{html, Callback, Component, Context, Html, Properties};
+use yew::{Callback, Component, Context, Html, Properties, html};
 use yew_tincture::components::Button;
 
 pub struct EnumToggle<T>

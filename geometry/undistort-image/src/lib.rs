@@ -1,4 +1,4 @@
-use machine_vision_formats::{pixel_format, ImageData, PixFmt};
+use machine_vision_formats::{ImageData, PixFmt, pixel_format};
 use strand_dynamic_frame::{DynamicFrame, DynamicFrameOwned};
 
 use opencv_ros_camera::RosOpenCvIntrinsics;

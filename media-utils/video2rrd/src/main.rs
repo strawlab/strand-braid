@@ -122,7 +122,7 @@ fn main() -> eyre::Result<()> {
         p.clone()
     } else {
         // get just the filename part
-        
+
         opt.input.file_name().unwrap().to_string()
     };
 
@@ -259,14 +259,16 @@ fn main() -> eyre::Result<()> {
         absolute_timestamps.push(stamp_chrono);
 
         if let Some(first_time) = opt.exclude_before
-            && stamp_chrono < first_time {
-                continue;
-            }
+            && stamp_chrono < first_time
+        {
+            continue;
+        }
 
         if let Some(last_time) = opt.exclude_after
-            && stamp_chrono > last_time {
-                continue;
-            }
+            && stamp_chrono > last_time
+        {
+            continue;
+        }
 
         if let Some(undist_cache) = undist_cache.as_ref() {
             {

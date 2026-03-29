@@ -8,11 +8,7 @@ pub struct Interval<T> {
 
 impl<T: RealField + Copy> Interval<T> {
     pub fn new(a: T, b: T) -> Option<Self> {
-        if b >= a {
-            Some(Self { a, b })
-        } else {
-            None
-        }
+        if b >= a { Some(Self { a, b }) } else { None }
     }
 }
 
@@ -28,9 +24,10 @@ impl<T> Interval<T> {
 impl<T: RealField + Copy> Interval<T> {
     pub fn new_from_range<RB: std::ops::RangeBounds<T>>(range: RB) -> Option<Self> {
         if let std::ops::Bound::Included(start) = range.start_bound()
-            && let std::ops::Bound::Included(end) = range.end_bound() {
-                return Interval::new(*start, *end);
-            }
+            && let std::ops::Bound::Included(end) = range.end_bound()
+        {
+            return Interval::new(*start, *end);
+        }
         None
     }
 }
