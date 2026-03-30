@@ -18,7 +18,7 @@ description = "camera drivers"
 
 [[section]]
 name = "media-utils"
-description = "video I/O and image processing"
+description = "video and file formats"
 
 [[section]]
 name = "geometry"

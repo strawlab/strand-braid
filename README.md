@@ -229,7 +229,7 @@ conduct](code_of_conduct.md).
  - ci2-simple-demo (camera/ci2-simple-demo) - 
 </details>
 
-### `media-utils/` - video I/O and image processing
+### `media-utils/` - video and file formats
 
 <details>
 
