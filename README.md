@@ -312,6 +312,9 @@ conduct](code_of_conduct.md).
  - ads-apriltag (im-proc/ads-apriltag) - 
  - apriltag-track-movie (im-proc/ads-apriltag/apriltag-track-movie) - use ffmpeg to decode input movie and output csv file with april tag detections
  - fastfreeimage (im-proc/fastfreeimage) - fast image processing operations
+ - flydra-feature-detector (im-proc/flydra-feature-detector) - detect features in images, maximally backwards compatible with Flydra
+ - flydra-feature-detector-types (im-proc/flydra-feature-detector/flydra-feature-detector-types) - Configuration types for Strand Camera, Braid and Flydra feature detection.
+ - flydra-pt-detect-cfg (im-proc/flydra-feature-detector/flydra-pt-detect-cfg) - Default values for the flydra-feature-detector-types crate
  - imops (im-proc/imops) - image processing operations, accelerated using SIMD
  - strand-dynamic-frame (im-proc/strand-dynamic-frame) - images from machine vision cameras used in Strand Camera
 </details>
@@ -332,9 +335,6 @@ conduct](code_of_conduct.md).
 
 <details>
 
- - flydra-feature-detector (flydra-feature-detector) - 
- - flydra-feature-detector-types (flydra-feature-detector/flydra-feature-detector-types) - Configuration types for Strand Camera, Braid and Flydra feature detection.
- - flydra-pt-detect-cfg (flydra-feature-detector/flydra-pt-detect-cfg) - Default values for the flydra-feature-detector-types crate
  - flydra2 (flydra2) - 
  - flytrax-csv-to-braidz (flytrax-csv-to-braidz) - 
  - freemovr-calibration (freemovr-calibration) - 

@@ -8,4 +8,4 @@ edition = "2024"
 chrono.workspace = true
 serde = { workspace = true, features = ["derive"] }
 
-flydra-feature-detector-types = { path = "../flydra-feature-detector/flydra-feature-detector-types", default-features = false }
+flydra-feature-detector-types.workspace = true
