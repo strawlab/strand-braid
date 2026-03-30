@@ -122,9 +122,9 @@ members = [
     "utils/strand-datetime-conversion",
     "utils/strand-withkey",
     "utils/workspace-docs",
+    "utils/zip-or-dir",
+    "utils/zip-or-dir/dir2zip",
     "write-debian-changelog",
-    "zip-or-dir",
-    "zip-or-dir/dir2zip",
     "geometry/braid-apriltag-types",
 ]
 
@@ -362,7 +362,7 @@ ufmf = { path = "media-utils/ufmf" }
 undistort-image = { path = "geometry/undistort-image" }
 vimba = { path = "camera/vimba" }
 y4m-writer = { path = "media-utils/y4m-writer" }
-zip-or-dir = { path = "zip-or-dir" }
+zip-or-dir = { path = "utils/zip-or-dir" }
 
 [replace]
 # "tokio-threadpool:0.1.6" = {git="https://bare-git.strawlab.org/tokio.git", rev="472e64c1ea67f3976191cb1b291061faf2082735"}

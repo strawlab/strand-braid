@@ -1,5 +1,6 @@
 [package]
 name = "dir2zip"
+description = "CLI program to convert a directory to a zip file"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"

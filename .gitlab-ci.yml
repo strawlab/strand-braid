@@ -210,7 +210,7 @@ test_crates_rust_stable:
     - rustup target add thumbv7em-none-eabihf
 
     # Test zip-or-dir
-    - cd $CI_PROJECT_DIR/zip-or-dir
+    - cd $CI_PROJECT_DIR/utils/zip-or-dir
     - cargo test
 
     # Test fastfreeimage

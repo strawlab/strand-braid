@@ -1,4 +1,4 @@
-// Copyright 2020-2023 Andrew D. Straw.
+// Copyright 2020-2026 Andrew D. Straw.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT
@@ -7,21 +7,21 @@
 
 //! An archive of "files", either in a filesystem directory or zip archive.
 //!
-//! The primary object of interest in this crate is the struct
-//! [ZipDirArchive](struct.ZipDirArchive.html), which provides a read-only
-//! wrapper over a directory within a filesystem or a zip archive. The wrapper
-//! allows introspection of the archive and reading contents. To write a zip
-//! archive, you may save contents to a directory and then use the
-//! [copy_archive_to_zipfile](fn.copy_archive_to_zipfile.html) function.
-//! (Because any valid zip archive should be supported by `ZipDirArchive`, as an
-//! alternative to using this function to create a zip archive, you may create
-//! the zip file via any other means.)
+//! The primary object of interest in this crate is the struct [ZipDirArchive],
+//! which provides a read-only wrapper over a directory within a filesystem or a
+//! zip archive. The wrapper allows introspection of the archive and reading
+//! contents. To write a zip archive, you may save contents to a directory and
+//! then use the [copy_archive_to_zipfile] function. (Because any valid zip
+//! archive should be supported by `ZipDirArchive`, as an alternative to using
+//! this function to create a zip archive, you may create the zip file via any
+//! other means.)
 //!
 //! When reading zip archives, the zip file need not be a local file on the
-//! filesystem. Instead,
-//! [Self::from_zip](struct.ZipDirArchive.html#method.from_zip) takes any reader
-//! that implements the `std::io::Read + std::io::Seek` traits. Therefore, one
-//! could open files over e.g. HTTP using a reader that implements these traits.
+//! filesystem. Instead, [ZipDirArchive::from_zip] takes any reader that
+//! implements the `std::io::Read + std::io::Seek` traits. Therefore, one could
+//! open files over e.g. HTTP using a reader that implements these traits.
+//! [`http-range-client`](https://crates.io/crates/http-range-client) is one
+//! such client, albeit untested.
 //!
 //! The development use case was to implement the
 //! [`.braidz`](https://strawlab.github.io/strand-braid/braidz-files.html)
@@ -315,6 +315,7 @@ impl<R: Read + Seek> ZipDirArchive<R> {
     }
 }
 
+/// A file reader that transparently decodes gzip compression.
 pub enum MaybeGzReader<'a> {
     Raw(FileReader<'a>),
     Gz(libflate::gzip::Decoder<FileReader<'a>>),

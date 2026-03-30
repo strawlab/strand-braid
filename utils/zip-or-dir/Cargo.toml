@@ -1,5 +1,6 @@
 [package]
 name = "zip-or-dir"
+description = "read files from either a zip file or a directory"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
