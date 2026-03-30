@@ -89,12 +89,10 @@ test_crates:
     - cargo test --release
 
     # Test flytrax-csv-to-braidz
-    - cd $CI_PROJECT_DIR/flytrax-csv-to-braidz
-    - cargo test --release --features "with_apriltags"
-    - cd ..
+    - cd $CI_PROJECT_DIR
+    - cargo test -p flytrax-csv-to-braidz --release --features "with_apriltags"
 
     # Install opencv
-    - cd $CI_PROJECT_DIR
     - _packaging/setup-opencv-4.9.0-static.sh
 
     # Test freemovr-calibration, which requires opencv
@@ -597,13 +595,12 @@ flytrax-csv-to-braidz-binary:
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
-    - cd $CI_PROJECT_DIR/flytrax-csv-to-braidz
-    - cargo test --release --features "with_apriltags"
-    - cargo build --release --features "with_apriltags"
+    - cargo test -p flytrax-csv-to-braidz --release --features "with_apriltags"
+    - cargo build -p flytrax-csv-to-braidz --release --features "with_apriltags"
 
-    - mkdir -p $CI_PROJECT_DIR/build
-    - ldd -v $CI_PROJECT_DIR/target/release/flytrax-csv-to-braidz
-    - cp $CI_PROJECT_DIR/target/release/flytrax-csv-to-braidz $CI_PROJECT_DIR/build/
+    - mkdir -p build
+    - ldd -v target/release/flytrax-csv-to-braidz
+    - cp target/release/flytrax-csv-to-braidz build/
   artifacts:
     paths:
       - build/

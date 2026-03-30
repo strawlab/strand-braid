@@ -1,4 +1,4 @@
-//! Convert 2D csv files from strand cam into tracks in .braid directory
+//! Convert 2D .csv file saved by flytrax in strand-cam to .braidz format
 use std::{
     collections::BTreeMap,
     io::{BufRead, Write},

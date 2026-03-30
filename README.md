@@ -198,6 +198,7 @@ conduct](code_of_conduct.md).
  - braidz-rerun (braidz/braidz-rerun) - export data in braidz files to rerun
  - braidz-types (braidz/braidz-types) - core type definitions for braidz files
  - braidz-viewer (braidz/braidz-viewer) - web based quick .braidz viewer
+ - flytrax-csv-to-braidz (braidz/flytrax-csv-to-braidz) - convert .csv file saved by flytrax in strand-cam to .braidz format
  - pybraidz-chunked-iter (braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter) - 
  - rerun-braidz-viewer (braidz/braidz-rerun/rerun-braidz-viewer) - a build of the rerun viewer which can directly visualize .braidz files
 </details>
@@ -336,7 +337,6 @@ conduct](code_of_conduct.md).
 
 <details>
 
- - flytrax-csv-to-braidz (flytrax-csv-to-braidz) - 
  - freemovr-calibration (freemovr-calibration) - 
  - freemovr-calibration-cli (freemovr-calibration/freemovr-calibration-cli) - 
  - freemovr-calibration-webapp (freemovr-calibration/freemovr-calibration-webapp) - 
