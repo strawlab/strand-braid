@@ -122,9 +122,9 @@ members = [
     "utils/strand-datetime-conversion",
     "utils/strand-withkey",
     "utils/workspace-docs",
+    "utils/write-debian-changelog",
     "utils/zip-or-dir",
     "utils/zip-or-dir/dir2zip",
-    "write-debian-changelog",
     "geometry/braid-apriltag-types",
 ]
 

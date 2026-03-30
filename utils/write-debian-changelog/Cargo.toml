@@ -1,5 +1,6 @@
 [package]
 name = "write-debian-changelog"
+description = "simple and hacky CLI program to print a debian changelog"
 version = "0.12.0-alpha.9"      # braid release synchronized
 edition = "2024"
 

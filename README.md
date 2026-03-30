@@ -282,6 +282,7 @@ conduct](code_of_conduct.md).
  - zip-or-dir (utils/zip-or-dir) - read files from either a zip file or a directory
  - env-tracing-logger-sample (utils/env-tracing-logger/env-tracing-logger-sample) - 
  - workspace-docs (utils/workspace-docs) - CLI program to maintain repository overview in workspace README.md
+ - write-debian-changelog (utils/write-debian-changelog) - simple and hacky CLI program to print a debian changelog
  - dir2zip (utils/zip-or-dir/dir2zip) - CLI program to convert a directory to a zip file
 </details>
 
@@ -336,7 +337,6 @@ conduct](code_of_conduct.md).
  - strand-http-video-streaming-types (strand-http-video-streaming/strand-http-video-streaming-types) - Type definitions for HTTP video streaming functionality in the Strand Camera ecosystem.
  - strand-http-video-streaming (strand-http-video-streaming) - 
  - tracking (tracking) - 
- - write-debian-changelog (write-debian-changelog) - 
 </details>
 
 <!-- workspace-docs end -->

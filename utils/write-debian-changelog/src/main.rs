@@ -1,3 +1,5 @@
+//! simple and hacky CLI program to print a debian changelog
+
 fn main() {
     let mut args = std::env::args().skip(1);
     let cli_arg1 = args.next().unwrap();
