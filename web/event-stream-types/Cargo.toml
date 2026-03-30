@@ -2,6 +2,7 @@
 name = "event-stream-types"
 version = "0.1.0"
 edition = "2024"
+description = "types for http event streams"
 
 [dependencies]
 tokio.workspace = true

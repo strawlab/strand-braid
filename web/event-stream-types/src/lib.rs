@@ -1,3 +1,4 @@
+//! types for http event streams
 use bytes::Bytes;
 use futures::StreamExt;
 use http::{StatusCode, header::ACCEPT, request::Parts};

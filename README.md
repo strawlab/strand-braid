@@ -317,6 +317,7 @@ conduct](code_of_conduct.md).
  - ads-webasm (web/ads-webasm) - yew components used in Strand Camera and Braid
  - ads-webasm-example (web/ads-webasm/example) - example usage of yew components used in Strand Camera and Braid
  - braid-http-session (web/braid-http-session) - HTTP session for Braid
+ - event-stream-types (web/event-stream-types) - types for http event streams
  - strand-http-video-streaming (web/strand-http-video-streaming) - stream video over HTTP
  - strand-http-video-streaming-types (web/strand-http-video-streaming/strand-http-video-streaming-types) - Type definitions for HTTP video streaming functionality in the Strand Camera ecosystem.
 </details>
@@ -329,7 +330,6 @@ conduct](code_of_conduct.md).
  - braid-offline (braid-offline) - 
  - braid-process-video (braid-process-video) - process videos within the Braid multi-camera framework
  - build-util (build-util) - 
- - event-stream-types (event-stream-types) - 
  - fastfreeimage (fastfreeimage) - 
  - flydra-feature-detector (flydra-feature-detector) - 
  - flydra-feature-detector-types (flydra-feature-detector/flydra-feature-detector-types) - Configuration types for Strand Camera, Braid and Flydra feature detection.

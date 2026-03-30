@@ -33,7 +33,6 @@ members = [
     "camera/strand-cam-remote-control",
     "camera/strand-cam-types",
     "camera/vimba",
-    "event-stream-types",
     "fastfreeimage",
     "flydra-feature-detector",
     "flydra-feature-detector/flydra-feature-detector-types",
@@ -123,6 +122,7 @@ members = [
     "utils/zip-or-dir/dir2zip",
     "web/ads-webasm",
     "web/ads-webasm/example",
+    "web/event-stream-types",
     "web/strand-http-video-streaming",
     "web/strand-http-video-streaming/strand-http-video-streaming-types",
     "geometry/braid-apriltag-types",
@@ -315,7 +315,7 @@ dynlink-cuda = { path = "nvenc/dynlink-cuda" }
 dynlink-nvidia-encode = { path = "nvenc/dynlink-nvidia-encode" }
 strand-cam-enum-iter = { path = "utils/strand-cam-enum-iter", version = "0.1.0" }
 env-tracing-logger = { path = "utils/env-tracing-logger" }
-event-stream-types = { path = "event-stream-types" }
+event-stream-types = { path = "web/event-stream-types" }
 fastfreeimage = { path = "fastfreeimage" }
 ffmpeg-rewriter = { path = "media-utils/ffmpeg-rewriter" }
 ffmpeg-writer = { path = "media-utils/ffmpeg-writer" }
