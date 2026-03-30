@@ -2,7 +2,7 @@
 name = "font-drawing"
 version = "0.1.0"
 edition = "2024"
-description = "draw text onto images using TrueType fonts"
+description = "draw text onto images"
 
 [dependencies]
 machine-vision-formats.workspace = true

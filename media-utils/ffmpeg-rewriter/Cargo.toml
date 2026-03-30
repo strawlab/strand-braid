@@ -2,7 +2,7 @@
 name = "ffmpeg-rewriter"
 version = "0.1.0"
 edition = "2024"
-description = "re-encode video files by piping frames through ffmpeg"
+description = "save MP4 video by piping frames through ffmpeg and rewriting with metadata upon file close"
 
 [dependencies]
 machine-vision-formats.workspace = true
