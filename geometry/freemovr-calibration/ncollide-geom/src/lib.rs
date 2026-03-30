@@ -1,3 +1,4 @@
+//! create mask from points using [ncollide2d]
 pub type Mask = ncollide2d::shape::Compound<f64>;
 
 fn to_na(a: &delaunator::Point) -> ncollide2d::math::Point<f64> {

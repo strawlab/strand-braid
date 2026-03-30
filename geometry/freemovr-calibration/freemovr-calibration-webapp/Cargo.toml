@@ -3,6 +3,7 @@ name = "freemovr-calibration-webapp"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "web app to create calibration for FreeMoVR system"
 
 [[bin]]
 name = "freemovr-calibration-webapp"

@@ -33,10 +33,10 @@ members = [
     "camera/strand-cam-remote-control",
     "camera/strand-cam-types",
     "camera/vimba",
-    "freemovr-calibration",
-    "freemovr-calibration/freemovr-calibration-cli",
-    "freemovr-calibration/freemovr-calibration-webapp",
-    "freemovr-calibration/ncollide-geom",
+    "geometry/freemovr-calibration",
+    "geometry/freemovr-calibration/freemovr-calibration-cli",
+    "geometry/freemovr-calibration/freemovr-calibration-webapp",
+    "geometry/freemovr-calibration/ncollide-geom",
     "geometry/braid-april-cal",
     "geometry/braid-april-cal/braid-april-cal-cli",
     "geometry/braid-april-cal/braid-april-cal-webapp",
@@ -335,7 +335,7 @@ less-avc-wrapper = { path = "media-utils/less-avc-wrapper" }
 mcsc-structs = { path = "geometry/mcsc-structs" }
 mkv-strand-reader = { path = "media-utils/mkv-strand-reader" }
 mp4-writer = { path = "media-utils/mp4-writer" }
-ncollide-geom = { path = "freemovr-calibration/ncollide-geom" }
+ncollide-geom = { path = "geometry/freemovr-calibration/ncollide-geom" }
 nvenc = { path = "nvenc" }
 opencv-calibrate = { path = "geometry/opencv-calibrate" }
 parry-geom = { path = "geometry/parry-geom" }

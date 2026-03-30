@@ -278,8 +278,12 @@ conduct](code_of_conduct.md).
  - find-chessboard (geometry/opencv-calibrate/find-chessboard) - find chessboard corners in an input image
  - flydra-mvg (geometry/flydra-mvg) - 
  - flytrax-apriltags-calibration (geometry/braid-april-cal/flytrax-apriltags-calibration) - 
+ - freemovr-calibration (geometry/freemovr-calibration) - create calibration for FreeMoVR system
+ - freemovr-calibration-cli (geometry/freemovr-calibration/freemovr-calibration-cli) - CLI to create calibration for FreeMoVR system
+ - freemovr-calibration-webapp (geometry/freemovr-calibration/freemovr-calibration-webapp) - web app to create calibration for FreeMoVR system
  - mcsc-structs (geometry/mcsc-structs) - 
  - mvg-util (geometry/braid-mvg/mvg-util) - 
+ - ncollide-geom (geometry/freemovr-calibration/ncollide-geom) - create mask from points using ncollide2d
  - opencv-calibrate (geometry/opencv-calibrate) - 
  - parry-geom (geometry/parry-geom) - 
  - refraction (geometry/refraction) - 
@@ -337,10 +341,6 @@ conduct](code_of_conduct.md).
 
 <details>
 
- - freemovr-calibration (freemovr-calibration) - 
- - freemovr-calibration-cli (freemovr-calibration/freemovr-calibration-cli) - 
- - freemovr-calibration-webapp (freemovr-calibration/freemovr-calibration-webapp) - 
- - ncollide-geom (freemovr-calibration/ncollide-geom) - 
  - led-box (led-box/led-box) - 
  - led-box-standalone (led-box/led-box-standalone) - 
  - strand-led-box-comms (led-box/strand-led-box-comms) - Communication protocol types for the Strand Camera LED Box device.

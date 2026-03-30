@@ -96,9 +96,9 @@ test_crates:
     - _packaging/setup-opencv-4.9.0-static.sh
 
     # Test freemovr-calibration, which requires opencv
-    - cd freemovr-calibration
+    - cd geometry/freemovr-calibration
     - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release --features "opencv"
-    - cd ..
+    - cd ../..
 
     # Test strand-cam-offline-checkerboards
     - cd strand-cam/strand-cam-offline-checkerboards
@@ -106,9 +106,9 @@ test_crates:
     - cd ../..
 
     # Test freemovr-calibration-cli
-    - cd freemovr-calibration/freemovr-calibration-cli
+    - cd geometry/freemovr-calibration/freemovr-calibration-cli
     - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --features "opencv"
-    - cd ../..
+    - cd ../../..
 
     # Test Pylon stuff
     - _packaging/install-pylon-linux.sh
@@ -365,12 +365,12 @@ build-freemovr-calibration:
   image: rust:1.93
   script:
     - export RUSTFLAGS="-D warnings"
-    - cd freemovr-calibration/freemovr-calibration-cli
+    - cd geometry/freemovr-calibration/freemovr-calibration-cli
     - cargo build --release
     - mkdir -p $CI_PROJECT_DIR/freemovr-cal-linux
-    - ldd ../../target/release/freemovr-calibration
-    - ls -lh ../../target/release/freemovr-calibration
-    - cp -a ../../target/release/freemovr-calibration $CI_PROJECT_DIR/freemovr-cal-linux
+    - ldd ../../../target/release/freemovr-calibration
+    - ls -lh ../../../target/release/freemovr-calibration
+    - cp -a ../../../target/release/freemovr-calibration $CI_PROJECT_DIR/freemovr-cal-linux
   artifacts:
     paths:
       - freemovr-cal-linux
@@ -392,7 +392,7 @@ build-freemovr-calibration-webapp:
     - mv trunk $CARGO_HOME/bin/
     - trunk --version
 
-    - cd freemovr-calibration/freemovr-calibration-webapp
+    - cd geometry/freemovr-calibration/freemovr-calibration-webapp
     - ./build.sh
     - mkdir -p $CI_PROJECT_DIR/freemovr-cal-webapp
     - cp -a dist/* $CI_PROJECT_DIR/freemovr-cal-webapp
