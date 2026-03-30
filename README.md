@@ -357,10 +357,4 @@ conduct](code_of_conduct.md).
  - strand-led-box-comms (led-box/strand-led-box-comms) - Communication protocol types for the Strand Camera LED Box device.
 </details>
 
-### uncategorized / miscellaneous
-
-<details>
-
-</details>
-
 <!-- workspace-docs end -->

@@ -198,8 +198,10 @@ fn compute_markdown_docs(
         }
         orphan_pkgs.extend(pkgs);
     }
-    // Write the other packages
-    write_section(None, orphan_pkgs, &mut result)?;
+    if !orphan_pkgs.is_empty() {
+        // Write the other packages
+        write_section(None, orphan_pkgs, &mut result)?;
+    }
     Ok(result)
 }
 
