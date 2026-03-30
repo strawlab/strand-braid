@@ -9,6 +9,7 @@ name = "fastimage"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "fast image processing operations"
 
 [dependencies]
 ipp-sys = "0.4.4"

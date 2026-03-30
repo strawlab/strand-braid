@@ -325,7 +325,7 @@ test_fastimage:
     - _packaging/setup-ubuntu-ipp.sh
 
     - export RUSTFLAGS="-D warnings"
-    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd fastimage && cargo test --verbose --features "ipp-sys/2019" -- --nocapture --test-threads 1
+    - source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux && cd im-proc/fastimage && cargo test --verbose --features "ipp-sys/2019" -- --nocapture --test-threads 1
 
 led-box-ubuntu2004-debs:
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5

@@ -19,7 +19,7 @@ nalgebra.workspace = true
 parry2d-f64 = { workspace = true, features = ["default"] }
 ipp-sys = { workspace = true, optional = true }
 
-fastimage = { path = "../fastimage", optional = true }
+fastimage = { path = "../im-proc/fastimage", optional = true }
 fastfreeimage = { workspace = true, optional = true }
 strand-cam-bui-types.workspace = true
 braid-types.workspace = true

@@ -129,7 +129,7 @@ members = [
 ]
 
 exclude = [
-    "fastimage",
+    "im-proc/fastimage",
     "led-box/led-box-firmware",
     "led-box/led-box-firmware-pico",
 ]
