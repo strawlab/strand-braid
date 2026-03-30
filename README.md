@@ -301,6 +301,13 @@ conduct](code_of_conduct.md).
  - dir2zip (utils/zip-or-dir/dir2zip) - CLI program to convert a directory to a zip file
 </details>
 
+### `im-proc/` - image processing
+
+<details>
+
+ - imops (im-proc/imops) - image processing operations, accelerated using SIMD
+</details>
+
 ### uncategorized / miscellaneous
 
 <details>
@@ -325,7 +332,6 @@ conduct](code_of_conduct.md).
  - ncollide-geom (freemovr-calibration/ncollide-geom) - 
  - freemovr-calibration-cli (freemovr-calibration/freemovr-calibration-cli) - 
  - freemovr-calibration-webapp (freemovr-calibration/freemovr-calibration-webapp) - 
- - imops (imops) - 
  - strand-led-box-comms (led-box/strand-led-box-comms) - Communication protocol types for the Strand Camera LED Box device.
  - led-box (led-box/led-box) - 
  - led-box-standalone (led-box/led-box-standalone) - 

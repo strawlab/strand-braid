@@ -245,13 +245,11 @@ test_crates_rust_stable:
     - cd ..
 
     # Test imops
-    - cd imops
-    - cargo test --no-default-features
-    - cargo test
-    - cargo test --no-default-features --features std
-    - cargo build --no-default-features --target thumbv7em-none-eabihf
-    - cargo bench --no-run
-    - cd ..
+    - cargo test -p imops --no-default-features -p imops
+    - cargo test -p imops
+    - cargo test -p imops --no-default-features --features std
+    - cargo build -p imops --no-default-features --target thumbv7em-none-eabihf
+    - cargo bench -p imops --no-run
 
     # Test fastfreeimage
     - cd $CI_PROJECT_DIR/fastfreeimage

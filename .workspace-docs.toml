@@ -27,3 +27,7 @@ description = "camera geometry, calibration, and 3D math"
 [[section]]
 name = "utils"
 description = "general-purpose utilities"
+
+[[section]]
+name = "im-proc"
+description = "image processing"
