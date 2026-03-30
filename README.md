@@ -316,6 +316,7 @@ conduct](code_of_conduct.md).
 
  - ads-webasm (web/ads-webasm) - yew components used in Strand Camera and Braid
  - ads-webasm-example (web/ads-webasm/example) - example usage of yew components used in Strand Camera and Braid
+ - braid-http-session (web/braid-http-session) - HTTP session for Braid
 </details>
 
 ### uncategorized / miscellaneous
@@ -323,7 +324,6 @@ conduct](code_of_conduct.md).
 <details>
 
  - braid-config-data (braid-config-data) - 
- - braid-http-session (braid-http-session) - 
  - braid-offline (braid-offline) - 
  - braid-process-video (braid-process-video) - process videos within the Braid multi-camera framework
  - build-util (build-util) - 

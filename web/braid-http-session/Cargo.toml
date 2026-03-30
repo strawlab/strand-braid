@@ -2,6 +2,7 @@
 name = "braid-http-session"
 version = "0.1.0"
 edition = "2024"
+description = "HTTP session for Braid"
 
 [dependencies]
 tracing.workspace = true
