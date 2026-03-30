@@ -1,3 +1,4 @@
+//! core type definitions for braidz files
 use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};

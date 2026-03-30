@@ -187,6 +187,7 @@ conduct](code_of_conduct.md).
 
 <details>
 
+ - braidz-types (braidz/braidz-types) - core type definitions for braidz files
  - braidz-parser (braidz/braidz-parser) - 
  - braidz-chunked-iter (braidz/braidz-parser/braidz-chunked-iter) - 
  - pybraidz-chunked-iter (braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter) - 
@@ -311,7 +312,6 @@ conduct](code_of_conduct.md).
  - braid-http-session (braid-http-session) - 
  - braid-offline (braid-offline) - 
  - braid-process-video (braid-process-video) - process videos within the Braid multi-camera framework
- - braidz-types (braidz-types) - 
  - braidz-viewer (braidz-viewer) - 
  - build-util (build-util) - 
  - event-stream-types (event-stream-types) - 
