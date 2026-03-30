@@ -209,6 +209,7 @@ conduct](code_of_conduct.md).
 
  - flytrax-io (strand-cam/flytrax-io) - 
  - strand-cam (strand-cam) - 
+ - strand-cam-csv-config-types (strand-cam/strand-cam-csv-config-types) - type definitions for Strand Camera CSV configuration
  - strand-cam-frontend-yew (strand-cam/yew_frontend) - 
  - strand-cam-offline-checkerboards (strand-cam/strand-cam-offline-checkerboards) - Generate camera intrinsic camera calibration from directory full of images
  - strand-cam-pylon (strand-cam/strand-cam-pylon) - 
@@ -357,7 +358,6 @@ conduct](code_of_conduct.md).
  - dynlink-nvidia-encode (nvenc/dynlink-nvidia-encode) - 
  - gen-nvenc-bindings (nvenc/dynlink-nvidia-encode/gen-nvenc-bindings) - 
  - nvenc (nvenc) - 
- - strand-cam-csv-config-types (strand-cam-csv-config-types) - 
  - strand-cam-pseudo-cal (strand-cam-pseudo-cal) - 
  - strand-cam-storetype (strand-cam-storetype) - Type definitions for Strand Camera's state management and browser UI communication.
  - tracking (tracking) - 

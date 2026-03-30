@@ -7,4 +7,4 @@ edition = "2024"
 eyre.workspace = true
 serde_yaml.workspace = true
 
-strand-cam-csv-config-types = { path = "../../strand-cam-csv-config-types" }
+strand-cam-csv-config-types.workspace = true

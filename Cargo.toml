@@ -101,7 +101,7 @@ members = [
     "strand-cam/strand-cam-pylon-gui",
     "strand-cam/strand-cam-vimba",
     "strand-cam/yew_frontend",
-    "strand-cam-csv-config-types",
+    "strand-cam/strand-cam-csv-config-types",
     "strand-cam-pseudo-cal",
     "strand-cam-storetype",
     "tracking",
@@ -346,7 +346,7 @@ strand-bui-backend-session = { path = "web/strand-bui-backend-session", version 
 strand-bui-backend-session-types = { path = "web/strand-bui-backend-session/types", version = "0.1.1" }
 strand-cam = { path = "strand-cam", default-features = false }
 strand-cam-bui-types = { path = "web/strand-cam-bui-types", version = "0.1.0" }
-strand-cam-csv-config-types = { path = "strand-cam-csv-config-types" }
+strand-cam-csv-config-types = { path = "strand-cam/strand-cam-csv-config-types" }
 strand-cam-pseudo-cal = { path = "strand-cam-pseudo-cal" }
 strand-cam-storetype = { path = "strand-cam-storetype", version = "0.1.0" }
 strand-datetime-conversion = { path = "utils/strand-datetime-conversion", version = "0.1.0" }

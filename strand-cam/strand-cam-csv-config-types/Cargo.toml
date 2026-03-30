@@ -3,6 +3,7 @@ name = "strand-cam-csv-config-types"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "type definitions for Strand Camera CSV configuration"
 
 [dependencies]
 chrono.workspace = true

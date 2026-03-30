@@ -1,3 +1,4 @@
+//! type definitions for Strand Camera CSV configuration
 use serde::{Deserialize, Serialize};
 
 // ---- strand-cam csv yaml configuration header -----
