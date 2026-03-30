@@ -311,6 +311,7 @@ conduct](code_of_conduct.md).
 
  - ads-apriltag (im-proc/ads-apriltag) - 
  - apriltag-track-movie (im-proc/ads-apriltag/apriltag-track-movie) - use ffmpeg to decode input movie and output csv file with april tag detections
+ - fastfreeimage (im-proc/fastfreeimage) - fast image processing operations
  - imops (im-proc/imops) - image processing operations, accelerated using SIMD
  - strand-dynamic-frame (im-proc/strand-dynamic-frame) - images from machine vision cameras used in Strand Camera
 </details>
@@ -331,7 +332,6 @@ conduct](code_of_conduct.md).
 
 <details>
 
- - fastfreeimage (fastfreeimage) - 
  - flydra-feature-detector (flydra-feature-detector) - 
  - flydra-feature-detector-types (flydra-feature-detector/flydra-feature-detector-types) - Configuration types for Strand Camera, Braid and Flydra feature detection.
  - flydra-pt-detect-cfg (flydra-feature-detector/flydra-pt-detect-cfg) - Default values for the flydra-feature-detector-types crate

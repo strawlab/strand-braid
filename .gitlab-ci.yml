@@ -213,8 +213,8 @@ test_crates_rust_stable:
     - cargo test
 
     # Test fastfreeimage
-    - cd $CI_PROJECT_DIR/fastfreeimage
-    - cargo test
+    - cd $CI_PROJECT_DIR
+    - cargo test -p fastfreeimage
 
     # Test mvg
     - cd $CI_PROJECT_DIR/geometry/braid-mvg
@@ -248,11 +248,6 @@ test_crates_rust_stable:
     - cargo test -p imops --no-default-features --features std
     - cargo build -p imops --no-default-features --target thumbv7em-none-eabihf
     - cargo bench -p imops --no-run
-
-    # Test fastfreeimage
-    - cd $CI_PROJECT_DIR/fastfreeimage
-    - cargo test
-    - cd ..
 
     # Test braidz-parser
     - cd $CI_PROJECT_DIR

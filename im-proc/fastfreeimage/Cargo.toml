@@ -4,10 +4,11 @@ version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
 rust-version = "1.88"
+description = "fast image processing operations"
 
 [dependencies]
 thiserror.workspace = true
-imops = { path = "../im-proc/imops" }
+imops = { path = "../imops" }
 machine-vision-formats.workspace = true
 aligned-vec = "0.6.4"
 wide.workspace = true
