@@ -5,13 +5,13 @@ curl -O https://strawlab-cdn.com/assets/sample_datafile-v0.4.28.h5
 BASE=sample_datafile-v0.4.28
 RETRACKED=`mktemp -d -t retrackedXXXXXXX`
 
-NGCU=../strand-braid-user
+NGCU=../../strand-braid-user
 
 # Convert original flydra file to .csv
 python $NGCU/scripts/export_h5_to_csv.py "$BASE.h5"
 # Retrack .csv files
 cargo build --release
-BUILD_DIR=../target/release
+BUILD_DIR=../../target/release
 $BUILD_DIR/braid-offline-retrack -d "$BASE" -o "$RETRACKED.braidz"
 
 # Convert to pytables .h5 format

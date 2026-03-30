@@ -151,14 +151,14 @@ test_flydra2:
 
     - export RUSTFLAGS="-D warnings"
 
-    - cd $CI_PROJECT_DIR/braid-offline
-    - cargo build --release
+    - cd $CI_PROJECT_DIR
+    - cargo build -p braid-offline --release
     - cd $CI_PROJECT_DIR/flydra2
     - cargo build --release
     - PATH="$CI_PROJECT_DIR/target/release:$PATH" cargo test --release
     - cd $CI_PROJECT_DIR/strand-cam-pseudo-cal
     - cargo test --release
-    - cd $CI_PROJECT_DIR/braid-offline
+    - cd $CI_PROJECT_DIR/braid/braid-offline
     # test 3D retracking
     - PATH="$CI_PROJECT_DIR/flydra2env/bin:$CI_PROJECT_DIR/target/release:$PATH" cargo test --release -- --include-ignored
     # test 2D retracking
@@ -667,14 +667,14 @@ braid-offline-static:
     - export PATH="$PATH:$CARGO_HOME/bin"
     - export RUSTFLAGS="-D warnings"
 
-    - cd $CI_PROJECT_DIR/braid-offline
-    - cargo build --release
-    - ldd -v $CI_PROJECT_DIR/target/release/braid-offline-retrack
-    - ldd -v $CI_PROJECT_DIR/target/release/compute-flydra1-compat
+    - cd $CI_PROJECT_DIR
+    - cargo build -p braid-offline --release
+    - ldd -v target/release/braid-offline-retrack
+    - ldd -v target/release/compute-flydra1-compat
 
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp $CI_PROJECT_DIR/target/release/braid-offline-retrack $CI_PROJECT_DIR/build/
-    - cp $CI_PROJECT_DIR/target/release/compute-flydra1-compat $CI_PROJECT_DIR/build/
+    - cp target/release/braid-offline-retrack $CI_PROJECT_DIR/build/
+    - cp target/release/compute-flydra1-compat $CI_PROJECT_DIR/build/
   artifacts:
     paths:
       - build/

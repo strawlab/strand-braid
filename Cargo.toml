@@ -8,7 +8,7 @@ members = [
     "braid/braidz-writer/cli",
     "braid/braid-types",
     "braid/braid-config-data",
-    "braid-offline",
+    "braid/braid-offline",
     "braid-process-video",
     "braidz/braidz-parser",
     "braidz/braidz-parser/braidz-chunked-iter",
@@ -291,7 +291,7 @@ braid-april-cal = { path = "geometry/braid-april-cal" }
 braid-apriltag-types = { path = "geometry/braid-apriltag-types" }
 braid-config-data = { path = "braid/braid-config-data" }
 braid-http-session = { path = "web/braid-http-session" }
-braid-offline = { path = "braid-offline" }
+braid-offline = { path = "braid/braid-offline" }
 braid-mvg = { path = "geometry/braid-mvg", version = "0.1.0" }
 braid-types = { path = "braid/braid-types", default-features = false }
 braidz-parser = { path = "braidz/braidz-parser" }
