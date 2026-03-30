@@ -35,3 +35,7 @@ description = "image processing"
 [[section]]
 name = "web"
 description = "web utilities"
+
+[[section]]
+name = "led-box"
+description = "LED box and other hardware"

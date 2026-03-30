@@ -337,13 +337,19 @@ conduct](code_of_conduct.md).
  - strand-http-video-streaming-types (web/strand-http-video-streaming/strand-http-video-streaming-types) - Type definitions for HTTP video streaming functionality in the Strand Camera ecosystem.
 </details>
 
+### `led-box/` - LED box and other hardware
+
+<details>
+
+ - led-box (led-box/led-box) - CLI program to interact with LED box hardware directly
+ - led-box-standalone (led-box/led-box-standalone) - 
+ - strand-led-box-comms (led-box/strand-led-box-comms) - Communication protocol types for the Strand Camera LED Box device.
+</details>
+
 ### uncategorized / miscellaneous
 
 <details>
 
- - led-box (led-box/led-box) - 
- - led-box-standalone (led-box/led-box-standalone) - 
- - strand-led-box-comms (led-box/strand-led-box-comms) - Communication protocol types for the Strand Camera LED Box device.
  - dynlink-cuda (nvenc/dynlink-cuda) - 
  - dynlink-nvidia-encode (nvenc/dynlink-nvidia-encode) - 
  - gen-nvenc-bindings (nvenc/dynlink-nvidia-encode/gen-nvenc-bindings) - 

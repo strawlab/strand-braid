@@ -3,6 +3,7 @@ name = "led-box"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "CLI program to interact with LED box hardware directly"
 
 [dependencies]
 anyhow.workspace = true
