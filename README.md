@@ -290,6 +290,7 @@ conduct](code_of_conduct.md).
 
 <details>
 
+ - build-util (utils/build-util) - get git hash at build-time
  - csv-eof (utils/csv-eof) - 
  - dir2zip (utils/zip-or-dir/dir2zip) - CLI program to convert a directory to a zip file
  - download-verify (utils/download-verify) - 
@@ -330,7 +331,6 @@ conduct](code_of_conduct.md).
 
 <details>
 
- - build-util (build-util) - 
  - fastfreeimage (fastfreeimage) - 
  - flydra-feature-detector (flydra-feature-detector) - 
  - flydra-feature-detector-types (flydra-feature-detector/flydra-feature-detector-types) - Configuration types for Strand Camera, Braid and Flydra feature detection.
