@@ -176,10 +176,10 @@ conduct](code_of_conduct.md).
 <details>
 
  - braid (braid) - multi-camera realtime 3D tracker
- - braid-types (braid/braid-types) - 
  - braid-run (braid/braid-run) - run Braid, the multi-camera realtime 3D tracker
- - braidz-writer (braid/braidz-writer) - 
+ - braid-types (braid/braid-types) - 
  - braid_frontend (braid/braid-run/braid_frontend) - 
+ - braidz-writer (braid/braidz-writer) - 
  - braidz-writer-cli (braid/braidz-writer/cli) - 
 </details>
 
@@ -187,15 +187,15 @@ conduct](code_of_conduct.md).
 
 <details>
 
- - braidz-types (braidz/braidz-types) - core type definitions for braidz files
- - braidz-parser (braidz/braidz-parser) - 
  - braidz-chunked-iter (braidz/braidz-parser/braidz-chunked-iter) - 
- - pybraidz-chunked-iter (braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter) - 
  - braidz-cli (braidz/braidz-parser/braidz-cli) - 
- - braidz-rerun (braidz/braidz-rerun) - export data in braidz files to rerun
  - braidz-export-rrd (braidz/braidz-rerun/braidz-export-rrd) - CLI program to export a rerun .rrd file from a .braidz file
- - rerun-braidz-viewer (braidz/braidz-rerun/rerun-braidz-viewer) - a build of the rerun viewer which can directly visualize .braidz files
+ - braidz-parser (braidz/braidz-parser) - 
+ - braidz-rerun (braidz/braidz-rerun) - export data in braidz files to rerun
+ - braidz-types (braidz/braidz-types) - core type definitions for braidz files
  - braidz-viewer (braidz/braidz-viewer) - web based quick .braidz viewer
+ - pybraidz-chunked-iter (braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter) - 
+ - rerun-braidz-viewer (braidz/braidz-rerun/rerun-braidz-viewer) - a build of the rerun viewer which can directly visualize .braidz files
 </details>
 
 ### `strand-cam/` - single camera application
@@ -204,110 +204,110 @@ conduct](code_of_conduct.md).
 
  - flytrax-io (strand-cam/flytrax-io) - 
  - strand-cam (strand-cam) - 
+ - strand-cam-frontend-yew (strand-cam/yew_frontend) - 
  - strand-cam-offline-checkerboards (strand-cam/strand-cam-offline-checkerboards) - Generate camera intrinsic camera calibration from directory full of images
  - strand-cam-pylon (strand-cam/strand-cam-pylon) - 
  - strand-cam-pylon-gui (strand-cam/strand-cam-pylon-gui) - 
  - strand-cam-vimba (strand-cam/strand-cam-vimba) - 
- - strand-cam-frontend-yew (strand-cam/yew_frontend) - 
 </details>
 
 ### `camera/` - camera drivers
 
 <details>
 
- - strand-cam-remote-control (camera/strand-cam-remote-control) - Types for Strand Camera remote control and configuration
- - strand-cam-types (camera/strand-cam-types) - Core types for camera control and configuration in the Strand Camera ecosystem
  - ci2 (camera/ci2) - 
  - ci2-async (camera/ci2-async) - 
  - ci2-cli (camera/ci2-cli) - 
- - ci2-pyloncxx (camera/ci2-pyloncxx) - 
  - ci2-pylon-types (camera/ci2-pylon-types) - 
+ - ci2-pyloncxx (camera/ci2-pyloncxx) - 
  - ci2-simple-async-demo (camera/ci2-simple-async-demo) - 
+ - ci2-simple-demo (camera/ci2-simple-demo) - 
  - ci2-vimba (camera/ci2-vimba) - 
  - ci2-vimba-types (camera/ci2-vimba-types) - 
+ - strand-cam-remote-control (camera/strand-cam-remote-control) - Types for Strand Camera remote control and configuration
+ - strand-cam-types (camera/strand-cam-types) - Core types for camera control and configuration in the Strand Camera ecosystem
  - vimba (camera/vimba) - 
- - ci2-simple-demo (camera/ci2-simple-demo) - 
 </details>
 
 ### `media-utils/` - video and file formats
 
 <details>
 
- - ufmf (media-utils/ufmf) - 
- - fmf (media-utils/fmf) - 
- - frame-source (media-utils/frame-source) - 
- - mkv-strand-reader (media-utils/mkv-strand-reader) - 
- - mkv-parser-kit (media-utils/mkv-parser-kit) - Library for building Matroska (MKV) file parsers
- - mp4-writer (media-utils/mp4-writer) - 
- - less-avc-wrapper (media-utils/less-avc-wrapper) - 
- - y4m-writer (media-utils/y4m-writer) - 
- - font-drawing (media-utils/font-drawing) - 
  - apriltag-detection-writer (media-utils/apriltag-detection-writer) - 
  - bg-movie-writer (media-utils/bg-movie-writer) - 
- - ffmpeg-rewriter (media-utils/ffmpeg-rewriter) - 
- - ffmpeg-writer (media-utils/ffmpeg-writer) - 
- - srt-writer (media-utils/srt-writer) - 
  - burn-timestamps (media-utils/burn-timestamps) - 
  - create-timelapse (media-utils/create-timelapse) - create timelapse video from mp4 h264 source without transcoding
  - dump-frame (media-utils/dump-frame) - 
+ - ffmpeg-rewriter (media-utils/ffmpeg-rewriter) - 
+ - ffmpeg-writer (media-utils/ffmpeg-writer) - 
+ - fmf (media-utils/fmf) - 
  - fmf-cli (media-utils/fmf/fmf-cli) - work with .fmf (fly movie format) files
+ - font-drawing (media-utils/font-drawing) - 
+ - frame-source (media-utils/frame-source) - 
+ - less-avc-wrapper (media-utils/less-avc-wrapper) - 
+ - mkv-parser-kit (media-utils/mkv-parser-kit) - Library for building Matroska (MKV) file parsers
+ - mkv-strand-reader (media-utils/mkv-strand-reader) - 
+ - mp4-writer (media-utils/mp4-writer) - 
  - show-timestamps (media-utils/show-timestamps) - 
+ - srt-writer (media-utils/srt-writer) - 
  - strand-convert (media-utils/strand-convert) - 
  - tiff-decoder (media-utils/tiff-decoder) - 
+ - ufmf (media-utils/ufmf) - 
  - video2rrd (media-utils/video2rrd) - Convert video with Strand Cam timestamps to RRD format for Rerun Viewer
+ - y4m-writer (media-utils/y4m-writer) - 
 </details>
 
 ### `geometry/` - camera geometry, calibration, and 3D math
 
 <details>
 
- - braid-mvg (geometry/braid-mvg) - Braid's camera geometry and multi-view geometry (MVG) types and algorithms.
- - flydra-mvg (geometry/flydra-mvg) - 
- - refraction (geometry/refraction) - 
  - bisection-search (geometry/refraction/bisection-search) - 
+ - braid-april-cal (geometry/braid-april-cal) - 
+ - braid-april-cal-cli (geometry/braid-april-cal/braid-april-cal-cli) - Create a multi-camera calibration using known intrinsics and the SQPnP algorithm
+ - braid-april-cal-webapp (geometry/braid-april-cal/braid-april-cal-webapp) - 
  - braid-apriltag-types (geometry/braid-apriltag-types) - 
+ - braid-mvg (geometry/braid-mvg) - Braid's camera geometry and multi-view geometry (MVG) types and algorithms.
+ - braidz-mcsc (geometry/braidz-mcsc) - 
+ - bundle-adj (geometry/bundle-adj) - 
+ - camcal (geometry/camcal) - 
+ - find-chessboard (geometry/opencv-calibrate/find-chessboard) - find chessboard corners in an input image
+ - flydra-mvg (geometry/flydra-mvg) - 
+ - flytrax-apriltags-calibration (geometry/braid-april-cal/flytrax-apriltags-calibration) - 
+ - mcsc-structs (geometry/mcsc-structs) - 
+ - mvg-util (geometry/braid-mvg/mvg-util) - 
+ - opencv-calibrate (geometry/opencv-calibrate) - 
+ - parry-geom (geometry/parry-geom) - 
+ - refraction (geometry/refraction) - 
  - simple-obj-parse (geometry/simple-obj-parse) - 
  - textured-tri-mesh (geometry/textured-tri-mesh) - 
- - parry-geom (geometry/parry-geom) - 
  - undistort-image (geometry/undistort-image) - 
- - flytrax-apriltags-calibration (geometry/braid-april-cal/flytrax-apriltags-calibration) - 
- - braid-april-cal (geometry/braid-april-cal) - 
- - camcal (geometry/camcal) - 
- - opencv-calibrate (geometry/opencv-calibrate) - 
- - braid-april-cal-cli (geometry/braid-april-cal/braid-april-cal-cli) - Create a multi-camera calibration using known intrinsics and the SQPnP algorithm
- - bundle-adj (geometry/bundle-adj) - 
- - braid-april-cal-webapp (geometry/braid-april-cal/braid-april-cal-webapp) - 
- - mvg-util (geometry/braid-mvg/mvg-util) - 
- - braidz-mcsc (geometry/braidz-mcsc) - 
- - mcsc-structs (geometry/mcsc-structs) - 
- - find-chessboard (geometry/opencv-calibrate/find-chessboard) - find chessboard corners in an input image
 </details>
 
 ### `utils/` - general-purpose utilities
 
 <details>
 
+ - csv-eof (utils/csv-eof) - 
+ - dir2zip (utils/zip-or-dir/dir2zip) - CLI program to convert a directory to a zip file
+ - download-verify (utils/download-verify) - 
+ - env-tracing-logger (utils/env-tracing-logger) - 
+ - env-tracing-logger-sample (utils/env-tracing-logger/env-tracing-logger-sample) - 
+ - groupby (utils/groupby) - 
+ - strand-cam-enum-iter (utils/strand-cam-enum-iter) - A utility crate to provide an EnumIter trait for iterating over enums in the Strand Camera ecosystem
  - strand-datetime-conversion (utils/strand-datetime-conversion) - Convert between chrono and f64 time. Used in Strand Camera and Braid.
  - strand-withkey (utils/strand-withkey) - defines the WithKey trait for Strand Camera
- - env-tracing-logger (utils/env-tracing-logger) - 
- - download-verify (utils/download-verify) - 
- - strand-cam-enum-iter (utils/strand-cam-enum-iter) - A utility crate to provide an EnumIter trait for iterating over enums in the Strand Camera ecosystem
- - csv-eof (utils/csv-eof) - 
- - groupby (utils/groupby) - 
- - zip-or-dir (utils/zip-or-dir) - read files from either a zip file or a directory
- - env-tracing-logger-sample (utils/env-tracing-logger/env-tracing-logger-sample) - 
  - workspace-docs (utils/workspace-docs) - CLI program to maintain repository overview in workspace README.md
  - write-debian-changelog (utils/write-debian-changelog) - simple and hacky CLI program to print a debian changelog
- - dir2zip (utils/zip-or-dir/dir2zip) - CLI program to convert a directory to a zip file
+ - zip-or-dir (utils/zip-or-dir) - read files from either a zip file or a directory
 </details>
 
 ### `im-proc/` - image processing
 
 <details>
 
- - imops (im-proc/imops) - image processing operations, accelerated using SIMD
  - ads-apriltag (im-proc/ads-apriltag) - 
  - apriltag-track-movie (im-proc/ads-apriltag/apriltag-track-movie) - use ffmpeg to decode input movie and output csv file with april tag detections
+ - imops (im-proc/imops) - image processing operations, accelerated using SIMD
 </details>
 
 ### `web/` - web utilities
@@ -329,31 +329,31 @@ conduct](code_of_conduct.md).
  - build-util (build-util) - 
  - event-stream-types (event-stream-types) - 
  - fastfreeimage (fastfreeimage) - 
+ - flydra-feature-detector (flydra-feature-detector) - 
  - flydra-feature-detector-types (flydra-feature-detector/flydra-feature-detector-types) - Configuration types for Strand Camera, Braid and Flydra feature detection.
  - flydra-pt-detect-cfg (flydra-feature-detector/flydra-pt-detect-cfg) - Default values for the flydra-feature-detector-types crate
- - flydra-feature-detector (flydra-feature-detector) - 
  - flydra2 (flydra2) - 
  - flytrax-csv-to-braidz (flytrax-csv-to-braidz) - 
  - freemovr-calibration (freemovr-calibration) - 
- - ncollide-geom (freemovr-calibration/ncollide-geom) - 
  - freemovr-calibration-cli (freemovr-calibration/freemovr-calibration-cli) - 
  - freemovr-calibration-webapp (freemovr-calibration/freemovr-calibration-webapp) - 
- - strand-led-box-comms (led-box/strand-led-box-comms) - Communication protocol types for the Strand Camera LED Box device.
+ - ncollide-geom (freemovr-calibration/ncollide-geom) - 
  - led-box (led-box/led-box) - 
  - led-box-standalone (led-box/led-box-standalone) - 
+ - strand-led-box-comms (led-box/strand-led-box-comms) - Communication protocol types for the Strand Camera LED Box device.
  - dynlink-cuda (nvenc/dynlink-cuda) - 
  - dynlink-nvidia-encode (nvenc/dynlink-nvidia-encode) - 
- - nvenc (nvenc) - 
  - gen-nvenc-bindings (nvenc/dynlink-nvidia-encode/gen-nvenc-bindings) - 
- - strand-bui-backend-session-types (strand-bui-backend-session/types) - Types for Strand Camera BUI (Browser User Interface) backend session management
+ - nvenc (nvenc) - 
  - strand-bui-backend-session (strand-bui-backend-session) - Backend session management for the BUI (Browser User Interface) used by Strand Camera and Braid
+ - strand-bui-backend-session-types (strand-bui-backend-session/types) - Types for Strand Camera BUI (Browser User Interface) backend session management
  - strand-cam-bui-types (strand-cam-bui-types) - Type definitions for the Strand Camera Browser User Interface (BUI) system.
  - strand-cam-csv-config-types (strand-cam-csv-config-types) - 
  - strand-cam-pseudo-cal (strand-cam-pseudo-cal) - 
  - strand-cam-storetype (strand-cam-storetype) - Type definitions for Strand Camera's state management and browser UI communication.
  - strand-dynamic-frame (strand-dynamic-frame) - images from machine vision cameras used in Strand Camera
- - strand-http-video-streaming-types (strand-http-video-streaming/strand-http-video-streaming-types) - Type definitions for HTTP video streaming functionality in the Strand Camera ecosystem.
  - strand-http-video-streaming (strand-http-video-streaming) - 
+ - strand-http-video-streaming-types (strand-http-video-streaming/strand-http-video-streaming-types) - Type definitions for HTTP video streaming functionality in the Strand Camera ecosystem.
  - tracking (tracking) - 
 </details>
 

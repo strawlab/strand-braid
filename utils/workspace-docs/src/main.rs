@@ -56,7 +56,7 @@ fn get_readme_section(path: &Utf8Path) -> Result<(String, String, String)> {
     Ok((start, middle, tail))
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 struct MyPackage {
     name: cargo_metadata::PackageName,
     description: Option<String>,
@@ -108,11 +108,12 @@ fn get_packages_from_cargo(path: &Utf8Path) -> Result<Vec<MyPackage>> {
         .no_deps()
         .exec()
         .unwrap();
-    let pkgs = metadata
+    let mut pkgs = metadata
         .packages
         .iter()
         .map(|p| to_my_package(&p, path))
         .collect::<Result<Vec<MyPackage>>>()?;
+    pkgs.sort();
     Ok(pkgs)
 }
 
