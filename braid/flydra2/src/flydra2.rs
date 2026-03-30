@@ -1,3 +1,4 @@
+//! high-level multi-camera 3D tracking, ported from Flydra
 use tracing::{debug, error, info, trace};
 use tracing_futures::Instrument;
 

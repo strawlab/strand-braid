@@ -184,6 +184,7 @@ conduct](code_of_conduct.md).
  - braid_frontend (braid/braid-run/braid_frontend) - 
  - braidz-writer (braid/braidz-writer) - 
  - braidz-writer-cli (braid/braidz-writer/cli) - 
+ - flydra2 (braid/flydra2) - high-level multi-camera 3D tracking, ported from Flydra
 </details>
 
 ### `braidz/` - braidz file handling
@@ -335,7 +336,6 @@ conduct](code_of_conduct.md).
 
 <details>
 
- - flydra2 (flydra2) - 
  - flytrax-csv-to-braidz (flytrax-csv-to-braidz) - 
  - freemovr-calibration (freemovr-calibration) - 
  - freemovr-calibration-cli (freemovr-calibration/freemovr-calibration-cli) - 

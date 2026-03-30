@@ -10,6 +10,7 @@ members = [
     "braid/braid-config-data",
     "braid/braid-offline",
     "braid/braid-process-video",
+    "braid/flydra2",
     "braidz/braidz-parser",
     "braidz/braidz-parser/braidz-chunked-iter",
     "braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter",
@@ -31,7 +32,6 @@ members = [
     "camera/strand-cam-remote-control",
     "camera/strand-cam-types",
     "camera/vimba",
-    "flydra2",
     "flytrax-csv-to-braidz",
     "freemovr-calibration",
     "freemovr-calibration/freemovr-calibration-cli",
@@ -323,7 +323,7 @@ flydra-feature-detector = { path = "im-proc/flydra-feature-detector" }
 flydra-feature-detector-types = { path = "im-proc/flydra-feature-detector/flydra-feature-detector-types", version = "0.1.0" }
 flydra-pt-detect-cfg = { path = "im-proc/flydra-feature-detector/flydra-pt-detect-cfg", version = "0.1.0" }
 flydra-mvg = { path = "geometry/flydra-mvg" }
-flydra2 = { path = "flydra2", default-features = false }
+flydra2 = { path = "braid/flydra2", default-features = false }
 flytrax-apriltags-calibration = { path = "geometry/braid-april-cal/flytrax-apriltags-calibration" }
 flytrax-io = { path = "strand-cam/flytrax-io" }
 fmf = { path = "media-utils/fmf" }

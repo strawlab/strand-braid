@@ -151,13 +151,10 @@ test_flydra2:
 
     - export RUSTFLAGS="-D warnings"
 
-    - cd $CI_PROJECT_DIR
     - cargo build -p braid-offline --release
-    - cd $CI_PROJECT_DIR/flydra2
-    - cargo build --release
-    - PATH="$CI_PROJECT_DIR/target/release:$PATH" cargo test --release
-    - cd $CI_PROJECT_DIR/strand-cam-pseudo-cal
-    - cargo test --release
+    - cargo build -p flydra2 --release
+    - cargo test -p flydra2 --release
+    - cargo test -p strand-cam-pseudo-cal --release
     - cd $CI_PROJECT_DIR/braid/braid-offline
     # test 3D retracking
     - PATH="$CI_PROJECT_DIR/flydra2env/bin:$CI_PROJECT_DIR/target/release:$PATH" cargo test --release -- --include-ignored
