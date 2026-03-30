@@ -178,6 +178,7 @@ conduct](code_of_conduct.md).
  - braid (braid) - multi-camera realtime 3D tracker
  - braid-config-data (braid/braid-config-data) - type definitions for Braid configuration
  - braid-offline (braid/braid-offline) - offline Braid-based tracking
+ - braid-process-video (braid/braid-process-video) - process videos within the Braid multi-camera framework
  - braid-run (braid/braid-run) - run Braid, the multi-camera realtime 3D tracker
  - braid-types (braid/braid-types) - 
  - braid_frontend (braid/braid-run/braid_frontend) - 
@@ -329,7 +330,6 @@ conduct](code_of_conduct.md).
 
 <details>
 
- - braid-process-video (braid-process-video) - process videos within the Braid multi-camera framework
  - build-util (build-util) - 
  - fastfreeimage (fastfreeimage) - 
  - flydra-feature-detector (flydra-feature-detector) - 

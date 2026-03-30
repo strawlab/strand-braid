@@ -694,13 +694,12 @@ braid-process-video:
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
 
-    - cd braid-process-video
-    - cargo test --release
-    - cargo build --release
-    - ldd -v ../target/release/braid-process-video
+    - cargo test --release -p braid-process-video
+    - cargo build --release -p braid-process-video
+    - ldd -v target/release/braid-process-video
 
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cp ../target/release/braid-process-video $CI_PROJECT_DIR/build/
+    - mkdir -p build
+    - cp target/release/braid-process-video build/
   artifacts:
     paths:
       - build/
@@ -726,8 +725,8 @@ slow-tests:
     - cd $CI_PROJECT_DIR/geometry/braidz-mcsc
     - cargo test --release --features with-rerun -- --include-ignored
 
-    - cd $CI_PROJECT_DIR/braid-process-video
-    - cargo test --release -- --include-ignored
+    - cd $CI_PROJECT_DIR
+    - cargo test --release -p braid-process-video -- --include-ignored
 
 extra-programs:
   stage: build

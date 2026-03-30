@@ -9,7 +9,7 @@ members = [
     "braid/braid-types",
     "braid/braid-config-data",
     "braid/braid-offline",
-    "braid-process-video",
+    "braid/braid-process-video",
     "braidz/braidz-parser",
     "braidz/braidz-parser/braidz-chunked-iter",
     "braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter",
