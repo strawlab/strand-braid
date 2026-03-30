@@ -2,6 +2,7 @@
 name = "rerun-braidz-viewer"
 version = "0.1.0"
 edition = "2024"
+description = "a build of the rerun viewer which can directly visualize .braidz files"
 
 [dependencies]
 re_sdk.workspace = true

@@ -191,6 +191,9 @@ conduct](code_of_conduct.md).
  - braidz-chunked-iter (braidz/braidz-parser/braidz-chunked-iter) - 
  - pybraidz-chunked-iter (braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter) - 
  - braidz-cli (braidz/braidz-parser/braidz-cli) - 
+ - braidz-rerun (braidz/braidz-rerun) - export data in braidz files to rerun
+ - braidz-export-rrd (braidz/braidz-rerun/braidz-export-rrd) - CLI program to export a rerun .rrd file from a .braidz file
+ - rerun-braidz-viewer (braidz/braidz-rerun/rerun-braidz-viewer) - a build of the rerun viewer which can directly visualize .braidz files
 </details>
 
 ### `strand-cam/` - single camera application
@@ -308,9 +311,6 @@ conduct](code_of_conduct.md).
  - braid-http-session (braid-http-session) - 
  - braid-offline (braid-offline) - 
  - braid-process-video (braid-process-video) - process videos within the Braid multi-camera framework
- - braidz-rerun (braidz-rerun) - 
- - braidz-export-rrd (braidz-rerun/braidz-export-rrd) - 
- - rerun-braidz-viewer (braidz-rerun/rerun-braidz-viewer) - 
  - braidz-types (braidz-types) - 
  - braidz-viewer (braidz-viewer) - 
  - build-util (build-util) - 

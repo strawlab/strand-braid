@@ -753,8 +753,8 @@ extra-programs:
     - cargo build --release --features with-rerun
     - cp $CI_PROJECT_DIR/target/release/braid-april-cal-cli $CI_PROJECT_DIR/build
 
-    - cd $CI_PROJECT_DIR/braidz-rerun/braidz-export-rrd
-    - cargo build --release
+    - cd $CI_PROJECT_DIR
+    - cargo build --release -p braidz-export-rrd
     - ldd -v $CI_PROJECT_DIR/target/release/braidz-export-rrd
     - cp $CI_PROJECT_DIR/target/release/braidz-export-rrd $CI_PROJECT_DIR/build
 

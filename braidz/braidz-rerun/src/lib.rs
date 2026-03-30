@@ -1,3 +1,4 @@
+//! export data in braidz files to rerun
 use braid_mvg::rerun_io::AsRerunTransform3D;
 use braid_types::CamNum;
 use braidz_types::camera_name_from_filename;

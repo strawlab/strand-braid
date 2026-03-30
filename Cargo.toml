@@ -19,9 +19,9 @@ members = [
     "braidz/braidz-parser/braidz-chunked-iter",
     "braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter",
     "braidz/braidz-parser/braidz-cli",
-    "braidz-rerun",
-    "braidz-rerun/braidz-export-rrd",
-    "braidz-rerun/rerun-braidz-viewer",
+    "braidz/braidz-rerun",
+    "braidz/braidz-rerun/braidz-export-rrd",
+    "braidz/braidz-rerun/rerun-braidz-viewer",
     "braidz-types",
     "braidz-viewer",
     "build-util",
@@ -295,7 +295,7 @@ braid-offline = { path = "braid-offline" }
 braid-mvg = { path = "geometry/braid-mvg", version = "0.1.0" }
 braid-types = { path = "braid/braid-types", default-features = false }
 braidz-parser = { path = "braidz/braidz-parser" }
-braidz-rerun = { path = "braidz-rerun" }
+braidz-rerun = { path = "braidz/braidz-rerun" }
 braidz-types = { path = "braidz-types" }
 braidz-writer = { path = "braid/braidz-writer" }
 build-util = { path = "build-util" }

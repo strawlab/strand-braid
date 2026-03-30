@@ -1,3 +1,4 @@
+//! a build of the rerun viewer which can directly visualize .braidz files
 use rerun::external::{anyhow, re_build_info, re_data_loader, re_log};
 
 fn main() -> anyhow::Result<std::process::ExitCode> {
