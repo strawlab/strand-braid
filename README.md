@@ -333,6 +333,8 @@ conduct](code_of_conduct.md).
  - ads-webasm-example (web/ads-webasm/example) - example usage of yew components used in Strand Camera and Braid
  - braid-http-session (web/braid-http-session) - HTTP session for Braid
  - event-stream-types (web/event-stream-types) - types for http event streams
+ - strand-bui-backend-session (web/strand-bui-backend-session) - Backend session management for the BUI (Browser User Interface) used by Strand Camera and Braid
+ - strand-bui-backend-session-types (web/strand-bui-backend-session/types) - Types for Strand Camera BUI (Browser User Interface) backend session management
  - strand-http-video-streaming (web/strand-http-video-streaming) - stream video over HTTP
  - strand-http-video-streaming-types (web/strand-http-video-streaming/strand-http-video-streaming-types) - Type definitions for HTTP video streaming functionality in the Strand Camera ecosystem.
 </details>
@@ -354,8 +356,6 @@ conduct](code_of_conduct.md).
  - dynlink-nvidia-encode (nvenc/dynlink-nvidia-encode) - 
  - gen-nvenc-bindings (nvenc/dynlink-nvidia-encode/gen-nvenc-bindings) - 
  - nvenc (nvenc) - 
- - strand-bui-backend-session (strand-bui-backend-session) - Backend session management for the BUI (Browser User Interface) used by Strand Camera and Braid
- - strand-bui-backend-session-types (strand-bui-backend-session/types) - Types for Strand Camera BUI (Browser User Interface) backend session management
  - strand-cam-bui-types (strand-cam-bui-types) - Type definitions for the Strand Camera Browser User Interface (BUI) system.
  - strand-cam-csv-config-types (strand-cam-csv-config-types) - 
  - strand-cam-pseudo-cal (strand-cam-pseudo-cal) - 
