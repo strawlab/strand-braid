@@ -3,6 +3,7 @@ name = "strand-cam-pseudo-cal"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "create camera calibration for Braid using only a view of a circle"
 
 [dependencies]
 serde_json.workspace = true

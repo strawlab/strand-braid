@@ -212,6 +212,7 @@ conduct](code_of_conduct.md).
  - strand-cam-csv-config-types (strand-cam/strand-cam-csv-config-types) - type definitions for Strand Camera CSV configuration
  - strand-cam-frontend-yew (strand-cam/yew_frontend) - 
  - strand-cam-offline-checkerboards (strand-cam/strand-cam-offline-checkerboards) - Generate camera intrinsic camera calibration from directory full of images
+ - strand-cam-pseudo-cal (strand-cam/strand-cam-pseudo-cal) - create camera calibration for Braid using only a view of a circle
  - strand-cam-pylon (strand-cam/strand-cam-pylon) - 
  - strand-cam-pylon-gui (strand-cam/strand-cam-pylon-gui) - 
  - strand-cam-vimba (strand-cam/strand-cam-vimba) - 
@@ -358,7 +359,6 @@ conduct](code_of_conduct.md).
  - dynlink-nvidia-encode (nvenc/dynlink-nvidia-encode) - 
  - gen-nvenc-bindings (nvenc/dynlink-nvidia-encode/gen-nvenc-bindings) - 
  - nvenc (nvenc) - 
- - strand-cam-pseudo-cal (strand-cam-pseudo-cal) - 
  - strand-cam-storetype (strand-cam-storetype) - Type definitions for Strand Camera's state management and browser UI communication.
  - tracking (tracking) - 
 </details>

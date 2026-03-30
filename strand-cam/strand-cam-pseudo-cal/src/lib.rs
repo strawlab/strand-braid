@@ -1,3 +1,7 @@
+//! create camera calibration for Braid using only a view of a circle
+//!
+//! This allows using Braid to perform Kalman-filter based tracking in 3D from
+//! purely 2D images from a single camera.
 extern crate nalgebra as na;
 
 use braid_types::RawCamName;
