@@ -31,3 +31,7 @@ description = "general-purpose utilities"
 [[section]]
 name = "im-proc"
 description = "image processing"
+
+[[section]]
+name = "web"
+description = "web utilities"

@@ -3,6 +3,7 @@ name = "ads-webasm"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "yew components used in Strand Camera and Braid"
 
 [dependencies]
 yew.workspace = true

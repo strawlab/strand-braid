@@ -1,8 +1,6 @@
 [workspace]
 resolver = "3"
 members = [
-    "ads-webasm",
-    "ads-webasm/example",
     "strand-dynamic-frame",
     "braid",
     "braid/braid-run",
@@ -125,6 +123,8 @@ members = [
     "utils/write-debian-changelog",
     "utils/zip-or-dir",
     "utils/zip-or-dir/dir2zip",
+    "web/ads-webasm",
+    "web/ads-webasm/example",
     "geometry/braid-apriltag-types",
 ]
 
@@ -282,7 +282,7 @@ zip = { version = "2.2.2", default-features = false, features = [
 ] }
 
 ads-apriltag = { path = "im-proc/ads-apriltag" }
-ads-webasm = { path = "ads-webasm" }
+ads-webasm = { path = "web/ads-webasm" }
 apriltag-detection-writer = { path = "media-utils/apriltag-detection-writer" }
 bisection-search = { path = "geometry/refraction/bisection-search" }
 bg-movie-writer = { path = "media-utils/bg-movie-writer" }

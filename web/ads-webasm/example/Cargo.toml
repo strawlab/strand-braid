@@ -3,6 +3,7 @@ name = "ads-webasm-example"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "example usage of yew components used in Strand Camera and Braid"
 
 [dependencies]
 wasm-bindgen.workspace = true

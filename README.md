@@ -261,13 +261,13 @@ conduct](code_of_conduct.md).
 
 <details>
 
- - simple-obj-parse (geometry/simple-obj-parse) - 
- - textured-tri-mesh (geometry/textured-tri-mesh) - 
  - braid-mvg (geometry/braid-mvg) - Braid's camera geometry and multi-view geometry (MVG) types and algorithms.
  - flydra-mvg (geometry/flydra-mvg) - 
  - refraction (geometry/refraction) - 
  - bisection-search (geometry/refraction/bisection-search) - 
  - braid-apriltag-types (geometry/braid-apriltag-types) - 
+ - simple-obj-parse (geometry/simple-obj-parse) - 
+ - textured-tri-mesh (geometry/textured-tri-mesh) - 
  - parry-geom (geometry/parry-geom) - 
  - undistort-image (geometry/undistort-image) - 
  - flytrax-apriltags-calibration (geometry/braid-april-cal/flytrax-apriltags-calibration) - 
@@ -287,11 +287,11 @@ conduct](code_of_conduct.md).
 
 <details>
 
- - strand-cam-enum-iter (utils/strand-cam-enum-iter) - A utility crate to provide an EnumIter trait for iterating over enums in the Strand Camera ecosystem
  - strand-datetime-conversion (utils/strand-datetime-conversion) - Convert between chrono and f64 time. Used in Strand Camera and Braid.
  - strand-withkey (utils/strand-withkey) - defines the WithKey trait for Strand Camera
  - env-tracing-logger (utils/env-tracing-logger) - 
  - download-verify (utils/download-verify) - 
+ - strand-cam-enum-iter (utils/strand-cam-enum-iter) - A utility crate to provide an EnumIter trait for iterating over enums in the Strand Camera ecosystem
  - csv-eof (utils/csv-eof) - 
  - groupby (utils/groupby) - 
  - zip-or-dir (utils/zip-or-dir) - read files from either a zip file or a directory
@@ -310,12 +310,18 @@ conduct](code_of_conduct.md).
  - apriltag-track-movie (im-proc/ads-apriltag/apriltag-track-movie) - use ffmpeg to decode input movie and output csv file with april tag detections
 </details>
 
+### `web/` - web utilities
+
+<details>
+
+ - ads-webasm (web/ads-webasm) - yew components used in Strand Camera and Braid
+ - ads-webasm-example (web/ads-webasm/example) - example usage of yew components used in Strand Camera and Braid
+</details>
+
 ### uncategorized / miscellaneous
 
 <details>
 
- - ads-webasm (ads-webasm) - 
- - ads-webasm-example (ads-webasm/example) - 
  - braid-config-data (braid-config-data) - 
  - braid-http-session (braid-http-session) - 
  - braid-offline (braid-offline) - 
