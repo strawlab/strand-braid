@@ -1,3 +1,7 @@
+//! web based quick .braidz viewer
+//!
+//! This web app can be locally installed and views files locally (without
+//! uploading them from the browser).
 use std::collections::HashMap;
 
 use gloo::timers::callback::Timeout;

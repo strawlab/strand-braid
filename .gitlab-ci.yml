@@ -840,7 +840,7 @@ braid-webapps:
 
     - rustup target add wasm32-unknown-unknown
 
-    - cd $CI_PROJECT_DIR/braidz-viewer
+    - cd $CI_PROJECT_DIR/braidz/braidz-viewer
     - ./build.sh
 
     - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-webapp

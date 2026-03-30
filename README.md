@@ -195,6 +195,7 @@ conduct](code_of_conduct.md).
  - braidz-rerun (braidz/braidz-rerun) - export data in braidz files to rerun
  - braidz-export-rrd (braidz/braidz-rerun/braidz-export-rrd) - CLI program to export a rerun .rrd file from a .braidz file
  - rerun-braidz-viewer (braidz/braidz-rerun/rerun-braidz-viewer) - a build of the rerun viewer which can directly visualize .braidz files
+ - braidz-viewer (braidz/braidz-viewer) - web based quick .braidz viewer
 </details>
 
 ### `strand-cam/` - single camera application
@@ -312,7 +313,6 @@ conduct](code_of_conduct.md).
  - braid-http-session (braid-http-session) - 
  - braid-offline (braid-offline) - 
  - braid-process-video (braid-process-video) - process videos within the Braid multi-camera framework
- - braidz-viewer (braidz-viewer) - 
  - build-util (build-util) - 
  - event-stream-types (event-stream-types) - 
  - fastfreeimage (fastfreeimage) - 
