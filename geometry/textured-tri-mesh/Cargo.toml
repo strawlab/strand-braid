@@ -2,6 +2,7 @@
 name = "textured-tri-mesh"
 version = "0.1.0"
 edition = "2024"
+description = "textured triangle mesh data type with optional serde support"
 
 [dependencies]
 serde = { workspace = true, features = ["derive"], optional = true }

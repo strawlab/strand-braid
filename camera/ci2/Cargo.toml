@@ -3,6 +3,7 @@ name = "ci2"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "camera interface (ci2) trait definitions for machine vision cameras"
 
 [dependencies]
 thiserror.workspace = true

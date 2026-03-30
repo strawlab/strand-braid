@@ -3,6 +3,7 @@ name = "braidz-parser"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "parse .braidz files from the Braid multi-camera tracking system"
 
 [dependencies]
 thiserror.workspace = true

@@ -2,6 +2,7 @@
 name = "less-avc-wrapper"
 version = "0.1.0"
 edition = "2024"
+description = "encode video frames to H.264 using the less-avc library"
 
 [dependencies]
 less-avc.workspace = true

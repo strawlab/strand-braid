@@ -2,6 +2,7 @@
 name = "strand-cam-pylon-gui"
 version = "0.12.0-alpha.9"    # braid release synchronized
 edition = "2024"
+description = "Strand Camera with Basler Pylon backend and eframe GUI"
 
 [dependencies]
 eyre.workspace = true

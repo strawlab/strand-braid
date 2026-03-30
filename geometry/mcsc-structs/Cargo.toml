@@ -2,6 +2,7 @@
 name = "mcsc-structs"
 version = "0.1.0"
 edition = "2024"
+description = "data structures and file I/O for the MultiCamSelfCal calibration tool"
 
 [dependencies]
 eyre.workspace = true

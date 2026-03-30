@@ -3,6 +3,7 @@ name = "pybraidz-chunked-iter"
 version = "0.1.0"
 edition = "2024"
 license = "MIT/Apache-2.0"
+description = "Python bindings for braidz-chunked-iter"
 
 [lib]
 name = "pybraidz_chunked_iter"

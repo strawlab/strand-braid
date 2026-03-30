@@ -2,6 +2,7 @@
 name = "bundle-adj"
 version = "0.1.0"
 edition = "2024"
+description = "bundle adjustment for multi-camera calibration"
 
 [dependencies]
 cam-geom.workspace = true

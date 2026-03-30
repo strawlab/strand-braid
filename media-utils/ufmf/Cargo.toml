@@ -3,6 +3,7 @@ name = "ufmf"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "read and write .ufmf (Uncompressed Fly Movie Format) video files"
 
 [dependencies]
 byteorder.workspace = true

@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 license = "MIT/Apache-2.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
+description = "iterate over Braid tracking data in time-based or frame-based chunks"
 
 [dependencies]
 anyhow.workspace = true

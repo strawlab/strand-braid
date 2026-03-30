@@ -3,6 +3,7 @@ name = "env-tracing-logger"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "initialize a tracing subscriber configured from environment variables"
 
 [dependencies]
 chrono.workspace = true

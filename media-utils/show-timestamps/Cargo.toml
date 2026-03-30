@@ -2,6 +2,7 @@
 name = "show-timestamps"
 version = "0.12.0-alpha.9" # braid release synchronized
 edition = "2024"
+description = "display timestamps embedded in Strand Camera video files"
 
 [dependencies]
 serde.workspace = true

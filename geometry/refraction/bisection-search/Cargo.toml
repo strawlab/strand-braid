@@ -3,6 +3,7 @@ name = "bisection-search"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "generic bisection search algorithm over ordered fields"
 
 [dependencies]
 simba = { workspace = true, features = ["libm"] }

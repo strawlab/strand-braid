@@ -2,6 +2,7 @@
 name = "ffmpeg-writer"
 version = "0.1.0"
 edition = "2024"
+description = "write video by piping raw frames through ffmpeg"
 
 [dependencies]
 machine-vision-formats.workspace = true

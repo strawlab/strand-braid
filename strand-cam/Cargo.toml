@@ -5,6 +5,7 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 build = "build.rs"
 homepage = "https://strawlab.org/strand-cam"
 edition = "2024"
+description = "Strand Camera: a single-camera recording and realtime tracking application"
 
 [lib]
 path = "src/strand-cam.rs"

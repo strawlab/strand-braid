@@ -4,6 +4,7 @@ license = "BSD-2-Clause"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "Rust bindings to the AprilTag C library for fiducial marker detection"
 
 [dependencies]
 apriltag-sys = "0.4"

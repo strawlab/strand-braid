@@ -3,6 +3,7 @@ name = "mp4-writer"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "write MP4 video files with H.264 encoding"
 
 [dependencies]
 tracing.workspace = true

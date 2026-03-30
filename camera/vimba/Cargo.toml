@@ -2,6 +2,7 @@
 name = "vimba"
 version = "0.1.0"
 edition = "2024"
+description = "low-level Rust bindings for the Allied Vision Vimba SDK"
 
 [dependencies]
 vmbc-sys = "0.1"

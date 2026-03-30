@@ -2,6 +2,7 @@
 name = "braidz-writer"
 version = "0.1.0"
 edition = "2024"
+description = "write .braidz data files for the Braid tracking system"
 
 [dependencies]
 walkdir = "2.5"

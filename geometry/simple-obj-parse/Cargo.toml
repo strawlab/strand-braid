@@ -3,6 +3,7 @@ name = "simple-obj-parse"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "parse Wavefront OBJ 3D model files into triangle meshes"
 
 [dependencies]
 nalgebra.workspace = true
