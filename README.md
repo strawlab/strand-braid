@@ -247,16 +247,20 @@ conduct](code_of_conduct.md).
  - burn-timestamps (media-utils/burn-timestamps) - 
  - create-timelapse (media-utils/create-timelapse) - create timelapse video from mp4 h264 source without transcoding
  - dump-frame (media-utils/dump-frame) - 
+ - dynlink-cuda (media-utils/nvenc/dynlink-cuda) - 
+ - dynlink-nvidia-encode (media-utils/nvenc/dynlink-nvidia-encode) - 
  - ffmpeg-rewriter (media-utils/ffmpeg-rewriter) - 
  - ffmpeg-writer (media-utils/ffmpeg-writer) - 
  - fmf (media-utils/fmf) - 
  - fmf-cli (media-utils/fmf/fmf-cli) - work with .fmf (fly movie format) files
  - font-drawing (media-utils/font-drawing) - 
  - frame-source (media-utils/frame-source) - 
+ - gen-nvenc-bindings (media-utils/nvenc/dynlink-nvidia-encode/gen-nvenc-bindings) - 
  - less-avc-wrapper (media-utils/less-avc-wrapper) - 
  - mkv-parser-kit (media-utils/mkv-parser-kit) - Library for building Matroska (MKV) file parsers
  - mkv-strand-reader (media-utils/mkv-strand-reader) - 
  - mp4-writer (media-utils/mp4-writer) - 
+ - nvenc (media-utils/nvenc) - 
  - show-timestamps (media-utils/show-timestamps) - 
  - srt-writer (media-utils/srt-writer) - 
  - strand-convert (media-utils/strand-convert) - 
@@ -357,10 +361,6 @@ conduct](code_of_conduct.md).
 
 <details>
 
- - dynlink-cuda (nvenc/dynlink-cuda) - 
- - dynlink-nvidia-encode (nvenc/dynlink-nvidia-encode) - 
- - gen-nvenc-bindings (nvenc/dynlink-nvidia-encode/gen-nvenc-bindings) - 
- - nvenc (nvenc) - 
 </details>
 
 <!-- workspace-docs end -->
