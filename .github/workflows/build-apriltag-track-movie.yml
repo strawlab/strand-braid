@@ -12,44 +12,33 @@ jobs:
       matrix:
         runs-on: [ubuntu-24.04, ubuntu-22.04]
     runs-on: ${{ matrix.runs-on }}
-    defaults:
-      run:
-        working-directory: ads-apriltag/apriltag-track-movie
     steps:
       - uses: actions/checkout@v6
       - name: Build app
         run: |
-          cargo build --release
+          cargo build -p apriltag-track-movie --release
       - name: Show shared libraries required
         run: |
-          ldd ${{ github.workspace }}/target/release/apriltag-track-movie
+          ldd target/release/apriltag-track-movie
       - uses: actions/upload-artifact@v4
         with:
           name: apriltag-track-movie-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}
-          path: ${{ github.workspace }}/target/release/apriltag-track-movie
+          path: target/release/apriltag-track-movie
 
   apriltag-track-movie-windows:
     runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: ads-apriltag/apriltag-track-movie
     steps:
       - uses: actions/checkout@v6
       - name: Install pthread
-        uses: lukka/run-vcpkg@v7
-        id: vcpkg
-        with:
-          vcpkgArguments: "pthread"
-          vcpkgTriplet: "x64-windows-static"
-          vcpkgDirectory: "${{ github.workspace }}/vcpkg"
-          vcpkgGitCommitId: "57bd7102d9fd880daa1b0958692294c4a125f6d8"
+        run: vcpkg install pthread:x64-windows-static
+        shell: cmd
       - name: Build app
-        env:
-          APRILTAG_SYS_WINDOWS_PTHREAD_INCLUDE_DIR: '${{steps.vcpkg.outputs.RUNVCPKG_VCPKG_ROOT_OUT}}\installed\x64-windows-static\include'
-          APRILTAG_SYS_WINDOWS_PTHREAD_STATIC_LIB: '${{steps.vcpkg.outputs.RUNVCPKG_VCPKG_ROOT_OUT}}\installed\x64-windows-static\lib\pthreadVC3.lib'
         run: |
-          cargo build --release
+          $env:APRILTAG_SYS_WINDOWS_PTHREAD_INCLUDE_DIR = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static\include"
+          $env:APRILTAG_SYS_WINDOWS_PTHREAD_STATIC_LIB = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static\lib\pthreadVC3.lib"
+          cargo build -p apriltag-track-movie --release
+        shell: pwsh
       - uses: actions/upload-artifact@v4
         with:
           name: apriltag-track-movie-${{ runner.os }}-${{ runner.arch }}
-          path: ${{ github.workspace }}/target/release/apriltag-track-movie.exe
+          path: target/release/apriltag-track-movie.exe
