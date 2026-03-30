@@ -8,7 +8,7 @@ members = [
     "braid/braidz-writer",
     "braid/braidz-writer/cli",
     "braid/braid-types",
-    "braid-config-data",
+    "braid/braid-config-data",
     "braid-offline",
     "braid-process-video",
     "braidz/braidz-parser",
@@ -289,7 +289,7 @@ bg-movie-writer = { path = "media-utils/bg-movie-writer" }
 braid = { path = "braid" }
 braid-april-cal = { path = "geometry/braid-april-cal" }
 braid-apriltag-types = { path = "geometry/braid-apriltag-types" }
-braid-config-data = { path = "braid-config-data" }
+braid-config-data = { path = "braid/braid-config-data" }
 braid-http-session = { path = "web/braid-http-session" }
 braid-offline = { path = "braid-offline" }
 braid-mvg = { path = "geometry/braid-mvg", version = "0.1.0" }

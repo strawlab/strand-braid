@@ -2,6 +2,7 @@
 name = "braid-config-data"
 version = "0.1.0"
 edition = "2024"
+description = "type definitions for Braid configuration"
 
 [dependencies]
 toml.workspace = true

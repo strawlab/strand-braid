@@ -1,3 +1,4 @@
+//! type definitions for Braid configuration
 use serde::{Deserialize, Serialize};
 
 use braid_types::{BraidCameraConfig, FakeSyncConfig, TriggerType, TriggerboxConfig};
