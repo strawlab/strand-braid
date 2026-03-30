@@ -2,6 +2,7 @@
 name = "ffmpeg-rewriter"
 version = "0.1.0"
 edition = "2024"
+description = "re-encode video files by piping frames through ffmpeg"
 
 [dependencies]
 machine-vision-formats.workspace = true

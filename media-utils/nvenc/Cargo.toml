@@ -3,8 +3,7 @@ name = "nvenc"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "GPU-accelerated H.264 video encoding using NVIDIA NVENC"
 
 [dependencies]
 dynlink-cuda = { path = "dynlink-cuda" }

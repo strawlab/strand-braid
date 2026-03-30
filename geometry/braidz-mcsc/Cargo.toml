@@ -2,6 +2,7 @@
 name = "braidz-mcsc"
 version = "0.1.0"
 edition = "2024"
+description = "multi-camera self-calibration from .braidz tracking data"
 
 [dependencies]
 clap.workspace = true

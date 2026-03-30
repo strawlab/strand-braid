@@ -2,6 +2,7 @@
 name = "dump-frame"
 version = "0.1.0"
 edition = "2024"
+description = "CLI tool to extract and save individual frames from video files"
 
 [dependencies]
 anyhow.workspace = true

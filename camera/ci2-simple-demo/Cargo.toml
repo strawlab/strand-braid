@@ -3,6 +3,7 @@ name = "ci2-simple-demo"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "simple demonstration of the ci2 camera API"
 
 [dependencies]
 tracing.workspace = true

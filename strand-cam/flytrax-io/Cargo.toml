@@ -2,6 +2,7 @@
 name = "flytrax-io"
 version = "0.1.0"
 edition = "2024"
+description = "read FlyTrax CSV configuration headers written by Strand Camera"
 
 [dependencies]
 eyre.workspace = true

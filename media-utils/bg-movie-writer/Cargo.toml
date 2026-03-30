@@ -3,6 +3,7 @@ name = "bg-movie-writer"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "write video recordings in a background thread"
 
 [dependencies]
 tracing.workspace = true

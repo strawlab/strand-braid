@@ -2,6 +2,7 @@
 name = "y4m-writer"
 version = "0.1.0"
 edition = "2024"
+description = "write raw video frames in YUV4MPEG2 (Y4M) format"
 
 [dependencies]
 machine-vision-formats.workspace = true

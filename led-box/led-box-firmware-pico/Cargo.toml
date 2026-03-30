@@ -4,6 +4,7 @@ edition = "2024"
 readme = "README.md"
 name = "led-box-firmware-pico"
 version = "0.0.1"
+description = "firmware for LED control hardware based on the Raspberry Pi Pico"
 
 [dependencies]
 cortex-m = "0.7.7"

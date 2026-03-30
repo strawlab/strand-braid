@@ -3,6 +3,7 @@ name = "strand-convert"
 version = "0.12.0-alpha.9"                       # braid release synchronized
 edition = "2024"
 authors = ["Andrew Straw <strawman@astraw.com>"]
+description = "convert between video formats used in the Strand Camera ecosystem"
 
 [dependencies]
 clap.workspace = true

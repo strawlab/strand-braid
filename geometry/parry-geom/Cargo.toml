@@ -3,6 +3,7 @@ name = "parry-geom"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "create collision masks from point sets using the Parry geometry library"
 
 [dependencies]
 parry2d-f64 = { workspace = true, features = ["default"] }

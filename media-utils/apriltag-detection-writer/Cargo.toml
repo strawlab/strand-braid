@@ -2,6 +2,7 @@
 name = "apriltag-detection-writer"
 version = "0.1.0"
 edition = "2024"
+description = "write AprilTag detection results to CSV files"
 
 [dependencies]
 serde.workspace = true

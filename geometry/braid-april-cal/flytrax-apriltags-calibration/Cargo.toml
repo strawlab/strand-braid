@@ -2,6 +2,7 @@
 name = "flytrax-apriltags-calibration"
 version = "0.1.0"
 edition = "2024"
+description = "CLI tool for FlyTrax camera calibration using AprilTags"
 
 [dependencies]
 eyre.workspace = true

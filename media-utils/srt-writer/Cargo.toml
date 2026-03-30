@@ -2,3 +2,4 @@
 name = "srt-writer"
 version = "0.1.0"
 edition = "2024"
+description = "write SubRip (SRT) subtitle files with timestamp data"

@@ -2,6 +2,7 @@
 name = "ci2-vimba-types"
 version = "0.1.0"
 edition = "2024"
+description = "Vimba-specific type definitions for the ci2 camera interface"
 
 [dependencies]
 ci2.workspace = true

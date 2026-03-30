@@ -2,6 +2,7 @@
 name = "burn-timestamps"
 version = "0.1.0"
 edition = "2024"
+description = "burn timestamps into video frames as rendered text"
 
 [dependencies]
 clap.workspace = true

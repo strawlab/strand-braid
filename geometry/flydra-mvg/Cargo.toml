@@ -3,6 +3,7 @@ name = "flydra-mvg"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "Flydra-compatible multi-view geometry with refraction support"
 
 [dependencies]
 thiserror.workspace = true

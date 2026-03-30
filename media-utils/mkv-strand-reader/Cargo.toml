@@ -2,6 +2,7 @@
 name = "mkv-strand-reader"
 version = "0.1.0"
 edition = "2024"
+description = "read Strand Camera MKV video files with embedded metadata"
 
 [dependencies]
 mkv-parser-kit = { path = "../mkv-parser-kit" }

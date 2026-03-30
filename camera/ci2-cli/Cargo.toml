@@ -3,6 +3,7 @@ name = "ci2-cli"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "command-line interface for ci2 camera backends"
 
 [[bin]]
 name = "ci2"

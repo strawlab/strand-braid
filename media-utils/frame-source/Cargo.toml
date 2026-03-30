@@ -2,6 +2,7 @@
 name = "frame-source"
 version = "0.1.0"
 edition = "2024"
+description = "read video frames from MP4, FMF, MKV, and TIFF stack sources"
 
 [dependencies]
 thiserror.workspace = true

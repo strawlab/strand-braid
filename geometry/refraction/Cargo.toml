@@ -3,6 +3,7 @@ name = "refraction"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+description = "compute light refraction at planar interfaces using Snell's law"
 
 [dependencies]
 simba.workspace = true
