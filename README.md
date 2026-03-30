@@ -233,8 +233,6 @@ conduct](code_of_conduct.md).
 
 <details>
 
- - apriltag-detection-writer (media-utils/apriltag-detection-writer) - 
- - y4m-writer (media-utils/y4m-writer) - 
  - ufmf (media-utils/ufmf) - 
  - fmf (media-utils/fmf) - 
  - frame-source (media-utils/frame-source) - 
@@ -242,7 +240,9 @@ conduct](code_of_conduct.md).
  - mkv-parser-kit (media-utils/mkv-parser-kit) - Library for building Matroska (MKV) file parsers
  - mp4-writer (media-utils/mp4-writer) - 
  - less-avc-wrapper (media-utils/less-avc-wrapper) - 
+ - y4m-writer (media-utils/y4m-writer) - 
  - font-drawing (media-utils/font-drawing) - 
+ - apriltag-detection-writer (media-utils/apriltag-detection-writer) - 
  - bg-movie-writer (media-utils/bg-movie-writer) - 
  - ffmpeg-rewriter (media-utils/ffmpeg-rewriter) - 
  - ffmpeg-writer (media-utils/ffmpeg-writer) - 
@@ -287,11 +287,11 @@ conduct](code_of_conduct.md).
 
 <details>
 
- - download-verify (utils/download-verify) - 
  - strand-cam-enum-iter (utils/strand-cam-enum-iter) - A utility crate to provide an EnumIter trait for iterating over enums in the Strand Camera ecosystem
  - strand-datetime-conversion (utils/strand-datetime-conversion) - Convert between chrono and f64 time. Used in Strand Camera and Braid.
  - strand-withkey (utils/strand-withkey) - defines the WithKey trait for Strand Camera
  - env-tracing-logger (utils/env-tracing-logger) - 
+ - download-verify (utils/download-verify) - 
  - csv-eof (utils/csv-eof) - 
  - groupby (utils/groupby) - 
  - zip-or-dir (utils/zip-or-dir) - read files from either a zip file or a directory
@@ -306,14 +306,14 @@ conduct](code_of_conduct.md).
 <details>
 
  - imops (im-proc/imops) - image processing operations, accelerated using SIMD
+ - ads-apriltag (im-proc/ads-apriltag) - 
+ - apriltag-track-movie (im-proc/ads-apriltag/apriltag-track-movie) - use ffmpeg to decode input movie and output csv file with april tag detections
 </details>
 
 ### uncategorized / miscellaneous
 
 <details>
 
- - ads-apriltag (ads-apriltag) - 
- - apriltag-track-movie (ads-apriltag/apriltag-track-movie) - use ffmpeg to decode input movie and output csv file with april tag detections
  - ads-webasm (ads-webasm) - 
  - ads-webasm-example (ads-webasm/example) - 
  - braid-config-data (braid-config-data) - 
