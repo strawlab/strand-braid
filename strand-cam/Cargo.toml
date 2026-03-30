@@ -126,14 +126,14 @@ default = ["flydra_feat_detect", "imtrack-absdiff", "do_not_use_ipp"]
 
 eframe-gui = ["eframe"]
 fiducial = [
-    "ads-apriltag",
-    "csv",
-    "libflate",
+    "dep:ads-apriltag",
+    "dep:csv",
+    "dep:libflate",
     "strand-dynamic-frame/convert-image",
-    "apriltag-detection-writer",
+    "dep:apriltag-detection-writer",
 ]
 
-checkercal = ["opencv-calibrate", "camcal", "braid-mvg"]
+checkercal = ["dep:opencv-calibrate", "dep:camcal", "dep:braid-mvg"]
 
 # Serve style
 ## Bundle files into executable
@@ -145,12 +145,12 @@ imtrack-dark-circle = []
 imtrack-absdiff = []
 
 flydratrax = [
-    "braid-config-data",
-    "braid-mvg",
-    "strand-cam-pseudo-cal",
-    "flydra-mvg",
-    "approx",
-    "flydra2",
+    "dep:braid-config-data",
+    "dep:braid-mvg",
+    "dep:strand-cam-pseudo-cal",
+    "dep:flydra-mvg",
+    "dep:approx",
+    "dep:flydra2",
     "flydra_feat_detect",
 ]
 
