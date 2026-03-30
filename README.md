@@ -215,6 +215,7 @@ conduct](code_of_conduct.md).
  - strand-cam-pseudo-cal (strand-cam/strand-cam-pseudo-cal) - create camera calibration for Braid using only a view of a circle
  - strand-cam-pylon (strand-cam/strand-cam-pylon) - 
  - strand-cam-pylon-gui (strand-cam/strand-cam-pylon-gui) - 
+ - strand-cam-storetype (strand-cam/strand-cam-storetype) - Type definitions for Strand Camera's state management and browser UI communication.
  - strand-cam-vimba (strand-cam/strand-cam-vimba) - 
 </details>
 
@@ -359,7 +360,6 @@ conduct](code_of_conduct.md).
  - dynlink-nvidia-encode (nvenc/dynlink-nvidia-encode) - 
  - gen-nvenc-bindings (nvenc/dynlink-nvidia-encode/gen-nvenc-bindings) - 
  - nvenc (nvenc) - 
- - strand-cam-storetype (strand-cam-storetype) - Type definitions for Strand Camera's state management and browser UI communication.
  - tracking (tracking) - 
 </details>
 
