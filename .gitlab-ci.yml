@@ -248,9 +248,7 @@ test_crates_rust_stable:
     - cargo test -p braidz-parser
 
     # Test tracking
-    - cd tracking
-    - cargo test
-    - cd ..
+    - cargo test -p tracking
 
     # Test ufmf
     - cd $CI_PROJECT_DIR/media-utils/ufmf

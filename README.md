@@ -185,6 +185,7 @@ conduct](code_of_conduct.md).
  - braidz-writer (braid/braidz-writer) - 
  - braidz-writer-cli (braid/braidz-writer/cli) - 
  - flydra2 (braid/flydra2) - high-level multi-camera 3D tracking, ported from Flydra
+ - tracking (braid/tracking) - motion and observation models for Kalman filtering
 </details>
 
 ### `braidz/` - braidz file handling
@@ -360,7 +361,6 @@ conduct](code_of_conduct.md).
  - dynlink-nvidia-encode (nvenc/dynlink-nvidia-encode) - 
  - gen-nvenc-bindings (nvenc/dynlink-nvidia-encode/gen-nvenc-bindings) - 
  - nvenc (nvenc) - 
- - tracking (tracking) - 
 </details>
 
 <!-- workspace-docs end -->

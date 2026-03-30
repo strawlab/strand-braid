@@ -1,3 +1,4 @@
+//! motion and observation models for Kalman filtering
 extern crate nalgebra as na;
 
 pub mod flat_motion_model_3d;

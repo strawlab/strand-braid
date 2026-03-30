@@ -11,6 +11,7 @@ members = [
     "braid/braid-offline",
     "braid/braid-process-video",
     "braid/flydra2",
+    "braid/tracking",
     "braidz/braidz-parser",
     "braidz/braidz-parser/braidz-chunked-iter",
     "braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter",
@@ -104,7 +105,6 @@ members = [
     "strand-cam/strand-cam-csv-config-types",
     "strand-cam/strand-cam-pseudo-cal",
     "strand-cam/strand-cam-storetype",
-    "tracking",
     "utils/build-util",
     "utils/csv-eof",
     "utils/download-verify",
@@ -357,7 +357,7 @@ strand-led-box-comms = { path = "led-box/strand-led-box-comms", version = "0.1.0
 strand-withkey = { path = "utils/strand-withkey", version = "0.1.0" }
 textured-tri-mesh = { path = "geometry/textured-tri-mesh" }
 tiff-decoder = { path = "media-utils/tiff-decoder" }
-tracking = { path = "tracking" }
+tracking = { path = "braid/tracking" }
 ufmf = { path = "media-utils/ufmf" }
 undistort-image = { path = "geometry/undistort-image" }
 vimba = { path = "camera/vimba" }
