@@ -183,6 +183,16 @@ conduct](code_of_conduct.md).
  - braidz-writer-cli (braid/braidz-writer/cli) - 
 </details>
 
+### `braidz/` - braidz file handling
+
+<details>
+
+ - braidz-parser (braidz/braidz-parser) - 
+ - braidz-chunked-iter (braidz/braidz-parser/braidz-chunked-iter) - 
+ - pybraidz-chunked-iter (braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter) - 
+ - braidz-cli (braidz/braidz-parser/braidz-cli) - 
+</details>
+
 ### `strand-cam/` - single camera application
 
 <details>
@@ -298,10 +308,6 @@ conduct](code_of_conduct.md).
  - braid-http-session (braid-http-session) - 
  - braid-offline (braid-offline) - 
  - braid-process-video (braid-process-video) - process videos within the Braid multi-camera framework
- - braidz-parser (braidz-parser) - 
- - braidz-chunked-iter (braidz-parser/braidz-chunked-iter) - 
- - pybraidz-chunked-iter (braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter) - 
- - braidz-cli (braidz-parser/braidz-cli) - 
  - braidz-rerun (braidz-rerun) - 
  - braidz-export-rrd (braidz-rerun/braidz-export-rrd) - 
  - rerun-braidz-viewer (braidz-rerun/rerun-braidz-viewer) - 

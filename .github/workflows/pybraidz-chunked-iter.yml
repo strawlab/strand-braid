@@ -43,13 +43,13 @@ jobs:
           target: ${{ matrix.target }}
           args: --release --out dist --find-interpreter
           sccache: "true"
-          working-directory: braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter
+          working-directory: braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter
           manylinux: auto
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: wheels-linux-${{ matrix.target }}
-          path: braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter/dist
+          path: braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter/dist
 
   windows:
     runs-on: windows-latest
@@ -69,12 +69,12 @@ jobs:
           target: ${{ matrix.target }}
           args: --release --out dist --find-interpreter
           sccache: "true"
-          working-directory: braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter
+          working-directory: braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: wheels-windows-${{ matrix.target }}
-          path: braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter/dist
+          path: braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter/dist
 
   macos:
     runs-on: macos-latest
@@ -92,12 +92,12 @@ jobs:
           target: ${{ matrix.target }}
           args: --release --out dist --find-interpreter
           sccache: "true"
-          working-directory: braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter
+          working-directory: braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
           name: wheels-macos-${{ matrix.target }}
-          path: braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter/dist
+          path: braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter/dist
 
   sdist:
     runs-on: ubuntu-latest
@@ -108,12 +108,12 @@ jobs:
         with:
           command: sdist
           args: --out dist
-          working-directory: braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter
+          working-directory: braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter
       - name: Upload sdist
         uses: actions/upload-artifact@v4
         with:
           name: wheels-sdist
-          path: braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter/dist
+          path: braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter/dist
 
   merge:
     name: Merge wheels
@@ -149,4 +149,4 @@ jobs:
         with:
           command: upload
           args: --non-interactive --skip-existing *
-          working-directory: braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter
+          working-directory: braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter

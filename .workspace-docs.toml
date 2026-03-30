@@ -5,6 +5,10 @@ name = "braid"
 description = "multi-camera realtime 3D tracker"
 
 [[section]]
+name = "braidz"
+description = "braidz file handling"
+
+[[section]]
 name = "strand-cam"
 description = "single camera application"
 

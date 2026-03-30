@@ -259,9 +259,8 @@ test_crates_rust_stable:
     - cd ..
 
     # Test braidz-parser
-    - cd braidz-parser
-    - cargo test
-    - cd ..
+    - cd $CI_PROJECT_DIR
+    - cargo test -p braidz-parser
 
     # Test tracking
     - cd tracking
@@ -759,9 +758,9 @@ extra-programs:
     - ldd -v $CI_PROJECT_DIR/target/release/braidz-export-rrd
     - cp $CI_PROJECT_DIR/target/release/braidz-export-rrd $CI_PROJECT_DIR/build
 
-    - cd $CI_PROJECT_DIR/braidz-parser/braidz-cli
-    - cargo build --release
-    - cp ../../target/release/braidz-cli $CI_PROJECT_DIR/build
+    - cd $CI_PROJECT_DIR
+    - cargo build --release -p braidz-cli
+    - cp target/release/braidz-cli $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/media-utils/strand-convert
     - cargo build --release
