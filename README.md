@@ -335,6 +335,7 @@ conduct](code_of_conduct.md).
  - event-stream-types (web/event-stream-types) - types for http event streams
  - strand-bui-backend-session (web/strand-bui-backend-session) - Backend session management for the BUI (Browser User Interface) used by Strand Camera and Braid
  - strand-bui-backend-session-types (web/strand-bui-backend-session/types) - Types for Strand Camera BUI (Browser User Interface) backend session management
+ - strand-cam-bui-types (web/strand-cam-bui-types) - Type definitions for the Strand Camera Browser User Interface (BUI) system.
  - strand-http-video-streaming (web/strand-http-video-streaming) - stream video over HTTP
  - strand-http-video-streaming-types (web/strand-http-video-streaming/strand-http-video-streaming-types) - Type definitions for HTTP video streaming functionality in the Strand Camera ecosystem.
 </details>
@@ -356,7 +357,6 @@ conduct](code_of_conduct.md).
  - dynlink-nvidia-encode (nvenc/dynlink-nvidia-encode) - 
  - gen-nvenc-bindings (nvenc/dynlink-nvidia-encode/gen-nvenc-bindings) - 
  - nvenc (nvenc) - 
- - strand-cam-bui-types (strand-cam-bui-types) - Type definitions for the Strand Camera Browser User Interface (BUI) system.
  - strand-cam-csv-config-types (strand-cam-csv-config-types) - 
  - strand-cam-pseudo-cal (strand-cam-pseudo-cal) - 
  - strand-cam-storetype (strand-cam-storetype) - Type definitions for Strand Camera's state management and browser UI communication.
