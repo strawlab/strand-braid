@@ -108,8 +108,6 @@ members = [
     "strand-cam-csv-config-types",
     "strand-cam-pseudo-cal",
     "strand-cam-storetype",
-    "strand-http-video-streaming",
-    "strand-http-video-streaming/strand-http-video-streaming-types",
     "tracking",
     "utils/csv-eof",
     "utils/download-verify",
@@ -125,6 +123,8 @@ members = [
     "utils/zip-or-dir/dir2zip",
     "web/ads-webasm",
     "web/ads-webasm/example",
+    "web/strand-http-video-streaming",
+    "web/strand-http-video-streaming/strand-http-video-streaming-types",
     "geometry/braid-apriltag-types",
 ]
 
@@ -351,8 +351,8 @@ strand-cam-pseudo-cal = { path = "strand-cam-pseudo-cal" }
 strand-cam-storetype = { path = "strand-cam-storetype", version = "0.1.0" }
 strand-datetime-conversion = { path = "utils/strand-datetime-conversion", version = "0.1.0" }
 strand-dynamic-frame = { path = "strand-dynamic-frame", version = "0.1.0" }
-strand-http-video-streaming = { path = "strand-http-video-streaming" }
-strand-http-video-streaming-types = { path = "strand-http-video-streaming/strand-http-video-streaming-types", version = "0.1.0" }
+strand-http-video-streaming = { path = "web/strand-http-video-streaming" }
+strand-http-video-streaming-types = { path = "web/strand-http-video-streaming/strand-http-video-streaming-types", version = "0.1.0" }
 strand-led-box-comms = { path = "led-box/strand-led-box-comms", version = "0.1.0" }
 strand-withkey = { path = "utils/strand-withkey", version = "0.1.0" }
 textured-tri-mesh = { path = "geometry/textured-tri-mesh" }

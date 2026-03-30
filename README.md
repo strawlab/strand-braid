@@ -317,6 +317,8 @@ conduct](code_of_conduct.md).
  - ads-webasm (web/ads-webasm) - yew components used in Strand Camera and Braid
  - ads-webasm-example (web/ads-webasm/example) - example usage of yew components used in Strand Camera and Braid
  - braid-http-session (web/braid-http-session) - HTTP session for Braid
+ - strand-http-video-streaming (web/strand-http-video-streaming) - stream video over HTTP
+ - strand-http-video-streaming-types (web/strand-http-video-streaming/strand-http-video-streaming-types) - Type definitions for HTTP video streaming functionality in the Strand Camera ecosystem.
 </details>
 
 ### uncategorized / miscellaneous
@@ -352,8 +354,6 @@ conduct](code_of_conduct.md).
  - strand-cam-pseudo-cal (strand-cam-pseudo-cal) - 
  - strand-cam-storetype (strand-cam-storetype) - Type definitions for Strand Camera's state management and browser UI communication.
  - strand-dynamic-frame (strand-dynamic-frame) - images from machine vision cameras used in Strand Camera
- - strand-http-video-streaming (strand-http-video-streaming) - 
- - strand-http-video-streaming-types (strand-http-video-streaming/strand-http-video-streaming-types) - Type definitions for HTTP video streaming functionality in the Strand Camera ecosystem.
  - tracking (tracking) - 
 </details>
 

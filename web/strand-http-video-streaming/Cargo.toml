@@ -3,6 +3,7 @@ name = "strand-http-video-streaming"
 version = "0.1.0"
 authors = ["strawlab"]
 edition = "2024"
+description = "stream video over HTTP"
 
 [dependencies]
 thiserror.workspace = true
