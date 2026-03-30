@@ -141,7 +141,7 @@ test_flydra2:
 
     # Install flydra from pip
     - $CI_PROJECT_DIR/flydra2env/bin/python -m pip install flydra_core
-    - $CI_PROJECT_DIR//flydra2env/bin/python -m pip install flydra_analysis
+    - $CI_PROJECT_DIR/flydra2env/bin/python -m pip install flydra_analysis
 
     # Install required python packages
     - $CI_PROJECT_DIR/flydra2env/bin/python -m pip install imageio
