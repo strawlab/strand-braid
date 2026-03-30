@@ -309,6 +309,7 @@ conduct](code_of_conduct.md).
  - ads-apriltag (im-proc/ads-apriltag) - 
  - apriltag-track-movie (im-proc/ads-apriltag/apriltag-track-movie) - use ffmpeg to decode input movie and output csv file with april tag detections
  - imops (im-proc/imops) - image processing operations, accelerated using SIMD
+ - strand-dynamic-frame (im-proc/strand-dynamic-frame) - images from machine vision cameras used in Strand Camera
 </details>
 
 ### `web/` - web utilities
@@ -353,7 +354,6 @@ conduct](code_of_conduct.md).
  - strand-cam-csv-config-types (strand-cam-csv-config-types) - 
  - strand-cam-pseudo-cal (strand-cam-pseudo-cal) - 
  - strand-cam-storetype (strand-cam-storetype) - Type definitions for Strand Camera's state management and browser UI communication.
- - strand-dynamic-frame (strand-dynamic-frame) - images from machine vision cameras used in Strand Camera
  - tracking (tracking) - 
 </details>
 

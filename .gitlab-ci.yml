@@ -233,10 +233,9 @@ test_crates_rust_stable:
     - cargo test
 
     # strand-dynamic-frame
-    - cd $CI_PROJECT_DIR/strand-dynamic-frame
-    - cargo test
-    - cargo test --features convert-image
-    - cd ..
+    - cd $CI_PROJECT_DIR
+    - cargo test -p strand-dynamic-frame
+    - cargo test -p strand-dynamic-frame --features convert-image
 
     # strand-cam
     - cd strand-cam

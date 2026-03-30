@@ -15,9 +15,9 @@
 //! from disk.
 //!
 //! There are two types here:
-//! - [`DynamicFrame`]: A borrowed view of an image with a dynamic pixel format.
-//! - [`DynamicFrameOwned`]: An owned version of `DynamicFrame` that contains
-//!   its own buffer.
+//! - [DynamicFrame]: A borrowed view of an image with a dynamic pixel format.
+//! - [DynamicFrameOwned]: An owned version of `DynamicFrame` that contains its
+//!   own buffer.
 //!
 //! When compiled with the `convert-image` feature, this crate also provides
 //! conversion methods to convert the dynamic frame into a static pixel format

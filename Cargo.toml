@@ -1,7 +1,6 @@
 [workspace]
 resolver = "3"
 members = [
-    "strand-dynamic-frame",
     "braid",
     "braid/braid-run",
     "braid/braid-run/braid_frontend",
@@ -66,6 +65,7 @@ members = [
     "im-proc/ads-apriltag",
     "im-proc/ads-apriltag/apriltag-track-movie",
     "im-proc/imops",
+    "im-proc/strand-dynamic-frame",
     "led-box/led-box",
     "led-box/led-box-standalone",
     "led-box/strand-led-box-comms",
@@ -350,7 +350,7 @@ strand-cam-csv-config-types = { path = "strand-cam-csv-config-types" }
 strand-cam-pseudo-cal = { path = "strand-cam-pseudo-cal" }
 strand-cam-storetype = { path = "strand-cam-storetype", version = "0.1.0" }
 strand-datetime-conversion = { path = "utils/strand-datetime-conversion", version = "0.1.0" }
-strand-dynamic-frame = { path = "strand-dynamic-frame", version = "0.1.0" }
+strand-dynamic-frame = { path = "im-proc/strand-dynamic-frame", version = "0.1.0" }
 strand-http-video-streaming = { path = "web/strand-http-video-streaming" }
 strand-http-video-streaming-types = { path = "web/strand-http-video-streaming/strand-http-video-streaming-types", version = "0.1.0" }
 strand-led-box-comms = { path = "led-box/strand-led-box-comms", version = "0.1.0" }
