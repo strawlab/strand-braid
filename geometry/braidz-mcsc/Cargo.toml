@@ -8,15 +8,8 @@ description = "multi-camera self-calibration from .braidz tracking data"
 clap.workspace = true
 eyre.workspace = true
 tracing.workspace = true
-polars = { version = "0.51", default-features = false, features = [
-    "dtype-u8",
-    "fmt",
-    "lazy",
-    "partition_by",
-    "polars-io",
-    "serde",
-] }
-polars-io = { version = "0.51", default-features = false, features = ["csv"] }
+csv.workspace = true
+serde.workspace = true
 opencv-ros-camera.workspace = true
 serde_yaml.workspace = true
 tempfile.workspace = true
