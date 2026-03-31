@@ -5,10 +5,10 @@ use braidz_types::camera_name_from_filename;
 use eyre::{OptionExt, WrapErr};
 use frame_source::{ImageData, Timestamp};
 use mp4_writer::Mp4Writer;
+use re_sdk::external::re_types_core::external::anyhow;
 use re_sdk_types::{
     archetypes::{EncodedImage, Pinhole, Points2D, Points3D},
     components::PinholeProjection,
-    external::anyhow,
 };
 use std::io::{Read, Seek};
 use strand_dynamic_frame::DynamicFrameOwned;
