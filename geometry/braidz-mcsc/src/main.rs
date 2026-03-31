@@ -186,6 +186,9 @@ fn group_by_frame(rows: Vec<Data2dRow>) -> Vec<Vec<Data2dRow>> {
     groups
 }
 
+/// Degrees of freedom used for sample standard deviation.
+const DDOF: usize = 1;
+
 /// Compute the mean of a slice of `f64` values.  Returns `NaN` if empty.
 fn mean(values: &[f64]) -> f64 {
     if values.is_empty() {
@@ -194,14 +197,15 @@ fn mean(values: &[f64]) -> f64 {
     values.iter().sum::<f64>() / values.len() as f64
 }
 
-/// Compute the sample standard deviation (ddof=1) of a slice of `f64` values.
-/// Returns `NaN` if the slice has fewer than 2 elements.
+/// Compute the sample standard deviation of a slice of `f64` values.
+/// Returns `NaN` if the slice has fewer than `DDOF + 1` elements.
 fn std_dev(values: &[f64]) -> f64 {
-    if values.len() < 2 {
+    if values.len() <= DDOF {
         return f64::NAN;
     }
     let m = mean(values);
-    let variance = values.iter().map(|v| (v - m).powi(2)).sum::<f64>() / (values.len() - 1) as f64;
+    let variance =
+        values.iter().map(|v| (v - m).powi(2)).sum::<f64>() / (values.len() - DDOF) as f64;
     variance.sqrt()
 }
 
@@ -868,10 +872,37 @@ impl DeleteUnfinished {
 #[cfg(test)]
 mod test {
     use ::zip::ZipArchive;
+    use approx::assert_relative_eq;
     use eyre::Result;
     use std::io::Seek;
 
     use super::*;
+
+    #[test]
+    fn test_mean_basic() {
+        assert_relative_eq!(mean(&[1.0, 2.0, 3.0, 4.0, 5.0]), 3.0);
+        assert_relative_eq!(mean(&[0.0, 10.0]), 5.0);
+        assert_relative_eq!(mean(&[42.0]), 42.0);
+    }
+
+    #[test]
+    fn test_mean_empty() {
+        assert!(mean(&[]).is_nan());
+    }
+
+    #[test]
+    fn test_std_dev_basic() {
+        // Sample std dev of [1, 2, 3] == 1.0
+        assert_relative_eq!(std_dev(&[1.0, 2.0, 3.0]), 1.0);
+        // Two identical values → std dev == 0
+        assert_relative_eq!(std_dev(&[3.0, 3.0]), 0.0, epsilon = 1e-10);
+    }
+
+    #[test]
+    fn test_std_dev_insufficient_data() {
+        assert!(std_dev(&[]).is_nan());
+        assert!(std_dev(&[1.0]).is_nan());
+    }
 
     const URL_BASE: &str = "https://strawlab-cdn.com/assets/";
 
