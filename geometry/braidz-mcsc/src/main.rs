@@ -105,9 +105,7 @@ struct CamInfoRow {
 /// Read `cam_info.csv` from a `Read` source into a `Vec<CamInfoRow>`.
 fn read_cam_info<R: Read>(reader: R) -> Result<Vec<CamInfoRow>> {
     let mut rdr = csv::Reader::from_reader(reader);
-    let rows = rdr
-        .deserialize()
-        .collect::<Result<Vec<CamInfoRow>, _>>()?;
+    let rows = rdr.deserialize().collect::<Result<Vec<CamInfoRow>, _>>()?;
     Ok(rows)
 }
 
@@ -124,9 +122,7 @@ struct Data2dRow {
 /// we need and discarding rows where `x` is NaN.
 fn read_data2d<R: Read>(reader: R) -> Result<Vec<Data2dRow>> {
     let mut rdr = csv::Reader::from_reader(reader);
-    let rows = rdr
-        .deserialize()
-        .collect::<Result<Vec<Data2dRow>, _>>()?;
+    let rows = rdr.deserialize().collect::<Result<Vec<Data2dRow>, _>>()?;
     Ok(rows.into_iter().filter(|r| !r.x.is_nan()).collect())
 }
 
