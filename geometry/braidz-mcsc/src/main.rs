@@ -4,10 +4,8 @@ use clap::Parser;
 use eyre::{self, Context, Result};
 use levenberg_marquardt::LeastSquaresProblem;
 use opencv_ros_camera::RosOpenCvIntrinsics;
-use polars::prelude::{ChunkAgg, ChunkVar};
-use polars_io::SerReader;
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, HashMap},
     fs,
     io::{self, Read},
     net::ToSocketAddrs,
@@ -97,6 +95,116 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> 
     Ok(())
 }
 
+/// One row from `cam_info.csv`.
+struct CamInfoRow {
+    cam_id: String,
+    camn: i64,
+}
+
+/// Read `cam_info.csv` from a `Read` source into a `Vec<CamInfoRow>`.
+fn read_cam_info<R: Read>(reader: R) -> Result<Vec<CamInfoRow>> {
+    let mut rdr = csv::Reader::from_reader(reader);
+    let headers = rdr.headers()?.clone();
+    let cam_id_idx = headers
+        .iter()
+        .position(|h| h == "cam_id")
+        .ok_or_else(|| eyre::eyre!("cam_info.csv missing 'cam_id' column"))?;
+    let camn_idx = headers
+        .iter()
+        .position(|h| h == "camn")
+        .ok_or_else(|| eyre::eyre!("cam_info.csv missing 'camn' column"))?;
+    let mut rows = Vec::new();
+    for result in rdr.records() {
+        let record = result?;
+        let cam_id = record[cam_id_idx].to_string();
+        let camn: i64 = record[camn_idx].parse()?;
+        rows.push(CamInfoRow { cam_id, camn });
+    }
+    Ok(rows)
+}
+
+/// One row from `data2d_distorted.csv` (only the columns we need).
+struct Data2dRow {
+    frame: i64,
+    camn: i64,
+    x: f64,
+    y: f64,
+}
+
+/// Read `data2d_distorted.csv` from a `Read` source, keeping only the columns
+/// we need and discarding rows where `x` is NaN.
+fn read_data2d<R: Read>(reader: R) -> Result<Vec<Data2dRow>> {
+    let mut rdr = csv::Reader::from_reader(reader);
+    let headers = rdr.headers()?.clone();
+    let frame_idx = headers
+        .iter()
+        .position(|h| h == "frame")
+        .ok_or_else(|| eyre::eyre!("data2d.csv missing 'frame' column"))?;
+    let camn_idx = headers
+        .iter()
+        .position(|h| h == "camn")
+        .ok_or_else(|| eyre::eyre!("data2d.csv missing 'camn' column"))?;
+    let x_idx = headers
+        .iter()
+        .position(|h| h == "x")
+        .ok_or_else(|| eyre::eyre!("data2d.csv missing 'x' column"))?;
+    let y_idx = headers
+        .iter()
+        .position(|h| h == "y")
+        .ok_or_else(|| eyre::eyre!("data2d.csv missing 'y' column"))?;
+    let mut rows = Vec::new();
+    for result in rdr.records() {
+        let record = result?;
+        let x: f64 = record[x_idx].parse()?;
+        if x.is_nan() {
+            continue;
+        }
+        let frame: i64 = record[frame_idx].parse()?;
+        let camn: i64 = record[camn_idx].parse()?;
+        let y: f64 = record[y_idx].parse()?;
+        rows.push(Data2dRow { frame, camn, x, y });
+    }
+    Ok(rows)
+}
+
+/// Group `Data2dRow` values by `frame`, preserving the order of first
+/// appearance of each frame value (analogous to `partition_by_stable`).
+fn group_by_frame(rows: Vec<Data2dRow>) -> Vec<Vec<Data2dRow>> {
+    let mut frame_to_group: HashMap<i64, usize> = HashMap::new();
+    let mut groups: Vec<Vec<Data2dRow>> = Vec::new();
+    for row in rows {
+        let group_idx = if let Some(&idx) = frame_to_group.get(&row.frame) {
+            idx
+        } else {
+            let idx = groups.len();
+            frame_to_group.insert(row.frame, idx);
+            groups.push(Vec::new());
+            idx
+        };
+        groups[group_idx].push(row);
+    }
+    groups
+}
+
+/// Compute the mean of a slice of `f64` values.  Returns `NaN` if empty.
+fn mean(values: &[f64]) -> f64 {
+    if values.is_empty() {
+        return f64::NAN;
+    }
+    values.iter().sum::<f64>() / values.len() as f64
+}
+
+/// Compute the sample standard deviation (ddof=1) of a slice of `f64` values.
+/// Returns `NaN` if the slice has fewer than 2 elements.
+fn std_dev(values: &[f64]) -> f64 {
+    if values.len() < 2 {
+        return f64::NAN;
+    }
+    let m = mean(values);
+    let variance = values.iter().map(|v| (v - m).powi(2)).sum::<f64>() / (values.len() - 1) as f64;
+    variance.sqrt()
+}
+
 fn main() -> Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         // TODO: Audit that the environment access only happens in single-threaded code.
@@ -115,28 +223,21 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
     let mut archive = zip_or_dir::ZipDirArchive::auto_from_path(&opt.input)
         .with_context(|| format!("Parsing file {}", opt.input))?;
 
-    let camid2camn_df = {
+    let cam_info_rows = {
         // Read `cam_info.csv` to memory.
-        let cursor = {
-            let data_fname = archive.path_starter().join(braid_types::CAM_INFO_CSV_FNAME);
-            let mut rdr = braidz_parser::open_maybe_gzipped(data_fname)?;
-            let mut buf = Vec::new();
-            rdr.read_to_end(&mut buf)?;
-            std::io::Cursor::new(buf)
-        };
-
-        polars_io::csv::read::CsvReadOptions::default()
-            .with_has_header(true)
-            .into_reader_with_file_handle(cursor)
-            .finish()?
+        let data_fname = archive.path_starter().join(braid_types::CAM_INFO_CSV_FNAME);
+        let mut rdr = braidz_parser::open_maybe_gzipped(data_fname)?;
+        let mut buf = Vec::new();
+        rdr.read_to_end(&mut buf)?;
+        read_cam_info(buf.as_slice())?
     };
 
     let mut camn2cam_id = BTreeMap::new();
     let mut images = BTreeMap::new();
     let mut camera_order = vec![];
     let mut res = vec![];
-    for cam_id in camid2camn_df["cam_id"].str()?.iter() {
-        let cam_id = cam_id.unwrap();
+    for row in cam_info_rows.iter() {
+        let cam_id = row.cam_id.as_str();
         camera_order.push(cam_id.to_string());
 
         let image_fname = archive
@@ -153,11 +254,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
         res.push(im.height() as usize);
         images.insert(cam_id, im);
     }
-    let camns: Vec<i64> = camid2camn_df["camn"]
-        .i64()?
-        .iter()
-        .map(|x| x.unwrap())
-        .collect();
+    let camns: Vec<i64> = cam_info_rows.iter().map(|r| r.camn).collect();
     for (camn, cam_id) in camns.iter().zip(camera_order.iter()) {
         camn2cam_id.insert(*camn, cam_id.clone());
     }
@@ -173,8 +270,8 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
         let mut radfiles = vec![];
         let mut checkerboard_intrinsics = vec![];
 
-        for cam_id in camid2camn_df["cam_id"].str()?.iter() {
-            let cam_id = cam_id.unwrap();
+        for row in cam_info_rows.iter() {
+            let cam_id = row.cam_id.as_str();
             let yaml_intrinsics_fname = checkerboard_cal_dir.join(format!("{cam_id}.yaml"));
             let yaml_buf = std::fs::read_to_string(&yaml_intrinsics_fname)
                 .with_context(|| format!("while reading {yaml_intrinsics_fname}"))?;
@@ -209,46 +306,18 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
         );
     };
 
-    let num_cameras = camid2camn_df.height();
+    let num_cameras = cam_info_rows.len();
     assert_eq!(num_cameras, camns.len());
 
-    let data2d_df = {
+    let data2d_rows = {
         // Read data2d_distorted to memory.
-        let cursor = {
-            let data_fname = archive
-                .path_starter()
-                .join(braid_types::DATA2D_DISTORTED_CSV_FNAME);
-            let mut rdr = braidz_parser::open_maybe_gzipped(data_fname)?;
-            let mut buf = Vec::new();
-            rdr.read_to_end(&mut buf)?;
-            std::io::Cursor::new(buf)
-        };
-
-        let mut data2d_df = polars_io::csv::read::CsvReadOptions::default()
-            .with_has_header(true)
-            .into_reader_with_file_handle(cursor)
-            .finish()?;
-
-        let drop_columns = [
-            "cam_received_timestamp",
-            "device_timestamp",
-            "block_id",
-            "area",
-            "slope",
-            "frame_pt_idx",
-            "eccentricity",
-            "cur_val",
-            "mean_val",
-            "sumsqf_val",
-        ];
-
-        for colname in drop_columns {
-            if data2d_df.get_column_index(colname).is_some() {
-                data2d_df.drop_in_place(colname)?;
-            }
-        }
-        let cond = data2d_df["x"].is_not_nan()?;
-        data2d_df.filter(&cond)?
+        let data_fname = archive
+            .path_starter()
+            .join(braid_types::DATA2D_DISTORTED_CSV_FNAME);
+        let mut rdr = braidz_parser::open_maybe_gzipped(data_fname)?;
+        let mut buf = Vec::new();
+        rdr.read_to_end(&mut buf)?;
+        read_data2d(buf.as_slice())?
     };
 
     // In this scope, we collect points for calibration.
@@ -260,42 +329,15 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
         let mut by_n_pts = BTreeMap::new();
 
         // Iterate over frames
-        for gdf in data2d_df.partition_by_stable(["frame"], true)?.iter() {
+        for frame_rows in group_by_frame(data2d_rows).into_iter() {
             // Although at least 3 cameras per 3D point are needed to be useful
             // to MCSC, we can still optimize using bundle adjustment with less.
             // So we take everything we can get here (not just cases where we
             // have at least three cameras).
 
-            // // Need at least 3 cameras for data to be useful to MCSC.
-            // // TODO: could use less for bundle adjustment, though.
-            // if gdf["camn"].unique()?.len() < 3 {
-            //     continue;
-            // }
-
-            let this_camns: Vec<i64> = gdf
-                .column("camn")
-                .unwrap()
-                .i64()
-                .unwrap()
-                .into_iter()
-                .map(|x| x.unwrap())
-                .collect();
-            let gx: Vec<f64> = gdf
-                .column("x")
-                .unwrap()
-                .f64()
-                .unwrap()
-                .into_iter()
-                .map(|x| x.unwrap())
-                .collect();
-            let gy: Vec<f64> = gdf
-                .column("y")
-                .unwrap()
-                .f64()
-                .unwrap()
-                .into_iter()
-                .map(|x| x.unwrap())
-                .collect();
+            let this_camns: Vec<i64> = frame_rows.iter().map(|r| r.camn).collect();
+            let gx: Vec<f64> = frame_rows.iter().map(|r| r.x).collect();
+            let gy: Vec<f64> = frame_rows.iter().map(|r| r.y).collect();
             let mut this_point_n_cams = 0;
             for camn in camns.iter() {
                 let idx = this_camns.iter().position(|x| x == camn);
@@ -764,9 +806,8 @@ fn print_reproj_and_params(
             }
         }
         let count = cam_dists.len();
-        let cam_dists = polars::prelude::Float64Chunked::from_vec("cam_dists".into(), cam_dists);
-        let mean = cam_dists.mean().unwrap();
-        let std = cam_dists.std(1).unwrap();
+        let mean = mean(&cam_dists);
+        let std = std_dev(&cam_dists);
         println!(
             "{camid:>3}   {name:>20} {std:>8.2} {mean:>7.2}     {count:>5}   {fx:>7.2} {skew:>7.2} {fy:>7.2} {cx:>7.2} {cy:>7.2} {k1:>7.2} {k2:>7.2} {k3:>7.2} {p1:>7.2} {p2:>7.2}",
             camid = i + 1,
