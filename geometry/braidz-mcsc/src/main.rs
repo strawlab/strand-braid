@@ -456,7 +456,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
     );
     let args = vec![gocal_abs.as_os_str(), config_arg.as_ref()];
     let current_dir = gocal_abs.parent().unwrap();
-    const PROGRAM: &str = "octave";
+    const PROGRAM: &str = "octave-cli";
 
     if !std::process::Command::new(PROGRAM)
         .args(["--version"])
