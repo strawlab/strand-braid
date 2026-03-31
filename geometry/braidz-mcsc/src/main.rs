@@ -96,6 +96,7 @@ fn copy_dir_all(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> 
 }
 
 /// One row from `cam_info.csv`.
+#[derive(serde::Deserialize)]
 struct CamInfoRow {
     cam_id: String,
     camn: i64,
@@ -104,26 +105,14 @@ struct CamInfoRow {
 /// Read `cam_info.csv` from a `Read` source into a `Vec<CamInfoRow>`.
 fn read_cam_info<R: Read>(reader: R) -> Result<Vec<CamInfoRow>> {
     let mut rdr = csv::Reader::from_reader(reader);
-    let headers = rdr.headers()?.clone();
-    let cam_id_idx = headers
-        .iter()
-        .position(|h| h == "cam_id")
-        .ok_or_else(|| eyre::eyre!("cam_info.csv missing 'cam_id' column"))?;
-    let camn_idx = headers
-        .iter()
-        .position(|h| h == "camn")
-        .ok_or_else(|| eyre::eyre!("cam_info.csv missing 'camn' column"))?;
-    let mut rows = Vec::new();
-    for result in rdr.records() {
-        let record = result?;
-        let cam_id = record[cam_id_idx].to_string();
-        let camn: i64 = record[camn_idx].parse()?;
-        rows.push(CamInfoRow { cam_id, camn });
-    }
+    let rows = rdr
+        .deserialize()
+        .collect::<Result<Vec<CamInfoRow>, _>>()?;
     Ok(rows)
 }
 
 /// One row from `data2d_distorted.csv` (only the columns we need).
+#[derive(serde::Deserialize)]
 struct Data2dRow {
     frame: i64,
     camn: i64,
@@ -135,36 +124,10 @@ struct Data2dRow {
 /// we need and discarding rows where `x` is NaN.
 fn read_data2d<R: Read>(reader: R) -> Result<Vec<Data2dRow>> {
     let mut rdr = csv::Reader::from_reader(reader);
-    let headers = rdr.headers()?.clone();
-    let frame_idx = headers
-        .iter()
-        .position(|h| h == "frame")
-        .ok_or_else(|| eyre::eyre!("data2d.csv missing 'frame' column"))?;
-    let camn_idx = headers
-        .iter()
-        .position(|h| h == "camn")
-        .ok_or_else(|| eyre::eyre!("data2d.csv missing 'camn' column"))?;
-    let x_idx = headers
-        .iter()
-        .position(|h| h == "x")
-        .ok_or_else(|| eyre::eyre!("data2d.csv missing 'x' column"))?;
-    let y_idx = headers
-        .iter()
-        .position(|h| h == "y")
-        .ok_or_else(|| eyre::eyre!("data2d.csv missing 'y' column"))?;
-    let mut rows = Vec::new();
-    for result in rdr.records() {
-        let record = result?;
-        let x: f64 = record[x_idx].parse()?;
-        if x.is_nan() {
-            continue;
-        }
-        let frame: i64 = record[frame_idx].parse()?;
-        let camn: i64 = record[camn_idx].parse()?;
-        let y: f64 = record[y_idx].parse()?;
-        rows.push(Data2dRow { frame, camn, x, y });
-    }
-    Ok(rows)
+    let rows = rdr
+        .deserialize()
+        .collect::<Result<Vec<Data2dRow>, _>>()?;
+    Ok(rows.into_iter().filter(|r| !r.x.is_nan()).collect())
 }
 
 /// Group `Data2dRow` values by `frame`, preserving the order of first
