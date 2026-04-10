@@ -20,7 +20,7 @@ jobs:
       - name: Build braid-process-video app
         run: |
           cargo build --release -p braid-process-video
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: braid-process-video-${{ matrix.runs-on }}
           path: ${{ github.workspace }}/target/release/braid-process-vid*

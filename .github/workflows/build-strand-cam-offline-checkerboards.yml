@@ -42,7 +42,7 @@ jobs:
           cp ${{ github.workspace }}/target/release/strand-cam-offline-checkerboards ${{ github.workspace }}/strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}/
           cp README.md ${{ github.workspace }}/strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}/
           find ${{ github.workspace }}/strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}
           path: ${{ github.workspace }}/strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}

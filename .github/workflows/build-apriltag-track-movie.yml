@@ -20,7 +20,7 @@ jobs:
       - name: Show shared libraries required
         run: |
           ldd target/release/apriltag-track-movie
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: apriltag-track-movie-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}
           path: target/release/apriltag-track-movie
@@ -38,7 +38,7 @@ jobs:
           $env:APRILTAG_SYS_WINDOWS_PTHREAD_STATIC_LIB = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static\lib\pthreadVC3.lib"
           cargo build -p apriltag-track-movie --release
         shell: pwsh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: apriltag-track-movie-${{ runner.os }}-${{ runner.arch }}
           path: target/release/apriltag-track-movie.exe

@@ -23,7 +23,7 @@ jobs:
       - name: Build show-timestamps app
         run: |
           cargo build --release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: show-timestamps-${{ matrix.runs-on }}
           path: ${{ github.workspace }}/target/release/show-timestam*

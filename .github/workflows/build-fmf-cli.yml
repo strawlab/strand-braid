@@ -17,7 +17,7 @@ jobs:
       - name: Build FMF CLI app
         run: |
           cargo build --release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: fmf-ubuntu
           path: ${{ github.workspace }}/target/release/fmf
@@ -32,7 +32,7 @@ jobs:
       - name: Build FMF CLI app
         run: |
           cargo build --release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: fmf-windows
           path: ${{ github.workspace }}/target/release/fmf.exe
@@ -47,7 +47,7 @@ jobs:
       - name: Build FMF CLI app
         run: |
           cargo build --release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: fmf-mac
           path: ${{ github.workspace }}/target/release/fmf
