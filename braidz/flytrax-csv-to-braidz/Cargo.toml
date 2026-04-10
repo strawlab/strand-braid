@@ -40,7 +40,6 @@ braidz-parser.workspace = true
 zip-or-dir.workspace = true
 braid-offline.workspace = true
 flytrax-apriltags-calibration = { workspace = true, optional = true }
-flytrax-io.workspace = true
 
 [dev-dependencies]
 env_logger.workspace = true

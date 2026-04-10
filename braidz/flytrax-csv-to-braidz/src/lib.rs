@@ -107,7 +107,8 @@ async fn kalmanize_2d<R>(
 where
     R: BufRead,
 {
-    let cfg = flytrax_io::read_csv_commented_header(&mut point_detection_csv_reader)?;
+    let cfg =
+        strand_cam_csv_config_types::read_csv_commented_header(&mut point_detection_csv_reader)?;
 
     let mut pseudo_cal_params = None;
     let mut april_detections = None;

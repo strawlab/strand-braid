@@ -96,7 +96,6 @@ members = [
     "media-utils/video2rrd",
     "media-utils/y4m-writer",
     "strand-cam",
-    "strand-cam/flytrax-io",
     "strand-cam/strand-cam-offline-checkerboards",
     "strand-cam/strand-cam-pylon",
     "strand-cam/strand-cam-pylon-gui",
@@ -325,7 +324,6 @@ flydra-pt-detect-cfg = { path = "im-proc/flydra-feature-detector/flydra-pt-detec
 flydra-mvg = { path = "geometry/flydra-mvg" }
 flydra2 = { path = "braid/flydra2", default-features = false }
 flytrax-apriltags-calibration = { path = "geometry/braid-april-cal/flytrax-apriltags-calibration" }
-flytrax-io = { path = "strand-cam/flytrax-io" }
 fmf = { path = "media-utils/fmf" }
 font-drawing = { path = "media-utils/font-drawing" }
 frame-source = { path = "media-utils/frame-source" }

@@ -208,9 +208,8 @@ conduct](code_of_conduct.md).
 
 <details>
 
- - flytrax-io (strand-cam/flytrax-io) - read FlyTrax CSV configuration headers written by Strand Camera
  - strand-cam (strand-cam) - Strand Camera: a single-camera recording and realtime tracking application
- - strand-cam-csv-config-types (strand-cam/strand-cam-csv-config-types) - type definitions for Strand Camera CSV configuration
+ - strand-cam-csv-config-types (strand-cam/strand-cam-csv-config-types) - support YAML frontmatter in .csv files saved by Strand Camera
  - strand-cam-frontend-yew (strand-cam/yew_frontend) - Yew WASM frontend for the Strand Camera web user interface
  - strand-cam-offline-checkerboards (strand-cam/strand-cam-offline-checkerboards) - Generate camera intrinsic camera calibration from directory full of images
  - strand-cam-pseudo-cal (strand-cam/strand-cam-pseudo-cal) - create camera calibration for Braid using only a view of a circle

@@ -3,10 +3,12 @@ name = "strand-cam-csv-config-types"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
-description = "type definitions for Strand Camera CSV configuration"
+description = "support YAML frontmatter in .csv files saved by Strand Camera"
 
 [dependencies]
 chrono.workspace = true
+eyre.workspace = true
 serde = { workspace = true, features = ["derive"] }
+serde_yaml.workspace = true
 
 flydra-feature-detector-types.workspace = true

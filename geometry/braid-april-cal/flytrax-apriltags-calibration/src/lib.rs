@@ -2,9 +2,9 @@ use std::path::Path;
 
 use braid_april_cal::*;
 use eyre::{self as anyhow, Context};
-use flytrax_io::read_csv_commented_header;
 use machine_vision_formats::{ImageData, pixel_format::Mono8};
 use opencv_ros_camera::NamedIntrinsicParameters;
+use strand_cam_csv_config_types::read_csv_commented_header;
 
 use ads_apriltag as apriltag;
 use ads_webasm::components::{MaybeCsvData, parse_csv};
