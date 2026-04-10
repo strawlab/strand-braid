@@ -898,10 +898,11 @@ mod test {
     fn test_braiz_mcsc() -> Result<()> {
         const FNAME: &str = "braidz-mcsc-cal-test-data.zip";
         const SHA256SUM: &str = "f0043d73749e9c2c161240436eca9101a4bf71cf81785a45b04877fe7ae6d33e";
+        let dest = format!("scratch/{FNAME}");
 
         download_verify::download_verify(
             format!("{}/{}", URL_BASE, FNAME).as_str(),
-            FNAME,
+            &dest,
             &download_verify::Hash::Sha256(SHA256SUM.into()),
         )
         .unwrap();
@@ -910,7 +911,7 @@ mod test {
         let data_root_dir_name =
             Utf8PathBuf::from_path_buf(std::path::PathBuf::from(data_root.path())).unwrap();
 
-        let rdr = std::fs::File::open(FNAME)?;
+        let rdr = std::fs::File::open(&dest)?;
         let cal_data_archive = ZipArchive::new(rdr)?;
 
         unpack_zip_into(cal_data_archive, &data_root_dir_name)?;
