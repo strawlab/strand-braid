@@ -411,7 +411,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
 
     let gocal_abs = mcsc_base.join("MultiCamSelfCal/gocal.m");
 
-    let resultdir = out_dir_name.join("result");
+    let resultdir = camino::absolute_utf8(out_dir_name.join("result"))?;
     copy_dir_all(&out_dir_name, &resultdir)?;
 
     // Create output XML file prior to running Octave. This way, in case there
@@ -450,10 +450,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
         eyre::bail!("rerun URL specified but binary not compiled with `with-rerun` feature.");
     };
 
-    let config_arg = format!(
-        "--config={resultdir}",
-        resultdir = std::path::absolute(&resultdir)?.display()
-    );
+    let config_arg = format!("--config={resultdir}");
     let args = vec![gocal_abs.as_os_str(), config_arg.as_ref()];
     let current_dir = gocal_abs.parent().unwrap();
     const PROGRAM: &str = "octave-cli";
