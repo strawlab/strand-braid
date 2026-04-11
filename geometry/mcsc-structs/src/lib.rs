@@ -224,6 +224,7 @@ pub struct McscCfg {
     pub num_cameras: usize,
     pub undo_radial: bool,
     pub use_nth_observation: u16,
+    pub do_bundle_adjustment: bool,
 }
 
 impl McscCfg {
@@ -247,10 +248,12 @@ Do-Global-Iterations: 0
 Num-Cameras-Fill: {num_cameras}
 Undo-Radial: {undo_radial}
 Use-Nth-Frame: {use_nth_observation}
+Do-Bundle-Adjustment: {do_bundle_adjustment}
 ",
                 num_cameras = self.num_cameras,
                 undo_radial = self.undo_radial as i8,
                 use_nth_observation = self.use_nth_observation,
+                do_bundle_adjustment = self.do_bundle_adjustment as i8,
             )
             .as_bytes(),
         )?;

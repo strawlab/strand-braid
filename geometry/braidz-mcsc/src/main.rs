@@ -41,6 +41,10 @@ struct Cli {
     #[arg(long)]
     no_bundle_adjustment: bool,
 
+    /// Let MCSC perform bundle adjustment
+    #[arg(long)]
+    do_mcsc_bundle_adjustment: bool,
+
     /// Type of bundle adjustment to perform
     #[arg(long, value_enum, default_value_t)]
     bundle_adjustment_model: CameraModelType,
@@ -352,6 +356,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
         num_cameras,
         undo_radial,
         use_nth_observation,
+        do_bundle_adjustment: opt.do_mcsc_bundle_adjustment,
     };
 
     let res = DatMat::new(num_cameras, 2, res)?;
@@ -995,6 +1000,7 @@ mod test {
             keep: true,
             no_bundle_adjustment: true,
             force_allow_no_checkerboard_cal: true,
+            do_mcsc_bundle_adjustment: true,
             ..Default::default()
         };
         let _xml_out_name = braiz_mcsc(opt)?;
