@@ -58,7 +58,7 @@ fn get_files(
 ) -> anyhow::Result<Valid<BraidRetrackVideoConfig>> {
     let file_list = parse_file_list(dirname)?;
 
-    let outdir = format!("tests/downloaded-data/{}", dirname);
+    let outdir = format!("scratch/downloaded-data/{}", dirname);
     let mut input_braidz = None;
     let mut input_video = vec![];
     for (fname, sha256sum) in file_list.iter() {
@@ -89,11 +89,11 @@ fn get_files(
     let input_braidz = input_braidz.map(Into::into);
     let output = vec![
         OutputConfig::Video(VideoOutputConfig {
-            filename: format!("tests/rendered/{}.mp4", dirname),
+            filename: format!("scratch/rendered/{}.mp4", dirname),
             video_options: Default::default(),
         }),
         OutputConfig::Braidz(BraidzOutputConfig {
-            filename: format!("tests/rendered/{dirname}.braidz"),
+            filename: format!("scratch/rendered/{dirname}.braidz"),
         }),
     ];
 
