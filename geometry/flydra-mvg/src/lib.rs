@@ -34,7 +34,7 @@ pub enum FlydraMvgError {
     #[error("xml error: {0}")]
     SerdeXmlError(#[from] serde_xml_rs::Error),
     #[error("cannot convert to or from flydra xml: {msg}")]
-    FailedFlydraXmlConversion { msg: &'static str },
+    FailedFlydraXmlConversion { msg: String },
     #[error("MVG error: {0}")]
     MvgError(#[from] braid_mvg::MvgError),
     #[error("IO error: {0}")]
@@ -980,9 +980,10 @@ pub fn from_flydra_with_limited_skew<R: RealField + Copy + serde::Serialize>(
 
     let expected_alpha_c = k[(0, 1)] / k[(0, 0)];
 
-    if (expected_alpha_c - cam.non_linear_parameters.alpha_c).abs() > na::convert(epsilon) {
+    let skew_diff = (expected_alpha_c - cam.non_linear_parameters.alpha_c).abs();
+    if skew_diff > na::convert(epsilon) {
         return Err(FlydraMvgError::FailedFlydraXmlConversion {
-            msg: "skew not supported",
+            msg: format!("skew difference {skew_diff:} too large"),
         });
     }
 
