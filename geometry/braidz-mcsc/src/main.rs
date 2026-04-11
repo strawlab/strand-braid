@@ -368,11 +368,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
     #[expect(unused_variables)]
     let mut output_root_guard = None; // will cleanup on drop
 
-    let input_str = opt
-        .input
-        .as_os_str()
-        .to_str()
-        .ok_or_else(|| eyre::eyre!("input filename is not valid unicode?"))?;
+    let input_str = opt.input.as_str();
     let input_base_name = input_str
         .strip_suffix(".braidz")
         .ok_or_else(|| eyre::eyre!("expected input filename to end with '.braidz'."))?;
@@ -409,13 +405,13 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
     };
     let mcsc_base = Utf8PathBuf::from_path_buf(mcsc_base).unwrap();
 
-    let gocal_abs = mcsc_base.join("MultiCamSelfCal/gocal.m");
+    let gocal_path = mcsc_base.join("MultiCamSelfCal/gocal.m");
 
     let resultdir = camino::absolute_utf8(out_dir_name.join("result"))?;
     copy_dir_all(&out_dir_name, &resultdir)?;
 
-    // Create output XML file prior to running Octave. This way, in case there
-    // is a problem opening it, we don't wait for Octave to finish.
+    // If we are going to fail when we create the output XML file, fail early by
+    // creating the file now, rather than waiting for Octave to finish.
     let mut out_fd = DeleteUnfinished::new(&xml_out_name)
         .with_context(|| format!("While creating XML calibration output file {xml_out_name}"))?;
 
@@ -451,8 +447,8 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
     };
 
     let config_arg = format!("--config={resultdir}");
-    let args = vec![gocal_abs.as_os_str(), config_arg.as_ref()];
-    let current_dir = gocal_abs.parent().unwrap();
+    let args = vec![gocal_path.as_os_str(), config_arg.as_ref()];
+    let current_dir = gocal_path.parent().unwrap();
     const PROGRAM: &str = "octave-cli";
 
     if !std::process::Command::new(PROGRAM)
@@ -892,7 +888,7 @@ mod test {
 
     #[test]
     #[ignore] // Ignore normally because it is slow and requires Octave.
-    fn test_braiz_mcsc() -> Result<()> {
+    fn test_braiz_mcsc_slow() -> Result<()> {
         const FNAME: &str = "braidz-mcsc-cal-test-data.zip";
         const SHA256SUM: &str = "f0043d73749e9c2c161240436eca9101a4bf71cf81785a45b04877fe7ae6d33e";
         let dest = format!("scratch/{FNAME}");
