@@ -835,6 +835,8 @@ mod test {
 
     use super::*;
 
+    const ENV_VAR_NAME: &str = "BRAIDZ_MCSC_SAVE_TEST_OUTPUT";
+
     #[test]
     fn test_mean_basic() {
         assert_relative_eq!(mean(&[1.0, 2.0, 3.0, 4.0, 5.0]), 3.0);
@@ -909,6 +911,16 @@ mod test {
         let data_root_dir_name =
             Utf8PathBuf::from_path_buf(std::path::PathBuf::from(data_root.path())).unwrap();
 
+        // Potentially do not delete temporary directory
+        let save_output = match std::env::var_os(ENV_VAR_NAME) {
+            Some(v) => &v != "0",
+            None => false,
+        };
+
+        if save_output {
+            std::mem::forget(data_root); // do not drop it, so do not delete it
+        }
+
         let rdr = std::fs::File::open(&dest)?;
         let cal_data_archive = ZipArchive::new(rdr)?;
 
@@ -946,6 +958,16 @@ mod test {
         let data_root_dir_name =
             Utf8PathBuf::from_path_buf(std::path::PathBuf::from(data_root.path())).unwrap();
 
+        // Potentially do not delete temporary directory
+        let save_output = match std::env::var_os(ENV_VAR_NAME) {
+            Some(v) => &v != "0",
+            None => false,
+        };
+
+        if save_output {
+            std::mem::forget(data_root); // do not drop it, so do not delete it
+        }
+
         let rdr = std::fs::File::open(&local_fname)?;
         let cal_data_archive = ZipArchive::new(rdr)?;
 
@@ -967,7 +989,7 @@ mod test {
         Ok(())
     }
 
-        #[test]
+    #[test]
     fn test_braiz_mcsc_no_radfiles() -> Result<()> {
         const FNAME: &str = "braidz-mcsc-skew-cal-test-data.zip";
         const SHA256SUM: &str = "82294b0b9fa2a0d6f43bb410e133722abffa55bf3abab934dbb165791a3f334c";
@@ -984,6 +1006,16 @@ mod test {
         let data_root = tempfile::tempdir()?;
         let data_root_dir_name =
             Utf8PathBuf::from_path_buf(std::path::PathBuf::from(data_root.path())).unwrap();
+
+        // Potentially do not delete temporary directory
+        let save_output = match std::env::var_os(ENV_VAR_NAME) {
+            Some(v) => &v != "0",
+            None => false,
+        };
+
+        if save_output {
+            std::mem::forget(data_root); // do not drop it, so do not delete it
+        }
 
         let rdr = std::fs::File::open(&local_fname)?;
         let cal_data_archive = ZipArchive::new(rdr)?;
