@@ -837,6 +837,190 @@ mod test {
 
     const ENV_VAR_NAME: &str = "BRAIDZ_MCSC_SAVE_TEST_OUTPUT";
 
+    /// Check calibration quality by computing reprojection distances
+    fn check_calibration_quality(
+        xml_path: &Utf8Path,
+        input_braidz: &Utf8Path,
+        skew_epsilon: f64,
+    ) -> Result<()> {
+        // Get MCSC result directory from XML filename. We read the original
+        // MCSC results ourselves rather than relying on the converted XML file
+        // because we want to handle the skew that MCSC may return but that we
+        // don't want to be forced into supporting in XML files.
+        let xml_str = xml_path.as_str();
+        let input_base = xml_str
+            .strip_suffix("-unaligned.xml")
+            .ok_or_else(|| eyre::eyre!("expected XML filename to end with '-unaligned.xml'"))?;
+        let resultdir = Utf8PathBuf::from(format!("{}.mcsc/result", input_base));
+
+        // Load calibration, including potential skewed cameras, from results
+        // saved by MCSC.
+        let flydra_mvg::McscDirData {
+            cameras,
+            points4cals: _,
+        } = flydra_mvg::read_mcsc_dir::<f64, _>(&resultdir, false)?;
+
+        let mut cams = BTreeMap::new();
+        for orig_cam in cameras.iter() {
+            let (name, cam) = flydra_mvg::from_flydra_with_limited_skew(orig_cam, skew_epsilon)?;
+            cams.insert(name, cam);
+        }
+        let loaded_system = flydra_mvg::FlydraMultiCameraSystem::new(cams, None);
+
+        // Reload observations from braidz file
+        let mut archive = zip_or_dir::ZipDirArchive::auto_from_path(input_braidz)?;
+
+        let cam_info_rows = {
+            let data_fname = archive.path_starter().join(braid_types::CAM_INFO_CSV_FNAME);
+            let mut rdr = braidz_parser::open_maybe_gzipped(data_fname)?;
+            let mut buf = Vec::new();
+            rdr.read_to_end(&mut buf)?;
+            read_cam_info(buf.as_slice())?
+        };
+
+        let camns: Vec<i64> = cam_info_rows.iter().map(|r| r.camn).collect();
+        let mut camn2cam_id = BTreeMap::new();
+        let mut camera_order = vec![];
+        for row in cam_info_rows.iter() {
+            camera_order.push(row.cam_id.clone());
+        }
+        for (camn, cam_id) in camns.iter().zip(camera_order.iter()) {
+            camn2cam_id.insert(*camn, cam_id.clone());
+        }
+
+        let data2d_rows = {
+            let data_fname = archive
+                .path_starter()
+                .join(braid_types::DATA2D_DISTORTED_CSV_FNAME);
+            let mut rdr = braidz_parser::open_maybe_gzipped(data_fname)?;
+            let mut buf = Vec::new();
+            rdr.read_to_end(&mut buf)?;
+            read_data2d(buf.as_slice())?
+        };
+
+        let num_cameras = cam_info_rows.len();
+
+        // Rebuild visibility and observations matrices
+        let (visibility, observations) = {
+            let mut observations = vec![];
+            let mut visibility: Vec<bool> = vec![];
+            let mut num_points = 0;
+
+            for frame_rows in group_by_frame(data2d_rows).into_iter() {
+                let this_camns: Vec<i64> = frame_rows.iter().map(|r| r.camn).collect();
+                let gx: Vec<f64> = frame_rows.iter().map(|r| r.x).collect();
+                let gy: Vec<f64> = frame_rows.iter().map(|r| r.y).collect();
+                for camn in camns.iter() {
+                    let idx = this_camns.iter().position(|x| x == camn);
+                    if let Some(idx) = idx {
+                        visibility.push(true);
+                        observations.push(gx[idx]);
+                        observations.push(gy[idx]);
+                        observations.push(1.0);
+                    } else {
+                        visibility.push(false);
+                        observations.push(-1.0);
+                        observations.push(-1.0);
+                        observations.push(-1.0);
+                    }
+                }
+                num_points += 1;
+            }
+
+            let visibility = DatMat::new(num_points, num_cameras, visibility)?.transpose();
+            let observations = DatMat::new(num_points, num_cameras * 3, observations)?.transpose();
+            (visibility, observations)
+        };
+
+        // Triangulate 3D points from observations using the calibration, then
+        // compute reprojection errors
+        println!(
+            "\nCalibration quality check ({nobs} observation points):",
+            nobs = visibility.ncols()
+        );
+        let mut all_reproj_dists = Vec::new();
+        let mut total_observations = 0;
+
+        for (i, (cam_name, cam)) in loaded_system.system().cams_by_name().iter().enumerate() {
+            let mut cam_dists = Vec::new();
+            let obs_start_idx = i * 3;
+
+            // For each 3D point, triangulate from all visible cameras and
+            // compute reprojection for this camera
+            for j in 0..visibility.ncols() {
+                // Collect all camera observations for this point to triangulate
+                let mut obs_for_point = Vec::new();
+
+                for (k, (other_name, _other_cam)) in
+                    loaded_system.system().cams_by_name().iter().enumerate()
+                {
+                    if visibility[(k, j)] {
+                        let obs_start = k * 3;
+                        let u = observations[(obs_start, j)];
+                        let v = observations[(obs_start + 1, j)];
+
+                        let distorted_pixel = braid_mvg::DistortedPixel {
+                            coords: nalgebra::Point2::new(u, v),
+                        };
+                        obs_for_point.push((other_name.clone(), distorted_pixel));
+                    }
+                }
+
+                // Need at least 2 cameras to triangulate
+                if obs_for_point.len() >= 2 && visibility[(i, j)] {
+                    // Triangulate using the system's built-in method
+                    let world_coord = loaded_system.find3d_distorted(&obs_for_point)?;
+                    let pt_3d = world_coord.point();
+
+                    // Compute reprojection error for this camera
+                    let obs_u = observations[(obs_start_idx, j)];
+                    let obs_v = observations[(obs_start_idx + 1, j)];
+                    let predicted = cam.project_3d_to_distorted_pixel(&pt_3d);
+                    let dx = obs_u - predicted.coords.x;
+                    let dy = obs_v - predicted.coords.y;
+                    let dist = (dx * dx + dy * dy).sqrt();
+
+                    cam_dists.push(dist);
+                }
+            }
+
+            if cam_dists.is_empty() {
+                println!("  Camera {cam_name}: no valid observations");
+                continue;
+            }
+
+            let mean_dist = mean(&cam_dists);
+            println!(
+                "  Camera {cam_name}: mean reprojection distance = {mean_dist:.2} pixels ({nobs} observations)",
+                nobs = cam_dists.len()
+            );
+            all_reproj_dists.push(mean_dist);
+            total_observations += cam_dists.len();
+
+            // Assert reasonable reprojection error (more lenient since we're using simple triangulation)
+            assert!(
+                mean_dist < 5.0,
+                "Camera {cam_name} has excessive reprojection error: {mean_dist:.2} pixels",
+            );
+        }
+
+        if all_reproj_dists.is_empty() {
+            println!("\nNo valid observations for quality check.");
+            return Ok(());
+        }
+
+        let overall_mean = mean(&all_reproj_dists);
+        println!(
+            "  Overall mean reprojection distance = {overall_mean:.2} pixels ({total_observations} total observations)"
+        );
+        assert!(
+            overall_mean < 3.0,
+            "Overall mean reprojection error too high: {overall_mean:.2} pixels"
+        );
+
+        Ok(())
+    }
+
     #[test]
     fn test_mean_basic() {
         assert_relative_eq!(mean(&[1.0, 2.0, 3.0, 4.0, 5.0]), 3.0);
@@ -930,13 +1114,17 @@ mod test {
         let checkerboard_cal_dir = Some(data_root_dir_name.join("checkerboard-cal-results"));
 
         let opt = Cli {
-            input,
+            input: input.clone(),
             checkerboard_cal_dir,
             no_bundle_adjustment: true,
+            keep: true,
             ..Default::default()
         };
-        let _xml_out_name = braiz_mcsc(opt)?;
-        // TODO: check that the calibration makes sense...
+        let xml_out_name = braiz_mcsc(opt)?;
+
+        // Check that the calibration makes sense
+        check_calibration_quality(&xml_out_name, &input, 0.2)?;
+
         Ok(())
     }
 
@@ -977,15 +1165,18 @@ mod test {
         let checkerboard_cal_dir = Some(data_root_dir_name.join("camera_info"));
 
         let opt = Cli {
-            input,
+            input: input.clone(),
             checkerboard_cal_dir,
             use_nth_observation: Some(10),
             keep: true,
             no_bundle_adjustment: true,
             ..Default::default()
         };
-        let _xml_out_name = braiz_mcsc(opt)?;
-        // TODO: check that the calibration makes sense...
+        let xml_out_name = braiz_mcsc(opt)?;
+
+        // Check that the calibration makes sense
+        check_calibration_quality(&xml_out_name, &input, 1.0)?;
+
         Ok(())
     }
 
@@ -1026,7 +1217,7 @@ mod test {
         std::fs::remove_dir_all(data_root_dir_name.join("camera_info"))?;
 
         let opt = Cli {
-            input,
+            input: input.clone(),
             checkerboard_cal_dir: None,
             use_nth_observation: Some(10),
             keep: true,
@@ -1035,8 +1226,11 @@ mod test {
             do_mcsc_bundle_adjustment: true,
             ..Default::default()
         };
-        let _xml_out_name = braiz_mcsc(opt)?;
-        // TODO: check that the calibration makes sense...
+        let xml_out_name = braiz_mcsc(opt)?;
+
+        // Check that the calibration makes sense
+        check_calibration_quality(&xml_out_name, &input, 0.2)?;
+
         Ok(())
     }
 }
