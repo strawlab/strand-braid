@@ -486,7 +486,7 @@ fn braiz_mcsc(opt: Cli) -> Result<Utf8PathBuf> {
         let flydra_mvg::McscDirData {
             cameras,
             points4cals,
-        } = flydra_mvg::read_mcsc_dir::<f64, _>(&resultdir)
+        } = flydra_mvg::read_mcsc_dir::<f64, _>(&resultdir, false)
             .with_context(|| format!("while reading calibration at {resultdir}"))?;
         let mut cams = BTreeMap::new();
         for orig_cam in cameras.iter() {

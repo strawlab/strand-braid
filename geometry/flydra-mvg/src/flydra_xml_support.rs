@@ -64,6 +64,32 @@ pub struct FlydraDistortionModel<R: RealField + serde::Serialize> {
     pub cc2p: Option<R>,
 }
 
+impl<R> FlydraDistortionModel<R>
+where
+    R: RealField + serde::Serialize,
+{
+    /// create a FlydraDistortionModel with only linear parameters from the given
+    /// Pmat, and all non-linear parameters set to 0.
+    pub fn linear(pmat: &OMatrix<R, U3, U4>) -> Self {
+        Self {
+            fc1: pmat[(0, 0)].clone(),
+            fc2: pmat[(1, 1)].clone(),
+            cc1: pmat[(0, 2)].clone(),
+            cc2: pmat[(1, 2)].clone(),
+            alpha_c: na::convert(0.0),
+            k1: na::convert(0.0),
+            k2: na::convert(0.0),
+            p1: na::convert(0.0),
+            p2: na::convert(0.0),
+            k3: na::convert(0.0),
+            fc1p: None,
+            fc2p: None,
+            cc1p: None,
+            cc2p: None,
+        }
+    }
+}
+
 fn is_zero<R: RealField>(val: &R) -> bool {
     let zero: R = na::convert(0.0);
     val == &zero

@@ -774,7 +774,10 @@ where
     pub points4cals: Vec<DMatrix<f64>>,
 }
 
-pub fn read_mcsc_dir<R, P: AsRef<std::path::Path>>(mcsc_dir: P) -> Result<McscDirData<R>>
+pub fn read_mcsc_dir<R, P: AsRef<std::path::Path>>(
+    mcsc_dir: P,
+    expect_radfiles: bool,
+) -> Result<McscDirData<R>>
 where
     R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
 {
@@ -799,10 +802,16 @@ where
         let pmat = loadtxt_3x4(&pmat_fname)?; // 3 rows x 4 columns
 
         let rad_fname = mcsc_dir.join(format!("basename{}.rad", (i + 1)));
-        if !rad_fname.exists() {
-            return Err(FlydraMvgError::NoNonlinearParameters(rad_fname));
-        }
-        let non_linear_parameters = loadrad(&rad_fname)?;
+        let non_linear_parameters = if !rad_fname.exists() {
+            // No .rad file exists.
+            if expect_radfiles {
+                return Err(FlydraMvgError::NoNonlinearParameters(rad_fname));
+            } else {
+                FlydraDistortionModel::linear(&pmat)
+            }
+        } else {
+            loadrad(&rad_fname)?
+        };
 
         let cam = SingleCameraCalibration {
             cam_id: cam_id.to_string(),
@@ -834,7 +843,7 @@ where
     where
         P: AsRef<std::path::Path>,
     {
-        let McscDirData { cameras, .. } = read_mcsc_dir(mcsc_dir)?;
+        let McscDirData { cameras, .. } = read_mcsc_dir(mcsc_dir, true)?;
         let recon = flydra_xml_support::FlydraReconstructor {
             cameras,
             ..Default::default()
