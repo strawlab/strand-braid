@@ -362,5 +362,11 @@ vimba = { path = "camera/vimba" }
 y4m-writer = { path = "media-utils/y4m-writer" }
 zip-or-dir = { path = "utils/zip-or-dir" }
 
-[replace]
+#[replace]
 # "tokio-threadpool:0.1.6" = {git="https://bare-git.strawlab.org/tokio.git", rev="472e64c1ea67f3976191cb1b291061faf2082735"}
+
+[patch.crates-io]
+# Workaround core2 being yanked. Let's update this when https://github.com/sile/libflate/issues/85
+# is fixed.
+core2 = { git = "https://github.com/bbqsrc/core2", rev = "545e84bcb0f235b12e21351e0c69767958efe2a7" }
+
