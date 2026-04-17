@@ -9,7 +9,7 @@ description = "initialize a tracing subscriber configured from environment varia
 chrono.workspace = true
 time = { version = "0.3.36", default-features = false }
 tracing.workspace = true
-tracing-subscriber = { version = "0.3.20", features = ["env-filter", "time"] }
+tracing-subscriber.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 ansi_term = "0.12.1"

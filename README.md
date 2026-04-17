@@ -288,6 +288,8 @@ conduct](code_of_conduct.md).
  - freemovr-calibration (geometry/freemovr-calibration) - create calibration for FreeMoVR system
  - freemovr-calibration-cli (geometry/freemovr-calibration/freemovr-calibration-cli) - CLI to create calibration for FreeMoVR system
  - freemovr-calibration-webapp (geometry/freemovr-calibration/freemovr-calibration-webapp) - web app to create calibration for FreeMoVR system
+ - gocal (geometry/mcsc-native/gocal) - CLI tool to run multi-camera self calibration. Emulates the MultiCamSelfCal gocal.m script.
+ - mcsc-native (geometry/mcsc-native) - Native Rust port of MultiCamSelfCal
  - mcsc-structs (geometry/mcsc-structs) - data structures and file I/O for the MultiCamSelfCal calibration tool
  - mvg-util (geometry/braid-mvg/mvg-util) - CLI utilities for inspecting and converting camera calibration files
  - ncollide-geom (geometry/freemovr-calibration/ncollide-geom) - create mask from points using ncollide2d

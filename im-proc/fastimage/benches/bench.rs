@@ -8,7 +8,7 @@ extern crate criterion;
 use criterion::Criterion;
 use itertools::multizip;
 
-use fastimage::{ipp_ctypes, ripp, FastImage, FastImageData};
+use fastimage::{FastImage, FastImageData, ipp_ctypes, ripp};
 
 fn absdiff_8u_v2(img1: &[u8], img2: &[u8], output: &mut [u8]) {
     // see V2 of https://stackoverflow.com/a/35779655/1633026

@@ -13,6 +13,7 @@ align-calibration usr/bin
 compute-flydra1-compat usr/bin
 flytrax-csv-to-braidz usr/bin
 fmf usr/bin
+gocal usr/bin
 show-timestamps usr/bin
 strand-cam-pylon usr/bin
 strand-cam-flydratrax-pylon usr/bin

@@ -14,14 +14,13 @@ check_and_test_workspace:
     - export RUSTFLAGS="-D warnings"
 
     # Install prerequisites
-    - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg libopencv-dev octave
+    - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg libopencv-dev
     - cd $CI_PROJECT_DIR
     - _packaging/install-pylon-linux.sh
 
     # Build frontends for strand-cam and braid so the final step below also compiles.
     - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
     - cd $CI_PROJECT_DIR/braid/braid-run/braid_frontend && time ./build.sh
-    - cd $CI_PROJECT_DIR/geometry/mcsc-structs && ./package-mcsc-zip.sh
 
     # Do a cargo check on the whole workspace to make sure all crates compile
     # with default features.
@@ -695,16 +694,13 @@ slow-tests:
   when: manual
   script:
     - _packaging/setup-ubuntu-apt-proxy.sh
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y git pkg-config libclang-dev curl build-essential libvpx-dev zip octave
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y git pkg-config libclang-dev curl build-essential libvpx-dev zip
     - cc --version
 
     - export CARGO_HOME="$CI_PROJECT_DIR/.cargo-proj"
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
-
-    - cd $CI_PROJECT_DIR/geometry/mcsc-structs
-    - ./package-mcsc-zip.sh
 
     - cd $CI_PROJECT_DIR/geometry/braidz-mcsc
     - cargo test --release --features with-rerun -- --include-ignored
@@ -722,6 +718,9 @@ extra-programs:
     - export RUSTFLAGS="-D warnings"
 
     - mkdir -p $CI_PROJECT_DIR/build
+
+    - cargo build -p gocal --release
+    - cp $CI_PROJECT_DIR/target/release/gocal $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR/geometry/braid-mvg/mvg-util
     - cargo build --release
@@ -772,9 +771,6 @@ braidz-mcsc:
     - export RUSTFLAGS="-D warnings"
 
     - mkdir -p $CI_PROJECT_DIR/build
-
-    - cd $CI_PROJECT_DIR/geometry/mcsc-structs
-    - ./package-mcsc-zip.sh
 
     - cd $CI_PROJECT_DIR/geometry/braidz-mcsc
     - cargo build --release --features with-rerun

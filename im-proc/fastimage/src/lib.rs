@@ -66,41 +66,43 @@ pub mod simd_sse2 {
     /// This unconditionally generates code that depends on the SSE2 instruction
     /// set. The caller must ensure that the SSE2 feature is available.
     #[target_feature(enable = "sse2")]
-    pub unsafe fn abs_diff_8u_c1r(img1: &[u8], img2: &[u8], output: &mut [u8]) { unsafe {
-        assert_eq!(img1.len(), img2.len());
-        assert_eq!(img1.len(), output.len());
+    pub unsafe fn abs_diff_8u_c1r(img1: &[u8], img2: &[u8], output: &mut [u8]) {
+        unsafe {
+            assert_eq!(img1.len(), img2.len());
+            assert_eq!(img1.len(), output.len());
 
-        // TODO: use aligned load/store versions and use `align_to_mut()`.
+            // TODO: use aligned load/store versions and use `align_to_mut()`.
 
-        let i1 = img1.as_ptr();
-        let i2 = img2.as_ptr();
-        let o = output.as_mut_ptr();
+            let i1 = img1.as_ptr();
+            let i2 = img2.as_ptr();
+            let o = output.as_mut_ptr();
 
-        let mut start = 0;
-        while start + 16 <= img1.len() {
-            let i1s = i1.add(start);
-            let i2s = i2.add(start);
-            let os = o.add(start);
+            let mut start = 0;
+            while start + 16 <= img1.len() {
+                let i1s = i1.add(start);
+                let i2s = i2.add(start);
+                let os = o.add(start);
 
-            let a = _mm_loadu_si128(i1s as *const __m128i);
-            let b = _mm_loadu_si128(i2s as *const __m128i);
+                let a = _mm_loadu_si128(i1s as *const __m128i);
+                let b = _mm_loadu_si128(i2s as *const __m128i);
 
-            let tmp = _mm_abd_epu8(a, b);
+                let tmp = _mm_abd_epu8(a, b);
 
-            _mm_storeu_si128(os as *mut __m128i, tmp);
+                _mm_storeu_si128(os as *mut __m128i, tmp);
 
-            start += 16;
+                start += 16;
+            }
+
+            while start < img1.len() {
+                let i1s = i1.add(start);
+                let i2s = i2.add(start);
+                let os = o.add(start);
+
+                *os = std::cmp::max(*i1s, *i2s) - std::cmp::min(*i1s, *i2s);
+                start += 1;
+            }
         }
-
-        while start < img1.len() {
-            let i1s = i1.add(start);
-            let i2s = i2.add(start);
-            let os = o.add(start);
-
-            *os = std::cmp::max(*i1s, *i2s) - std::cmp::min(*i1s, *i2s);
-            start += 1;
-        }
-    }}
+    }
 }
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
@@ -122,41 +124,43 @@ pub mod simd_avx2 {
     /// This unconditionally generates code that depends on the AVX2 instruction
     /// set. The caller must ensure that the AVX2 feature is available.
     #[target_feature(enable = "avx2")]
-    pub unsafe fn abs_diff_8u_c1r(img1: &[u8], img2: &[u8], output: &mut [u8]) { unsafe {
-        assert_eq!(img1.len(), img2.len());
-        assert_eq!(img1.len(), output.len());
+    pub unsafe fn abs_diff_8u_c1r(img1: &[u8], img2: &[u8], output: &mut [u8]) {
+        unsafe {
+            assert_eq!(img1.len(), img2.len());
+            assert_eq!(img1.len(), output.len());
 
-        // TODO: use aligned load/store versions and use `align_to_mut()`.
+            // TODO: use aligned load/store versions and use `align_to_mut()`.
 
-        let i1 = img1.as_ptr();
-        let i2 = img2.as_ptr();
-        let o = output.as_mut_ptr();
+            let i1 = img1.as_ptr();
+            let i2 = img2.as_ptr();
+            let o = output.as_mut_ptr();
 
-        let mut start = 0;
-        while start + 32 <= img1.len() {
-            let i1s = i1.add(start);
-            let i2s = i2.add(start);
-            let os = o.add(start);
+            let mut start = 0;
+            while start + 32 <= img1.len() {
+                let i1s = i1.add(start);
+                let i2s = i2.add(start);
+                let os = o.add(start);
 
-            let a = _mm256_loadu_si256(i1s as *const __m256i);
-            let b = _mm256_loadu_si256(i2s as *const __m256i);
+                let a = _mm256_loadu_si256(i1s as *const __m256i);
+                let b = _mm256_loadu_si256(i2s as *const __m256i);
 
-            let tmp = _mm256_abd_epu8(a, b);
+                let tmp = _mm256_abd_epu8(a, b);
 
-            _mm256_storeu_si256(os as *mut __m256i, tmp);
+                _mm256_storeu_si256(os as *mut __m256i, tmp);
 
-            start += 32;
+                start += 32;
+            }
+
+            while start < img1.len() {
+                let i1s = i1.add(start);
+                let i2s = i2.add(start);
+                let os = o.add(start);
+
+                *os = std::cmp::max(*i1s, *i2s) - std::cmp::min(*i1s, *i2s);
+                start += 1;
+            }
         }
-
-        while start < img1.len() {
-            let i1s = i1.add(start);
-            let i2s = i2.add(start);
-            let os = o.add(start);
-
-            *os = std::cmp::max(*i1s, *i2s) - std::cmp::min(*i1s, *i2s);
-            start += 1;
-        }
-    }}
+    }
 }
 
 macro_rules! itry {
@@ -654,7 +658,9 @@ fn test_padded_chunks_mut() {
 
         assert_eq!(
             &avec,
-            &[101.0, 102.0, 103.0, 104.0, -1.0, 201.1, 202.1, 203.1, 204.1, -1.0]
+            &[
+                101.0, 102.0, 103.0, 104.0, -1.0, 201.1, 202.1, 203.1, 204.1, -1.0
+            ]
         );
     }
 }
@@ -709,7 +715,7 @@ pub trait FastImage {
         }
         let row_start = row * self.stride() as usize; // bytes to start of row
         let raw_bytes_ptr = self.raw_ptr() as *const u8; // raw byte pointer
-                                                         // Get pointer of type <Self::D> to start of row.
+        // Get pointer of type <Self::D> to start of row.
         let row_start_ptr = unsafe { raw_bytes_ptr.add(row_start) } as *const Self::D;
         // Make a slice of it.
         unsafe { std::slice::from_raw_parts(row_start_ptr, self.width() as usize) }
@@ -798,7 +804,7 @@ pub trait MutableFastImage: FastImage {
         }
         let row_start = row * self.stride() as usize; // bytes to start of row
         let raw_bytes_ptr = self.raw_mut_ptr() as *mut u8; // raw byte pointer
-                                                           // Get pointer of type <Self::D> to start of row.
+        // Get pointer of type <Self::D> to start of row.
         let row_start_ptr = unsafe { raw_bytes_ptr.add(row_start) } as *mut Self::D;
         // Make a mutable slice of it.
         unsafe { std::slice::from_raw_parts_mut(row_start_ptr, self.width() as usize) }

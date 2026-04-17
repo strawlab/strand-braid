@@ -1,8 +1,8 @@
 use std::os::raw as ipp_ctypes;
 
 use fastimage::{
-    ripp, CompareOp, FastImage, FastImageData, FastImageView, IppStatusType, IppVersion,
-    MomentState, MutableFastImage, MutableFastImageView,
+    CompareOp, FastImage, FastImageData, FastImageView, IppStatusType, IppVersion, MomentState,
+    MutableFastImage, MutableFastImageView, ripp,
 };
 
 #[test]

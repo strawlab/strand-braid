@@ -1,0 +1,16 @@
+[package]
+name = "gocal"
+version = "0.12.0-alpha.9"                       # braid release synchronized
+edition = "2024"
+description = "CLI tool to run multi-camera self calibration. Emulates the MultiCamSelfCal gocal.m script."
+
+[dependencies]
+camino.workspace = true
+clap.workspace = true
+eyre.workspace = true
+nalgebra.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+mcsc-native.workspace = true
+flydra-mvg.workspace = true

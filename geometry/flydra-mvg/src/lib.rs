@@ -774,9 +774,14 @@ where
     pub points4cals: Vec<DMatrix<f64>>,
 }
 
+/// Read the results of an MCSC calibration from a directory.
+///
+/// If `require_radfiles` is true, then an error will be returned if any camera
+/// does not have a corresponding .rad file. If false, then cameras without .rad
+/// files will be treated as having a linear distortion model.
 pub fn read_mcsc_dir<R, P: AsRef<std::path::Path>>(
     mcsc_dir: P,
-    expect_radfiles: bool,
+    require_radfiles: bool,
 ) -> Result<McscDirData<R>>
 where
     R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
@@ -804,7 +809,7 @@ where
         let rad_fname = mcsc_dir.join(format!("basename{}.rad", (i + 1)));
         let non_linear_parameters = if !rad_fname.exists() {
             // No .rad file exists.
-            if expect_radfiles {
+            if require_radfiles {
                 return Err(FlydraMvgError::NoNonlinearParameters(rad_fname));
             } else {
                 FlydraDistortionModel::linear(&pmat)
@@ -839,11 +844,11 @@ impl<R> FlydraMultiCameraSystem<R>
 where
     R: RealField + Copy + serde::Serialize + DeserializeOwned + Default,
 {
-    pub fn from_mcsc_dir<P>(mcsc_dir: P) -> Result<Self>
+    pub fn from_mcsc_dir<P>(mcsc_dir: P, require_radfiles: bool) -> Result<Self>
     where
         P: AsRef<std::path::Path>,
     {
-        let McscDirData { cameras, .. } = read_mcsc_dir(mcsc_dir, true)?;
+        let McscDirData { cameras, .. } = read_mcsc_dir(mcsc_dir, require_radfiles)?;
         let recon = flydra_xml_support::FlydraReconstructor {
             cameras,
             ..Default::default()
@@ -866,14 +871,14 @@ where
     }
 
     /// Read a calibration from a path.
-    pub fn from_path<P>(cal_fname: P) -> Result<Self>
+    pub fn from_path<P>(cal_fname: P, require_radfiles: bool) -> Result<Self>
     where
         P: AsRef<std::path::Path>,
     {
         let cal_fname = cal_fname.as_ref();
 
         if cal_fname.is_dir() {
-            return Self::from_mcsc_dir(cal_fname);
+            return Self::from_mcsc_dir(cal_fname, require_radfiles);
         }
 
         let cal_file = std::fs::File::open(cal_fname)?;
