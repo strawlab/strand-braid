@@ -60,7 +60,7 @@ Guide](https://strawlab.github.io/strand-braid/installation.html).
 
 [Install rust](https://rustup.rs/).
 
-[Install trunk](https://trunkrs.dev/#install)
+[Install trunk](https://trunk-rs.github.io/trunk/guide/getting-started/installation.html)
 
 Install your camera drivers. Currently Basler Pylon and Allied Vision Vimba are
 supported.

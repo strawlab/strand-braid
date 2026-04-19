@@ -1,7 +1,7 @@
 #!/bin/bash
 set -o errexit
 
-# Install trunk as described here https://trunkrs.dev/#install
+# Install trunk as described here https://trunk-rs.github.io/trunk/guide/getting-started/installation.html
 trunk build --release
 
 echo "Build OK. Now run with:\n"
