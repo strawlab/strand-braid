@@ -175,6 +175,13 @@ check_repository_source:
     # Test that README.md is up to date
     - cargo run -p workspace-docs -- --check
 
+check_generated_bundle_adj_code:
+  dependencies: []
+  image: astral/uv:python3.14-trixie
+  script:
+    - cd geometry/bundle-adj/codegen && ./regenerate.sh
+    - git diff --exit-code
+
 test_crates_rust_stable:
   dependencies: []
   image: rust:1.93

@@ -1,0 +1,11 @@
+# Python bytecode and type-checker caches
+__pycache__/
+*.pyc
+.mypy_cache/
+
+# uv / Python virtualenvs
+.venv/
+
+# Intermediate scratch output from the sympy scripts. The stable outputs are
+# under generated/ (committed); scratch/ is just the raw per-script dump.
+scratch/

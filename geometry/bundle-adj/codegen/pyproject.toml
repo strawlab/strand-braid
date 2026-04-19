@@ -1,0 +1,8 @@
+[project]
+name = "bundle-adjustment-sympy-v2"
+requires-python = "==3.14.*"
+version = "0.1.0"
+dependencies = [
+    "sympy==1.14.0",
+    "numpy==2.4.2",
+   ]
