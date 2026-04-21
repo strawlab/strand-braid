@@ -562,12 +562,11 @@ pub fn run_mcsc(input: McscInput, config: McscCfg) -> Result<McscResult> {
 
         // Decompose.  For cameras with known intrinsics the Euclidean
         // upgrade already built `Pe = K_full * [R | -R C]` directly
-        // (see `euclidize`), so RQ would just recover that same `K`
-        // up to the sign dance in `rq_decomposition`.  We skip RQ in
-        // that case and report the supplied `K` verbatim, and recover
-        // `(R, C)` by solving `K^{-1} * Pe = [R | -R C]`.  For
-        // self-calibrated cameras we fall back to the existing RQ
-        // decomposition.
+        // (see `euclidize`), so we skip RQ entirely and report the
+        // supplied `K` verbatim, recovering `(R, C)` by solving
+        // `K^{-1} * Pe = [R | -R C]`.  For self-calibrated cameras we
+        // fall back to the canonical RQ decomposition (K with strictly
+        // positive diagonal, R a proper rotation).
         let (k, r, c) = if let Some(k_full) = &k_full_per_cam[i] {
             let k_inv = k_full.try_inverse().ok_or_else(|| {
                 eyre::eyre!("Known intrinsics matrix for camera {i} is singular")
@@ -767,10 +766,14 @@ struct EuclidizeResult {
 ///    `Pe_rt` block such that `nhom(Pe_rt · Xe)` matches **full**
 ///    (non-centred) pixel coordinates, because downstream reprojection
 ///    comparisons use the non-centred observations `cam_xgt`.
-///     - **Self-calibrated cameras** use the existing RQ path. The
-///       rq_decomposition convention happens to return `K` with
-///       `K(2,2) = -1`, which makes the subsequent `k - pp_shift`
-///       operation produce a `Pe_rt` that reprojects to full pixels.
+///     - **Self-calibrated cameras** use the canonical RQ path: the
+///       3×4 Pe_dyn block is first sign-normalised so the 3×3
+///       sub-block has positive determinant, then
+///       `rq_decomposition` returns `K` with strictly positive
+///       diagonal and `R` a proper rotation.  Pe_rt is then
+///       `(K + pp_shift) * [R | -R·C]` — the `+= pp` on `K`'s
+///       principal-point entries exactly cancels the centring that
+///       was applied to the input measurement matrix.
 ///     - **Known-K cameras** bypass RQ entirely. We solve
 ///       `M = K_c^{-1} · Pe_dyn` for `[s·R | s·t]`, normalise `s` so
 ///       that the 3×3 block is a rotation, project to SO(3), and then
@@ -1042,6 +1045,39 @@ fn euclidize(
             }
         }
 
+        // Canonicalise the sign of the whole 3×4 Pe_dyn block so that
+        // its 3×3 left sub-block has positive determinant.  Since
+        // `rq_decomposition` assumes det > 0 to return a proper
+        // rotation `R` together with `K * R = input`, we must make
+        // the input consistent with that contract; otherwise
+        // `t_vec = K^{-1} * Pe_dyn[:,3]` would silently disagree with
+        // the `(K, R)` factor pair.  `Pe` and `-Pe` represent the
+        // same projective camera, so flipping the whole block is
+        // harmless; we just need to also re-check the "points behind
+        // camera" condition that may now have flipped (it will not,
+        // since negating the block flips both the row-3 sign and the
+        // depth-sign together — see the analysis in the sign-
+        // convention tests).
+        let det_left = {
+            let a = pe_dyn[(i * 3, 0)];
+            let b = pe_dyn[(i * 3, 1)];
+            let c = pe_dyn[(i * 3, 2)];
+            let d = pe_dyn[(i * 3 + 1, 0)];
+            let e = pe_dyn[(i * 3 + 1, 1)];
+            let f = pe_dyn[(i * 3 + 1, 2)];
+            let g = pe_dyn[(i * 3 + 2, 0)];
+            let h = pe_dyn[(i * 3 + 2, 1)];
+            let k = pe_dyn[(i * 3 + 2, 2)];
+            a * (e * k - f * h) - b * (d * k - f * g) + c * (d * h - e * g)
+        };
+        if det_left < 0.0 {
+            for r in 0..3 {
+                for c in 0..4 {
+                    pe_dyn[(i * 3 + r, c)] = -pe_dyn[(i * 3 + r, c)];
+                }
+            }
+        }
+
         let (r_rot, cc) = if let (Some(k_full), Some(k_c)) =
             (&k_full_per_cam[i], &k_centred_per_cam[i])
         {
@@ -1105,8 +1141,8 @@ fn euclidize(
             (r_mat, c_vec)
         } else {
             // Self-calibration path: unchanged RQ decomposition plus the
-            // `k - pp_shift` trick that exploits rq_decomposition's
-            // sign convention to produce full-pixel Pe_rt.
+            // `k + pp_shift` step converts the centred-frame K that
+            // RQ recovers into the full-pixel K needed by `Pe_rt`.
             let m33 = Matrix3::from_fn(|r, c| pe_dyn[(i * 3 + r, c)]);
             let (k, r_rot) = utils::rq_decomposition(&m33);
 
@@ -1122,9 +1158,14 @@ fn euclidize(
                 );
             let cc = -r_rot.transpose() * t_vec;
 
+            // With canonical RQ (K positive diagonal, R proper
+            // rotation), Pe_dyn = K_c * [R | -R·C] in the centred
+            // pixel frame, where K_c has `cx ≈ 0, cy ≈ 0`. To project
+            // to non-centred (full) pixels we need
+            // `Pe_rt = (K_c + pp_shift) * [R | -R·C]`.
             let mut k_mod = k;
-            k_mod[(0, 2)] -= pp[(i, 0)];
-            k_mod[(1, 2)] -= pp[(i, 1)];
+            k_mod[(0, 2)] += pp[(i, 0)];
+            k_mod[(1, 2)] += pp[(i, 1)];
 
             let r_cc = r_rot * cc;
             for r in 0..3 {
@@ -1730,9 +1771,9 @@ mod tests {
         .unwrap();
 
         // Check invariant 1: Pe * Xe should reproduce the FULL pixel
-        // measurement matrix. Pe has pp subtracted from K internally,
-        // so nhom(Pe*Xe) gives full pixel coordinates (the pp subtraction
-        // in K exactly cancels the centring of the input data).
+        // measurement matrix.  `euclidize` adds pp back to K
+        // internally, so nhom(Pe*Xe) gives full (non-centred) pixel
+        // coordinates despite the centring of the input data.
         let pe_xe = &result.pe * &result.xe;
         let mut max_reproj = 0.0_f64;
         for i in 0..n_cams {

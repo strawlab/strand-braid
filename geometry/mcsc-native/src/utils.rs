@@ -6,45 +6,75 @@
 
 use nalgebra::{Matrix3, Vector3};
 
-/// RQ decomposition of a 3×3 matrix.
+/// RQ decomposition of a 3×3 matrix into an upper-triangular `K`
+/// and a proper rotation `R`, such that `X = K * R`.
 ///
-/// Returns `(R, Q)` where `R` is upper-triangular, `Q` is orthogonal,
-/// and `X = R * Q`.
+/// # Sign convention
 ///
-/// Equivalent to `CoreFunctions/rq.m` (Pajdla).
+/// The output is normalised to the standard computer-vision
+/// convention:
+///
+/// * `K` is upper-triangular with **strictly positive diagonal**
+///   (`K[0,0] > 0`, `K[1,1] > 0`, `K[2,2] > 0`);
+/// * `R` is a **proper rotation** (`R Rᵀ = I`, `det(R) = +1`).
+///
+/// Such a decomposition is unique and exists iff `det(X) > 0`. For a
+/// projective camera matrix `P`, `P` and `-P` represent the same
+/// camera; when `det(X) < 0` the input is flipped in sign before
+/// factoring, so the returned `(K, R)` satisfy `K * R = sign(det(X)) * X`.
+///
+/// This differs from the original `CoreFunctions/rq.m` (Pajdla), which
+/// preserves `X = K * R` exactly but at the cost of allowing negative
+/// entries on `K`'s diagonal (e.g. `K[2,2] = -1`) and improper
+/// rotations (`det(R) = ±1`). That convention propagates a confusing
+/// sign into downstream code; see `euclidize` for details.
 pub(crate) fn rq_decomposition(x: &Matrix3<f64>) -> (Matrix3<f64>, Matrix3<f64>) {
-    // QR decomposition of X^T, then transpose back
-    let qr = x.transpose().qr();
+    // Step 1: if det(X) < 0, flip global sign so det > 0. For a
+    // camera projection matrix this is equivalent to rescaling by a
+    // negative constant and is projectively identical.
+    let x_work = if x.determinant() < 0.0 { -*x } else { *x };
+
+    // Step 2: raw RQ via QR of the transpose.
+    let qr = x_work.transpose().qr();
     let qt_raw = qr.q().transpose();
     let rt_raw = qr.r().transpose();
 
-    // Fix signs to ensure proper orientation
+    // Pajdla's orthonormalisation of the bottom rows via cross
+    // products, which makes the upper-triangular structure exact.
     let mut qu = Matrix3::<f64>::zeros();
-
     let row2 = Vector3::new(rt_raw[(2, 0)], rt_raw[(2, 1)], rt_raw[(2, 2)]);
     let row1 = Vector3::new(rt_raw[(1, 0)], rt_raw[(1, 1)], rt_raw[(1, 2)]);
-
-    // Qu(1,:) = cross(Rt(2,:), Rt(3,:)), normalized
     let qu_row0 = row1.cross(&row2);
     let qu_row0 = qu_row0 / qu_row0.norm();
-
-    // Qu(2,:) = cross(Qu(1,:), Rt(3,:)), normalized
     let qu_row1 = qu_row0.cross(&row2);
     let qu_row1 = qu_row1 / qu_row1.norm();
-
-    // Qu(3,:) = cross(Qu(1,:), Qu(2,:))
     let qu_row2 = qu_row0.cross(&qu_row1);
-
     for c in 0..3 {
         qu[(0, c)] = qu_row0[c];
         qu[(1, c)] = qu_row1[c];
         qu[(2, c)] = qu_row2[c];
     }
 
-    let r = rt_raw * qu.transpose();
-    let q = qu * qt_raw;
+    let mut k = rt_raw * qu.transpose();
+    let mut r = qu * qt_raw;
 
-    (r, q)
+    // Step 3: sign-normalise so K has positive diagonal. For each
+    // i with K[i,i] < 0, flip column i of K and row i of R, which
+    // preserves K*R. Since det(X_work) > 0, det(K)*det(R) > 0 and
+    // K is upper-triangular so sign(det(K)) = product of K's
+    // diagonal signs. Because det(R) is initially ±1 and we want
+    // it to end at +1, we must flip an even number of diagonals;
+    // the positivity choice automatically does this.
+    for i in 0..3 {
+        if k[(i, i)] < 0.0 {
+            for j in 0..3 {
+                k[(j, i)] = -k[(j, i)];
+                r[(i, j)] = -r[(i, j)];
+            }
+        }
+    }
+
+    (k, r)
 }
 
 /// Undo radial distortion for a single point.
@@ -258,11 +288,10 @@ mod tests {
 
     #[test]
     fn test_rq_identity_r() {
-        // Upper-triangular M should decompose to K=M, R=I
-        let m = Matrix3::new(500.0, -3.0, 320.0, 0.0, -510.0, 240.0, 0.0, 0.0, -1.0);
+        // Upper-triangular M with positive diagonal decomposes to K=M, R=I.
+        let m = Matrix3::new(500.0, -3.0, 320.0, 0.0, 510.0, 240.0, 0.0, 0.0, 1.0);
         check_rq(&m);
-        let (k, _r) = rq_decomposition(&m);
-        // K should be close to M itself
+        let (k, r) = rq_decomposition(&m);
         for i in 0..3 {
             for j in 0..3 {
                 assert!(
@@ -271,8 +300,37 @@ mod tests {
                     k[(i, j)],
                     m[(i, j)]
                 );
+                let expected = if i == j { 1.0 } else { 0.0 };
+                assert!(
+                    (r[(i, j)] - expected).abs() < 1e-10,
+                    "R != I at ({i},{j}): {}",
+                    r[(i, j)]
+                );
             }
         }
+    }
+
+    /// Canonical-sign normalisation: inputs whose raw RQ would have
+    /// negative diagonal entries on K must be post-processed so that
+    /// K ends up with strictly positive diagonal and R remains a
+    /// proper rotation.
+    #[test]
+    fn test_rq_canonical_signs() {
+        // A 3×3 matrix whose naive RQ (Pajdla) would give K with
+        // K[1,1] = -510 and K[2,2] = -1 (the old convention).  The
+        // canonical output must rewrite it as K positive-diag and
+        // R some proper rotation.
+        let m = Matrix3::new(500.0, -3.0, 320.0, 0.0, -510.0, 240.0, 0.0, 0.0, -1.0);
+        let (k, r) = rq_decomposition(&m);
+        check_rq(&m);
+        assert!(k[(0, 0)] > 0.0, "K[0,0] must be positive, got {}", k[(0, 0)]);
+        assert!(k[(1, 1)] > 0.0, "K[1,1] must be positive, got {}", k[(1, 1)]);
+        assert!(k[(2, 2)] > 0.0, "K[2,2] must be positive, got {}", k[(2, 2)]);
+        let det_r = r.determinant();
+        assert!(
+            (det_r - 1.0).abs() < 1e-10,
+            "det(R) must be +1, got {det_r}"
+        );
     }
 
     #[test]
@@ -286,16 +344,18 @@ mod tests {
         check_rq(&m);
     }
 
+    /// Cross-check: for an upper-triangular input with **positive**
+    /// diagonal the canonical and Octave/Pajdla decompositions agree
+    /// (both give K=M, R=I).  The two conventions only differ for
+    /// inputs whose naive decomposition would land in a non-canonical
+    /// orthant — see `test_rq_canonical_signs` for that case.
     #[test]
     fn test_rq_matches_octave() {
-        // Compare with octave output for a known upper-triangular input
-        let m = Matrix3::new(500.0, -3.0, 320.0, 0.0, -510.0, 240.0, 0.0, 0.0, -1.0);
+        let m = Matrix3::new(500.0, -3.0, 320.0, 0.0, 510.0, 240.0, 0.0, 0.0, 1.0);
         let (k, r) = rq_decomposition(&m);
-        // Octave: K = [500 -3 320; 0 -510 240; 0 0 -1], R ≈ I
         assert!((k[(0, 0)] - 500.0).abs() < 1e-8);
-        assert!((k[(1, 1)] - (-510.0)).abs() < 1e-8);
-        assert!((k[(2, 2)] - (-1.0)).abs() < 1e-8);
-        // R should be identity (to machine precision)
+        assert!((k[(1, 1)] - 510.0).abs() < 1e-8);
+        assert!((k[(2, 2)] - 1.0).abs() < 1e-8);
         for i in 0..3 {
             for j in 0..3 {
                 let expected = if i == j { 1.0 } else { 0.0 };
