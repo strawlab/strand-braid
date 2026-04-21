@@ -492,11 +492,8 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
     };
 
     let multi_cam_system = if !opt.no_bundle_adjustment {
-        if true {
-            // There is some kind of matrix indexing bug when not all 3d points
-            // are visible from all cameras. Need to fix this.
-            todo!("bundle adjustment code needs to be fixed");
-        }
+        // I think there is some kind of matrix indexing bug when not all 3d
+        // points are visible from all cameras. Need to fix this.
         let model_type = opt.bundle_adjustment_model;
         let isrc = opt.bundle_adjustment_intrinsics_source;
 
@@ -530,7 +527,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
                         observed.push(obs_v);
                         cam_idx.push(i.try_into().unwrap());
                         pt_idx.push(j);
-                        println!("cam {i} pt {j}: {obs_u:.2}, {obs_v:.2}");
+                        // println!("cam {i} pt {j}: {obs_u:.2}, {obs_v:.2}");
 
                         let xyz = [qq[(j, 0)], qq[(j, 1)], qq[(j, 2)]];
                         let prev_xyz = point_locs.entry(j).or_insert_with(|| xyz);

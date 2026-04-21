@@ -509,6 +509,62 @@ fn test_braidz_mcsc_skew() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn test_braidz_mcsc_bundle_adjustment() -> Result<()> {
+    const FNAME: &str = "braidz-mcsc-skew-cal-test-data.zip";
+    const SHA256SUM: &str = "82294b0b9fa2a0d6f43bb410e133722abffa55bf3abab934dbb165791a3f334c";
+
+    let local_fname = format!("scratch/{FNAME}");
+
+    download_verify::download_verify(
+        format!("{}/{}", URL_BASE, FNAME).as_str(),
+        &local_fname,
+        &download_verify::Hash::Sha256(SHA256SUM.into()),
+    )
+    .unwrap();
+
+    let data_root = tempfile::tempdir()?;
+    let data_root_dir_name =
+        Utf8PathBuf::from_path_buf(std::path::PathBuf::from(data_root.path())).unwrap();
+
+    // Potentially do not delete temporary directory
+    let save_output = match std::env::var_os(ENV_VAR_NAME) {
+        Some(v) => &v != "0",
+        None => false,
+    };
+
+    if save_output {
+        std::mem::forget(data_root); // do not drop it, so do not delete it
+    }
+
+    let rdr = std::fs::File::open(&local_fname)?;
+    let cal_data_archive = ZipArchive::new(rdr)?;
+
+    unpack_zip_into(cal_data_archive, &data_root_dir_name)?;
+
+    let input = data_root_dir_name.join("20250131_192425.braidz");
+    let checkerboard_cal_dir = Some(data_root_dir_name.join("camera_info"));
+
+    let opt = Cli {
+        input: input.clone(),
+        checkerboard_cal_dir,
+        use_nth_observation: Some(10),
+        ..Default::default()
+    };
+    let (xml_out_name, mcsc_result) = braidz_mcsc(opt)?;
+
+    assert!(
+        mcsc_result.mean_reproj_distance < 3.0,
+        "Mean reprojection distance too high: {:.2} pixels",
+        mcsc_result.mean_reproj_distance
+    );
+
+    // Check that the calibration makes sense.
+    check_calibration_quality_from_xml(&xml_out_name, &input)?;
+
+    Ok(())
+}
+
 #[cfg(feature = "with-octave")]
 #[test]
 fn test_braidz_octave_mcsc_no_radfiles() -> Result<()> {
