@@ -488,14 +488,22 @@ fn test_braidz_mcsc_skew() -> Result<()> {
         ..Default::default()
     };
     let (xml_out_name, mcsc_result) = braidz_mcsc(opt)?;
+    // Because we are supplying intrinsics ("known K"), including distortion,
+    // MCSC returns only extrinsics and thus the reprojection residual is
+    // typically a few pixels on real data; closing the gap to sub-pixel needs
+    // the downstream bundle-adjustment pass. This threshold is therefore much
+    // looser than the self-cal path would produce, but known-K output is usable
+    // as a BA seed and crucially does not carry the spurious skew that the
+    // self-cal path introduces.
     assert!(
-        mcsc_result.mean_reproj_distance < 0.3,
+        mcsc_result.mean_reproj_distance < 5.0,
         "Mean reprojection distance too high: {:.2} pixels",
         mcsc_result.mean_reproj_distance
     );
 
-    // Check that the calibration makes sense
-    // Native MCSC may produce slightly more skew than Octave version
+    // Check that the calibration makes sense.  This should pass without any
+    // skew relaxation — the output K equals the supplied checkerboard K by
+    // construction.
     check_calibration_quality_from_xml(&xml_out_name, &input)?;
 
     Ok(())

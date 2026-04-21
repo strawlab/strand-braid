@@ -569,5 +569,9 @@ pub fn ini_to_mcsc_config(config: &McscIniConfig) -> crate::McscCfg {
         inl_tol: config.inl_tol,
         do_bundle_adjustment: config.do_ba,
         square_pix: true,
+        // gocal.m compatibility: the Octave pipeline never propagates
+        // intrinsics into the Euclidean upgrade, so this switch is a
+        // no-op here (input.intrinsics is always `None` on this path).
+        use_known_intrinsics: false,
     }
 }

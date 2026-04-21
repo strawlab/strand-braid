@@ -101,7 +101,21 @@ pub struct McscCfg {
     /// Whether to perform bundle adjustment at the end.
     pub do_bundle_adjustment: bool,
     /// Whether cameras have square pixels (aspect ratio = 1).
+    ///
+    /// Only applies to cameras whose intrinsics are **not** provided in
+    /// `McscInput::intrinsics`: known-intrinsics cameras use the full
+    /// supplied `K` as a hard constraint (see `use_known_intrinsics`).
     pub square_pix: bool,
+    /// When true (the default) and a camera has an entry in
+    /// `McscInput::intrinsics`, the Euclidean upgrade in `euclidize`
+    /// treats that camera's intrinsic matrix `K` as a hard constraint
+    /// ("extrinsics-only" mode for that camera). When false, MCSC
+    /// self-calibrates all cameras as in the original algorithm, even
+    /// when intrinsics are provided.
+    ///
+    /// Setting this to false is mainly useful for regression testing
+    /// against the behaviour of the Octave MCSC pipeline.
+    pub use_known_intrinsics: bool,
 }
 
 impl Default for McscCfg {
@@ -111,6 +125,7 @@ impl Default for McscCfg {
             inl_tol: 5.0,
             do_bundle_adjustment: false,
             square_pix: true,
+            use_known_intrinsics: true,
         }
     }
 }
@@ -205,35 +220,52 @@ pub fn run_mcsc(input: McscInput, config: McscCfg) -> Result<McscResult> {
     let loaded_ws = &input.points;
     let id_mat = &input.id_mat;
 
-    // linear.Ws = linearized coordinates
-    let mut linear_ws;
-
-    {
-        // Undo radial distortion
-        linear_ws = loaded_ws.clone();
-        for i in 0..n_cams {
-            if let Some((k, kc)) = &input.intrinsics[i] {
-                let rows = (i * 3)..((i + 1) * 3);
-                for j in 0..n_frames {
-                    if id_mat[(i, j)] {
-                        let pt = nalgebra::Vector3::new(
-                            loaded_ws[(i * 3, j)],
-                            loaded_ws[(i * 3 + 1, j)],
-                            loaded_ws[(i * 3 + 2, j)],
-                        );
-                        let undistorted = utils::undo_radial(&pt, k, kc);
-                        for r in 0..3 {
-                            linear_ws[(rows.start + r, j)] = undistorted[r];
-                        }
+    // linear.Ws = linearized coordinates.  For each camera with known
+    // intrinsics we apply `undo_radial` (which removes only the
+    // non-linear distortion part; the linear `K` is preserved on both
+    // sides).  Cameras without intrinsics are passed through unchanged.
+    // Then every camera has its image-centre principal point
+    // `(w/2, h/2)` subtracted so that all subsequent projective
+    // computations operate in a centred frame.
+    let mut linear_ws = loaded_ws.clone();
+    for i in 0..n_cams {
+        if let Some((k, kc)) = &input.intrinsics[i] {
+            for j in 0..n_frames {
+                if id_mat[(i, j)] {
+                    let pt = nalgebra::Vector3::new(
+                        loaded_ws[(i * 3, j)],
+                        loaded_ws[(i * 3 + 1, j)],
+                        loaded_ws[(i * 3 + 2, j)],
+                    );
+                    let undistorted = utils::undo_radial(&pt, k, kc);
+                    for r in 0..3 {
+                        linear_ws[(i * 3 + r, j)] = undistorted[r];
                     }
                 }
-            } else {
-                // No radial undistortion: just subtract principal points
-                linear_ws = loaded_ws.clone();
             }
         }
-        // Subtract principal points
-        subtract_pp(&mut linear_ws, &pp, n_cams, n_frames);
+    }
+    subtract_pp(&mut linear_ws, &pp, n_cams, n_frames);
+
+    // Build per-camera intrinsic matrices for the known-intrinsics
+    // Euclidean upgrade.  `k_full_per_cam[i]` is the provided pinhole
+    // matrix (non-centred, as the user supplied it); `k_centred_per_cam[i]`
+    // is the same matrix in MCSC's centred pixel frame (i.e. with
+    // `(pp_x, pp_y)` subtracted from `(cx, cy)`).  Both are `None` when
+    // the user did not provide intrinsics for that camera, or when
+    // `use_known_intrinsics` is disabled.
+    let mut k_full_per_cam: Vec<Option<Matrix3<f64>>> = vec![None; n_cams];
+    let mut k_centred_per_cam: Vec<Option<Matrix3<f64>>> = vec![None; n_cams];
+    if config.use_known_intrinsics {
+        for i in 0..n_cams {
+            if let Some((k, _kc)) = &input.intrinsics[i] {
+                let mut k_c = *k;
+                k_c[(0, 2)] -= pp[(i, 0)];
+                k_c[(1, 2)] -= pp[(i, 1)];
+                k_full_per_cam[i] = Some(*k);
+                k_centred_per_cam[i] = Some(k_c);
+            }
+        }
     }
 
     // Set invisible entries to NaN (fill_mm expects NaN for missing data)
@@ -383,7 +415,16 @@ pub fn run_mcsc(input: McscInput, config: McscCfg) -> Result<McscResult> {
         let (p_signed, rmat, lambda) = compute_rmat_lambda_signed(p_mat, x_mat, n_cams);
 
         // Euclidize
-        let euc = match euclidize(&rmat, &lambda, &p_signed, x_mat, &pp, config.square_pix) {
+        let euc = match euclidize(
+            &rmat,
+            &lambda,
+            &p_signed,
+            x_mat,
+            &pp,
+            config.square_pix,
+            &k_full_per_cam,
+            &k_centred_per_cam,
+        ) {
             Ok(e) => e,
             Err(err) => {
                 tracing::debug!("[run_mcsc] euclidize failed: {err} - breaking outlier loop");
@@ -444,7 +485,19 @@ pub fn run_mcsc(input: McscInput, config: McscCfg) -> Result<McscResult> {
         _prev_mean_err = current_mean_err;
     }
 
-    // Final bundle adjustment if requested
+    // Final bundle adjustment if requested.
+    //
+    // NOTE on known-K mode: `euclidize` with `use_known_intrinsics`
+    // produces a Euclidean reconstruction whose reprojection error
+    // is typically several pixels on real data — higher than
+    // self-calibration, which can absorb residual modelling error
+    // into K.  Closing that gap requires a non-linear refinement of
+    // (R, t, X) with K held fixed (bundle adjustment / iterated PnP).
+    // See `scratch/MCSC-vs-PnP.md` for the rationale.  The downstream
+    // `braidz-mcsc` crate has a BA pass for this purpose (currently
+    // gated behind a TODO for unrelated reasons); when that is
+    // unblocked, using it with `BAIntrinsicsSource::CheckerboardCal`
+    // and `use_known_intrinsics = true` gives the full pipeline.
 
     if config.do_bundle_adjustment {
         tracing::debug!("Refinement by using Bundle Adjustment");
@@ -468,6 +521,8 @@ pub fn run_mcsc(input: McscInput, config: McscCfg) -> Result<McscResult> {
                     &fill_result.x,
                     &pp,
                     config.square_pix,
+                    &k_full_per_cam,
+                    &k_centred_per_cam,
                 ) {
                     Err(e) => tracing::debug!("[run_mcsc] BA euclidize failed: {e} - skipping BA"),
                     Ok(euc) => {
@@ -505,12 +560,32 @@ pub fn run_mcsc(input: McscInput, config: McscCfg) -> Result<McscResult> {
         let pmat = Matrix3x4::from_fn(|r, c| p_i[(r, c)]);
         projection_matrices.push(pmat);
 
-        // Decompose using RQ
-        let m = Matrix3::from_fn(|r, c| p_i[(r, c)]);
-        let (k, r) = utils::rq_decomposition(&m);
-        let tvec = k.try_inverse().unwrap()
-            * nalgebra::Vector3::new(p_i[(0, 3)], p_i[(1, 3)], p_i[(2, 3)]);
-        let c = -r.transpose() * tvec;
+        // Decompose.  For cameras with known intrinsics the Euclidean
+        // upgrade already built `Pe = K_full * [R | -R C]` directly
+        // (see `euclidize`), so RQ would just recover that same `K`
+        // up to the sign dance in `rq_decomposition`.  We skip RQ in
+        // that case and report the supplied `K` verbatim, and recover
+        // `(R, C)` by solving `K^{-1} * Pe = [R | -R C]`.  For
+        // self-calibrated cameras we fall back to the existing RQ
+        // decomposition.
+        let (k, r, c) = if let Some(k_full) = &k_full_per_cam[i] {
+            let k_inv = k_full.try_inverse().ok_or_else(|| {
+                eyre::eyre!("Known intrinsics matrix for camera {i} is singular")
+            })?;
+            let m = Matrix3::from_fn(|r, c| p_i[(r, c)]);
+            let t_col = nalgebra::Vector3::new(p_i[(0, 3)], p_i[(1, 3)], p_i[(2, 3)]);
+            let r_mat = k_inv * m;
+            let t_vec = k_inv * t_col;
+            let c_vec = -r_mat.transpose() * t_vec;
+            (*k_full, r_mat, c_vec)
+        } else {
+            let m = Matrix3::from_fn(|r, c| p_i[(r, c)]);
+            let (k, r) = utils::rq_decomposition(&m);
+            let tvec = k.try_inverse().unwrap()
+                * nalgebra::Vector3::new(p_i[(0, 3)], p_i[(1, 3)], p_i[(2, 3)]);
+            let c = -r.transpose() * tvec;
+            (k, r, c)
+        };
 
         camera_centers.push(c);
         rotations.push(r);
@@ -661,35 +736,57 @@ struct EuclidizeResult {
 
 /// Perform Euclidean reconstruction from a projective reconstruction.
 ///
-/// Equivalent to `CoreFunctions/euclidize.m`. Recovers camera intrinsics
-/// (K), rotations (R), translations (t), and Euclidean 3-D points from
-/// the projective motion (P) and shape (X) matrices.
+/// Equivalent to `CoreFunctions/euclidize.m`, augmented with an
+/// optional known-intrinsics path.
 ///
 /// # Algorithm
 ///
 /// 1. **Plane at infinity (B)**: estimated from the constraint that the
 ///    principal-point-centred image coordinates have zero mean under the
 ///    projective depths Λ.
-/// 2. **Absolute quadric (Q)**: estimated from constraints on the dual
-///    image of the absolute conic (skew = 0, optionally square pixels).
-/// 3. **Euclidean upgrade**: `H = [A, B]` where `A = U√S` from SVD of Q.
-///    Then `Pe = P*H`, `Xe = H-1*X`.
-/// 4. **Per-camera decomposition**: each 3×4 block of Pe is RQ-factored
-///    into K (intrinsics) and \[R | -R·C\] (extrinsics), with the
-///    principal point subtracted from K.  After this subtraction,
-///    `nhom(Pe * Xe)` gives **full** (non-centred) pixel coordinates
-///    — the pp subtraction in K exactly cancels the centring that was
-///    applied to the input measurement matrix.
+/// 2. **Absolute quadric (Q)**: estimated from linear constraints on the
+///    dual image of the absolute conic,
+///    `ω*_j = P_j · Q · P_j^T = s_j · K_c_j · K_c_j^T`.
+///     - For cameras **without** supplied intrinsics (self-calibration
+///       mode), `K_c_j` is unknown and only the structural constraints
+///       skew=0, and optionally square pixels, plus `ω*(0,2)=ω*(1,2)=0`
+///       (principal point at the image centre in the centred frame) are
+///       imposed — 3 or 4 rows per camera.
+///     - For cameras **with** supplied intrinsics (known-K mode), `K_c_j`
+///       is the caller-provided centred intrinsic matrix; we pre-multiply
+///       `P_j` by `K_c_j^{-1}` and impose the 5 independent linear
+///       constraints that `K_c_j^{-1} · ω*_j · K_c_j^{-T} ∝ I_3` (three
+///       off-diagonals vanish, and two diagonal equalities). This
+///       removes all per-camera intrinsic freedom, which is the fix for
+///       the "MCSC produces skew" issue observed when checkerboard
+///       intrinsics are available.
+/// 3. **Euclidean upgrade**: `H = [A, B]` where `A = U√S` from the SVD of
+///    Q. Then `Pe_dyn = P*H` and `Xe = H^{-1}*X` are in a Euclidean frame
+///    tied to the *centred* pixel convention.
+/// 4. **Per-camera decomposition**: for each camera we need to produce a
+///    `Pe_rt` block such that `nhom(Pe_rt · Xe)` matches **full**
+///    (non-centred) pixel coordinates, because downstream reprojection
+///    comparisons use the non-centred observations `cam_xgt`.
+///     - **Self-calibrated cameras** use the existing RQ path. The
+///       rq_decomposition convention happens to return `K` with
+///       `K(2,2) = -1`, which makes the subsequent `k - pp_shift`
+///       operation produce a `Pe_rt` that reprojects to full pixels.
+///     - **Known-K cameras** bypass RQ entirely. We solve
+///       `M = K_c^{-1} · Pe_dyn` for `[s·R | s·t]`, normalise `s` so
+///       that the 3×3 block is a rotation, project to SO(3), and then
+///       build `Pe_rt = K_full · [R | -R·C]` directly with the
+///       caller-supplied non-centred `K_full`. This guarantees exact
+///       reprojection to full pixels and zero residual intrinsic drift.
 ///
-/// # Coordinate convention
+/// # Parameters
 ///
-/// The input P and X come from `fill_mm`, which operates on the
-/// centred measurement matrix (principal points subtracted).  The
-/// output Pe embeds K with `cx ≈ 0, cy ≈ 0` before pp is
-/// subtracted, so after `K(0,2) -= pp_x`, `K(0,2) ≈ -pp_x`.  This
-/// means `nhom(Pe * Xe)` reproduces the **original** (non-centred)
-/// pixel coordinates, which is what `compute_reproj_error` compares
-/// against (`cam_xgt`, which has pp added back to the centred data).
+/// * `k_full_per_cam[i]` — non-centred `K` for camera `i`, or `None` for
+///   self-calibration. When provided, it is the value the caller wants
+///   to appear in the final `Pe_rt`.
+/// * `k_centred_per_cam[i]` — the same `K` with `(pp_x, pp_y)` subtracted
+///   from `(cx, cy)`, to match the centred frame that P and X live in.
+///   Must be `Some` iff `k_full_per_cam[i]` is.
+#[allow(clippy::too_many_arguments)]
 fn euclidize(
     _rmat: &DMatrix<f64>,
     lambda: &DMatrix<f64>,
@@ -697,6 +794,8 @@ fn euclidize(
     x: &DMatrix<f64>,
     pp: &DMatrix<f64>,
     square_pix: bool,
+    k_full_per_cam: &[Option<Matrix3<f64>>],
+    k_centred_per_cam: &[Option<Matrix3<f64>>],
 ) -> Result<EuclidizeResult> {
     let n = lambda.nrows(); // number of cameras
     let m = lambda.ncols(); // number of points
@@ -753,36 +852,76 @@ fn euclidize(
     let v_b = svd_b.v_t.unwrap().transpose();
     let b_vec = v_b.column(3).clone_owned(); // last column
 
-    // Compute A (the absolute quadric Q)
+    // Compute A (the absolute quadric Q).
+    //
+    // For each camera we add linear rows in the 10 unknowns of the
+    // symmetric 4×4 Q.  Self-calibrated cameras contribute 3–4
+    // structural rows; known-K cameras contribute 5 rows by imposing
+    // K_c^{-1} ω* K_c^{-T} ∝ I_3 on rows of `P' = K_c^{-1} P`.
     let mut rows_temp = Vec::new();
 
     for i in 0..n {
-        let p1 = p.row(i * 3).clone_owned();
-        let p2 = p.row(i * 3 + 1).clone_owned();
-        let p3 = p.row(i * 3 + 2).clone_owned();
+        if let Some(k_c) = &k_centred_per_cam[i] {
+            // Known-intrinsics camera: pre-normalise P by K_c^{-1} so
+            // that the constraints become orthonormality on the rows
+            // of the resulting P'.
+            let k_inv = k_c
+                .try_inverse()
+                .ok_or_else(|| eyre::eyre!("K_centred for camera {i} is singular"))?;
+            let p_block = Matrix3x4::from_fn(|r, c| p[(i * 3 + r, c)]);
+            let p_prime = k_inv * p_block; // 3x4
 
-        // P1^T * Q * P2 = 0 (skew = 0)
-        let (u, v) = (&p1, &p2);
-        rows_temp.push(q_row(u.as_slice(), v.as_slice()));
+            // Rows of P' as [f64; 4] slices.
+            let r0 = [p_prime[(0, 0)], p_prime[(0, 1)], p_prime[(0, 2)], p_prime[(0, 3)]];
+            let r1 = [p_prime[(1, 0)], p_prime[(1, 1)], p_prime[(1, 2)], p_prime[(1, 3)]];
+            let r2 = [p_prime[(2, 0)], p_prime[(2, 1)], p_prime[(2, 2)], p_prime[(2, 3)]];
 
-        // |P1|^2 = |P2|^2 (square pixels)
-        if square_pix {
-            let mut row = [0.0_f64; 10];
-            let q1 = q_row(u.as_slice(), u.as_slice());
-            let q2 = q_row(v.as_slice(), v.as_slice());
+            // Off-diagonal: (ω*)_{01}=0, (ω*)_{02}=0, (ω*)_{12}=0
+            rows_temp.push(q_row(&r0, &r1));
+            rows_temp.push(q_row(&r0, &r2));
+            rows_temp.push(q_row(&r1, &r2));
+
+            // Diagonal equalities: (ω*)_{00}=(ω*)_{11}, (ω*)_{00}=(ω*)_{22}
+            let d00 = q_row(&r0, &r0);
+            let d11 = q_row(&r1, &r1);
+            let d22 = q_row(&r2, &r2);
+            let mut row_01 = [0.0_f64; 10];
+            let mut row_02 = [0.0_f64; 10];
             for k in 0..10 {
-                row[k] = q1[k] - q2[k];
+                row_01[k] = d00[k] - d11[k];
+                row_02[k] = d00[k] - d22[k];
             }
-            rows_temp.push(row);
+            rows_temp.push(row_01);
+            rows_temp.push(row_02);
+        } else {
+            // Self-calibration path (original MCSC formulation).
+            let p1 = p.row(i * 3).clone_owned();
+            let p2 = p.row(i * 3 + 1).clone_owned();
+            let p3 = p.row(i * 3 + 2).clone_owned();
+
+            // P1^T * Q * P2 = 0 (skew = 0)
+            let (u, v) = (&p1, &p2);
+            rows_temp.push(q_row(u.as_slice(), v.as_slice()));
+
+            // |P1|^2 = |P2|^2 (square pixels)
+            if square_pix {
+                let mut row = [0.0_f64; 10];
+                let q1 = q_row(u.as_slice(), u.as_slice());
+                let q2 = q_row(v.as_slice(), v.as_slice());
+                for k in 0..10 {
+                    row[k] = q1[k] - q2[k];
+                }
+                rows_temp.push(row);
+            }
+
+            // P1^T * Q * P3 = 0   (implies centred cx ≈ 0)
+            let (u, v) = (&p1, &p3);
+            rows_temp.push(q_row(u.as_slice(), v.as_slice()));
+
+            // P2^T * Q * P3 = 0   (implies centred cy ≈ 0)
+            let (u, v) = (&p2, &p3);
+            rows_temp.push(q_row(u.as_slice(), v.as_slice()));
         }
-
-        // P1^T * Q * P3 = 0
-        let (u, v) = (&p1, &p3);
-        rows_temp.push(q_row(u.as_slice(), v.as_slice()));
-
-        // P2^T * Q * P3 = 0
-        let (u, v) = (&p2, &p3);
-        rows_temp.push(q_row(u.as_slice(), v.as_slice()));
     }
 
     let n_rows = rows_temp.len();
@@ -903,43 +1042,108 @@ fn euclidize(
             }
         }
 
-        // RQ decomposition
-        let m33 = Matrix3::from_fn(|r, c| pe_dyn[(i * 3 + r, c)]);
-        let (k, r_rot) = utils::rq_decomposition(&m33);
-
-        let k_inv = k
-            .try_inverse()
-            .ok_or_else(|| eyre::eyre!("K matrix is singular for camera {i}"))?;
-
-        let t_vec = k_inv
-            * nalgebra::Vector3::new(
+        let (r_rot, cc) = if let (Some(k_full), Some(k_c)) =
+            (&k_full_per_cam[i], &k_centred_per_cam[i])
+        {
+            // Known-intrinsics path.  Pe_dyn_block should satisfy
+            //   Pe_dyn_block ≈ s * K_c * [R | t],   t = -R·C,
+            // so M = K_c^{-1} * Pe_dyn_block ≈ s * [R | t].
+            // Extract R by SVD-projecting the 3×3 left block to SO(3),
+            // extract s as its average singular value, then recover t.
+            let k_c_inv = k_c.try_inverse().ok_or_else(|| {
+                eyre::eyre!("K_centred for camera {i} is singular in decomposition")
+            })?;
+            let m33 = Matrix3::from_fn(|r, c| pe_dyn[(i * 3 + r, c)]);
+            let t_col = nalgebra::Vector3::new(
                 pe_dyn[(i * 3, 3)],
                 pe_dyn[(i * 3 + 1, 3)],
                 pe_dyn[(i * 3 + 2, 3)],
             );
-        let cc = -r_rot.transpose() * t_vec;
+            let m_left = k_c_inv * m33;
+            let m_t = k_c_inv * t_col;
 
-        // Modify K to subtract principal point
-        let mut k_mod = k;
-        k_mod[(0, 2)] -= pp[(i, 0)];
-        k_mod[(1, 2)] -= pp[(i, 1)];
+            // SVD-project m_left to SO(3).
+            let svd = nalgebra::SVD::new(m_left, true, true);
+            let u = svd.u.unwrap();
+            let v_t = svd.v_t.unwrap();
+            let mut r_mat = u * v_t;
+            if r_mat.determinant() < 0.0 {
+                // Flip sign of last column of U to force det(R) = +1.
+                let mut u_fixed = u;
+                for r in 0..3 {
+                    u_fixed[(r, 2)] = -u_fixed[(r, 2)];
+                }
+                r_mat = u_fixed * v_t;
+            }
+            let s_sum: f64 = svd.singular_values.iter().sum();
+            let s_avg = s_sum / 3.0;
+            if s_avg.abs() < 1e-12 {
+                eyre::bail!(
+                    "Known-K decomposition produced near-zero scale for camera {i}"
+                );
+            }
+            let t_vec = m_t / s_avg;
+            let c_vec = -r_mat.transpose() * t_vec;
 
-        // PeRT = K * [R, -R*Cc]
-        let r_cc = r_rot * cc;
-        for r in 0..3 {
-            for c in 0..3 {
+            // Pe_rt = K_full * [R | -R·C].  Writing directly to pe_rt.
+            let r_cc = r_mat * c_vec;
+            for r in 0..3 {
+                for c in 0..3 {
+                    let mut val = 0.0;
+                    for kk in 0..3 {
+                        val += k_full[(r, kk)] * r_mat[(kk, c)];
+                    }
+                    pe_rt[(i * 3 + r, c)] = val;
+                }
                 let mut val = 0.0;
                 for kk in 0..3 {
-                    val += k_mod[(r, kk)] * r_rot[(kk, c)];
+                    val += k_full[(r, kk)] * (-r_cc[kk]);
                 }
-                pe_rt[(i * 3 + r, c)] = val;
+                pe_rt[(i * 3 + r, 3)] = val;
             }
-            let mut val = 0.0;
-            for kk in 0..3 {
-                val += k_mod[(r, kk)] * (-r_cc[kk]);
+
+            (r_mat, c_vec)
+        } else {
+            // Self-calibration path: unchanged RQ decomposition plus the
+            // `k - pp_shift` trick that exploits rq_decomposition's
+            // sign convention to produce full-pixel Pe_rt.
+            let m33 = Matrix3::from_fn(|r, c| pe_dyn[(i * 3 + r, c)]);
+            let (k, r_rot) = utils::rq_decomposition(&m33);
+
+            let k_inv = k
+                .try_inverse()
+                .ok_or_else(|| eyre::eyre!("K matrix is singular for camera {i}"))?;
+
+            let t_vec = k_inv
+                * nalgebra::Vector3::new(
+                    pe_dyn[(i * 3, 3)],
+                    pe_dyn[(i * 3 + 1, 3)],
+                    pe_dyn[(i * 3 + 2, 3)],
+                );
+            let cc = -r_rot.transpose() * t_vec;
+
+            let mut k_mod = k;
+            k_mod[(0, 2)] -= pp[(i, 0)];
+            k_mod[(1, 2)] -= pp[(i, 1)];
+
+            let r_cc = r_rot * cc;
+            for r in 0..3 {
+                for c in 0..3 {
+                    let mut val = 0.0;
+                    for kk in 0..3 {
+                        val += k_mod[(r, kk)] * r_rot[(kk, c)];
+                    }
+                    pe_rt[(i * 3 + r, c)] = val;
+                }
+                let mut val = 0.0;
+                for kk in 0..3 {
+                    val += k_mod[(r, kk)] * (-r_cc[kk]);
+                }
+                pe_rt[(i * 3 + r, 3)] = val;
             }
-            pe_rt[(i * 3 + r, 3)] = val;
-        }
+
+            (r_rot, cc)
+        };
 
         for r in 0..3 {
             for c in 0..3 {
@@ -959,6 +1163,7 @@ fn euclidize(
         rot: rot_all,
     })
 }
+
 
 /// Build a row for the quadric constraint: u^T Q v expanded into 10 unknowns.
 fn q_row(u: &[f64], v: &[f64]) -> [f64; 10] {
@@ -1280,7 +1485,18 @@ mod tests {
         let (p_signed, rmat, lambda) = compute_rmat_lambda_signed(&p_fm, &x_fm, n_cams);
 
         // Run Rust euclidize
-        let result = euclidize(&rmat, &lambda, &p_signed, &x_fm, &pp_mat, true).unwrap();
+        let no_intrinsics: Vec<Option<Matrix3<f64>>> = vec![None; n_cams];
+        let result = euclidize(
+            &rmat,
+            &lambda,
+            &p_signed,
+            &x_fm,
+            &pp_mat,
+            true,
+            &no_intrinsics,
+            &no_intrinsics,
+        )
+        .unwrap();
 
         // Compare nhom(Pe*Xe) between Rust and Octave
         let pe_xe_rs = &result.pe * &result.xe;
@@ -1499,8 +1715,19 @@ mod tests {
             }
         }
 
-        // Run euclidize
-        let result = euclidize(&rmat, &lambda_proj, &p_proj, &x_proj, &pp, true).unwrap();
+        // Run euclidize (self-calibration mode - existing invariant test)
+        let no_intrinsics: Vec<Option<Matrix3<f64>>> = vec![None; n_cams];
+        let result = euclidize(
+            &rmat,
+            &lambda_proj,
+            &p_proj,
+            &x_proj,
+            &pp,
+            true,
+            &no_intrinsics,
+            &no_intrinsics,
+        )
+        .unwrap();
 
         // Check invariant 1: Pe * Xe should reproduce the FULL pixel
         // measurement matrix. Pe has pp subtracted from K internally,
@@ -1561,5 +1788,216 @@ mod tests {
             (ratio1 - ratio2).abs() / ratio1.max(ratio2) < 0.01,
             "Distance ratios not preserved: {ratio1:.6} vs {ratio2:.6}"
         );
+    }
+
+    /// Known-intrinsics path of `euclidize`: when the caller provides full `K`
+    /// per camera, the Euclidean upgrade must recover (R, t) while preserving
+    /// the supplied K exactly — no skew, no focal drift.
+    #[test]
+    fn test_euclidize_known_intrinsics() {
+        let n_cams = 3;
+        let n_pts = 15;
+
+        // True intrinsics (non-zero principal points, non-square pixels
+        // on purpose — the known-K path must reproduce them exactly).
+        let pp_pts = [[320.0, 240.0], [300.0, 250.0], [310.0, 230.0]];
+        let k_full_list = [
+            Matrix3::new(500.0, 0.0, 320.0, 0.0, 510.0, 240.0, 0.0, 0.0, 1.0),
+            Matrix3::new(600.0, 0.0, 300.0, 0.0, 605.0, 250.0, 0.0, 0.0, 1.0),
+            Matrix3::new(550.0, 0.0, 310.0, 0.0, 540.0, 230.0, 0.0, 0.0, 1.0),
+        ];
+
+        let r_list = [
+            Matrix3::identity(),
+            Matrix3::new(
+                0.866, 0.0, 0.5, //
+                0.0, 1.0, 0.0, //
+                -0.5, 0.0, 0.866,
+            ),
+            Matrix3::new(
+                1.0, 0.0, 0.0, //
+                0.0, 0.9397, -0.342, //
+                0.0, 0.342, 0.9397,
+            ),
+        ];
+        let c_list = [
+            nalgebra::Vector3::new(0.0, 0.0, 0.0),
+            nalgebra::Vector3::new(2.0, 0.0, 0.5),
+            nalgebra::Vector3::new(-1.0, 2.0, 0.3),
+        ];
+
+        // Full (non-centred) camera matrices.
+        let build_p = |k: &Matrix3<f64>,
+                       r: &Matrix3<f64>,
+                       c: &nalgebra::Vector3<f64>|
+         -> Matrix3x4<f64> {
+            let t = -(r * c);
+            let mut p = Matrix3x4::zeros();
+            for ii in 0..3 {
+                for jj in 0..3 {
+                    let mut val = 0.0;
+                    for kk in 0..3 {
+                        val += k[(ii, kk)] * r[(kk, jj)];
+                    }
+                    p[(ii, jj)] = val;
+                }
+                let mut val = 0.0;
+                for kk in 0..3 {
+                    val += k[(ii, kk)] * t[kk];
+                }
+                p[(ii, 3)] = val;
+            }
+            p
+        };
+
+        let p_full_blocks: Vec<_> = (0..n_cams)
+            .map(|i| build_p(&k_full_list[i], &r_list[i], &c_list[i]))
+            .collect();
+
+        let mut p_joint_full = DMatrix::<f64>::zeros(9, 4);
+        for (i, p) in p_full_blocks.iter().enumerate() {
+            for r in 0..3 {
+                for c in 0..4 {
+                    p_joint_full[(i * 3 + r, c)] = p[(r, c)];
+                }
+            }
+        }
+
+        // 3-D world points in front of all cameras.
+        let mut x_world = DMatrix::<f64>::zeros(4, n_pts);
+        for j in 0..n_pts {
+            x_world[(0, j)] = (j as f64 * 0.37).sin() * 2.0;
+            x_world[(1, j)] = (j as f64 * 0.53).cos() * 2.0;
+            x_world[(2, j)] = 5.0 + (j as f64 * 0.71).sin();
+            x_world[(3, j)] = 1.0;
+        }
+
+        // Full measurement matrix (what cameras would actually observe).
+        let m_mat_full = &p_joint_full * &x_world;
+
+        // Principal points for the centring.
+        let mut pp = DMatrix::<f64>::zeros(n_cams, 3);
+        for i in 0..n_cams {
+            pp[(i, 0)] = pp_pts[i][0];
+            pp[(i, 1)] = pp_pts[i][1];
+        }
+
+        // Centred P blocks and centred K matrices.
+        let k_centred_list: Vec<Matrix3<f64>> = (0..n_cams)
+            .map(|i| {
+                let mut k = k_full_list[i];
+                k[(0, 2)] -= pp[(i, 0)];
+                k[(1, 2)] -= pp[(i, 1)];
+                k
+            })
+            .collect();
+
+        let p_centred_blocks: Vec<_> = (0..n_cams)
+            .map(|i| build_p(&k_centred_list[i], &r_list[i], &c_list[i]))
+            .collect();
+
+        let mut p_joint_c = DMatrix::<f64>::zeros(9, 4);
+        for (i, p) in p_centred_blocks.iter().enumerate() {
+            for r in 0..3 {
+                for c in 0..4 {
+                    p_joint_c[(i * 3 + r, c)] = p[(r, c)];
+                }
+            }
+        }
+
+        // Move away from Euclidean with a projective H.
+        let h = nalgebra::Matrix4::new(
+            1.2, 0.1, -0.05, 0.3, //
+            -0.08, 0.9, 0.03, -0.15, //
+            0.02, -0.04, 1.1, 0.1, //
+            0.15, -0.1, 0.08, 0.8,
+        );
+        let h_inv = h.try_inverse().unwrap();
+        let p_proj = &p_joint_c * &DMatrix::from_fn(4, 4, |r, c| h[(r, c)]);
+        let x_proj = DMatrix::from_fn(4, 4, |r, c| h_inv[(r, c)]) * &x_world;
+
+        let rmat = &p_proj * &x_proj;
+        let mut lambda_proj = DMatrix::<f64>::zeros(n_cams, n_pts);
+        for i in 0..n_cams {
+            for j in 0..n_pts {
+                lambda_proj[(i, j)] = rmat[(i * 3 + 2, j)];
+            }
+        }
+
+        // Supply full K per camera.
+        let k_full_vec: Vec<Option<Matrix3<f64>>> =
+            k_full_list.iter().map(|k| Some(*k)).collect();
+        let k_c_vec: Vec<Option<Matrix3<f64>>> =
+            k_centred_list.iter().map(|k| Some(*k)).collect();
+
+        let result = euclidize(
+            &rmat,
+            &lambda_proj,
+            &p_proj,
+            &x_proj,
+            &pp,
+            true,
+            &k_full_vec,
+            &k_c_vec,
+        )
+        .expect("euclidize with known K must succeed");
+
+        // Invariant 1: Pe_rt * Xe must reproduce the FULL pixel matrix.
+        let pe_xe = &result.pe * &result.xe;
+        let mut max_reproj = 0.0_f64;
+        for i in 0..n_cams {
+            for j in 0..n_pts {
+                let w_orig = m_mat_full[(i * 3 + 2, j)];
+                let w_rec = pe_xe[(i * 3 + 2, j)];
+                if w_orig.abs() > 1e-10 && w_rec.abs() > 1e-10 {
+                    let u_orig = m_mat_full[(i * 3, j)] / w_orig;
+                    let v_orig = m_mat_full[(i * 3 + 1, j)] / w_orig;
+                    let u_rec = pe_xe[(i * 3, j)] / w_rec;
+                    let v_rec = pe_xe[(i * 3 + 1, j)] / w_rec;
+                    let err = ((u_orig - u_rec).powi(2) + (v_orig - v_rec).powi(2)).sqrt();
+                    max_reproj = max_reproj.max(err);
+                }
+            }
+        }
+        // Much tighter than the 2.0 px tolerance of the self-cal test:
+        // with K fixed a priori, only SVD round-off stands between us
+        // and exact recovery.
+        assert!(
+            max_reproj < 0.1,
+            "Known-K reprojection should be near-exact: max err {max_reproj:.6e} pixels"
+        );
+
+        // Invariant 2: the 3×3 block of each recovered Pe_rt must
+        // factor as K_full · R with R a proper rotation (det = +1,
+        // orthonormal columns).  Since K_full has zero skew, this is
+        // the key property that the Octave / self-cal path loses.
+        for i in 0..n_cams {
+            let mut m33 = Matrix3::zeros();
+            for r in 0..3 {
+                for c in 0..3 {
+                    m33[(r, c)] = result.pe[(i * 3 + r, c)];
+                }
+            }
+            // R = K_full^{-1} * M should be orthonormal.
+            let k_inv = k_full_list[i].try_inverse().unwrap();
+            let r_recovered = k_inv * m33;
+            let r_rt_r = r_recovered.transpose() * r_recovered;
+            for a in 0..3 {
+                for b in 0..3 {
+                    let expected = if a == b { 1.0 } else { 0.0 };
+                    assert!(
+                        (r_rt_r[(a, b)] - expected).abs() < 1e-5,
+                        "cam {i}: K_full^-1 * Pe_rt(3x3) is not a rotation at ({a},{b}): {}, expected {}",
+                        r_rt_r[(a, b)],
+                        expected
+                    );
+                }
+            }
+            let det = r_recovered.determinant();
+            assert!(
+                (det - 1.0).abs() < 1e-5,
+                "cam {i}: recovered R has det {det}, expected +1"
+            );
+        }
     }
 }
