@@ -659,7 +659,6 @@ fn test_braidz_mcsc_no_radfiles() -> Result<()> {
         input: input.clone(),
         checkerboard_cal_dir: None,
         use_nth_observation: Some(10),
-        no_bundle_adjustment: true,
         force_allow_no_checkerboard_cal: true,
         do_mcsc_bundle_adjustment: true,
         ..Default::default()
