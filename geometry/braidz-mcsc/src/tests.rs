@@ -608,7 +608,7 @@ fn test_braidz_octave_mcsc_no_radfiles() -> Result<()> {
         use_nth_observation: Some(10),
         no_bundle_adjustment: true,
         force_allow_no_checkerboard_cal: true,
-        do_mcsc_bundle_adjustment: true,
+        do_mcsc_projective_ba: true,
         ..Default::default()
     };
     let xml_out_name = braidz_mcsc_octave(opt)?;
@@ -660,7 +660,7 @@ fn test_braidz_mcsc_no_radfiles() -> Result<()> {
         checkerboard_cal_dir: None,
         use_nth_observation: Some(10),
         force_allow_no_checkerboard_cal: true,
-        do_mcsc_bundle_adjustment: true,
+        do_mcsc_projective_ba: true,
         ..Default::default()
     };
     let (xml_out_name, mcsc_result) = braidz_mcsc(opt)?;

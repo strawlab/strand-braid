@@ -567,7 +567,7 @@ pub fn ini_to_mcsc_config(config: &McscIniConfig) -> crate::McscCfg {
     crate::McscCfg {
         num_cams_fill: clamped_fill,
         inl_tol: config.inl_tol,
-        do_bundle_adjustment: config.do_ba,
+        do_projective_ba: config.do_ba,
         square_pix: true,
         // gocal.m compatibility: the Octave pipeline never propagates
         // intrinsics into the Euclidean upgrade, so this switch is a

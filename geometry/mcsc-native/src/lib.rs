@@ -98,8 +98,12 @@ pub struct McscCfg {
     pub num_cams_fill: usize,
     /// Inlier tolerance in pixels for RANSAC validation.
     pub inl_tol: f64,
-    /// Whether to perform bundle adjustment at the end.
-    pub do_bundle_adjustment: bool,
+    /// Whether to perform projective bundle adjustment at the end of the MCSC
+    /// pipeline. This refines the raw projective P and X matrices in projective
+    /// space, before the Euclidean upgrade step. It is distinct from any
+    /// Euclidean (Levenberg-Marquardt) bundle adjustment performed by
+    /// downstream callers.
+    pub do_projective_ba: bool,
     /// Whether cameras have square pixels (aspect ratio = 1).
     ///
     /// Only applies to cameras whose intrinsics are **not** provided in
@@ -123,7 +127,7 @@ impl Default for McscCfg {
         Self {
             num_cams_fill: 12,
             inl_tol: 5.0,
-            do_bundle_adjustment: false,
+            do_projective_ba: false,
             square_pix: true,
             use_known_intrinsics: true,
         }
@@ -499,7 +503,7 @@ pub fn run_mcsc(input: McscInput, config: McscCfg) -> Result<McscResult> {
     // unblocked, using it with `BAIntrinsicsSource::CheckerboardCal`
     // and `use_known_intrinsics = true` gives the full pipeline.
 
-    if config.do_bundle_adjustment {
+    if config.do_projective_ba {
         tracing::debug!("Refinement by using Bundle Adjustment");
         let ws_inlier = extract_columns(&linear_ws, &inlier_idx);
         match fill_mm::fill_mm_bundle(

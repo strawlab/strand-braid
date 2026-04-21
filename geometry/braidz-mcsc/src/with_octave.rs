@@ -204,7 +204,7 @@ pub(crate) fn braidz_mcsc_octave(opt: Cli) -> Result<Utf8PathBuf> {
         num_cameras,
         undo_radial,
         use_nth_observation,
-        do_bundle_adjustment: opt.do_mcsc_bundle_adjustment,
+        do_bundle_adjustment: opt.do_mcsc_projective_ba,
     };
 
     let res = DatMat::new(num_cameras, 2, res)?;

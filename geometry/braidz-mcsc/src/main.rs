@@ -37,19 +37,28 @@ pub(crate) struct Cli {
     #[arg(long)]
     pub(crate) use_nth_observation: Option<u16>,
 
-    /// Do not perform bundle adjustment
+    /// Do not perform Euclidean (Levenberg-Marquardt) bundle adjustment after
+    /// MCSC. This disables the nonlinear optimization from the `bundle-adj`
+    /// crate that refines camera extrinsics, intrinsics, and 3D point positions
+    /// in Euclidean space (depending on the --bundle-adjustment-model). It does
+    /// not affect the optional projective bundle adjustment inside MCSC itself
+    /// (see `--do-mcsc-projective-ba`).
     #[arg(long)]
     pub(crate) no_bundle_adjustment: bool,
 
-    /// Let MCSC perform bundle adjustment
+    /// Let MCSC perform projective bundle adjustment. This refines the raw
+    /// projective P and X matrices in projective space, before the Euclidean
+    /// upgrade step. It is distinct from the Euclidean (Levenberg-Marquardt)
+    /// bundle adjustment controlled by `--no-bundle-adjustment`.
     #[arg(long)]
-    pub(crate) do_mcsc_bundle_adjustment: bool,
+    pub(crate) do_mcsc_projective_ba: bool,
 
-    /// Type of bundle adjustment to perform
+    /// Camera model for Euclidean (Levenberg-Marquardt) bundle adjustment.
     #[arg(long, value_enum, default_value_t)]
     pub(crate) bundle_adjustment_model: CameraModelType,
 
-    /// Source of camera intrinsics when initializing bundle adjustment
+    /// Source of camera intrinsics when initializing Euclidean
+    /// (Levenberg-Marquardt) bundle adjustment.
     #[arg(long, value_enum, default_value_t)]
     pub(crate) bundle_adjustment_intrinsics_source: BAIntrinsicsSource,
 
@@ -393,7 +402,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
     };
 
     let cfg = McscCfg {
-        do_bundle_adjustment: opt.do_mcsc_bundle_adjustment,
+        do_projective_ba: opt.do_mcsc_projective_ba,
         ..Default::default()
     };
 
