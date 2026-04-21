@@ -124,7 +124,6 @@ members = [
     "web/strand-bui-backend-session/types",
     "web/strand-http-video-streaming",
     "web/strand-http-video-streaming/strand-http-video-streaming-types",
-    "geometry/braid-apriltag-types",
 ]
 
 exclude = [
