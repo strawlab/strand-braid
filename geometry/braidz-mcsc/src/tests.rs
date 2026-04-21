@@ -1,6 +1,6 @@
 use approx::assert_relative_eq;
 use camino::{Utf8Path, Utf8PathBuf};
-use eyre::Result;
+use eyre::{Context, Result};
 use mcsc_structs::DatMat;
 use std::collections::BTreeMap;
 use std::io::Read;
@@ -15,34 +15,10 @@ use crate::with_octave::{braidz_mcsc_octave, braidz_mcsc_octave_raw};
 const ENV_VAR_NAME: &str = "BRAIDZ_MCSC_SAVE_TEST_OUTPUT";
 
 /// Check calibration quality by computing reprojection distances
-fn check_calibration_quality(
-    xml_path: &Utf8Path,
-    input_braidz: &Utf8Path,
-    skew_epsilon: f64,
-) -> Result<()> {
-    // Get MCSC result directory from XML filename. We read the original
-    // MCSC results ourselves rather than relying on the converted XML file
-    // because we want to handle the skew that MCSC may return but that we
-    // don't want to be forced into supporting in XML files.
-    let xml_str = xml_path.as_str();
-    let input_base = xml_str
-        .strip_suffix("-unaligned.xml")
-        .ok_or_else(|| eyre::eyre!("expected XML filename to end with '-unaligned.xml'"))?;
-    let resultdir = Utf8PathBuf::from(format!("{}.mcsc/result", input_base));
-
-    // Load calibration, including potential skewed cameras, from results
-    // saved by MCSC.
-    let flydra_mvg::McscDirData {
-        cameras,
-        points4cals: _,
-    } = flydra_mvg::read_mcsc_dir::<f64, _>(&resultdir, false)?;
-
-    let mut cams = BTreeMap::new();
-    for orig_cam in cameras.iter() {
-        let (name, cam) = flydra_mvg::from_flydra_with_limited_skew(orig_cam, skew_epsilon)?;
-        cams.insert(name, cam);
-    }
-    let loaded_system = flydra_mvg::FlydraMultiCameraSystem::new(cams, None);
+fn check_calibration_quality_from_xml(xml_path: &Utf8Path, input_braidz: &Utf8Path) -> Result<()> {
+    // Load calibration from XML file
+    let loaded_system = flydra_mvg::FlydraMultiCameraSystem::from_path(xml_path, false)
+        .with_context(|| format!("while attempting to read calibration file {xml_path}"))?;
 
     // Reload observations from braidz file
     let mut archive = zip_or_dir::ZipDirArchive::auto_from_path(input_braidz)?;
@@ -295,13 +271,12 @@ fn test_braidz_octave_mcsc_slow() -> Result<()> {
         input: input.clone(),
         checkerboard_cal_dir,
         no_bundle_adjustment: true,
-        keep: true,
         ..Default::default()
     };
     let xml_out_name = braidz_mcsc_octave(opt)?;
 
     // Check that the calibration makes sense
-    check_calibration_quality(&xml_out_name, &input, 0.2)?;
+    check_calibration_quality_from_xml(&xml_out_name, &input)?;
 
     Ok(())
 }
@@ -346,7 +321,6 @@ fn test_braidz_mcsc_slow() -> Result<()> {
         input: input.clone(),
         checkerboard_cal_dir,
         no_bundle_adjustment: true,
-        keep: true,
         ..Default::default()
     };
     let (xml_out_name, mcsc_result) = braidz_mcsc(opt)?;
@@ -358,7 +332,7 @@ fn test_braidz_mcsc_slow() -> Result<()> {
 
     // Check that the calibration makes sense
     // Native MCSC may produce slightly more skew than Octave version
-    check_calibration_quality(&xml_out_name, &input, 5.0)?;
+    check_calibration_quality_from_xml(&xml_out_name, &input)?;
 
     Ok(())
 }
@@ -459,14 +433,13 @@ fn test_braidz_octave_mcsc_skew() -> Result<()> {
         input: input.clone(),
         checkerboard_cal_dir,
         use_nth_observation: Some(10),
-        keep: true,
         no_bundle_adjustment: true,
         ..Default::default()
     };
     let xml_out_name = braidz_mcsc_octave(opt)?;
 
     // Check that the calibration makes sense
-    check_calibration_quality(&xml_out_name, &input, 1.0)?;
+    check_calibration_quality_from_xml(&xml_out_name, &input)?;
 
     Ok(())
 }
@@ -511,7 +484,6 @@ fn test_braidz_mcsc_skew() -> Result<()> {
         input: input.clone(),
         checkerboard_cal_dir,
         use_nth_observation: Some(10),
-        keep: true,
         no_bundle_adjustment: true,
         ..Default::default()
     };
@@ -524,7 +496,7 @@ fn test_braidz_mcsc_skew() -> Result<()> {
 
     // Check that the calibration makes sense
     // Native MCSC may produce slightly more skew than Octave version
-    check_calibration_quality(&xml_out_name, &input, 5.0)?;
+    check_calibration_quality_from_xml(&xml_out_name, &input)?;
 
     Ok(())
 }
@@ -570,7 +542,6 @@ fn test_braidz_octave_mcsc_no_radfiles() -> Result<()> {
         input: input.clone(),
         checkerboard_cal_dir: None,
         use_nth_observation: Some(10),
-        keep: true,
         no_bundle_adjustment: true,
         force_allow_no_checkerboard_cal: true,
         do_mcsc_bundle_adjustment: true,
@@ -579,7 +550,7 @@ fn test_braidz_octave_mcsc_no_radfiles() -> Result<()> {
     let xml_out_name = braidz_mcsc_octave(opt)?;
 
     // Check that the calibration makes sense
-    check_calibration_quality(&xml_out_name, &input, 0.2)?;
+    check_calibration_quality_from_xml(&xml_out_name, &input)?;
 
     Ok(())
 }
@@ -624,7 +595,6 @@ fn test_braidz_mcsc_no_radfiles() -> Result<()> {
         input: input.clone(),
         checkerboard_cal_dir: None,
         use_nth_observation: Some(10),
-        keep: true,
         no_bundle_adjustment: true,
         force_allow_no_checkerboard_cal: true,
         do_mcsc_bundle_adjustment: true,
@@ -639,7 +609,7 @@ fn test_braidz_mcsc_no_radfiles() -> Result<()> {
 
     // Check that the calibration makes sense
     // Native MCSC may produce slightly more skew than Octave version
-    check_calibration_quality(&xml_out_name, &input, 5.0)?;
+    check_calibration_quality_from_xml(&xml_out_name, &input)?;
 
     Ok(())
 }

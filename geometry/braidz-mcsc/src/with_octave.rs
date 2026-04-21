@@ -226,9 +226,7 @@ pub(crate) fn braidz_mcsc_octave(opt: Cli) -> Result<Utf8PathBuf> {
         .strip_suffix(".braidz")
         .ok_or_else(|| eyre::eyre!("expected input filename to end with '.braidz'."))?
         .to_string();
-    let out_dir_name = if opt.keep {
-        Utf8PathBuf::from(format!("{}.mcsc", input_base_name))
-    } else {
+    let out_dir_name = {
         let output_root = tempfile::tempdir()?;
         let out_dir_name = Utf8Path::from_path(output_root.path()).unwrap().to_owned();
         #[expect(unused_assignments)]

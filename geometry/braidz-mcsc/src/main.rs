@@ -2,6 +2,7 @@ use bundle_adj::CameraModelType;
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
 use eyre::{self, Context, Result};
+use flydra_mvg::flydra_xml_support::{FlydraDistortionModel, SingleCameraCalibration};
 use levenberg_marquardt::LeastSquaresProblem;
 use opencv_ros_camera::RosOpenCvIntrinsics;
 use std::{
@@ -10,7 +11,6 @@ use std::{
 };
 
 use mcsc_native::McscCfg;
-use mcsc_structs::RadFile;
 
 #[cfg(test)]
 mod tests;
@@ -36,10 +36,6 @@ pub(crate) struct Cli {
     /// Rather than using each frame, use only 1/N of them.
     #[arg(long)]
     pub(crate) use_nth_observation: Option<u16>,
-
-    /// If set, keep the intermediate MCSC calibration directory.
-    #[arg(long)]
-    pub(crate) keep: bool,
 
     /// Do not perform bundle adjustment
     #[arg(long)]
@@ -387,6 +383,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
 
     let undo_radial = radfiles.len() == num_cameras;
 
+    let radfiles_clone = radfiles.clone();
     let mcsc_input = mcsc_native::McscInput {
         id_mat: visibility.clone(),
         points: observations.clone(),
@@ -408,89 +405,6 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
     let input_base_name = input_str
         .strip_suffix(".braidz")
         .ok_or_else(|| eyre::eyre!("expected input filename to end with '.braidz'."))?;
-
-    // Save results in MCSC directory format so existing code can read them.
-    // Other than saving the calibration xml file, all this saving to disk is
-    // purely for backwards compatibility within this codebase.
-    let out_dir_name = if opt.keep {
-        Utf8PathBuf::from(format!("{}.mcsc", input_base_name))
-    } else {
-        let output_root = tempfile::tempdir()?;
-        Utf8Path::from_path(output_root.path()).unwrap().to_owned()
-    };
-    let resultdir = camino::absolute_utf8(out_dir_name.join("result"))?;
-    std::fs::create_dir_all(&resultdir)?;
-
-    // Save camera_order.txt
-    {
-        let mut fd = std::fs::File::create(resultdir.join("camera_order.txt"))?;
-        for name in &camera_order {
-            use std::io::Write;
-            fd.write_all(format!("{}\n", name).as_bytes())?;
-        }
-    }
-
-    // Save Res.dat
-    {
-        let mut fd = std::fs::File::create(resultdir.join("Res.dat"))?;
-        for res in &res {
-            use std::io::Write;
-            fd.write_all(format!("{} {}\n", res[0], res[1]).as_bytes())?;
-        }
-    }
-
-    // Save Pmat files and rad files
-    for (i, pmat) in mcsc_result.projection_matrices.iter().enumerate() {
-        let fname = resultdir.join(format!("camera{}.Pmat.cal", i + 1));
-        let mut fd = std::fs::File::create(&fname)?;
-        use std::io::Write;
-        for r in 0..3 {
-            let row: Vec<String> = (0..4).map(|c| format!("{:.15e}", pmat[(r, c)])).collect();
-            fd.write_all(format!("{}\n", row.join(" ")).as_bytes())?;
-        }
-    }
-
-    // Copy rad files if they exist
-    if let Some(checkerboard_cal_dir) = &opt.checkerboard_cal_dir {
-        for (i, row) in cam_info_rows.iter().enumerate() {
-            let cam_id = row.cam_id.as_str();
-            let yaml_intrinsics_fname = checkerboard_cal_dir.join(format!("{cam_id}.yaml"));
-            let yaml_buf = std::fs::read_to_string(&yaml_intrinsics_fname)?;
-            let cam_info: opencv_ros_camera::RosCameraInfo<f64> = serde_yaml::from_str(&yaml_buf)?;
-            let _radfile = RadFile::new(&cam_info)?;
-            let rad_fname = resultdir.join(format!("basename{}.rad", i + 1));
-            // Re-save using mcsc_structs RadFile to ensure format compatibility
-            // (RadFile::save is not public, so we write directly)
-            let mut fd = std::fs::File::create(&rad_fname)?;
-            let k = &cam_info.camera_matrix.data;
-            for r in 0..3 {
-                for c in 0..3 {
-                    use std::io::Write;
-                    fd.write_all(format!("K{}{} = {}\n", r + 1, c + 1, k[r * 3 + c]).as_bytes())?;
-                }
-            }
-            use std::io::Write;
-            fd.write_all(b"\n")?;
-            let d = &cam_info.distortion_coefficients.data;
-            for ii in 0..4 {
-                let val = d.get(ii).copied().unwrap_or(0.0);
-                fd.write_all(format!("kc{} = {}\n", ii + 1, val).as_bytes())?;
-            }
-        }
-    }
-
-    // Save points4cal files
-    for (i, p4c) in mcsc_result.points4cal.iter().enumerate() {
-        let fname = resultdir.join(format!("cam{}.points4cal.dat", i + 1));
-        let mut fd = std::fs::File::create(&fname)?;
-        use std::io::Write;
-        for row_idx in 0..p4c.nrows() {
-            let vals: Vec<String> = (0..p4c.ncols())
-                .map(|c| format!("{:.15e}", p4c[(row_idx, c)]))
-                .collect();
-            fd.write_all(format!("{}\n", vals.join(" ")).as_bytes())?;
-        }
-    }
 
     // Connect to rerun prior to running Octave.
 
@@ -524,13 +438,50 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
         eyre::bail!("rerun URL specified but binary not compiled with `with-rerun` feature.");
     };
 
-    // Load back using existing infrastructure
+    // Convert mcsc_result directly to FlydraMultiCameraSystem without file I/O
     let (mcsc_system, points4cals) = {
-        let flydra_mvg::McscDirData {
-            cameras,
-            points4cals,
-        } = flydra_mvg::read_mcsc_dir::<f64, _>(&resultdir, false)
-            .with_context(|| format!("while reading calibration at {resultdir}"))?;
+        let mut cameras = Vec::new();
+        let n_cams = camera_order.len();
+        assert_eq!(n_cams, mcsc_result.projection_matrices.len());
+
+        for (i, cam_id) in camera_order.iter().enumerate() {
+            let pmat = &mcsc_result.projection_matrices[i];
+            let resolution = res[i];
+
+            // Build non_linear_parameters
+            let non_linear = if undo_radial {
+                // Use the radfile parameters
+                let (k_matrix, kc) = &radfiles_clone[i];
+                FlydraDistortionModel {
+                    fc1: k_matrix[(0, 0)],
+                    fc2: k_matrix[(1, 1)],
+                    cc1: k_matrix[(0, 2)],
+                    cc2: k_matrix[(1, 2)],
+                    k1: kc[0],
+                    k2: kc[1],
+                    p1: kc[2],
+                    p2: kc[3],
+                    k3: 0.0,
+                    alpha_c: 0.0,
+                    fc1p: None,
+                    fc2p: None,
+                    cc1p: None,
+                    cc2p: None,
+                }
+            } else {
+                // Use linear model from projection matrix
+                FlydraDistortionModel::linear(pmat)
+            };
+
+            cameras.push(SingleCameraCalibration {
+                cam_id: cam_id.clone(),
+                calibration_matrix: *pmat,
+                resolution: (resolution[0], resolution[1]),
+                scale_factor: None,
+                non_linear_parameters: non_linear,
+            });
+        }
+
         let mut cams = BTreeMap::new();
         for orig_cam in cameras.iter() {
             let epsilon = 1e2; // MCSC may produce large skew
@@ -539,7 +490,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
         }
         (
             flydra_mvg::FlydraMultiCameraSystem::new(cams, None),
-            points4cals,
+            mcsc_result.points4cal.clone(),
         )
     };
 
