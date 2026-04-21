@@ -323,9 +323,21 @@ mod tests {
         let m = Matrix3::new(500.0, -3.0, 320.0, 0.0, -510.0, 240.0, 0.0, 0.0, -1.0);
         let (k, r) = rq_decomposition(&m);
         check_rq(&m);
-        assert!(k[(0, 0)] > 0.0, "K[0,0] must be positive, got {}", k[(0, 0)]);
-        assert!(k[(1, 1)] > 0.0, "K[1,1] must be positive, got {}", k[(1, 1)]);
-        assert!(k[(2, 2)] > 0.0, "K[2,2] must be positive, got {}", k[(2, 2)]);
+        assert!(
+            k[(0, 0)] > 0.0,
+            "K[0,0] must be positive, got {}",
+            k[(0, 0)]
+        );
+        assert!(
+            k[(1, 1)] > 0.0,
+            "K[1,1] must be positive, got {}",
+            k[(1, 1)]
+        );
+        assert!(
+            k[(2, 2)] > 0.0,
+            "K[2,2] must be positive, got {}",
+            k[(2, 2)]
+        );
         let det_r = r.determinant();
         assert!(
             (det_r - 1.0).abs() < 1e-10,

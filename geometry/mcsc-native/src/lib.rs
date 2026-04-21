@@ -568,9 +568,9 @@ pub fn run_mcsc(input: McscInput, config: McscCfg) -> Result<McscResult> {
         // fall back to the canonical RQ decomposition (K with strictly
         // positive diagonal, R a proper rotation).
         let (k, r, c) = if let Some(k_full) = &k_full_per_cam[i] {
-            let k_inv = k_full.try_inverse().ok_or_else(|| {
-                eyre::eyre!("Known intrinsics matrix for camera {i} is singular")
-            })?;
+            let k_inv = k_full
+                .try_inverse()
+                .ok_or_else(|| eyre::eyre!("Known intrinsics matrix for camera {i} is singular"))?;
             let m = Matrix3::from_fn(|r, c| p_i[(r, c)]);
             let t_col = nalgebra::Vector3::new(p_i[(0, 3)], p_i[(1, 3)], p_i[(2, 3)]);
             let r_mat = k_inv * m;
@@ -875,9 +875,24 @@ fn euclidize(
             let p_prime = k_inv * p_block; // 3x4
 
             // Rows of P' as [f64; 4] slices.
-            let r0 = [p_prime[(0, 0)], p_prime[(0, 1)], p_prime[(0, 2)], p_prime[(0, 3)]];
-            let r1 = [p_prime[(1, 0)], p_prime[(1, 1)], p_prime[(1, 2)], p_prime[(1, 3)]];
-            let r2 = [p_prime[(2, 0)], p_prime[(2, 1)], p_prime[(2, 2)], p_prime[(2, 3)]];
+            let r0 = [
+                p_prime[(0, 0)],
+                p_prime[(0, 1)],
+                p_prime[(0, 2)],
+                p_prime[(0, 3)],
+            ];
+            let r1 = [
+                p_prime[(1, 0)],
+                p_prime[(1, 1)],
+                p_prime[(1, 2)],
+                p_prime[(1, 3)],
+            ];
+            let r2 = [
+                p_prime[(2, 0)],
+                p_prime[(2, 1)],
+                p_prime[(2, 2)],
+                p_prime[(2, 3)],
+            ];
 
             // Off-diagonal: (ω*)_{01}=0, (ω*)_{02}=0, (ω*)_{12}=0
             rows_temp.push(q_row(&r0, &r1));
@@ -1078,113 +1093,110 @@ fn euclidize(
             }
         }
 
-        let (r_rot, cc) = if let (Some(k_full), Some(k_c)) =
-            (&k_full_per_cam[i], &k_centred_per_cam[i])
-        {
-            // Known-intrinsics path.  Pe_dyn_block should satisfy
-            //   Pe_dyn_block ≈ s * K_c * [R | t],   t = -R·C,
-            // so M = K_c^{-1} * Pe_dyn_block ≈ s * [R | t].
-            // Extract R by SVD-projecting the 3×3 left block to SO(3),
-            // extract s as its average singular value, then recover t.
-            let k_c_inv = k_c.try_inverse().ok_or_else(|| {
-                eyre::eyre!("K_centred for camera {i} is singular in decomposition")
-            })?;
-            let m33 = Matrix3::from_fn(|r, c| pe_dyn[(i * 3 + r, c)]);
-            let t_col = nalgebra::Vector3::new(
-                pe_dyn[(i * 3, 3)],
-                pe_dyn[(i * 3 + 1, 3)],
-                pe_dyn[(i * 3 + 2, 3)],
-            );
-            let m_left = k_c_inv * m33;
-            let m_t = k_c_inv * t_col;
-
-            // SVD-project m_left to SO(3).
-            let svd = nalgebra::SVD::new(m_left, true, true);
-            let u = svd.u.unwrap();
-            let v_t = svd.v_t.unwrap();
-            let mut r_mat = u * v_t;
-            if r_mat.determinant() < 0.0 {
-                // Flip sign of last column of U to force det(R) = +1.
-                let mut u_fixed = u;
-                for r in 0..3 {
-                    u_fixed[(r, 2)] = -u_fixed[(r, 2)];
-                }
-                r_mat = u_fixed * v_t;
-            }
-            let s_sum: f64 = svd.singular_values.iter().sum();
-            let s_avg = s_sum / 3.0;
-            if s_avg.abs() < 1e-12 {
-                eyre::bail!(
-                    "Known-K decomposition produced near-zero scale for camera {i}"
-                );
-            }
-            let t_vec = m_t / s_avg;
-            let c_vec = -r_mat.transpose() * t_vec;
-
-            // Pe_rt = K_full * [R | -R·C].  Writing directly to pe_rt.
-            let r_cc = r_mat * c_vec;
-            for r in 0..3 {
-                for c in 0..3 {
-                    let mut val = 0.0;
-                    for kk in 0..3 {
-                        val += k_full[(r, kk)] * r_mat[(kk, c)];
-                    }
-                    pe_rt[(i * 3 + r, c)] = val;
-                }
-                let mut val = 0.0;
-                for kk in 0..3 {
-                    val += k_full[(r, kk)] * (-r_cc[kk]);
-                }
-                pe_rt[(i * 3 + r, 3)] = val;
-            }
-
-            (r_mat, c_vec)
-        } else {
-            // Self-calibration path: unchanged RQ decomposition plus the
-            // `k + pp_shift` step converts the centred-frame K that
-            // RQ recovers into the full-pixel K needed by `Pe_rt`.
-            let m33 = Matrix3::from_fn(|r, c| pe_dyn[(i * 3 + r, c)]);
-            let (k, r_rot) = utils::rq_decomposition(&m33);
-
-            let k_inv = k
-                .try_inverse()
-                .ok_or_else(|| eyre::eyre!("K matrix is singular for camera {i}"))?;
-
-            let t_vec = k_inv
-                * nalgebra::Vector3::new(
+        let (r_rot, cc) =
+            if let (Some(k_full), Some(k_c)) = (&k_full_per_cam[i], &k_centred_per_cam[i]) {
+                // Known-intrinsics path.  Pe_dyn_block should satisfy
+                //   Pe_dyn_block ≈ s * K_c * [R | t],   t = -R·C,
+                // so M = K_c^{-1} * Pe_dyn_block ≈ s * [R | t].
+                // Extract R by SVD-projecting the 3×3 left block to SO(3),
+                // extract s as its average singular value, then recover t.
+                let k_c_inv = k_c.try_inverse().ok_or_else(|| {
+                    eyre::eyre!("K_centred for camera {i} is singular in decomposition")
+                })?;
+                let m33 = Matrix3::from_fn(|r, c| pe_dyn[(i * 3 + r, c)]);
+                let t_col = nalgebra::Vector3::new(
                     pe_dyn[(i * 3, 3)],
                     pe_dyn[(i * 3 + 1, 3)],
                     pe_dyn[(i * 3 + 2, 3)],
                 );
-            let cc = -r_rot.transpose() * t_vec;
+                let m_left = k_c_inv * m33;
+                let m_t = k_c_inv * t_col;
 
-            // With canonical RQ (K positive diagonal, R proper
-            // rotation), Pe_dyn = K_c * [R | -R·C] in the centred
-            // pixel frame, where K_c has `cx ≈ 0, cy ≈ 0`. To project
-            // to non-centred (full) pixels we need
-            // `Pe_rt = (K_c + pp_shift) * [R | -R·C]`.
-            let mut k_mod = k;
-            k_mod[(0, 2)] += pp[(i, 0)];
-            k_mod[(1, 2)] += pp[(i, 1)];
+                // SVD-project m_left to SO(3).
+                let svd = nalgebra::SVD::new(m_left, true, true);
+                let u = svd.u.unwrap();
+                let v_t = svd.v_t.unwrap();
+                let mut r_mat = u * v_t;
+                if r_mat.determinant() < 0.0 {
+                    // Flip sign of last column of U to force det(R) = +1.
+                    let mut u_fixed = u;
+                    for r in 0..3 {
+                        u_fixed[(r, 2)] = -u_fixed[(r, 2)];
+                    }
+                    r_mat = u_fixed * v_t;
+                }
+                let s_sum: f64 = svd.singular_values.iter().sum();
+                let s_avg = s_sum / 3.0;
+                if s_avg.abs() < 1e-12 {
+                    eyre::bail!("Known-K decomposition produced near-zero scale for camera {i}");
+                }
+                let t_vec = m_t / s_avg;
+                let c_vec = -r_mat.transpose() * t_vec;
 
-            let r_cc = r_rot * cc;
-            for r in 0..3 {
-                for c in 0..3 {
+                // Pe_rt = K_full * [R | -R·C].  Writing directly to pe_rt.
+                let r_cc = r_mat * c_vec;
+                for r in 0..3 {
+                    for c in 0..3 {
+                        let mut val = 0.0;
+                        for kk in 0..3 {
+                            val += k_full[(r, kk)] * r_mat[(kk, c)];
+                        }
+                        pe_rt[(i * 3 + r, c)] = val;
+                    }
                     let mut val = 0.0;
                     for kk in 0..3 {
-                        val += k_mod[(r, kk)] * r_rot[(kk, c)];
+                        val += k_full[(r, kk)] * (-r_cc[kk]);
                     }
-                    pe_rt[(i * 3 + r, c)] = val;
+                    pe_rt[(i * 3 + r, 3)] = val;
                 }
-                let mut val = 0.0;
-                for kk in 0..3 {
-                    val += k_mod[(r, kk)] * (-r_cc[kk]);
-                }
-                pe_rt[(i * 3 + r, 3)] = val;
-            }
 
-            (r_rot, cc)
-        };
+                (r_mat, c_vec)
+            } else {
+                // Self-calibration path: unchanged RQ decomposition plus the
+                // `k + pp_shift` step converts the centred-frame K that
+                // RQ recovers into the full-pixel K needed by `Pe_rt`.
+                let m33 = Matrix3::from_fn(|r, c| pe_dyn[(i * 3 + r, c)]);
+                let (k, r_rot) = utils::rq_decomposition(&m33);
+
+                let k_inv = k
+                    .try_inverse()
+                    .ok_or_else(|| eyre::eyre!("K matrix is singular for camera {i}"))?;
+
+                let t_vec = k_inv
+                    * nalgebra::Vector3::new(
+                        pe_dyn[(i * 3, 3)],
+                        pe_dyn[(i * 3 + 1, 3)],
+                        pe_dyn[(i * 3 + 2, 3)],
+                    );
+                let cc = -r_rot.transpose() * t_vec;
+
+                // With canonical RQ (K positive diagonal, R proper
+                // rotation), Pe_dyn = K_c * [R | -R·C] in the centred
+                // pixel frame, where K_c has `cx ≈ 0, cy ≈ 0`. To project
+                // to non-centred (full) pixels we need
+                // `Pe_rt = (K_c + pp_shift) * [R | -R·C]`.
+                let mut k_mod = k;
+                k_mod[(0, 2)] += pp[(i, 0)];
+                k_mod[(1, 2)] += pp[(i, 1)];
+
+                let r_cc = r_rot * cc;
+                for r in 0..3 {
+                    for c in 0..3 {
+                        let mut val = 0.0;
+                        for kk in 0..3 {
+                            val += k_mod[(r, kk)] * r_rot[(kk, c)];
+                        }
+                        pe_rt[(i * 3 + r, c)] = val;
+                    }
+                    let mut val = 0.0;
+                    for kk in 0..3 {
+                        val += k_mod[(r, kk)] * (-r_cc[kk]);
+                    }
+                    pe_rt[(i * 3 + r, 3)] = val;
+                }
+
+                (r_rot, cc)
+            };
 
         for r in 0..3 {
             for c in 0..3 {
@@ -1204,7 +1216,6 @@ fn euclidize(
         rot: rot_all,
     })
 }
-
 
 /// Build a row for the quadric constraint: u^T Q v expanded into 10 unknowns.
 fn q_row(u: &[f64], v: &[f64]) -> [f64; 10] {
@@ -1868,28 +1879,26 @@ mod tests {
         ];
 
         // Full (non-centred) camera matrices.
-        let build_p = |k: &Matrix3<f64>,
-                       r: &Matrix3<f64>,
-                       c: &nalgebra::Vector3<f64>|
-         -> Matrix3x4<f64> {
-            let t = -(r * c);
-            let mut p = Matrix3x4::zeros();
-            for ii in 0..3 {
-                for jj in 0..3 {
+        let build_p =
+            |k: &Matrix3<f64>, r: &Matrix3<f64>, c: &nalgebra::Vector3<f64>| -> Matrix3x4<f64> {
+                let t = -(r * c);
+                let mut p = Matrix3x4::zeros();
+                for ii in 0..3 {
+                    for jj in 0..3 {
+                        let mut val = 0.0;
+                        for kk in 0..3 {
+                            val += k[(ii, kk)] * r[(kk, jj)];
+                        }
+                        p[(ii, jj)] = val;
+                    }
                     let mut val = 0.0;
                     for kk in 0..3 {
-                        val += k[(ii, kk)] * r[(kk, jj)];
+                        val += k[(ii, kk)] * t[kk];
                     }
-                    p[(ii, jj)] = val;
+                    p[(ii, 3)] = val;
                 }
-                let mut val = 0.0;
-                for kk in 0..3 {
-                    val += k[(ii, kk)] * t[kk];
-                }
-                p[(ii, 3)] = val;
-            }
-            p
-        };
+                p
+            };
 
         let p_full_blocks: Vec<_> = (0..n_cams)
             .map(|i| build_p(&k_full_list[i], &r_list[i], &c_list[i]))
@@ -1966,10 +1975,8 @@ mod tests {
         }
 
         // Supply full K per camera.
-        let k_full_vec: Vec<Option<Matrix3<f64>>> =
-            k_full_list.iter().map(|k| Some(*k)).collect();
-        let k_c_vec: Vec<Option<Matrix3<f64>>> =
-            k_centred_list.iter().map(|k| Some(*k)).collect();
+        let k_full_vec: Vec<Option<Matrix3<f64>>> = k_full_list.iter().map(|k| Some(*k)).collect();
+        let k_c_vec: Vec<Option<Matrix3<f64>>> = k_centred_list.iter().map(|k| Some(*k)).collect();
 
         let result = euclidize(
             &rmat,
