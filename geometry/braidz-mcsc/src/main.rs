@@ -214,7 +214,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
     }
 
     // Load radial distortion parameters
-    let (radfiles, checkerboard_intrinsics) = if let Some(checkerboard_cal_dir) =
+    let (intrinsics, checkerboard_intrinsics) = if let Some(checkerboard_cal_dir) =
         &opt.checkerboard_cal_dir
     {
         if opt.force_allow_no_checkerboard_cal {
@@ -222,7 +222,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
                 "--checkerboard-cal-dir was specified but --force-allow-no-checkerboard-cal is set."
             );
         }
-        let mut radfiles = vec![];
+        let mut intrinsics = vec![];
         let mut checkerboard_intrinsics = vec![];
         for row in cam_info_rows.iter() {
             let cam_id = row.cam_id.as_str();
@@ -244,7 +244,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
                 d.get(2).copied().unwrap_or(0.0),
                 d.get(3).copied().unwrap_or(0.0),
             ];
-            radfiles.push((k_mat, kc));
+            intrinsics.push((k_mat, kc));
 
             // Check that images have expected resolution.
             let im = &images[cam_id];
@@ -260,7 +260,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
             let named: opencv_ros_camera::NamedIntrinsicParameters<f64> = cam_info.try_into()?;
             checkerboard_intrinsics.push(named.intrinsics);
         }
-        (radfiles, Some(checkerboard_intrinsics))
+        (intrinsics, Some(checkerboard_intrinsics))
     } else if opt.force_allow_no_checkerboard_cal {
         (vec![], None)
     } else {
@@ -381,14 +381,14 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
         visibility.ncols()
     );
 
-    let undo_radial = radfiles.len() == num_cameras;
+    let undo_radial = intrinsics.len() == num_cameras;
 
-    let radfiles_clone = radfiles.clone();
+    let intrinsics_clone = intrinsics.clone();
     let mcsc_input = mcsc_native::McscInput {
         id_mat: visibility.clone(),
         points: observations.clone(),
         res: res.clone(),
-        radfiles,
+        intrinsics,
         camera_names: camera_order.clone(),
     };
 
@@ -450,8 +450,8 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
 
             // Build non_linear_parameters
             let non_linear = if undo_radial {
-                // Use the radfile parameters
-                let (k_matrix, kc) = &radfiles_clone[i];
+                // Use the intrinsic parameters
+                let (k_matrix, kc) = &intrinsics_clone[i];
                 FlydraDistortionModel {
                     fc1: k_matrix[(0, 0)],
                     fc2: k_matrix[(1, 1)],

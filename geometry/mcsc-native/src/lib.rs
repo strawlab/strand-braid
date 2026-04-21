@@ -130,7 +130,7 @@ pub struct McscInput {
     pub res: Vec<[usize; 2]>,
     /// Radial distortion parameters per camera. If empty, no undistortion is done.
     /// Each entry is (K_3x3, kc_4x1).
-    pub radfiles: Vec<(Matrix3<f64>, [f64; 4])>,
+    pub intrinsics: Vec<(Matrix3<f64>, [f64; 4])>,
     /// Camera names/identifiers.
     pub camera_names: Vec<String>,
 }
@@ -212,11 +212,11 @@ pub fn run_mcsc(input: McscInput, config: McscCfg) -> Result<McscResult> {
     // linear.Ws = linearized coordinates
     let mut linear_ws;
 
-    if config.undo_radial && !input.radfiles.is_empty() {
+    if config.undo_radial && !input.intrinsics.is_empty() {
         // Undo radial distortion
         linear_ws = loaded_ws.clone();
         for i in 0..n_cams {
-            let (k, kc) = &input.radfiles[i];
+            let (k, kc) = &input.intrinsics[i];
             let rows = (i * 3)..((i + 1) * 3);
             for j in 0..n_frames {
                 if id_mat[(i, j)] {

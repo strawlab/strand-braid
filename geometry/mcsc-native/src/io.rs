@@ -258,8 +258,8 @@ pub fn load_mcsc_data(config: &McscIniConfig) -> Result<crate::McscInput, eyre::
     let points = parse_points_dat(&points_content, config.num_cameras, n_points)?;
 
     // Load radial distortion files if undo_radial is true
-    let radfiles = if config.undo_radial {
-        let mut radfiles = Vec::new();
+    let intrinsics = if config.undo_radial {
+        let mut intrinsics = Vec::new();
         for i in 0..config.num_cameras {
             let rad_path = dir.join(format!("basename{}.rad", i + 1));
             if !rad_path.exists() {
@@ -270,18 +270,18 @@ pub fn load_mcsc_data(config: &McscIniConfig) -> Result<crate::McscInput, eyre::
             let rad_content = std::fs::read_to_string(&rad_path)
                 .with_context(|| format!("Failed to read {rad_path}"))?;
             let (k, kc) = parse_rad_file(&rad_content)?;
-            radfiles.push((k, kc));
+            intrinsics.push((k, kc));
         }
 
-        if radfiles.len() != config.num_cameras {
+        if intrinsics.len() != config.num_cameras {
             return Err(eyre::eyre!(
                 "Loaded {} rad files, but Num-Cameras is {}",
-                radfiles.len(),
+                intrinsics.len(),
                 config.num_cameras
             ));
         }
 
-        radfiles
+        intrinsics
     } else {
         vec![]
     };
@@ -290,7 +290,7 @@ pub fn load_mcsc_data(config: &McscIniConfig) -> Result<crate::McscInput, eyre::
         id_mat,
         points,
         res: res_vec,
-        radfiles,
+        intrinsics,
         camera_names,
     })
 }
