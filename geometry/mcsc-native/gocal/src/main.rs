@@ -35,9 +35,8 @@ fn main() -> Result<()> {
     let config = parse_mcsc_config(&args.config)?;
 
     tracing::debug!(
-        "Parsed config: {} cameras, undo_radial={}, do_ba={}",
+        "Parsed config: {} cameras, do_ba={}",
         config.num_cameras,
-        config.undo_radial,
         config.do_ba
     );
 
@@ -99,9 +98,11 @@ fn main() -> Result<()> {
         )
     })?;
 
-    if config.undo_radial {
-        for i in 0..config.num_cameras {
-            let src_rad_path = config_dir.join(format!("basename{}.rad", i + 1));
+    let mut require_radfiles = false;
+    for i in 0..config.num_cameras {
+        let src_rad_path = config_dir.join(format!("basename{}.rad", i + 1));
+        if std::fs::exists(&src_rad_path)? {
+            require_radfiles = true;
             let dst_rad_path = result_dir.join(format!("basename{}.rad", i + 1));
             std::fs::copy(&src_rad_path, &dst_rad_path)
                 .with_context(|| format!("Failed to copy {src_rad_path} to {dst_rad_path}"))?;
@@ -111,7 +112,6 @@ fn main() -> Result<()> {
     tracing::info!("Results saved to {}", result_dir);
 
     // Test that we can load the saved results.
-    let require_radfiles = config.undo_radial;
     flydra_mvg::read_mcsc_dir::<f64, _>(&result_dir, require_radfiles)
         .with_context(|| format!("while reading calibration at {result_dir}"))?;
 

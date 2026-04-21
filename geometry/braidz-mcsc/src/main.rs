@@ -244,7 +244,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
                 d.get(2).copied().unwrap_or(0.0),
                 d.get(3).copied().unwrap_or(0.0),
             ];
-            intrinsics.push((k_mat, kc));
+            intrinsics.push(Some((k_mat, kc)));
 
             // Check that images have expected resolution.
             let im = &images[cam_id];
@@ -262,7 +262,9 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
         }
         (intrinsics, Some(checkerboard_intrinsics))
     } else if opt.force_allow_no_checkerboard_cal {
-        (vec![], None)
+        let n = cam_info_rows.len();
+        let intrinsics = vec![None; n];
+        (intrinsics, None)
     } else {
         eyre::bail!(
             "No --checkerboard-cal-dir given and --force-allow-no-checkerboard-cal not set."
@@ -381,8 +383,6 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
         visibility.ncols()
     );
 
-    let undo_radial = intrinsics.len() == num_cameras;
-
     let intrinsics_clone = intrinsics.clone();
     let mcsc_input = mcsc_native::McscInput {
         id_mat: visibility.clone(),
@@ -393,7 +393,6 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
     };
 
     let cfg = McscCfg {
-        undo_radial,
         do_bundle_adjustment: opt.do_mcsc_bundle_adjustment,
         ..Default::default()
     };
@@ -449,9 +448,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
             let resolution = res[i];
 
             // Build non_linear_parameters
-            let non_linear = if undo_radial {
-                // Use the intrinsic parameters
-                let (k_matrix, kc) = &intrinsics_clone[i];
+            let non_linear = if let Some((k_matrix, kc)) = &intrinsics_clone[i] {
                 FlydraDistortionModel {
                     fc1: k_matrix[(0, 0)],
                     fc2: k_matrix[(1, 1)],

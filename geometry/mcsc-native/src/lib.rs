@@ -86,7 +86,6 @@ pub struct McscIniConfig {
     pub num_cameras: usize,
     pub num_cams_fill_raw: Option<usize>,
     pub do_ba: bool,
-    pub undo_radial: bool,
     pub use_nth_frame: u16,
     pub inl_tol: f64,
 }
@@ -101,8 +100,6 @@ pub struct McscCfg {
     pub inl_tol: f64,
     /// Whether to perform bundle adjustment at the end.
     pub do_bundle_adjustment: bool,
-    /// Whether to undo radial distortion.
-    pub undo_radial: bool,
     /// Whether cameras have square pixels (aspect ratio = 1).
     pub square_pix: bool,
 }
@@ -113,7 +110,6 @@ impl Default for McscCfg {
             num_cams_fill: 12,
             inl_tol: 5.0,
             do_bundle_adjustment: false,
-            undo_radial: false,
             square_pix: true,
         }
     }
@@ -128,9 +124,9 @@ pub struct McscInput {
     pub points: DMatrix<f64>,
     /// Camera resolutions (n_cams x 2): [width, height] per camera.
     pub res: Vec<[usize; 2]>,
-    /// Radial distortion parameters per camera. If empty, no undistortion is done.
+    /// Intrinsics parameters per camera, if present.
     /// Each entry is (K_3x3, kc_4x1).
-    pub intrinsics: Vec<(Matrix3<f64>, [f64; 4])>,
+    pub intrinsics: Vec<Option<(Matrix3<f64>, [f64; 4])>>,
     /// Camera names/identifiers.
     pub camera_names: Vec<String>,
 }
@@ -212,31 +208,31 @@ pub fn run_mcsc(input: McscInput, config: McscCfg) -> Result<McscResult> {
     // linear.Ws = linearized coordinates
     let mut linear_ws;
 
-    if config.undo_radial && !input.intrinsics.is_empty() {
+    {
         // Undo radial distortion
         linear_ws = loaded_ws.clone();
         for i in 0..n_cams {
-            let (k, kc) = &input.intrinsics[i];
-            let rows = (i * 3)..((i + 1) * 3);
-            for j in 0..n_frames {
-                if id_mat[(i, j)] {
-                    let pt = nalgebra::Vector3::new(
-                        loaded_ws[(i * 3, j)],
-                        loaded_ws[(i * 3 + 1, j)],
-                        loaded_ws[(i * 3 + 2, j)],
-                    );
-                    let undistorted = utils::undo_radial(&pt, k, kc);
-                    for r in 0..3 {
-                        linear_ws[(rows.start + r, j)] = undistorted[r];
+            if let Some((k, kc)) = &input.intrinsics[i] {
+                let rows = (i * 3)..((i + 1) * 3);
+                for j in 0..n_frames {
+                    if id_mat[(i, j)] {
+                        let pt = nalgebra::Vector3::new(
+                            loaded_ws[(i * 3, j)],
+                            loaded_ws[(i * 3 + 1, j)],
+                            loaded_ws[(i * 3 + 2, j)],
+                        );
+                        let undistorted = utils::undo_radial(&pt, k, kc);
+                        for r in 0..3 {
+                            linear_ws[(rows.start + r, j)] = undistorted[r];
+                        }
                     }
                 }
+            } else {
+                // No radial undistortion: just subtract principal points
+                linear_ws = loaded_ws.clone();
             }
         }
         // Subtract principal points
-        subtract_pp(&mut linear_ws, &pp, n_cams, n_frames);
-    } else {
-        // No radial undistortion: just subtract principal points
-        linear_ws = loaded_ws.clone();
         subtract_pp(&mut linear_ws, &pp, n_cams, n_frames);
     }
 

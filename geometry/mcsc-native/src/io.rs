@@ -258,32 +258,20 @@ pub fn load_mcsc_data(config: &McscIniConfig) -> Result<crate::McscInput, eyre::
     let points = parse_points_dat(&points_content, config.num_cameras, n_points)?;
 
     // Load radial distortion files if undo_radial is true
-    let intrinsics = if config.undo_radial {
+    let intrinsics = {
         let mut intrinsics = Vec::new();
         for i in 0..config.num_cameras {
             let rad_path = dir.join(format!("basename{}.rad", i + 1));
-            if !rad_path.exists() {
-                eyre::bail!(
-                    "Configuration specified undo_radial, but expected radial file {rad_path} does not exist"
-                );
+            if rad_path.exists() {
+                let rad_content = std::fs::read_to_string(&rad_path)
+                    .with_context(|| format!("Failed to read {rad_path}"))?;
+                let (k, kc) = parse_rad_file(&rad_content)?;
+                intrinsics.push(Some((k, kc)));
+            } else {
+                intrinsics.push(None);
             }
-            let rad_content = std::fs::read_to_string(&rad_path)
-                .with_context(|| format!("Failed to read {rad_path}"))?;
-            let (k, kc) = parse_rad_file(&rad_content)?;
-            intrinsics.push((k, kc));
         }
-
-        if intrinsics.len() != config.num_cameras {
-            return Err(eyre::eyre!(
-                "Loaded {} rad files, but Num-Cameras is {}",
-                intrinsics.len(),
-                config.num_cameras
-            ));
-        }
-
         intrinsics
-    } else {
-        vec![]
     };
 
     Ok(crate::McscInput {
@@ -324,7 +312,7 @@ pub fn parse_mcsc_config(cfg_path: &camino::Utf8Path) -> Result<McscIniConfig> {
     let cfg_content =
         std::fs::read_to_string(&cfg_file).with_context(|| format!("Failed to read {cfg_file}"))?;
 
-    let (num_cameras, num_cams_fill_raw, do_ba, undo_radial, use_nth_frame, inl_tol) =
+    let (num_cameras, num_cams_fill_raw, do_ba, use_nth_frame, inl_tol) =
         parse_multicamselfcal_cfg(&cfg_content)?;
 
     Ok(McscIniConfig {
@@ -332,7 +320,6 @@ pub fn parse_mcsc_config(cfg_path: &camino::Utf8Path) -> Result<McscIniConfig> {
         num_cameras,
         num_cams_fill_raw,
         do_ba,
-        undo_radial,
         use_nth_frame,
         inl_tol,
     })
@@ -341,15 +328,12 @@ pub fn parse_mcsc_config(cfg_path: &camino::Utf8Path) -> Result<McscIniConfig> {
 /// Parse the contents of multicamselfcal.cfg.
 ///
 /// Returns (num_cameras, num_cams_fill_raw, do_ba, undo_radial, use_nth_frame, inl_tol)
-fn parse_multicamselfcal_cfg(
-    content: &str,
-) -> Result<(usize, Option<usize>, bool, bool, u16, f64)> {
+fn parse_multicamselfcal_cfg(content: &str) -> Result<(usize, Option<usize>, bool, u16, f64)> {
     use eyre::eyre;
 
     let mut num_cameras: Option<usize> = None;
     let mut num_projectors: Option<usize> = None;
     let mut do_ba = false;
-    let mut undo_radial = false;
     let mut use_nth_frame: Option<u16> = None;
     let mut do_global_iterations: Option<i8> = None;
     let mut inl_tol: Option<f64> = None;
@@ -510,7 +494,8 @@ fn parse_multicamselfcal_cfg(
                         if val != 0 && val != 1 {
                             return Err(eyre!("Undo-Radial must be 0 or 1, got {}", val));
                         }
-                        undo_radial = val != 0;
+                        // We ignore undo_radial in this port but rather base
+                        // behavior on presense of .rad files.
                     }
                     "Use-Nth-Frame" => {
                         let val: u16 = value
@@ -561,14 +546,7 @@ fn parse_multicamselfcal_cfg(
     // Octave default (see CommonCfgAndIO/read_configuration.m): INL_TOL = 5 if unspecified.
     let inl_tol = inl_tol.unwrap_or(5.0);
 
-    Ok((
-        num_cameras,
-        num_cams_fill,
-        do_ba,
-        undo_radial,
-        use_nth_frame,
-        inl_tol,
-    ))
+    Ok((num_cameras, num_cams_fill, do_ba, use_nth_frame, inl_tol))
 }
 
 /// Convert McscIniConfig to McscConfig, applying any necessary transformations.
@@ -590,7 +568,6 @@ pub fn ini_to_mcsc_config(config: &McscIniConfig) -> crate::McscCfg {
         num_cams_fill: clamped_fill,
         inl_tol: config.inl_tol,
         do_bundle_adjustment: config.do_ba,
-        undo_radial: config.undo_radial,
         square_pix: true,
     }
 }
