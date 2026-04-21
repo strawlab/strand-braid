@@ -438,7 +438,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
     };
 
     // Convert mcsc_result directly to FlydraMultiCameraSystem without file I/O
-    let (mcsc_system, points4cals) = {
+    let mcsc_system = {
         let mut cameras = Vec::new();
         let n_cams = camera_order.len();
         assert_eq!(n_cams, mcsc_result.projection_matrices.len());
@@ -485,15 +485,10 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
             let (name, cam) = flydra_mvg::from_flydra_with_limited_skew(orig_cam, epsilon)?;
             cams.insert(name, cam);
         }
-        (
-            flydra_mvg::FlydraMultiCameraSystem::new(cams, None),
-            mcsc_result.points4cal.clone(),
-        )
+        flydra_mvg::FlydraMultiCameraSystem::new(cams, None)
     };
 
     let multi_cam_system = if !opt.no_bundle_adjustment {
-        // I think there is some kind of matrix indexing bug when not all 3d
-        // points are visible from all cameras. Need to fix this.
         let model_type = opt.bundle_adjustment_model;
         let isrc = opt.bundle_adjustment_intrinsics_source;
 
@@ -508,34 +503,44 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
             );
             assert_eq!(visibility.nrows() * 3, observations.nrows());
 
+            // Build a map from original global point index to MCSC inlier index.
+            // MCSC may have removed some points (outliers), so only inlier points
+            // have a valid 3D position.
+            let inlier_map: std::collections::HashMap<usize, usize> = mcsc_result
+                .inlier_indices
+                .iter()
+                .enumerate()
+                .map(|(k, &j)| (j, k))
+                .collect();
+            let n_ba_pts = mcsc_result.inlier_indices.len();
+
             // Store each (u,v) observation pair. This will be reshaped later to a 2xN matrix.
             let mut observed: Vec<f64> = Vec::new();
             let mut cam_idx = Vec::new();
             let mut pt_idx = Vec::new();
 
-            let mut point_locs: std::collections::BTreeMap<usize, [f64; 3]> = Default::default();
+            // Visibility and observations matrices aligned to the inlier point set.
+            let n_cams_ba = visibility.nrows();
+            let mut vis_ba = nalgebra::DMatrix::<bool>::from_element(n_cams_ba, n_ba_pts, false);
+            let mut obs_ba = nalgebra::DMatrix::<f64>::zeros(n_cams_ba * 3, n_ba_pts);
 
             for i in 0..visibility.nrows() {
-                let qq = &points4cals[i];
-
                 let obs_start_idx = i * 3;
                 for j in 0..visibility.ncols() {
                     if visibility[(i, j)] {
-                        let obs_u = observations[(obs_start_idx, j)];
-                        let obs_v = observations[(obs_start_idx + 1, j)];
-                        observed.push(obs_u);
-                        observed.push(obs_v);
-                        cam_idx.push(i.try_into().unwrap());
-                        pt_idx.push(j);
-                        // println!("cam {i} pt {j}: {obs_u:.2}, {obs_v:.2}");
+                        // Skip points that MCSC filtered as outliers.
+                        if let Some(&k) = inlier_map.get(&j) {
+                            let obs_u = observations[(obs_start_idx, j)];
+                            let obs_v = observations[(obs_start_idx + 1, j)];
+                            observed.push(obs_u);
+                            observed.push(obs_v);
+                            cam_idx.push(i.try_into().unwrap());
+                            pt_idx.push(k);
 
-                        let xyz = [qq[(j, 0)], qq[(j, 1)], qq[(j, 2)]];
-                        let prev_xyz = point_locs.entry(j).or_insert_with(|| xyz);
-                        for ii in 0..3 {
-                            if !approx::relative_eq!(xyz[ii], prev_xyz[ii]) {
-                                eyre::bail!(
-                                    "MCSC returned different 3D points for the same 3D point?"
-                                );
+                            vis_ba[(i, k)] = true;
+                            for r in 0..3 {
+                                obs_ba[(obs_start_idx + r, k)] =
+                                    observations[(obs_start_idx + r, j)];
                             }
                         }
                     }
@@ -596,25 +601,20 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
             }
             let start_ba_system = flydra_mvg::FlydraMultiCameraSystem::new(cams_by_name_ba, None);
 
-            let mut points0 = nalgebra::Matrix3xX::<f64>::zeros(visibility.ncols());
-            let mut labels3d = Vec::with_capacity(visibility.ncols());
-            for j in 0..visibility.ncols() {
-                match point_locs.get(&j) {
-                    Some(xyz) => {
-                        for ii in 0..3 {
-                            points0[(ii, j)] = xyz[ii];
-                        }
-                        labels3d.push(format!("{j}"));
-                    }
-                    None => {
-                        eyre::bail!("Point {} not found in point_locs", j);
-                    }
+            // Initial 3D point positions from MCSC reconstruction (dehomogenized).
+            let mut points0 = nalgebra::Matrix3xX::<f64>::zeros(n_ba_pts);
+            let mut labels3d = Vec::with_capacity(n_ba_pts);
+            for k in 0..n_ba_pts {
+                let w = mcsc_result.points_3d[(3, k)];
+                for ii in 0..3 {
+                    points0[(ii, k)] = mcsc_result.points_3d[(ii, k)] / w;
                 }
+                labels3d.push(format!("{}", mcsc_result.inlier_indices[k]));
             }
 
             // Print results of MCSC.
             println!("# Results of MCSC");
-            print_reproj_and_params(&mcsc_system, &points0, &visibility, &observations)?;
+            print_reproj_and_params(&mcsc_system, &points0, &vis_ba, &obs_ba)?;
 
             let optimize_points = true;
             let ba = bundle_adj::BundleAdjuster::new(
@@ -632,7 +632,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
                 #[cfg(feature = "with-rerun")]
                 rec,
             )?;
-            (visibility, observations, ba, start_ba_system)
+            (vis_ba, obs_ba, ba, start_ba_system)
         };
 
         let residuals_pre = ba.residuals().unwrap();
