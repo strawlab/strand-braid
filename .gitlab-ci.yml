@@ -1167,6 +1167,6 @@ test_user_guide:
   dependencies: []
   image: rust:1.93
   script:
-    - cd strand-braid-user/users-guide
+    - cd docs/user-docs/users-guide
     - curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.18/mdbook-v0.4.18-x86_64-unknown-linux-gnu.tar.gz | tar -xz
     - ./mdbook test

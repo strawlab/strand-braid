@@ -191,7 +191,10 @@ where
         out_loc.display()
     );
 
-    let script = "../../strand-braid-user/scripts/convert_braidz_to_flydra_h5.py";
+    let script = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/user-docs/scripts/convert_braidz_to_flydra_h5.py"
+    );
     let arg = format!("python {} {}", script, src.as_ref().display());
 
     // This will run the command, which will delete `src`.
@@ -278,7 +281,10 @@ where
         out_loc.to_string_lossy()
     );
 
-    let script = "../../strand-braid-user/scripts/export_h5_to_csv.py";
+    let script = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../docs/user-docs/scripts/export_h5_to_csv.py"
+    );
     let arg = format!("python {} {}", script, src.as_ref().display());
     // python script puts results in out_loc
     let output = run_command(&arg);

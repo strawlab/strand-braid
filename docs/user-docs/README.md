@@ -1,4 +1,4 @@
-# strand-braid-user
+# user-docs
 
 Files and support for users of Strand Camera and Braid software from the Straw
 Lab.

@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: strand-braid-user/users-guide
+        working-directory: docs/user-docs/users-guide
     steps:
       - uses: actions/checkout@v6
 
@@ -46,4 +46,4 @@ jobs:
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: strand-braid-user/users-guide/book
+          publish_dir: docs/user-docs/users-guide/book

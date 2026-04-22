@@ -52,7 +52,7 @@ range of your sensor (from intensity values 0 to 255) with very little clipping.
 ## Step 1: run "Checkerboard Calibration" to get the camera intrinsic parameters for each camera
 
 (There is a script to draw checkerboards as SVG files:
-[`draw_checkerboard_svg.py`](https://github.com/strawlab/strand-braid/blob/main/strand-braid-user/scripts/draw_checkerboard_svg.py).)
+[`draw_checkerboard_svg.py`](https://github.com/strawlab/strand-braid/blob/main/docs/user-docs/scripts/draw_checkerboard_svg.py).)
 
 In Strand Cam, there is a region called "Checkerboard Calibration" which allows
 you to calibrate the camera intrinsic parameters. Show a checkerboard to the

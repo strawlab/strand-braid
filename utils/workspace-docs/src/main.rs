@@ -39,8 +39,9 @@ struct Cli {
     pub workspace_root: Option<Utf8PathBuf>,
 }
 
-fn get_readme_section(path: &Utf8Path) -> Result<(String, String, String)> {
-    let full_readme = std::fs::read_to_string(path)?;
+fn get_md_section(path: &Utf8Path) -> Result<(String, String, String)> {
+    let full_readme =
+        std::fs::read_to_string(path).with_context(|| format!("Failed to read file {path}"))?;
     let start_idx = full_readme
         .find(START_MARKER)
         .ok_or_else(|| eyre::eyre!("No start marker `{START_MARKER}` found"))?;
@@ -214,9 +215,9 @@ fn main() -> Result<()> {
         .unwrap_or_else(|| Utf8PathBuf::from_path_buf(std::env::current_dir().unwrap()).unwrap());
     tracing::debug!("Inspecting workspace root {workspace_root}");
 
-    let readme_path = workspace_root.join("README.md");
-    let (readme_start, readme_section, readme_tail) =
-        get_readme_section(&readme_path).context("getting section from README.md")?;
+    let md_path = workspace_root.join("docs/developer-docs/repository-organization.md");
+    let (md_start, md_section, readme_tail) =
+        get_md_section(&md_path).context("getting section from markdown file")?;
 
     // Get all packages using cargo at runtime.
     let pkgs = get_packages_from_cargo(&workspace_root)?;
@@ -233,13 +234,13 @@ fn main() -> Result<()> {
 
     // Compute expected markdown docs
     let expected_docs = compute_markdown_docs(&pkgs_by_section_name, &sections)?;
-    if readme_section != expected_docs {
+    if md_section != expected_docs {
         if cli.check {
             eyre::bail!("readme does not match expected docs");
         } else {
             // replace relevant section of readme.
-            let new_readme = format!("{readme_start}{expected_docs}{readme_tail}");
-            let mut f = std::fs::File::create(readme_path)?;
+            let new_readme = format!("{md_start}{expected_docs}{readme_tail}");
+            let mut f = std::fs::File::create(md_path)?;
             f.write_all(new_readme.as_bytes())?;
         }
     }

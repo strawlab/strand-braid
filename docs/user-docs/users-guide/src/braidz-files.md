@@ -9,7 +9,7 @@ A viewer for `.braidz` files is at [braidz.strawlab.org](https://braidz.strawlab
 
 ## Analysis scripts
 
-Scripts to analyze your `.braidz` files can be found at [github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis](https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis).
+Scripts to analyze your `.braidz` files can be found at [github.com/strawlab/strand-braid/tree/main/docs/user-docs/analysis](https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/analysis).
 
 ### Latency Analysis
 
@@ -24,7 +24,7 @@ The Jupyter Notebook `braidz-contents.ipynb` can be used to view the Kalman esti
 The following plots were made with the file
 [20201112_133722.braidz](https://strawlab-cdn.com/assets/20201112_133722.braidz).
 The scripts can be accessed at
-[github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis](https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis).
+[github.com/strawlab/strand-braid/tree/main/docs/user-docs/analysis](https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/analysis).
 A Jupyter Notebook to create all of these plots can be found in `braid-plotting.ipynb` in the same folder.
 
 ### `braid-analysis-plot-data2d-timeseries.py`

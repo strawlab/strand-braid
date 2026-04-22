@@ -26,5 +26,5 @@ deserialized from a `.toml` file:
 Here is a minimal configuration for a 3 camera Braid setup:
 
 ```toml
-{{#include ../../../braid/simple.toml}}
+{{#include ../../../../braid/simple.toml}}
 ```

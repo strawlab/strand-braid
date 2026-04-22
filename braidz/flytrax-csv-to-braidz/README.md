@@ -20,7 +20,7 @@ cargo run -- --cal .\tests\data\cal1.toml --csv .\tests\data\flytrax20191122_103
 ## Plotting
 
 You can view .braidz files with the Python scripts in
-https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis.
+https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/analysis.
 
 For example:
 

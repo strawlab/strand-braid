@@ -11,14 +11,14 @@ you can install this with `cargo install mdbook`.)
 
 Build the User's Guide website with the command:
 
-    # run from strand-braid-user/users-guide/
+    # run from docs/user-docs/users-guide/
     mdbook build
 
 ## Development
 
 You can develop the users guide with the command:
 
-    # run from strand-braid-user/users-guide/
+    # run from docs/user-docs/users-guide/
     mdbook serve --open
 
 This will then run a program which watches for changes, rebuilds the website when

@@ -5,7 +5,7 @@ curl -O https://strawlab-cdn.com/assets/sample_datafile-v0.4.28.h5
 BASE=sample_datafile-v0.4.28
 RETRACKED=`mktemp -d -t retrackedXXXXXXX`
 
-NGCU=../../strand-braid-user
+NGCU=../../docs/user-docs
 
 # Convert original flydra file to .csv
 python $NGCU/scripts/export_h5_to_csv.py "$BASE.h5"
