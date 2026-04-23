@@ -11,8 +11,9 @@ pub(crate) fn to_fixed_params<F: na::RealField + Float>(
 ) -> Vec<F> {
     let i = cam.intrinsics();
     match model_type {
-        CameraModelType::OpenCV5 | CameraModelType::OpenCV4 => Vec::with_capacity(0),
-        CameraModelType::Linear => Vec::with_capacity(0),
+        CameraModelType::OpenCV5 | CameraModelType::OpenCV4 | CameraModelType::OpenCV0 => {
+            Vec::with_capacity(0)
+        }
         CameraModelType::ExtrinsicsOnly => {
             let mut p = vec![i.fx(), i.fy(), i.cx(), i.cy()];
             p.extend(i.distortion.opencv_vec().as_slice());
@@ -48,7 +49,7 @@ pub(crate) fn to_params<F: na::RealField + Float>(
             p.extend(&[cc.x, cc.y, cc.z]);
             p
         }
-        CameraModelType::Linear => {
+        CameraModelType::OpenCV0 => {
             let mut p = vec![i.fx(), i.cx(), i.cy()];
             p.extend(&[abc.x, abc.y, abc.z]);
             p.extend(&[cc.x, cc.y, cc.z]);
@@ -84,7 +85,7 @@ pub(crate) fn to_cam<F: na::RealField + Float>(
             distortion[0..nd].copy_from_slice(&params[3..3 + nd]);
             (fx, fy, cx, cy)
         }
-        CameraModelType::Linear => {
+        CameraModelType::OpenCV0 => {
             let fx = params[0];
             let fy = fx;
             let cx = params[1];
@@ -120,8 +121,19 @@ pub(crate) fn to_cam<F: na::RealField + Float>(
     cam_geom::Camera::new(intrinsics, extrinsics)
 }
 
+#[cfg(test)]
+fn assert_cam_param_roundtrip(model_type: CameraModelType, params: &[f64]) {
+    let cam = to_cam::<f64>(params, model_type, &[]);
+    let extracted_params = to_params::<f64>(&cam, model_type);
+    assert_eq!(extracted_params.len(), model_type.info().num_cam_params());
+
+    let orig = na::DVector::from_column_slice(params);
+    let extracted = na::DVector::from_column_slice(&extracted_params);
+    approx::assert_relative_eq!(orig, extracted, epsilon = 1.0e-6);
+}
+
 #[test]
-fn test_cam_param_roundtrip() {
+fn test_cam_param_roundtrip_opencv5() {
     for params in [
         [
             1.0, 2.0, 3.0, 0.01, 0.001, -0.01, -0.001, 0.0001, 0.2, 1.0, 0.0, 7.0, 8.0, 9.0,
@@ -133,13 +145,31 @@ fn test_cam_param_roundtrip() {
             0.2, 2.2, 3.2, 0.01, 0.001, -0.01, -0.001, 0.0001, 0.0, 0.4, 0.5, 7.2, 8.2, 9.2,
         ],
     ] {
-        let cam = to_cam::<f64>(&params, CameraModelType::OpenCV5, &[]);
-        let p2 = to_params::<f64>(&cam, CameraModelType::OpenCV5);
-        assert_eq!(p2.len(), CameraModelType::OpenCV5.info().num_cam_params());
+        assert_cam_param_roundtrip(CameraModelType::OpenCV5, &params);
+    }
+}
 
-        let orig = na::DVector::from_column_slice(&params);
-        let extracted = na::DVector::from_column_slice(&p2);
-        approx::assert_relative_eq!(orig, extracted, epsilon = 1.0e-6);
+#[test]
+fn test_cam_param_roundtrip_opencv4() {
+    for params in [
+        [
+            1.0, 2.0, 3.0, 0.01, 0.001, -0.01, -0.001, 0.2, 1.0, 0.0, 7.0, 8.0, 9.0,
+        ],
+        [
+            0.1, 2.1, 3.1, 0.02, -0.003, 0.004, -0.005, 0.0, 1.0, -0.2, 7.1, 8.1, 9.1,
+        ],
+    ] {
+        assert_cam_param_roundtrip(CameraModelType::OpenCV4, &params);
+    }
+}
+
+#[test]
+fn test_cam_param_roundtrip_opencv0() {
+    for params in [
+        [1.0, 2.0, 3.0, 0.2, 1.0, 0.0, 7.0, 8.0, 9.0],
+        [0.1, 2.1, 3.1, 0.0, -0.2, 1.0, 7.1, 8.1, 9.1],
+    ] {
+        assert_cam_param_roundtrip(CameraModelType::OpenCV0, &params);
     }
 }
 
