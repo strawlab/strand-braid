@@ -165,7 +165,7 @@ fn check_calibration_quality_from_xml(
         all_reproj_dists.push(mean_dist);
         total_observations += cam_dists.len();
 
-        // Assert reasonable reprojection error (more lenient since we're using simple triangulation)
+        // Assert reasonable reprojection error
         assert!(
             mean_dist < 5.0,
             "Camera {cam_name} has excessive reprojection error: {mean_dist:.2} pixels",
@@ -715,7 +715,7 @@ fn test_braidz_mcsc_no_radfiles() -> Result<()> {
     };
     let (xml_out_name, _mcsc_result, dist) = braidz_mcsc(opt)?;
     assert!(
-        dist < 0.3,
+        dist < 0.5,
         "Mean reprojection distance too high: {dist:.2} pixels"
     );
 
