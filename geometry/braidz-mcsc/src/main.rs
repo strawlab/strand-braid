@@ -687,8 +687,8 @@ pub(crate) fn braidz_mcsc(
             "# Results of bundle adjustment (model: {model_type:?}, intrinsics source: {isrc:?})"
         );
         print_reproj_and_params(&ba_system, ba.points(), &visibility, &observations)?;
-        // TODO: calculate reprojection distance across all observations
-        let ba_mean_repoj_distance: f64 = f64::NAN;
+        let ba_mean_repoj_distance =
+            ba_mean_reproj_distance(&ba_system, ba.points(), &visibility, &observations);
         (ba_system, ba_mean_repoj_distance)
     } else {
         (mcsc_system, mcsc_result.mean_reproj_distance)
@@ -763,6 +763,36 @@ fn print_reproj_and_params(
         );
     }
     Ok(())
+}
+
+/// compute mean reprojection distance across all cameras and points for the
+/// case when bundle-adj crate is used.
+fn ba_mean_reproj_distance(
+    system: &flydra_mvg::FlydraMultiCameraSystem<f64>,
+    points: &nalgebra::Matrix3xX<f64>,
+    visibility: &nalgebra::DMatrix<bool>,
+    observations: &nalgebra::DMatrix<f64>,
+) -> f64 {
+    assert_eq!(system.len(), visibility.nrows());
+
+    let mut all_dists = Vec::new();
+    for (i, (_name, cam)) in system.system().cams_by_name().iter().enumerate() {
+        let obs_start_idx = i * 3;
+        for j in 0..visibility.ncols() {
+            if visibility[(i, j)] {
+                let obs_u = observations[(obs_start_idx, j)];
+                let obs_v = observations[(obs_start_idx + 1, j)];
+                let pt = points.column(j);
+                let pts = cam_geom::Points::new(pt.transpose());
+                let predicted = cam.as_ref().world_to_pixel(&pts).data.transpose();
+                let dx = obs_u - predicted.x;
+                let dy = obs_v - predicted.y;
+                all_dists.push((dx * dx + dy * dy).sqrt());
+            }
+        }
+    }
+
+    mean(&all_dists)
 }
 
 /// Delete any unfinished file unless close() is called.
