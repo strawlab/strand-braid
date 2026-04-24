@@ -173,8 +173,7 @@ fn main() -> Result<()> {
     }
     env_tracing_logger::init();
     let opt = Cli::parse();
-    let (xml_out_name, mcsc_result) = braidz_mcsc(opt)?;
-    let dist = mcsc_result.mean_reproj_distance;
+    let (xml_out_name, _mcsc_result, dist) = braidz_mcsc(opt)?;
     println!(
         "Unaligned calibration XML (mean reprojection distance: {dist:.2} pixels) saved to {xml_out_name}",
     );
@@ -182,7 +181,9 @@ fn main() -> Result<()> {
 }
 
 /// Run MCSC calibration using the native Rust implementation.
-pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscResult)> {
+pub(crate) fn braidz_mcsc(
+    opt: Cli,
+) -> Result<(Utf8PathBuf, flydra_mvg::FlydraMultiCameraSystem<f64>, f64)> {
     let use_nth_observation = opt.use_nth_observation.unwrap_or(1);
 
     let mut archive = zip_or_dir::ZipDirArchive::auto_from_path(&opt.input)
@@ -415,8 +416,6 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
         .strip_suffix(".braidz")
         .ok_or_else(|| eyre::eyre!("expected input filename to end with '.braidz'."))?;
 
-    // Connect to rerun prior to running Octave.
-
     let rerun_url = if let Some(socket_addr_str) = opt.rerun {
         tracing::warn!("'--rerun' CLI argument is deprecated in favor of '--rerun-url'.");
         if opt.rerun_url.is_some() {
@@ -498,7 +497,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
         flydra_mvg::FlydraMultiCameraSystem::new(cams, None)
     };
 
-    let multi_cam_system = if !opt.no_bundle_adjustment {
+    let (multi_cam_system, final_mean_repoj_distance) = if !opt.no_bundle_adjustment {
         let model_type = opt.bundle_adjustment_model;
         let isrc = opt.bundle_adjustment_intrinsics_source;
 
@@ -628,7 +627,9 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
             print_reproj_and_params(&mcsc_system, &points0, &vis_ba, &obs_ba)?;
 
             let optimize_points = true;
-            tracing::debug!("Initializing bundle adjuster with model {model_type:?} and intrinsics source {isrc:?}");
+            tracing::debug!(
+                "Initializing bundle adjuster with model {model_type:?} and intrinsics source {isrc:?}"
+            );
             let ba = bundle_adj::BundleAdjuster::new(
                 observed,
                 cam_idx,
@@ -686,9 +687,11 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
             "# Results of bundle adjustment (model: {model_type:?}, intrinsics source: {isrc:?})"
         );
         print_reproj_and_params(&ba_system, ba.points(), &visibility, &observations)?;
-        ba_system
+        // TODO: calculate reprojection distance across all observations
+        let ba_mean_repoj_distance: f64 = f64::NAN;
+        (ba_system, ba_mean_repoj_distance)
     } else {
-        mcsc_system
+        (mcsc_system, mcsc_result.mean_reproj_distance)
     };
 
     let xml_out_name = Utf8PathBuf::from(format!("{}-unaligned.xml", input_base_name));
@@ -701,7 +704,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
     multi_cam_system.to_flydra_xml(out_fd.inner())?;
     out_fd.close()?;
 
-    Ok((xml_out_name, mcsc_result))
+    Ok((xml_out_name, multi_cam_system, final_mean_repoj_distance))
 }
 
 fn print_reproj_and_params(

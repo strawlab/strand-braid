@@ -345,14 +345,14 @@ fn test_braidz_mcsc_slow() -> Result<()> {
     let opt = Cli {
         input: input.clone(),
         checkerboard_cal_dir,
-        no_bundle_adjustment: true,
+        no_bundle_adjustment: false,
+        use_nth_observation: Some(10),
         ..Default::default()
     };
-    let (xml_out_name, mcsc_result) = braidz_mcsc(opt)?;
+    let (xml_out_name, _mcsc_result, dist) = braidz_mcsc(opt)?;
     assert!(
-        mcsc_result.mean_reproj_distance < 0.6,
-        "Mean reprojection distance too high: {:.2} pixels",
-        mcsc_result.mean_reproj_distance
+        dist < 0.6,
+        "Mean reprojection distance too high: {dist:.2} pixels",
     );
 
     // Check that the calibration makes sense
@@ -523,7 +523,7 @@ fn test_braidz_mcsc_skew() -> Result<()> {
         no_bundle_adjustment: true,
         ..Default::default()
     };
-    let (xml_out_name, mcsc_result) = braidz_mcsc(opt)?;
+    let (xml_out_name, _mcsc_result, dist) = braidz_mcsc(opt)?;
     // Because we are supplying intrinsics ("known K"), including distortion,
     // MCSC returns only extrinsics and thus the reprojection residual is
     // typically a few pixels on real data; closing the gap to sub-pixel needs
@@ -532,9 +532,8 @@ fn test_braidz_mcsc_skew() -> Result<()> {
     // as a BA seed and crucially does not carry the spurious skew that the
     // self-cal path introduces.
     assert!(
-        mcsc_result.mean_reproj_distance < 5.0,
-        "Mean reprojection distance too high: {:.2} pixels",
-        mcsc_result.mean_reproj_distance
+        dist < 5.0,
+        "Mean reprojection distance too high: {dist:.2} pixels"
     );
 
     // Check that the calibration makes sense.
@@ -591,12 +590,11 @@ fn test_braidz_mcsc_bundle_adjustment() -> Result<()> {
         use_nth_observation: Some(10),
         ..Default::default()
     };
-    let (xml_out_name, mcsc_result) = braidz_mcsc(opt)?;
+    let (xml_out_name, _mcsc_result, dist) = braidz_mcsc(opt)?;
 
     assert!(
-        mcsc_result.mean_reproj_distance < 3.0,
-        "Mean reprojection distance too high: {:.2} pixels",
-        mcsc_result.mean_reproj_distance
+        dist < 3.0,
+        "Mean reprojection distance too high: {dist:.2} pixels"
     );
 
     // Check that the calibration makes sense.
@@ -715,11 +713,10 @@ fn test_braidz_mcsc_no_radfiles() -> Result<()> {
         do_mcsc_projective_ba: true,
         ..Default::default()
     };
-    let (xml_out_name, mcsc_result) = braidz_mcsc(opt)?;
+    let (xml_out_name, _mcsc_result, dist) = braidz_mcsc(opt)?;
     assert!(
-        mcsc_result.mean_reproj_distance < 0.3,
-        "Mean reprojection distance too high: {:.2} pixels",
-        mcsc_result.mean_reproj_distance
+        dist < 0.3,
+        "Mean reprojection distance too high: {dist:.2} pixels"
     );
 
     // Check that the calibration makes sense
