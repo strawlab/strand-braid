@@ -202,7 +202,7 @@ js-sys = "0.3.77"
 json-lines = { version = "0.1.0", features = ["codec"] }
 lazy_static = "1.4"
 less-avc = "0.1.4"
-levenberg-marquardt = "0.15"
+levenberg-marquardt-sparse = { version = "0.1.2", features = ["tracing"] }
 libc = "0.2.176"
 libflate = "2.1.0"
 log = "0.4.28"

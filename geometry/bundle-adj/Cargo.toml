@@ -7,7 +7,7 @@ description = "bundle adjustment for multi-camera calibration"
 [dependencies]
 cam-geom.workspace = true
 clap.workspace = true
-levenberg-marquardt.workspace = true
+levenberg-marquardt-sparse.workspace = true
 braid-mvg = { workspace = true, optional = true, features = ["rerun-io"] }
 nalgebra.workspace = true
 num-traits.workspace = true

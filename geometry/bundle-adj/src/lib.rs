@@ -1,6 +1,7 @@
 //! Bundle adjustment for multiple camera calibrations
 //!
 //! See the [BundleAdjuster] struct for more details.
+use levenberg_marquardt_sparse::SparseJacobian;
 use nalgebra::{self as na, Dyn, Owned};
 use num_traits::Float;
 use opencv_ros_camera::RosOpenCvIntrinsics;
@@ -341,7 +342,7 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
             },
         };
         // call once to log initial data to rerun
-        levenberg_marquardt::LeastSquaresProblem::set_params(&mut myself, &params_cache);
+        levenberg_marquardt_sparse::LeastSquaresProblem::set_params(&mut myself, &params_cache);
         Ok(myself)
     }
 
@@ -381,12 +382,11 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
     }
 }
 
-impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, Dyn>
+impl<F: na::RealField + Float> levenberg_marquardt_sparse::LeastSquaresProblem<F, Dyn, Dyn>
     for BundleAdjuster<F>
 {
     type ParameterStorage = Owned<F, Dyn>;
     type ResidualStorage = Owned<F, Dyn>;
-    type JacobianStorage = Owned<F, Dyn, Dyn>;
 
     fn set_params(&mut self, x: &na::DVector<F>) {
         self.optimizer_step += 1;
@@ -601,7 +601,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
     /// * 3`, otherwise it is 0.
     ///
     /// In general this jacobian is sparse.
-    fn jacobian(&self) -> Option<na::Matrix<F, Dyn, Dyn, Self::JacobianStorage>> {
+    fn jacobian(&self) -> Option<SparseJacobian<F>> {
         let num_cam_params = self.model_type.info().num_cam_params();
         let mut j = na::OMatrix::<F, Dyn, Dyn>::zeros(self.nresid, self.params_cache.len());
 
@@ -631,7 +631,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
                 self.eval_pt_jacobians(*cam_idx, *pt_idx, &mut j, (pt_start, pt_geom));
             }
         }
-        Some(j)
+        Some(SparseJacobian::from_dense(j))
     }
 }
 
@@ -825,11 +825,11 @@ mod test {
                 // Test that numerical differentiation matches result from jacobian.
                 {
                     let mut ba = ba.clone();
-                    use levenberg_marquardt::LeastSquaresProblem;
+                    use levenberg_marquardt_sparse::LeastSquaresProblem;
 
                     let jacobian_numerical =
-                        levenberg_marquardt::differentiate_numerically(&mut ba).unwrap();
-                    let jacobian_trait = ba.jacobian().unwrap();
+                        levenberg_marquardt_sparse::differentiate_numerically(&mut ba).unwrap();
+                    let jacobian_trait: na::DMatrix<f64> = ba.jacobian().unwrap().to_dense();
                     // TODO: re-enable this
                     // approx::assert_relative_eq!(jacobian_numerical, jacobian_trait, epsilon = 1e-7);
                     let approx_equal =
@@ -845,7 +845,8 @@ mod test {
                     }
                 }
 
-                let (_result, report) = levenberg_marquardt::LevenbergMarquardt::new().minimize(ba);
+                let (_result, report) =
+                    levenberg_marquardt_sparse::LevenbergMarquardt::new().minimize(ba);
                 println!("  Levenberg-Marquardt report:\n    {:?}", report);
                 assert!(report.termination.was_successful());
                 // TODO: check that the result is closer to the original parameters.
@@ -945,10 +946,11 @@ mod test {
             None,
         )
         .unwrap();
-        let r = levenberg_marquardt::LeastSquaresProblem::residuals(&ba).unwrap();
+        let r = levenberg_marquardt_sparse::LeastSquaresProblem::residuals(&ba).unwrap();
         print!("Residuals: {r}");
 
-        let j = levenberg_marquardt::LeastSquaresProblem::jacobian(&ba).unwrap();
+        let j = levenberg_marquardt_sparse::LeastSquaresProblem::jacobian(&ba).unwrap();
+        let j: na::DMatrix<f64> = j.to_dense();
         println!("{:?}", ba.params_names());
         print!("Jacobian: {j}");
 

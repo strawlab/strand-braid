@@ -19,7 +19,7 @@ zip.workspace = true
 nalgebra.workspace = true
 camino.workspace = true
 re_sdk = { workspace = true, optional = true }
-levenberg-marquardt.workspace = true
+levenberg-marquardt-sparse.workspace = true
 cam-geom.workspace = true
 approx.workspace = true
 

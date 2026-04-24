@@ -587,21 +587,23 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         tracing::debug!("bundle adjustment residuals: {residuals_name}");
 
         // Perform bundle adjustment.
-        let residuals_pre = levenberg_marquardt::LeastSquaresProblem::residuals(&ba).unwrap();
+        let residuals_pre =
+            levenberg_marquardt_sparse::LeastSquaresProblem::residuals(&ba).unwrap();
         tracing::debug!("residuals prior to bundle adjustment: {residuals_pre}");
 
         // An idea to consider is reconstructing the 3D location of fiducial
         // markers with no given location but using that in the bundle
         // adjustment.
 
-        let (ba, report) = levenberg_marquardt::LevenbergMarquardt::new()
+        let (ba, report) = levenberg_marquardt_sparse::LevenbergMarquardt::new()
             .with_stepbound(0.001)
             .minimize(ba);
         if !report.termination.was_successful() {
             eyre::bail!("Bundle adjustment did not succeed.");
         };
 
-        let residuals_post = levenberg_marquardt::LeastSquaresProblem::residuals(&ba).unwrap();
+        let residuals_post =
+            levenberg_marquardt_sparse::LeastSquaresProblem::residuals(&ba).unwrap();
         tracing::debug!("residuals after bundle adjustment: {residuals_post}");
         tracing::debug!(
             "residual abs sum before BA : {:.2}, after BA: {:.2}",

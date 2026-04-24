@@ -3,7 +3,7 @@ use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
 use eyre::{self, Context, Result};
 use flydra_mvg::flydra_xml_support::{FlydraDistortionModel, SingleCameraCalibration};
-use levenberg_marquardt::LeastSquaresProblem;
+use levenberg_marquardt_sparse::LeastSquaresProblem;
 use opencv_ros_camera::RosOpenCvIntrinsics;
 use std::{
     collections::{BTreeMap, HashMap},
@@ -652,7 +652,7 @@ pub(crate) fn braidz_mcsc(
         // dbg!(&residuals_pre);
         println!("# Results prior to bundle adjustment");
         print_reproj_and_params(&start_ba_system, ba.points(), &visibility, &observations)?;
-        let (ba, report) = levenberg_marquardt::LevenbergMarquardt::new().minimize(ba);
+        let (ba, report) = levenberg_marquardt_sparse::LevenbergMarquardt::new().minimize(ba);
         println!("{:?}", report);
         if !report.termination.was_successful() {
             eyre::bail!("Bundle adjustment did not succeed.");
