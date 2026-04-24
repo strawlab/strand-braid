@@ -1,4 +1,4 @@
-use fastimage::{ripp, IppVersion};
+use fastimage::{IppVersion, ripp};
 
 fn main() {
     ripp::init().unwrap();

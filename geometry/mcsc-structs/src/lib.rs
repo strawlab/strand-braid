@@ -1,13 +1,21 @@
 use eyre::Result;
 use std::{
-    fs,
-    io::{self, Read, Seek, Write},
+    io::Write,
     path::{Path, PathBuf},
 };
+#[cfg(feature = "with-octave")]
 use zip::ZipArchive;
 
-static MCSC_RELEASE: &[u8] = include_bytes!("../multicamselfcal-0.3.2.zip"); // use package-mcsc-zip.sh
-static MCSC_DIRNAME: &str = "multicamselfcal-0.3.2";
+#[cfg(feature = "with-octave")]
+use std::{
+    fs,
+    io::{self, Read, Seek},
+};
+
+#[cfg(feature = "with-octave")]
+static MCSC_RELEASE: &[u8] = include_bytes!("../scratch/multicamselfcal-0.3.3.zip"); // use package-mcsc-zip.sh
+#[cfg(feature = "with-octave")]
+static MCSC_DIRNAME: &str = "multicamselfcal-0.3.3";
 
 #[derive(Clone)]
 pub struct DatMat<T> {
@@ -262,6 +270,7 @@ Do-Bundle-Adjustment: {do_bundle_adjustment}
     }
 }
 
+#[cfg(feature = "with-octave")]
 /// Unpack the mcsc source into the directory specified and return the path into
 /// which `MultiCamSelfCal/gocal.m` was saved.
 pub fn unpack_mcsc_into(mcsc_dir_name: &Path) -> Result<PathBuf> {
@@ -274,6 +283,7 @@ pub fn unpack_mcsc_into(mcsc_dir_name: &Path) -> Result<PathBuf> {
     Ok(mcsc_dir_name.join(MCSC_DIRNAME))
 }
 
+#[cfg(feature = "with-octave")]
 fn unpack_zip_into<R: Read + Seek>(mut archive: ZipArchive<R>, mcsc_dir_name: &Path) -> Result<()> {
     fs::create_dir_all(mcsc_dir_name).unwrap();
     for i in 0..archive.len() {

@@ -1,0 +1,22 @@
+[package]
+name = "mcsc-native"
+version = "0.1.0"
+edition = "2024"
+description = "Native Rust port of MultiCamSelfCal"
+
+[dependencies]
+eyre.workspace = true
+nalgebra.workspace = true
+tracing.workspace = true
+rand.workspace = true
+rand_chacha.workspace = true
+camino.workspace = true
+
+mcsc-structs.workspace = true
+
+[dev-dependencies]
+approx.workspace = true
+camino.workspace = true
+download-verify.workspace = true
+tempfile.workspace = true
+zip.workspace = true

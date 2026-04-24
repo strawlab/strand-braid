@@ -1,6 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-curl -O https://files.pythonhosted.org/packages/8c/3e/bcfa784799bc728d758fb8017ffbf8cba60f598636fd99fb8ef47637a4f6/multicamselfcal-0.3.2.tar.gz
-tar xzf multicamselfcal-0.3.2.tar.gz
-zip -9 -r --quiet multicamselfcal-0.3.2.zip multicamselfcal-0.3.2
+mkdir -p scratch
+cd scratch
+curl -O https://files.pythonhosted.org/packages/fb/be/042a46d0aaa1882e3a387f87be473684978ec416c33a2e52b11fdb7c631e/multicamselfcal-0.3.3.tar.gz
+tar xzf multicamselfcal-0.3.3.tar.gz
+zip -9 -r --quiet multicamselfcal-0.3.3.zip multicamselfcal-0.3.3

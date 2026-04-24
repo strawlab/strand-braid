@@ -464,10 +464,12 @@ pub(crate) async fn do_run_forever(
 
     let recon = if let Some(ref cal_fname) = cal_fname {
         info!("using calibration: {}", cal_fname.display());
+        let require_radfiles = false;
         Some(
-            flydra_mvg::FlydraMultiCameraSystem::from_path(cal_fname).with_context(|| {
-                format!("loading calibration in file \"{}\"", cal_fname.display())
-            })?,
+            flydra_mvg::FlydraMultiCameraSystem::from_path(cal_fname, require_radfiles)
+                .with_context(|| {
+                    format!("loading calibration in file \"{}\"", cal_fname.display())
+                })?,
         )
     } else {
         None

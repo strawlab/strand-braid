@@ -49,6 +49,8 @@ members = [
     "geometry/bundle-adj",
     "geometry/camcal",
     "geometry/flydra-mvg",
+    "geometry/mcsc-native",
+    "geometry/mcsc-native/gocal",
     "geometry/mcsc-structs",
     "geometry/opencv-calibrate",
     "geometry/opencv-calibrate/find-chessboard",
@@ -225,6 +227,8 @@ pin-project = "1.0.11"
 preferences-serde1 = "2.0.0"
 pretty-print-nalgebra = "0.1.0"
 qrcode = "0.14.1"
+rand = "0.9"
+rand_chacha = "0.9"
 regex = "1.11"
 re_chunk = { version = "0.31", default-features = false }
 re_sdk = { version = "0.31", default-features = false }
@@ -260,7 +264,8 @@ tower-serve-static = "0.1"
 tracing = "0.1.41"
 tracing-futures = { version = "0.2.5", features = ["futures-03"] }
 tracing-panic = "0.1.1"
-tracing-test = "0.2.5"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter", "time"] }
+tracing-test = { version = "0.2.5", features = ["no-env-filter"] }
 ttf-firacode = "0.1"
 usvg = { version = "0.47", default-features = false }
 uuid = { version = "1.18", default-features = false, features = ["serde"] }
@@ -322,6 +327,7 @@ flydra-feature-detector-types = { path = "im-proc/flydra-feature-detector/flydra
 flydra-pt-detect-cfg = { path = "im-proc/flydra-feature-detector/flydra-pt-detect-cfg", version = "0.1.0" }
 flydra-mvg = { path = "geometry/flydra-mvg" }
 flydra2 = { path = "braid/flydra2", default-features = false }
+gocal = { path = "geometry/mcsc-native/gocal" }
 flytrax-apriltags-calibration = { path = "geometry/braid-april-cal/flytrax-apriltags-calibration" }
 fmf = { path = "media-utils/fmf" }
 font-drawing = { path = "media-utils/font-drawing" }
@@ -329,6 +335,7 @@ frame-source = { path = "media-utils/frame-source" }
 groupby = { path = "utils/groupby" }
 imops = { path = "im-proc/imops" }
 less-avc-wrapper = { path = "media-utils/less-avc-wrapper" }
+mcsc-native = { path = "geometry/mcsc-native" }
 mcsc-structs = { path = "geometry/mcsc-structs" }
 mkv-strand-reader = { path = "media-utils/mkv-strand-reader" }
 mp4-writer = { path = "media-utils/mp4-writer" }

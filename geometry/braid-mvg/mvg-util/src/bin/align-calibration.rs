@@ -70,13 +70,15 @@ fn align_cal(opt: Opt) -> Result<PathBuf> {
     let unaligned_3d_fd = std::fs::File::open(&opt.unaligned_3d)
         .with_context(|| format!("While opening {}", opt.unaligned_3d.display()))?;
 
-    let unaligned_calibration = FlydraMultiCameraSystem::<f64>::from_path(&opt.unaligned_cal)
-        .with_context(|| {
-            format!(
-                "while reading calibration at {}",
-                opt.unaligned_cal.display()
-            )
-        })?;
+    let require_radfiles = false;
+    let unaligned_calibration =
+        FlydraMultiCameraSystem::<f64>::from_path(&opt.unaligned_cal, require_radfiles)
+            .with_context(|| {
+                format!(
+                    "while reading calibration at {}",
+                    opt.unaligned_cal.display()
+                )
+            })?;
 
     let output_aligned_cal = if let Some(path) = opt.output_aligned_cal {
         path

@@ -23,7 +23,8 @@ fn main() -> eyre::Result<()> {
     };
     let out_fname = format!("{out_base}.xml");
 
-    let calibration = FlydraMultiCameraSystem::<f64>::from_path(&cal_path)
+    let require_radfiles = false;
+    let calibration = FlydraMultiCameraSystem::<f64>::from_path(&cal_path, require_radfiles)
         .with_context(|| format!("while reading calibration at {}", cal_path.display()))?;
 
     println!("Writing calibration to {out_fname}");

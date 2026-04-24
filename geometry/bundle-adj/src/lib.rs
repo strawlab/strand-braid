@@ -184,6 +184,8 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
         optimize_points: bool,
         #[cfg(feature = "with-rerun")] rec: Option<re_sdk::RecordingStream>,
     ) -> Result<Self> {
+        tracing::debug!("BundleAdjuster::new {model_type:?}");
+
         // println!("observed:\n{}", observed.transpose());
         // dbg!(&cam_idx);
         // dbg!(&pt_idx);
@@ -388,6 +390,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
 
     fn set_params(&mut self, x: &na::DVector<F>) {
         self.optimizer_step += 1;
+        tracing::debug!("Step {}: set_params", self.optimizer_step);
 
         #[cfg(feature = "with-rerun")]
         {

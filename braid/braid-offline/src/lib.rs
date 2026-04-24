@@ -846,9 +846,11 @@ pub async fn braid_offline_retrack(opt: Cli) -> eyre::Result<()> {
     let calibration = opt
         .new_calibration
         .map(|cal_fname| {
-            flydra_mvg::FlydraMultiCameraSystem::<f64>::from_path(&cal_fname).with_context(|| {
-                eyre::eyre!("while reading calibration file \"{}\"", cal_fname.display())
-            })
+            let require_radfiles = false;
+            flydra_mvg::FlydraMultiCameraSystem::<f64>::from_path(&cal_fname, require_radfiles)
+                .with_context(|| {
+                    eyre::eyre!("while reading calibration file \"{}\"", cal_fname.display())
+                })
         })
         .transpose()?;
 
