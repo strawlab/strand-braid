@@ -4,6 +4,7 @@ use eyre::WrapErr;
 use eyre::{self, Result};
 use mcsc_structs::{DatMat, RadFile};
 use mcsc_structs::{McscCfg, McscConfigDir};
+
 use std::{
     collections::BTreeMap,
     fs,
@@ -258,21 +259,10 @@ pub(crate) fn braidz_mcsc_octave(opt: Cli) -> Result<Utf8PathBuf> {
     };
 
     #[cfg(feature = "with-rerun")]
-    let rec = if let Some(rerun_url) = rerun_url {
-        let re_version = re_sdk::build_info().version;
-        tracing::info!("Streaming data to rerun {re_version} at {rerun_url}");
-        Some(
-            re_sdk::RecordingStreamBuilder::new(env!["CARGO_PKG_NAME"])
-                .connect_grpc_opts(rerun_url)?,
-        )
-    } else {
-        None
+    if rerun_url.is_some() {
+        tracing::warn!("Requested use of rerun, but no use of rerun supported with Octave");
     };
 
-    #[cfg(not(feature = "with-rerun"))]
-    if rerun_url.is_some() {
-        eyre::bail!("rerun URL specified but binary not compiled with `with-rerun` feature.");
-    };
     braidz_mcsc_octave_raw(resultdir, input_base_name)
 }
 

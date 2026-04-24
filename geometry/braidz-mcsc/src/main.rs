@@ -16,6 +16,7 @@ use mcsc_native::McscCfg;
 mod tests;
 
 #[cfg(feature = "with-octave")]
+#[cfg(test)]
 pub(crate) mod with_octave;
 
 #[derive(Parser, Default)]
