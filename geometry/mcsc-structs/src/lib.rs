@@ -13,9 +13,9 @@ use std::{
 };
 
 #[cfg(feature = "with-octave")]
-static MCSC_RELEASE: &[u8] = include_bytes!("../multicamselfcal-0.3.2.zip"); // use package-mcsc-zip.sh
+static MCSC_RELEASE: &[u8] = include_bytes!("../scratch/multicamselfcal-0.3.3.zip"); // use package-mcsc-zip.sh
 #[cfg(feature = "with-octave")]
-static MCSC_DIRNAME: &str = "multicamselfcal-0.3.2";
+static MCSC_DIRNAME: &str = "multicamselfcal-0.3.3";
 
 #[derive(Clone)]
 pub struct DatMat<T> {
