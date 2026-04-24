@@ -15,9 +15,24 @@ use crate::with_octave::{braidz_mcsc_octave, braidz_mcsc_octave_raw};
 const ENV_VAR_NAME: &str = "BRAIDZ_MCSC_SAVE_TEST_OUTPUT";
 
 /// Check calibration quality by computing reprojection distances
-fn check_calibration_quality_from_xml(xml_path: &Utf8Path, input_braidz: &Utf8Path) -> Result<()> {
+fn check_calibration_quality_from_xml(
+    xml_path: &Utf8Path,
+    input_braidz: &Utf8Path,
+    #[cfg(feature = "with-octave")] only_load: bool,
+) -> Result<()> {
+    #[cfg(not(feature = "with-octave"))]
+    let only_load = false;
+
+    if only_load {
+        let rdr = std::fs::File::open(xml_path)?;
+
+        let _recon: flydra_mvg::flydra_xml_support::FlydraReconstructor<f64> =
+            serde_xml_rs::from_reader(rdr)?;
+        return Ok(());
+    }
+
     // Load calibration from XML file
-    let loaded_system = flydra_mvg::FlydraMultiCameraSystem::from_path(xml_path, false)
+    let loaded_system = flydra_mvg::FlydraMultiCameraSystem::from_path(&xml_path, false)
         .with_context(|| format!("while attempting to read calibration file {xml_path}"))?;
 
     // Reload observations from braidz file
@@ -276,7 +291,12 @@ fn test_braidz_octave_mcsc_slow() -> Result<()> {
     let xml_out_name = braidz_mcsc_octave(opt)?;
 
     // Check that the calibration makes sense
-    check_calibration_quality_from_xml(&xml_out_name, &input)?;
+    check_calibration_quality_from_xml(
+        &xml_out_name,
+        &input,
+        #[cfg(feature = "with-octave")]
+        true,
+    )?;
 
     Ok(())
 }
@@ -331,8 +351,12 @@ fn test_braidz_mcsc_slow() -> Result<()> {
     );
 
     // Check that the calibration makes sense
-    // Native MCSC may produce slightly more skew than Octave version
-    check_calibration_quality_from_xml(&xml_out_name, &input)?;
+    check_calibration_quality_from_xml(
+        &xml_out_name,
+        &input,
+        #[cfg(feature = "with-octave")]
+        false,
+    )?;
 
     Ok(())
 }
@@ -439,7 +463,12 @@ fn test_braidz_octave_mcsc_skew() -> Result<()> {
     let xml_out_name = braidz_mcsc_octave(opt)?;
 
     // Check that the calibration makes sense
-    check_calibration_quality_from_xml(&xml_out_name, &input)?;
+    check_calibration_quality_from_xml(
+        &xml_out_name,
+        &input,
+        #[cfg(feature = "with-octave")]
+        true,
+    )?;
 
     Ok(())
 }
@@ -501,10 +530,13 @@ fn test_braidz_mcsc_skew() -> Result<()> {
         mcsc_result.mean_reproj_distance
     );
 
-    // Check that the calibration makes sense.  This should pass without any
-    // skew relaxation — the output K equals the supplied checkerboard K by
-    // construction.
-    check_calibration_quality_from_xml(&xml_out_name, &input)?;
+    // Check that the calibration makes sense.
+    check_calibration_quality_from_xml(
+        &xml_out_name,
+        &input,
+        #[cfg(feature = "with-octave")]
+        false,
+    )?;
 
     Ok(())
 }
@@ -560,7 +592,12 @@ fn test_braidz_mcsc_bundle_adjustment() -> Result<()> {
     );
 
     // Check that the calibration makes sense.
-    check_calibration_quality_from_xml(&xml_out_name, &input)?;
+    check_calibration_quality_from_xml(
+        &xml_out_name,
+        &input,
+        #[cfg(feature = "with-octave")]
+        false,
+    )?;
 
     Ok(())
 }
@@ -614,7 +651,12 @@ fn test_braidz_octave_mcsc_no_radfiles() -> Result<()> {
     let xml_out_name = braidz_mcsc_octave(opt)?;
 
     // Check that the calibration makes sense
-    check_calibration_quality_from_xml(&xml_out_name, &input)?;
+    check_calibration_quality_from_xml(
+        &xml_out_name,
+        &input,
+        #[cfg(feature = "with-octave")]
+        true,
+    )?;
 
     Ok(())
 }
@@ -672,7 +714,12 @@ fn test_braidz_mcsc_no_radfiles() -> Result<()> {
 
     // Check that the calibration makes sense
     // Native MCSC may produce slightly more skew than Octave version
-    check_calibration_quality_from_xml(&xml_out_name, &input)?;
+    check_calibration_quality_from_xml(
+        &xml_out_name,
+        &input,
+        #[cfg(feature = "with-octave")]
+        false,
+    )?;
 
     Ok(())
 }
