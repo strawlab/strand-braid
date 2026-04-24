@@ -6,7 +6,6 @@ cache:
   policy: pull
 
 check_and_test_workspace:
-  # This is basically what rust analyzer does.
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
   dependencies: []
   script:
@@ -25,6 +24,7 @@ check_and_test_workspace:
     # Do a cargo check on the whole workspace to make sure all crates compile
     # with default features.
     - cd $CI_PROJECT_DIR
+    # This is basically what rust analyzer does.
     - cargo check --workspace --all-targets
 
     # Run all tests.
