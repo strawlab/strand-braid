@@ -265,7 +265,7 @@ tracing = "0.1.41"
 tracing-futures = { version = "0.2.5", features = ["futures-03"] }
 tracing-panic = "0.1.1"
 tracing-subscriber = { version = "0.3.20", features = ["env-filter", "time"] }
-tracing-test = "0.2.5"
+tracing-test = { version = "0.2.5", features = ["no-env-filter"] }
 ttf-firacode = "0.1"
 usvg = { version = "0.47", default-features = false }
 uuid = { version = "1.18", default-features = false, features = ["serde"] }

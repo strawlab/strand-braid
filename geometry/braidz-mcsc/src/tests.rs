@@ -189,6 +189,7 @@ fn check_calibration_quality_from_xml(
     Ok(())
 }
 
+#[tracing_test::traced_test]
 #[test]
 fn test_mean_basic() {
     assert_relative_eq!(mean(&[1.0, 2.0, 3.0, 4.0, 5.0]), 3.0);
@@ -196,6 +197,7 @@ fn test_mean_basic() {
     assert_relative_eq!(mean(&[42.0]), 42.0);
 }
 
+#[tracing_test::traced_test]
 #[test]
 fn test_mean_empty() {
     assert!(mean(&[]).is_nan());
@@ -209,6 +211,7 @@ fn test_std_dev_basic() {
     assert_relative_eq!(std_dev(&[3.0, 3.0]), 0.0, epsilon = 1e-10);
 }
 
+#[tracing_test::traced_test]
 #[test]
 fn test_std_dev_insufficient_data() {
     assert!(std_dev(&[]).is_nan());
@@ -246,6 +249,7 @@ fn unpack_zip_into<R: Read + Seek>(
 }
 
 #[cfg(feature = "with-octave")]
+#[tracing_test::traced_test]
 #[test]
 #[ignore] // Ignore normally because it is slow and requires Octave.
 fn test_braidz_octave_mcsc_slow() -> Result<()> {
@@ -301,6 +305,7 @@ fn test_braidz_octave_mcsc_slow() -> Result<()> {
     Ok(())
 }
 
+#[tracing_test::traced_test]
 #[test]
 #[ignore] // Ignore normally because it is slow.
 fn test_braidz_mcsc_slow() -> Result<()> {
@@ -417,6 +422,7 @@ fn test_braidz_octave_20cams() -> Result<()> {
 }
 
 #[cfg(feature = "with-octave")]
+#[tracing_test::traced_test]
 #[test]
 fn test_braidz_octave_mcsc_skew() -> Result<()> {
     const FNAME: &str = "braidz-mcsc-skew-cal-test-data.zip";
@@ -473,6 +479,7 @@ fn test_braidz_octave_mcsc_skew() -> Result<()> {
     Ok(())
 }
 
+#[tracing_test::traced_test]
 #[test]
 fn test_braidz_mcsc_skew() -> Result<()> {
     const FNAME: &str = "braidz-mcsc-skew-cal-test-data.zip";
@@ -541,6 +548,7 @@ fn test_braidz_mcsc_skew() -> Result<()> {
     Ok(())
 }
 
+#[tracing_test::traced_test]
 #[test]
 fn test_braidz_mcsc_bundle_adjustment() -> Result<()> {
     const FNAME: &str = "braidz-mcsc-skew-cal-test-data.zip";
@@ -603,6 +611,7 @@ fn test_braidz_mcsc_bundle_adjustment() -> Result<()> {
 }
 
 #[cfg(feature = "with-octave")]
+#[tracing_test::traced_test]
 #[test]
 fn test_braidz_octave_mcsc_no_radfiles() -> Result<()> {
     const FNAME: &str = "braidz-mcsc-skew-cal-test-data.zip";
@@ -661,6 +670,7 @@ fn test_braidz_octave_mcsc_no_radfiles() -> Result<()> {
     Ok(())
 }
 
+#[tracing_test::traced_test]
 #[test]
 fn test_braidz_mcsc_no_radfiles() -> Result<()> {
     const FNAME: &str = "braidz-mcsc-skew-cal-test-data.zip";

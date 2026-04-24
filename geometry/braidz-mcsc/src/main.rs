@@ -503,6 +503,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
         let isrc = opt.bundle_adjustment_intrinsics_source;
 
         println!("Performing bundle adjustment {model_type:?} {isrc:?}");
+        tracing::debug!("Performing bundle adjustment {model_type:?} {isrc:?}");
 
         // Create BundleAdjuster
         let (visibility, observations, ba, start_ba_system) = {
@@ -627,6 +628,7 @@ pub(crate) fn braidz_mcsc(opt: Cli) -> Result<(Utf8PathBuf, mcsc_native::McscRes
             print_reproj_and_params(&mcsc_system, &points0, &vis_ba, &obs_ba)?;
 
             let optimize_points = true;
+            tracing::debug!("Initializing bundle adjuster with model {model_type:?} and intrinsics source {isrc:?}");
             let ba = bundle_adj::BundleAdjuster::new(
                 observed,
                 cam_idx,

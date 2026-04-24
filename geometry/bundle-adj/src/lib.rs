@@ -164,6 +164,8 @@ impl<F: na::RealField + Float> BundleAdjuster<F> {
         optimize_points: bool,
         #[cfg(feature = "with-rerun")] rec: Option<re_sdk::RecordingStream>,
     ) -> Result<Self> {
+        tracing::debug!("BundleAdjuster::new {model_type:?}");
+
         // println!("observed:\n{}", observed.transpose());
         // dbg!(&cam_idx);
         // dbg!(&pt_idx);
@@ -367,6 +369,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
 
     fn set_params(&mut self, x: &na::DVector<F>) {
         self.optimizer_step += 1;
+        tracing::debug!("Step {}: set_params", self.optimizer_step);
 
         #[cfg(feature = "with-rerun")]
         {
@@ -532,6 +535,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
     }
 
     fn residuals(&self) -> Option<na::DVector<F>> {
+        tracing::debug!("Step {}: residuals start", self.optimizer_step);
         // println!("Step: {}", self.optimizer_step);
         let mut residuals = Vec::with_capacity(self.nresid);
         for ((obs, cam_idx), pt_idx) in self
@@ -564,6 +568,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
         debug_assert_eq!(residuals.len(), self.nresid);
         let residuals = na::DVector::from_column_slice(&residuals);
         // println!("{}", residuals);
+        tracing::debug!("Step {}: residuals done", self.optimizer_step);
         Some(residuals)
     }
 
@@ -578,6 +583,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
     ///
     /// In general this jacobian is sparse.
     fn jacobian(&self) -> Option<na::Matrix<F, Dyn, Dyn, Self::JacobianStorage>> {
+        tracing::debug!("Step {}: jacobian start", self.optimizer_step);
         let num_cam_params = self.model_type.info().num_cam_params();
         let mut j = na::OMatrix::<F, Dyn, Dyn>::zeros(self.nresid, self.params_cache.len());
 
@@ -607,6 +613,7 @@ impl<F: na::RealField + Float> levenberg_marquardt::LeastSquaresProblem<F, Dyn, 
                 self.eval_pt_jacobians(*cam_idx, *pt_idx, &mut j, (pt_start, pt_geom));
             }
         }
+        tracing::debug!("Step {}: jacobian done", self.optimizer_step);
         Some(j)
     }
 }

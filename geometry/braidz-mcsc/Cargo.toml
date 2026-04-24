@@ -36,6 +36,7 @@ braid-mvg.workspace = true
 [dev-dependencies]
 download-verify.workspace = true
 serde-xml-rs.workspace = true
+tracing-test.workspace = true
 
 [features]
 with-rerun = ["dep:re_sdk", "bundle-adj/with-rerun"]
