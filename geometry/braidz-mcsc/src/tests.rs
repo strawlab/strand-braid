@@ -345,8 +345,6 @@ fn test_braidz_mcsc_slow() -> Result<()> {
     let opt = Cli {
         input: input.clone(),
         checkerboard_cal_dir,
-        no_bundle_adjustment: false,
-        use_nth_observation: Some(10),
         ..Default::default()
     };
     let (xml_out_name, _mcsc_result, dist) = braidz_mcsc(opt)?;
