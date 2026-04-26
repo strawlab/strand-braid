@@ -28,7 +28,9 @@ pub(crate) fn to_params<F: na::RealField + Float>(
     model_type: CameraModelType,
 ) -> Vec<F> {
     let i = cam.intrinsics();
-    debug_assert!(i.is_opencv_compatible);
+    if !i.is_opencv_compatible {
+        tracing::warn!("Camera intrinsics are not compatible with OpenCV distortion models");
+    }
     let e = cam.extrinsics();
     let rquat = e.pose().rotation;
     let abc = rquat.scaled_axis();
