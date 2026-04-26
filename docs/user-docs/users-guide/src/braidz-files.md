@@ -1,11 +1,93 @@
 # `.braidz` files
 
 A `.braidz` file contains the results of realtime tracking, the tracking
-parameters, and so on.
+parameters, and so on. By default, Braid saves `.braidz` files to
+`~/BRAID-DATA/`. Each filename encodes the date and time recording began
+(e.g. `20240315_143022.braidz`).
 
 ## Viewer
 
 A viewer for `.braidz` files is at [braidz.strawlab.org](https://braidz.strawlab.org/).
+
+## Visualizing with Rerun
+
+[Rerun](https://rerun.io/) can display a `.braidz` file as an interactive 3D
+reconstruction alongside the 2D detections from each camera. Use
+`braidz-export-rrd` to produce a Rerun `.rrd` file, then open it with `rerun`:
+
+```sh
+braidz-export-rrd <recording.braidz>
+rerun <recording.braidz>.rrd
+```
+
+To specify a different output path, use `--output`:
+
+```sh
+braidz-export-rrd <recording.braidz> --output <output.rrd>
+rerun <output.rrd>
+```
+
+If you recorded MP4 videos at the same time, pass them as additional positional
+arguments to embed camera video frames in the viewer:
+
+```sh
+braidz-export-rrd <recording.braidz> <camera1.mp4> <camera2.mp4> --output <output.rrd>
+rerun <output.rrd>
+```
+
+Omitting the video files produces a smaller `.rrd` much faster.
+
+The Rerun viewer shows the 3D trajectory of each tracked object alongside 2D
+detections for each camera. Each camera view displays two markers per detected
+object: the raw 2D detection from Strand Camera and the reprojection of Braid's
+3D estimate into that camera's image plane.
+
+## Offline retracking
+
+Braid prioritises low latency during live operation: if 2D detections arrive
+out of order (e.g. delayed by the network), those late detections are discarded
+rather than held for later processing. All detections are still written to the
+`.braidz` file, however, so it is possible to reprocess the data offline and
+recover 3D estimates that were missed during live tracking.
+
+Use `braid-offline-retrack` to retrack a `.braidz` file with all available
+data:
+
+```sh
+braid-offline-retrack --data-src <input.braidz> --output <retracked.braidz>
+```
+
+The output file uses the same calibration and tracking parameters as the
+original recording. You can override either or both:
+
+```sh
+braid-offline-retrack \
+  --data-src <input.braidz> \
+  --output <retracked.braidz> \
+  --tracking-params <params.toml> \
+  --new-calibration <calibration.xml>
+```
+
+`--tracking-params` accepts a TOML file containing
+[`TrackingParams`](https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.TrackingParams.html)
+fields. `--new-calibration` accepts a Braid XML calibration file. Both are
+optional and can be combined or used independently.
+
+Retracking commonly improves results in these ways:
+
+- 3D position estimates may be added or adjusted for frames where they were
+  absent in the live recording.
+- Trajectories that were assigned separate object IDs (due to brief tracking
+  loss) may be unified into a single object.
+- Low-confidence projections near periods of lost tracking may be reduced.
+
+> **Warning:** Object IDs in the output file are renumbered starting from 0,
+> regardless of the IDs in the original recording. Any downstream scripts that
+> reference object IDs from the original `.braidz` file must be updated to use
+> the new IDs.
+
+Note: `braid-offline-retrack` will not overwrite an existing file, so the
+output filename must differ from the input.
 
 ## Analysis scripts
 

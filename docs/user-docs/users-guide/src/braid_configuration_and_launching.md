@@ -28,3 +28,16 @@ Here is a minimal configuration for a 3 camera Braid setup:
 ```toml
 {{#include ../../../../braid/simple.toml}}
 ```
+
+## Inspecting the resolved configuration
+
+To see the full configuration that Braid will use — including all default
+values filled in for options not present in your `.toml` file — run:
+
+```sh
+braid-show-config <config.toml>
+```
+
+This prints the complete resolved configuration to stdout without launching
+Braid. It is useful for verifying settings before a recording session and for
+understanding what defaults are in effect.

@@ -9,7 +9,7 @@ The most recent files can be downloaded [here](https://github.com/strawlab/stran
 
 ## Live 3D pose estimates
 
-The script in this repository `scripts/flydra2_retransmit_udp.py` is an example
+The script in this repository `scripts/braid_retransmit_udp.py` is an example
 of parsing live, low-latency 3D tracking data.
 
 ## Analysis of saved trajectories from Braid

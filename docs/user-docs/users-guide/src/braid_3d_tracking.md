@@ -106,3 +106,31 @@ the tracking process. Furthermore, because latency is no longer a significant
 concern, reconstruction for a particular instant need not be performed with only
 historical data but can also incorporate information that occurred after that
 instant.
+
+## Visualizing live tracking with Rerun
+
+[Rerun](https://rerun.io/) can display the current tracking state in real time
+as Braid runs. Start the Rerun viewer in one terminal:
+
+```sh
+rerun
+```
+
+Then, before launching Braid, set the `RERUN_VIEWER_URL` environment variable
+to the address the Rerun viewer is listening on (its default):
+
+```sh
+export RERUN_VIEWER_URL="rerun+http://127.0.0.1:9876/proxy"
+```
+
+Launch Braid as normal. As objects are tracked, their 3D positions will stream
+into the Rerun viewer alongside the calibrated camera positions. This is useful
+for monitoring tracking quality during a recording session without needing to
+post-process the `.braidz` file first.
+
+If `RERUN_VIEWER_URL` is not set, Braid launches normally without any Rerun
+integration — no error is produced.
+
+The same Rerun viewer appearance is produced when opening a `.braidz` file
+after recording — see [BRAIDZ files and Analysis Scripts](./braidz-files.md)
+for details.
