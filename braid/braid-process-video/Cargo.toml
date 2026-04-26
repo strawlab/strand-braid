@@ -1,6 +1,6 @@
 [package]
 name = "braid-process-video"
-version = "0.12.0-alpha.9"                                             # braid release synchronized
+version = "1.0.0-rc.1"                                             # braid release synchronized
 edition = "2024"
 description = "process videos within the Braid multi-camera framework"
 

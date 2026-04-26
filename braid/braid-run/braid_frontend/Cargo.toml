@@ -1,6 +1,6 @@
 [package]
 name = "braid_frontend"
-version = "0.12.0-alpha.9"                       # braid release synchronized
+version = "1.0.0-rc.1"                       # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
 description = "Yew WASM frontend for the Braid multi-camera tracking web UI"
