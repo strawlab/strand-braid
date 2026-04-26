@@ -1,12 +1,7 @@
-## 0.12.0 - unreleased
+## 1.0.0 - unreleased
 
 ### Added
 
-* Support encoding mp4 movies via ffmpeg. This allows using hardware encoding on
-  a variety of platforms.
-* Support PTP synchronized cameras without external triggering hardware. Tested
-  with Basler Ace2 GigE cameras.
-* Provide binaries for Ubuntu 24.04 LTS Noble Numbat.
 * Save video to .mp4 files in Strand Camera (instead of .mkv files). Update
   Braid, `braid-process-video`, `strand-convert`, and other utilities to use
   MP4. Video is encoded with the H.264 codec and metadata, including precise
@@ -14,19 +9,18 @@
   encoder](https://github.com/cisco/openh264) is always available. With
   [appropriate NVENC
   hardware](https://developer.nvidia.com/video-encode-and-decode-gpu-support-matrix-new),
-  hardware-accelerated encoding is also supported.
-* Added support from Allied Vision Technologies cameras using the Vimba X
+  hardware-accelerated encoding is also supported. Ffmpeg is also available when
+  installed, allowing use of hardware encoding on a variety of platforms.
+* Add ability for a single Strand Camera instance to perform 2D tracking in
+  multiple mini arenas simultaneously. Inspired by
+  [MARGO](https://github.com/de-Bivort-Lab/margo). Trajectories are confined to
+  individual mini arenas. Automatic camera calibration can be performed by
+  making use of April Tags embedded in the arena walls.
+* Support PTP synchronized cameras without external triggering hardware. Tested
+  with Basler Ace2 GigE cameras.
+* Added support for Allied Vision Technologies cameras using the Vimba X
   driver. In the braid .toml configuration file, specify the camera with
   `start_backend = "vimba"`.
-* Implementation of Rust-based calibration programs, eliminating the need to use
-  Python flydra scripts. Updated
-  https://strawlab.github.io/strand-braid/braid_calibration.html to describe the
-  new tools.
-* Braidz Viewer website at https://braidz.strawlab.org/ can be installed as a
-  [Progressive Web App
-  (PWA)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/What_is_a_progressive_web_app).
-  When the Braidz Viewer is installed locally, double-clicking on a `.braidz`
-  file will open it in the app automatically.
 * Braid can now start saving MP4 files in all cameras with a single button.
   Furthermore, additional support for post-triggering of all cameras can be
   done.
@@ -35,38 +29,63 @@
   to the rerun viewer at this address. A new utility (`braidz-export-rrd`)
   converts .braidz files (and, if specified, also multi-camera .mp4 videos) into
   a .rrd file for viewing with the Rerun viewer.
-* Add ability for a single Strand Camera instance to perform 2D tracking in
-  multiple mini arenas simultaneously. Inspired by
-  [MARGO](https://github.com/de-Bivort-Lab/margo). Trajectories are confined to
-  individual mini arenas. Automatic camera calibration can be performed by
-  making us of April Tags embedded in the arena walls.
-* Added support to save raw, uncompressed video to the MP4 container format.
-* Save camera gamma to MP4 files.
-* Strand Cam defaults to including the camera name in the saved MP4, FMF, uFMF,
-  and April Tags .csv.gz files.
-* Substantial improvements to the `braid-process-video` program for processing
-  saved videos and data.
-* For Strand Cam and Braid, simplify defaults so that `cargo build --release` is
-  as close to just working as possible. The browser frontends still need to be
-  built but an explicit compile time error is shown if this remains to be done.
-* Build for Ubuntu 22.04 (Jammy)
-* On systems with an Nvidia GPU, set the default encoding for MP4 video saving
-  to H264 using NvEnc hardware.
+* Implementation of Rust-based calibration programs, eliminating the need to use
+  Python flydra scripts. Updated
+  https://strawlab.github.io/strand-braid/braid_calibration.html to describe the
+  new tools.
+* Native Rust port of
+  [MultiCamSelfCal](https://github.com/strawlab/MultiCamSelfCal). Camera
+  self-calibration from a `.braidz` file no longer requires Octave. The
+  `braidz-mcsc` program can now run the full calibration pipeline entirely in
+  Rust, including a bundle-adjustment refinement step.
 * New light mode for browser UI. Selection between dark and light mode is done
   according to browser and OS preferences.
+* Live view video field has new viewing modes, namely "25%", "50%" and "100%"
+  scaled modes in addition to the existing "Fit" mode. Also "Rotate CW" and
+  "Rotate CCW" buttons were added.
+* New `burn-timestamps` utility that reads the precise timestamps stored inside
+  Strand Camera MP4 files and renders them as a text overlay in a new output
+  video.
+* New `video2rrd` utility that converts Strand Camera MP4 video files to the
+  Rerun `.rrd` format, including support for connecting directly to a running
+  Rerun viewer.
+* Substantial improvements to the `braid-process-video` program for processing
+  saved videos and data.
+* Braidz Viewer website at https://braidz.strawlab.org/ can be installed as a
+  [Progressive Web App
+  (PWA)](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/What_is_a_progressive_web_app).
+  When the Braidz Viewer is installed locally, double-clicking on a `.braidz`
+  file will open it in the app automatically.
+* `show-timestamps` now supports SRT subtitle output (`--srt` option), making
+  it easier to load frame-accurate timestamps in third-party video players.
+* Strand Cam defaults to including the camera name in the saved MP4, FMF, uFMF,
+  and April Tags .csv.gz files.
+* Added support to save raw, uncompressed video to the MP4 container format.
+* Save camera gamma to MP4 files.
+* On systems with an Nvidia GPU, set the default encoding for MP4 video saving
+  to H264 using NvEnc hardware.
+* Provide binaries for Ubuntu 24.04 LTS Noble Numbat.
+* Build for Ubuntu 22.04 (Jammy)
+* Build support for Ubuntu 26.04 LTS.
+* Binary release compiled with Basler Pylon version 7.3.
+* Added support for building Strand Camera with Basler Pylon on aarch64 (ARM64)
+  architecture.
 * Security of web sessions is simplified. Braid and Strand Camera now use a
   cookie signing secret which is persisted to disk and does not require the user
   to set. A token is needed for the first request via HTTP but typically the
   token-free URL can be used for subsequent requests.
-* Live view video field has new viewing modes, namely "25%", "50%" and "100%"
-  scaled modes in addition to the existing "Fit" mode. Also "Rotate CW" and
-  "Rotate CCW" buttons were added.
-* Binary release compiled with Basler Pylon version 7.3.
+* For Strand Cam and Braid, simplify defaults so that `cargo build --release` is
+  as close to just working as possible. The browser frontends still need to be
+  built but an explicit compile time error is shown if this remains to be done.
+* `braid` CLI now has a `help` subcommand.
 
 ### Changed
 
 * No longer saves .mkv files. (Will now save .mp4 files instead.)
-* Parameter `fps` for `FakeSync` trigger mode renamed `framerate`.
+* MP4 and FMF files use frame timestamps computed from the triggerbox device if
+  available.
+* When saving MP4, FMF and April Tag CSV files, default filenames include the
+  camera name.
 * Braid no longer runs an in-process strand-cam but rather launches a child
   process for each camera. This enables support of other camera drivers and will
   enable braid to run with cameras from multiple vendors. This builds off the
@@ -76,25 +95,38 @@
   replace `remote_camera = true` with `start_backend = "remote"`. The default
   setting is now `start_backend = "pylon"` to enable Basler Pylon cameras to
   continue with existing Braid `.toml` configuration files.)
+* Parameter `fps` for `FakeSync` trigger mode renamed `framerate`.
 * Rename command line program `offline-retrack` to `braid-offline-retrack`.
-* MP4 and FMF files use frame timestamps computed from the triggerbox device if
-  available.
-* When saving MP4, FMF and April Tag CSV files, default filenames include the
-  camera name.
 * Rename command line program `strand-cam-offline-kalmanize` to
   `flytrax-csv-to-braidz`.
 * Removed `packet_capture_dump_fname` Braid configuration parameter.
+* Removed the Python `flydra` submodule. All calibration functionality that
+  previously depended on it is now implemented in Rust.
+* GStreamer plugins (`gst-plugin-apriltag`, `gst-plugin-nvargustime`) extracted
+  into their own dedicated repositories.
+* Web frontend build tooling switched from `wasm-pack` to
+  [`trunk`](https://trunkrs.dev/).
+* Repository reorganized into thematic subdirectories: `braid/`, `geometry/`,
+  `im-proc/`, `strand-cam/`, `braidz/`, `web/`, `utils/`, and `media-utils/`.
+* Migrated all crates to Rust edition 2024.
+* Version 1.0.0 — first major release. The jump from 0.x reflects the maturity
+  and long-term stability of the software.
 
 ### Fixed
 
-* Browser caching is turned off. This reduces disk usage.
-* When saving MP4 files, the maximum framerate parameter is respected.
 * The `alpha` parameter in the feature detector was inadvertently ignored. This
   has been corrected. Thanks to Antoine Cribellier for noticing this.
+* PTP synchronization: Strand Camera now waits for the PTP clock to converge
+  before starting camera acquisition, improving timestamp accuracy in
+  PTP-synchronized setups.
+* When saving MP4 files, the maximum framerate parameter is respected.
 * Increased the default size of the buffer used to save data to disk to 10000
   from a previous value of 10. Additionally, made this value configurable by
   creating a new parameter `write_buffer_size_num_messages` in the `[mainbrain]`
   section of the Braid `.toml` configuration file.
+* `braid-process-video`: Fixed braidz output file generation, which previously
+  produced incorrect output.
+* Browser caching is turned off. This reduces disk usage.
 
 ## 0.11.1 - 2021-12-04
 
