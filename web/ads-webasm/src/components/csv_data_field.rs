@@ -48,19 +48,46 @@ impl<RowType> std::fmt::Display for MaybeCsvData<RowType> {
     }
 }
 
-pub fn parse_csv<RowType>(filename: String, buf: &[u8]) -> MaybeCsvData<RowType>
+pub fn parse_csv<RowType>(filename: String, buf1: &[u8]) -> MaybeCsvData<RowType>
 where
     for<'de> RowType: serde::Deserialize<'de>,
 {
-    let raw_buf = buf.to_vec(); // copy raw data
+    let raw_buf: Vec<u8> = if filename.ends_with(".gz") {
+        // decode gzip
+        let mut decoder = match libflate::gzip::Decoder::new(buf1) {
+            Ok(d) => d,
+            Err(e) => {
+                return MaybeCsvData::ParseFail(format!(
+                    "For filename {filename}, gzip decode error: {e}"
+                ));
+            }
+        };
+        let mut buf = Vec::new();
+        match std::io::Read::read_to_end(&mut decoder, &mut buf) {
+            Ok(_) => (),
+            Err(e) => {
+                return MaybeCsvData::ParseFail(format!(
+                    "For filename {filename}, gzip read error: {e}"
+                ));
+            }
+        }
+        buf
+    } else {
+        buf1.to_vec() // copy raw data
+    };
+    let mut buf = raw_buf.as_slice();
     let rdr = csv::ReaderBuilder::new()
         .comment(Some(b'#'))
-        .from_reader(buf);
+        .from_reader(&mut buf);
     let mut rows = Vec::new();
     for row in rdr.into_deserialize() {
         let row: RowType = match row {
             Ok(r) => r,
-            Err(e) => return MaybeCsvData::ParseFail(format!("{}", e)),
+            Err(e) => {
+                return MaybeCsvData::ParseFail(format!(
+                    "For filename {filename}, CSV parse error: {e}"
+                ));
+            }
         };
         rows.push(row);
     }
@@ -152,7 +179,7 @@ where
         html! {
                 <FileInput
                     button_text={button_text}
-                    accept={".csv"}
+                    accept={".csv, .gz"}
                     multiple={false}
                     on_changed={ctx.link().callback(|files| {
                         Msg::Files(files)
