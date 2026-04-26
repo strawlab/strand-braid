@@ -16,6 +16,7 @@ re_sdk = { workspace = true, optional = true }
 re_sdk_types = { workspace = true, optional = true }
 opencv-ros-camera.workspace = true
 chrono.workspace = true
+libflate.workspace = true
 
 ads-webasm = { workspace = true, features = ["csv-widget"] }
 braid-april-cal.workspace = true
@@ -30,6 +31,7 @@ cam-geom.workspace = true
 zip.workspace = true
 download-verify.workspace = true
 tracing-test.workspace = true
+tempfile.workspace = true
 
 [features]
 with-rerun = ["dep:re_sdk", "dep:re_sdk_types", "bundle-adj/with-rerun"]

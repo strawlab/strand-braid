@@ -27,7 +27,8 @@ struct Cli {
     #[arg(long)]
     apriltags_3d_fiducial_coords: Utf8PathBuf,
 
-    /// Directory containing `apriltags<date>_<time>_<cam-name>.csv` files.
+    /// Directory containing `apriltags<date>_<time>_<cam-name>.csv.gz` (or
+    /// `apriltags<date>_<time>_<cam-name>.csv`) files.
     #[arg(long)]
     apriltags_2d_detections_dir: Utf8PathBuf,
 
@@ -215,7 +216,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         let entry = entry?;
         if (entry.file_name().starts_with("apriltags")
             || entry.file_name().ends_with(".apriltag.csv"))
-            && entry.file_name().ends_with(".csv")
+            && (entry.file_name().ends_with(".csv") || entry.file_name().ends_with(".csv.gz"))
             && entry
                 .file_type()
                 .ok()
@@ -224,12 +225,12 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         {
             // Load april tag detections
             let entry = entry.into_path();
-            let buf = std::fs::read(entry.as_std_path())
+            let buf1: Vec<u8> = std::fs::read(entry.as_std_path())
                 .with_context(|| format!("while opening file {entry}"))?;
             let icam_idx: u8 = cam_names.len().try_into().unwrap();
 
             use braid_apriltag_types::AprilTagCoords2D;
-            let detections = parse_csv::<AprilTagCoords2D>(entry.clone().into_string(), &buf);
+            let detections = parse_csv::<AprilTagCoords2D>(entry.clone().into_string(), &buf1);
             let cam_name = match detections {
                 MaybeCsvData::Valid(csv_data) => {
                     let datavec = csv_data.rows().to_vec();
@@ -885,16 +886,17 @@ mod test {
         )
         .unwrap();
 
-        let data_root_dir_name = Utf8PathBuf::from("scratch/braid-april-cal-test-data-root");
+        let data_root_dir = tempfile::tempdir()?; // will cleanup on drop
+        let data_root_dir_name =
+            camino::Utf8PathBuf::from_path_buf(data_root_dir.path().to_path_buf()).unwrap();
+        let output_xml = data_root_dir_name.join("output.xml");
+
+        // let data_root_dir_name = Utf8PathBuf::from("scratch/braid-april-cal-test-data-root");
 
         let rdr = std::fs::File::open(&local_fname)?;
         let cal_data_archive = ZipArchive::new(rdr)?;
 
         unpack_zip_into(cal_data_archive, &data_root_dir_name)?;
-        let output_xml = data_root_dir_name.join("output.xml");
-        if output_xml.exists() {
-            std::fs::remove_file(&output_xml)?;
-        }
 
         let opt = super::Cli {
             apriltags_3d_fiducial_coords: data_root_dir_name
