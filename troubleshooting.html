@@ -136,7 +136,7 @@
                         </a>
                         
                         
-                        <a href="https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/users-guide" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/users-guide" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
                         
@@ -168,8 +168,62 @@
                 <div id="content" class="content">
                     <main>
                         <h1><a class="header" href="#troubleshooting" id="troubleshooting">Troubleshooting</a></h1>
-<h2><a class="header" href="#synchronization-problems" id="synchronization-problems">synchronization problems</a></h2>
-<h2><a class="header" href="#any-other-problem-or-question" id="any-other-problem-or-question">any other problem or question</a></h2>
+<h2><a class="header" href="#synchronization-problems" id="synchronization-problems">Synchronization problems</a></h2>
+<p>Braid uses the <a href="https://github.com/strawlab/triggerbox">Straw Lab Triggerbox</a>
+to send a hardware trigger signal to all cameras simultaneously. If cameras are
+not synchronized, check the following:</p>
+<p><strong>Permission to access the Triggerbox serial port.</strong> On Ubuntu, the Triggerbox
+appears as a serial device (e.g. <code>/dev/ttyUSB0</code>). Your user must be in the
+<code>dialout</code> group to access it:</p>
+<pre><code class="language-ignore">sudo adduser &lt;username&gt; dialout
+</code></pre>
+<p>After adding yourself to the group, log out and back in for the change to take
+effect. You can verify group membership with the <code>groups</code> command.</p>
+<p><strong>Triggerbox connected and detected.</strong> Confirm the Triggerbox is plugged in and
+that the device file appears under <code>/dev/ttyUSB*</code> or <code>/dev/ttyACM*</code>. The Braid
+log output at startup will indicate whether the Triggerbox was found.</p>
+<p><strong>Trigger cables.</strong> Each camera must be connected to the Triggerbox with a
+trigger cable. Verify that every cable is seated properly at both ends.</p>
+<p><strong>Frame rate consistency.</strong> Ensure that every camera is configured to the same
+frame rate. Mismatched frame rates will cause synchronization failures even when
+the hardware trigger is working correctly.</p>
+<h2><a class="header" href="#ptp-synchronization-problems" id="ptp-synchronization-problems">PTP synchronization problems</a></h2>
+<p>When using GigE cameras synchronized over a network via PTP (Precision Time
+Protocol), synchronization failures typically appear in the Braid log as
+repeated warnings such as:</p>
+<pre><code class="language-text">launch time precedes device timestamp. Is time running backwards?
+</code></pre>
+<p>or as Braid reporting that cameras are not synchronizing.</p>
+<p><strong>PTP daemon not running or misconfigured.</strong> The PTP daemon (e.g. <code>ptpd</code>) must
+be running with the host PC set as the PTP master clock. Check its status with:</p>
+<pre><code class="language-sh">systemctl status ptpd
+</code></pre>
+<p>A healthy output will include a <code>Started ptpd.service</code> log entry. If not, check
+that the daemon is configured correctly (the <code>ptpengine:preset=masteronly</code> and
+correct <code>ptpengine:interface</code> settings) and restart it:</p>
+<pre><code class="language-sh">systemctl restart ptpd
+</code></pre>
+<p><strong>Wrong network interface.</strong> The PTP daemon must be bound to the same network
+interface that the cameras are connected to. Use <code>ip link | grep &quot;state UP&quot;</code> to
+identify the correct interface name and confirm it matches the
+<code>ptpengine:interface</code> setting in your PTP configuration file.</p>
+<p><strong>Jumbo frames not enabled.</strong> GigE cameras typically require jumbo frames (MTU
+9000) on both the PC network interface and the switch. Verify the MTU is set to
+9000 on the PC's network connection and that jumbo frames are enabled in the
+switch settings.</p>
+<p><strong>Camera clocks drifting on first launch.</strong> On the first launch after cameras
+have been powered on it can take several seconds for PTP to bring all camera
+clocks into agreement. The &quot;Is time running backwards?&quot; warning will stop
+appearing once synchronization is established. If it persists for more than
+30 seconds, check the items above.</p>
+<h2><a class="header" href="#apriltag-detection-drops-frames-during-calibration" id="apriltag-detection-drops-frames-during-calibration">AprilTag detection drops frames during calibration</a></h2>
+<p>AprilTag detection is computationally intensive. If you see frame-drop errors
+while recording AprilTag detections for calibration, try one of the following:</p>
+<ul>
+<li>Run Strand Camera as a standalone instance (not via Braid) for the calibration step.</li>
+<li>Reduce the camera frame rate to around 10 FPS for this step only.</li>
+</ul>
+<h2><a class="header" href="#any-other-problem-or-question" id="any-other-problem-or-question">Any other problem or question</a></h2>
 <p>Please <a href="https://github.com/strawlab/strand-braid/issues">report any issues you
 face</a> or <a href="https://groups.google.com/forum/#!forum/multicams">ask any questions you
 may have</a>.</p>

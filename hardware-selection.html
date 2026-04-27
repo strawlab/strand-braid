@@ -136,7 +136,7 @@
                         </a>
                         
                         
-                        <a href="https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/users-guide" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/users-guide" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
                         
@@ -170,8 +170,8 @@
                         <h1><a class="header" href="#hardware-selection" id="hardware-selection">Hardware selection</a></h1>
 <h2><a class="header" href="#pc-requirements" id="pc-requirements">PC requirements</a></h2>
 <ul>
-<li>Supports Ubuntu 20.04 amd64 operating system. This is currently our only
-supported platform.</li>
+<li>Supports recent Ubuntu Linux Long Term Support (LTS) releases (amd64). This is
+currently our only supported platform.</li>
 <li>Fast CPU. Currently an Intel CPU is recommended due to the use of the Intel
 Integrated Performance Primitives Library.</li>
 <li>Memory usage is not expected to be particularly high, because processing
@@ -180,25 +180,27 @@ occurs in realtime.</li>
 ethernet, your computer needs to support enough bandwidth.</li>
 <li>Disk space and speed. For realtime tracking, the tracking data is only modest
 in size and so no particularly high performance requirements exist. With
-Nvidia hardware that supports NVENC hardware-accelerated encoding (see below),
-compressed, H.264 encoded video can be saved to MP4 files with also only
-modest CPU and disk requirements are present. For streaming uncompressed, raw
-video to disk (with MP4 or the FMF format), very fast disks and lots of disk
-space are required.</li>
+hardware-accelerated H.264 encoding (see below), compressed video can be saved
+to MP4 files with only modest CPU and disk requirements. For streaming
+uncompressed, raw video to disk (with MP4 or the FMF format), very fast disks
+and lots of disk space are required.</li>
 </ul>
-<h3><a class="header" href="#hardware-accelerated-video-encoding-using-nvidia-video-cards" id="hardware-accelerated-video-encoding-using-nvidia-video-cards">Hardware-accelerated video encoding using nvidia video cards</a></h3>
-<p>NVIDIA video encoding hardware is optionally used to encode H.264 videos in the
-MP4 format. This is very nice because it takes almost no CPU and full framerate
-videos can be recorded from your cameras during live tracking with little or no
-loss of performance. This depends on NVIDIA's library called NVENC. Please see
-NVIDIA's site for <a href="https://developer.nvidia.com/video-encode-and-decode-gpu-support-matrix-new">supported
-hardware</a>.
-Note in particular the limit of three encode sessions with the consumer
-(GeForce) hardware that does not exist on many of their professional (Quadro)
-cards.</p>
+<h3><a class="header" href="#hardware-accelerated-video-encoding" id="hardware-accelerated-video-encoding">Hardware-accelerated video encoding</a></h3>
+<p>H.264 video encoding can be offloaded to hardware, freeing the CPU to continue
+tracking at full framerate while recording video. Two paths are supported:</p>
+<p><strong>NVIDIA NVENC.</strong> If an NVIDIA GPU with NVENC support is present, Strand Camera
+can use it directly via NVIDIA's NVENC library. This requires no additional
+software beyond the NVIDIA driver. Please see NVIDIA's site for <a href="https://developer.nvidia.com/video-encode-and-decode-gpu-support-matrix-new">supported
+hardware</a>.</p>
+<p><strong>ffmpeg.</strong> Strand Camera can also pipe frames through
+<a href="https://ffmpeg.org/">ffmpeg</a> for encoding. Any hardware encoder that ffmpeg
+supports (including NVIDIA NVENC, Intel Quick Sync, and AMD AMF) can be used
+this way, provided the appropriate ffmpeg build and drivers are installed.
+Software encoding via ffmpeg (e.g. <code>libx264</code>) is also possible but will use
+substantially more CPU.</p>
 <h2><a class="header" href="#camera-requirements" id="camera-requirements">Camera requirements</a></h2>
-<p>Currently, Basler cameras using the Pylon API are the only supported cameras. We
-plan to support cameras from Allied Vision using the Vimba API in late 2021 or 2022.</p>
+<p>Basler cameras using the Pylon API and Allied Vision cameras using the Vimba X
+API are supported.</p>
 <h3><a class="header" href="#basler-cameras" id="basler-cameras">Basler cameras</a></h3>
 <p>Due to the use of the Pylon API, any camera which can be used in the Pylon
 Viewer can be used in principle. In practice, we regularly test with the
@@ -209,9 +211,9 @@ following cameras:</p>
 <li>Basler acA1300-200um</li>
 <li>Basler acA640-120gm</li>
 </ul>
-<h3><a class="header" href="#allied-vision-cameras-planned-for-late-2021-or-2022" id="allied-vision-cameras-planned-for-late-2021-or-2022">Allied Vision cameras (Planned for late 2021 or 2022)</a></h3>
-<p>Due to the use of the Vimba API, any camera which can be used in the Vimba
-Viewer can be used in principle. In practice, we intend to use the following
+<h3><a class="header" href="#allied-vision-cameras" id="allied-vision-cameras">Allied Vision cameras</a></h3>
+<p>Due to the use of the Vimba X API, any camera which can be used in the Vimba
+Viewer can be used in principle. In practice, we have tested with the following
 cameras:</p>
 <ul>
 <li>Allied Vision Alvium 1800 U-240m</li>

@@ -136,7 +136,7 @@
                         </a>
                         
                         
-                        <a href="https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/users-guide" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/users-guide" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
                         
@@ -210,7 +210,7 @@ power cycled, these values will be reset.</p>
 range of your sensor (from intensity values 0 to 255) with very little clipping.</p>
 <h2><a class="header" href="#step-1-run-checkerboard-calibration-to-get-the-camera-intrinsic-parameters-for-each-camera" id="step-1-run-checkerboard-calibration-to-get-the-camera-intrinsic-parameters-for-each-camera">Step 1: run &quot;Checkerboard Calibration&quot; to get the camera intrinsic parameters for each camera</a></h2>
 <p>(There is a script to draw checkerboards as SVG files:
-<a href="https://github.com/strawlab/strand-braid/blob/main/strand-braid-user/scripts/draw_checkerboard_svg.py"><code>draw_checkerboard_svg.py</code></a>.)</p>
+<a href="https://github.com/strawlab/strand-braid/blob/main/docs/user-docs/scripts/draw_checkerboard_svg.py"><code>draw_checkerboard_svg.py</code></a>.)</p>
 <p>In Strand Cam, there is a region called &quot;Checkerboard Calibration&quot; which allows
 you to calibrate the camera intrinsic parameters. Show a checkerboard to the
 camera. You must enter your the checkerboard parameters into the user interface.
@@ -225,8 +225,9 @@ results of this calibration are saved to the directory
 <p>As an alternative to running this procedure live with Strand Camera, you may
 operate on a directory of PNG images and <a href="https://github.com/strawlab/strand-braid/tree/main/strand-cam/strand-cam-offline-checkerboards">the <code>strand-cam-offline-checkerboards</code>
 program</a>.</p>
-<p>Regardless of whether you create the YAML file containing the camera intrinsic
-parameters, the first lines of the YAML file will contain a comment like the following showing the mean reprojection distance.</p>
+<p>Regardless of how you created the YAML file containing the camera intrinsic
+parameters, the first lines of the YAML file will contain a comment like the
+following showing the mean reprojection distance.</p>
 <pre><code class="language-text"># Mean reprojection distance: 0.49
 </code></pre>
 <p>The mean reprojection distance is a measure of how well the checkerboard
@@ -254,10 +255,162 @@ file like the following:</p>
 of each marker. The coordinate system must be right-handed and the units of each
 coordinate are meters.</p>
 <h2><a class="header" href="#step-3-record-detections-of-april-tags-from-each-camera" id="step-3-record-detections-of-april-tags-from-each-camera">Step 3: record detections of April Tags from each camera</a></h2>
-<p>TODO: write this. Quick hint: use Strand Cam to record an april tag detection
-CSV file for each camera.</p>
+<p>For each camera, you will record a CSV file of its April Tag detections. Repeat
+the following steps for each camera individually before proceeding.</p>
+<ol>
+<li>
+<p>Access the camera's Strand Camera instance, either via Braid or by launching
+Strand Camera directly for that camera.</p>
+</li>
+<li>
+<p>In the Strand Cam GUI, deselect &quot;Object detection → enable object detection&quot;
+to turn off object detection.</p>
+</li>
+<li>
+<p>Select &quot;April tag detection → enable April tag detection&quot;. If tags are
+visible to the camera, the center of each detected tag will be highlighted
+with a green circle in the live view tab. Verify that the camera detects at
+least three April Tags before proceeding. While three is the mathematical
+minimum, more is better — aim to maximize the number of tags each camera
+can see.</p>
+<blockquote>
+<p><strong>Note:</strong> April Tag detection is computationally demanding. If you
+encounter frame-drop errors, try running Strand Camera in a separate
+instance (not via Braid) or reduce the camera frame rate to around 10 FPS
+for this step. See the troubleshooting section for more details.</p>
+</blockquote>
+<blockquote>
+<p><strong>Note:</strong> Tags viewed at shallow angles, near the distorted periphery of
+the field of view, or appearing small in the image may not be detected on
+every frame, causing the green detection circle to flicker. Such
+intermittent detections are still suitable for calibration.</p>
+</blockquote>
+</li>
+<li>
+<p>In the April tag detection tab, click the circular record icon to start
+recording. This saves a gzip-compressed CSV (<code>.csv.gz</code>) file in the directory
+from which Braid was launched.</p>
+</li>
+<li>
+<p>Allow recording to run for approximately ten seconds. This ensures that any
+intermittent detections are captured.</p>
+</li>
+<li>
+<p>Click the square stop-recording button (which replaced the record button) to
+end recording.</p>
+</li>
+</ol>
+<p>After repeating steps 1–6 for every camera, move all of the <code>.csv.gz</code> files into
+a single directory. The path to this directory is used in the next step as the
+<code>--apriltags-2d-detections-dir</code> argument to <code>braid-april-cal-cli</code>.</p>
 <h2><a class="header" href="#step-4-estimate-extrinsic-parameters-and-save-braid-xml-calibration-file" id="step-4-estimate-extrinsic-parameters-and-save-braid-xml-calibration-file">Step 4: Estimate extrinsic parameters and save Braid .xml calibration file</a></h2>
-<p>TODO: write this. Quick hint: Use <code>braid-april-cal-cli</code> script.</p>
+<h3><a class="header" href="#4a-run-braid-april-cal-cli" id="4a-run-braid-april-cal-cli">4a: Run <code>braid-april-cal-cli</code></a></h3>
+<p>Run the following command to estimate the extrinsic camera parameters and
+produce a Braid XML calibration file:</p>
+<pre><code class="language-sh">braid-april-cal-cli \
+  --apriltags-3d-fiducial-coords &lt;3d-coords-file&gt; \
+  --apriltags-2d-detections-dir &lt;2d-dir&gt; \
+  --intrinsics-yaml-dir &lt;intrinsics&gt; \
+  --bundle-adjustment \
+  --bundle-adjustment-world-points-remain-fixed \
+  --output-xml &lt;output.xml&gt;
+</code></pre>
+<p>where:</p>
+<ul>
+<li><code>&lt;3d-coords-file&gt;</code> is the path to the <code>markers-3d-coords.csv</code> file from Step 2.</li>
+<li><code>&lt;2d-dir&gt;</code> is the path to the folder of per-camera detection CSV files from
+Step 3.</li>
+<li><code>&lt;intrinsics&gt;</code> is the path to the folder containing the intrinsic calibration
+YAML files for each camera from Step 1, normally
+<code>~/.config/strand-cam/camera_info</code>.</li>
+<li><code>&lt;output.xml&gt;</code> is the path where the calibration will be saved; this path
+must end in <code>.xml</code>.</li>
+</ul>
+<p>To also save a Rerun visualization file for use in the next step, add
+<code>--rerun-save &lt;rerun_save.rrd&gt;</code> where <code>&lt;rerun_save.rrd&gt;</code> is the output path
+(must end in <code>.rrd</code>). This is optional but recommended — it enables the
+validation step 4c.</p>
+<p>The <code>--bundle-adjustment</code> flag enables an optimization of all calibration
+parameters. By default <code>braid-april-cal-cli</code> does not alter camera intrinsic
+parameters, and the additional flag
+<code>--bundle-adjustment-world-points-remain-fixed</code> prevents bundle adjustment from
+moving the April Tag 3D coordinates. Bundle adjustment is therefore restricted
+to the extrinsic (pose) parameters of each camera.</p>
+<blockquote>
+<p><strong>Note:</strong> The bundle adjustment options can be altered or removed. Run
+<code>braid-april-cal-cli --help</code> for a full list of options. We recommend using
+the restrictions shown above, at least initially.</p>
+</blockquote>
+<h3><a class="header" href="#4b-validate-the-calibration-summary" id="4b-validate-the-calibration-summary">4b: Validate the calibration summary</a></h3>
+<p>The tool prints a calibration summary to the terminal; the same summary also
+appears in the first lines of <code>&lt;output.xml&gt;</code>. The summary has two main
+sections: <em>Results from SQPnP algorithm using prior intrinsics</em> and <em>Results
+after refinement with bundle adjustment model</em>. Inspect the latter section and
+verify the following:</p>
+<ol>
+<li>
+<p><strong>3d distance between original and updated point locations</strong> — every tag ID
+should show a value of <code>0.0000</code>. Non-zero values indicate the
+<code>--bundle-adjustment-world-points-remain-fixed</code> constraint was not respected.</p>
+</li>
+<li>
+<p><strong>3d distance between original and updated camera center locations</strong> —
+adjustments should be small, ideally below 0.05 m.</p>
+</li>
+<li>
+<p><strong>Camera parameters</strong> — for each camera the transverse (<code>t_</code>) and rotation
+(<code>r_</code>) values in x, y, and z are listed. Verify that these correspond with
+the known positions and orientations of the cameras in your setup. (The
+intrinsic parameters <code>fx</code>, <code>fy</code>, <code>cx</code>, <code>cy</code>, <code>k1</code>, <code>k2</code>, <code>k3</code>, <code>p1</code>, <code>p2</code>
+are also listed but were not adjusted and can be ignored.)</p>
+</li>
+<li>
+<p><strong>reprojection distance</strong> — a table reports the reprojection distance (in
+pixels) for each April Tag visible to each camera. The rightmost column
+gives the mean per tag across all cameras that see it; the bottom row gives
+the mean per camera across all tags it sees; and the bottom-right cell gives
+the overall mean across the whole system. Verify that the overall mean is
+below 10 pixels, and ideally below 5 pixels.</p>
+</li>
+</ol>
+<p>If any of the above criteria are not met, you must generate a new calibration.
+Use the reprojection distance table to identify the problematic tags or cameras:</p>
+<ul>
+<li>A tag with high error: remeasure its position or move it so that more cameras
+see it, then update <code>&lt;3d-coords-file&gt;</code> and repeat from Step 3.</li>
+<li>A camera with high error: adjust its position, viewing angle, or focus, or
+repeat its intrinsic calibration (Step 1), then repeat from Step 3.</li>
+</ul>
+<blockquote>
+<p><strong>Note:</strong> Acceptable reprojection values depend on the bundle adjustment
+settings used. The thresholds above apply to the command as written in
+Step 4a.</p>
+</blockquote>
+<h3><a class="header" href="#4c-visualize-the-calibration-in-rerun" id="4c-visualize-the-calibration-in-rerun">4c: Visualize the calibration in Rerun</a></h3>
+<pre><code class="language-sh">rerun &lt;rerun_save.rrd&gt;
+</code></pre>
+<p>Rerun displays a 3D reconstruction of the calibration: numbered tags mark the
+centre of each April Tag and pyramid shapes show the camera positions. Each
+camera's field of view is also shown, with detected April Tags labelled. Using
+the time-series slider at the bottom you can step from the beginning to the
+end of bundle adjustment. Verify that the arrangement of cameras and tags
+matches your physical setup.</p>
+<h3><a class="header" href="#4d-configure-braid-to-use-the-calibration" id="4d-configure-braid-to-use-the-calibration">4d: Configure Braid to use the calibration</a></h3>
+<p>Edit the Braid TOML config file (created when you first launched Braid):</p>
+<ol>
+<li>
+<p>Find the line starting with <code># cal_fname</code> (it is commented out by default).</p>
+</li>
+<li>
+<p>Delete the leading <code>#</code> to uncomment it.</p>
+</li>
+<li>
+<p>Replace the placeholder path with the path to the file produced in Step 4a:</p>
+<pre><code class="language-toml">cal_fname = &quot;&lt;output.xml&gt;&quot;
+</code></pre>
+</li>
+</ol>
+<p>Braid will load this calibration the next time it is launched.</p>
 <h3><a class="header" href="#optional-calibration-with-water" id="optional-calibration-with-water">Optional: Calibration with water</a></h3>
 <p>As described
 <a href="braid_3d_tracking.html#tracking-in-water-with-cameras-out-of-water">here</a>, Braid

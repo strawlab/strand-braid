@@ -136,7 +136,7 @@
                         </a>
                         
                         
-                        <a href="https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/users-guide" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/users-guide" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
                         
@@ -170,13 +170,59 @@
                         <h1><a class="header" href="#braid-and-strand-camera" id="braid-and-strand-camera">Braid and Strand Camera</a></h1>
 <p>This is the User's Guide for <a href="https://strawlab.org/braid/">Braid</a> and <a href="https://strawlab.org/strand-cam/">Strand
 Camera</a>.</p>
-<p>Braid and Strand Camera are free and open source. You can find the source code
-on <a href="https://github.com/strawlab/strand-braid">GitHub</a>. Issues and feature
+<h2><a class="header" href="#what-is-strand-camera" id="what-is-strand-camera">What is Strand Camera?</a></h2>
+<p><strong>Strand Camera</strong> is a single-camera application for live video acquisition,
+real-time 2D object tracking, and recording. It runs as a local web server and
+is controlled through a browser-based interface. You can also control it
+programmatically via Python scripts. Use Strand Camera when you have one camera
+and need 2D tracking or video recording, or when setting up and calibrating
+cameras that will later be used with Braid.</p>
+<h2><a class="header" href="#what-is-braid" id="what-is-braid">What is Braid?</a></h2>
+<p><strong>Braid</strong> is a multi-camera system for real-time 3D tracking. It coordinates
+multiple Strand Camera instances — each running on the same machine or on
+remote machines — synchronizes their cameras using a hardware trigger, and
+fuses the per-camera 2D detections into 3D trajectories. Use Braid when you
+need 3D position estimates of one or more moving objects.</p>
+<h2><a class="header" href="#which-should-i-use" id="which-should-i-use">Which should I use?</a></h2>
+<table><thead><tr><th align="left">Goal</th><th align="left">Software</th></tr></thead><tbody>
+<tr><td align="left">Record video from a single camera</td><td align="left">Strand Camera</td></tr>
+<tr><td align="left">2D tracking from a single camera</td><td align="left">Strand Camera</td></tr>
+<tr><td align="left">3D tracking with two or more cameras</td><td align="left">Braid</td></tr>
+<tr><td align="left">Calibrating cameras for use with Braid</td><td align="left">Strand Camera (one camera at a time)</td></tr>
+</tbody></table>
+<p>Both Braid and Strand Camera are free and open source. You can find the source
+code on <a href="https://github.com/strawlab/strand-braid">GitHub</a>. Issues and feature
 requests can be posted on the <a href="https://github.com/strawlab/strand-braid/issues">GitHub issue
 tracker</a>.</p>
+<h2><a class="header" href="#recording-video-in-strand-camera" id="recording-video-in-strand-camera">Recording video in Strand Camera</a></h2>
+<p>Strand Camera can record compressed H.264 video to MP4 files. Recording is
+started and stopped from the browser UI or via the <a href="./scripting-with-python.html">Python scripting
+interface</a>.</p>
+<h3><a class="header" href="#post-trigger-recording" id="post-trigger-recording">Post-trigger recording</a></h3>
+<p>The <strong>Post Triggering</strong> section in the Strand Camera UI allows you to record
+video that includes footage from <em>before</em> the recording command was given — a
+&quot;time travel&quot; or pre-roll buffer.</p>
+<p>To use it:</p>
+<ol>
+<li>In the <strong>Post Triggering</strong> section, enter a <strong>buffer size</strong> (number of
+frames). Strand Camera will continuously keep this many recent frames in
+memory. A larger buffer means you can go further back in time, but uses more
+RAM.</li>
+<li>When an event of interest occurs (or has just occurred), click <strong>Post Trigger
+MP4 Recording</strong>. Strand Camera starts an MP4 file that begins with the
+buffered frames, so the recording includes footage from before the trigger.</li>
+<li>Click the stop recording button to end the recording when done.</li>
+</ol>
+<p>The buffer size defaults to 0 (disabled). Set it to a non-zero value before the
+experiment begins.</p>
+<h2><a class="header" href="#getting-started" id="getting-started">Getting started</a></h2>
+<p>New users should begin with <a href="./hardware-selection.html">Hardware selection</a> and
+then <a href="./installation.html">Installation</a>. To go straight to 3D tracking, proceed
+to <a href="./braid_configuration_and_launching.html">Configuring and Launching Braid</a>
+after installation.</p>
 <h3><a class="header" href="#about-this-book" id="about-this-book">About this book</a></h3>
 <p>The source code for this documentation is at
-<a href="https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/users-guide">github.com/strawlab/strand-braid/tree/main/strand-braid-user/users-guide</a>.
+<a href="https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/users-guide">github.com/strawlab/strand-braid/tree/main/docs/user-docs/users-guide</a>.
 This book is made with <a href="https://rust-lang.github.io/mdBook/">mdBook</a>.</p>
 
                     </main>

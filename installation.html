@@ -136,7 +136,7 @@
                         </a>
                         
                         
-                        <a href="https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/users-guide" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/users-guide" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
                         
@@ -171,7 +171,7 @@
 <h2><a class="header" href="#software-installation" id="software-installation">Software installation</a></h2>
 <p>Download releases from <a href="https://github.com/strawlab/strand-braid/releases">our releases
 page</a>.</p>
-<p>Choosing the correct installer for your operating system. We build releases of
+<p>Choose the correct installer for your operating system. We build releases of
 Strand Camera and Braid for recent Ubuntu Linux Long Term Support (LTS)
 releases. Each Ubuntu release has a version number (e.g. &quot;24.04&quot;) and a code
 name (e.g. &quot;Noble Numbat&quot;). The installers at the releases page hosted on Github
@@ -191,18 +191,47 @@ in _packaging/ubuntu-2404-installer-zip-readme.txt
 <h3><a class="header" href="#cameras" id="cameras">Cameras</a></h3>
 <p>Currently Basler cameras are best supported. We use Basler's Pylon library to
 access the cameras.</p>
-<p>Allied Vision Cameras using the Vimba X library is planned for Strand Camera and
-Braid version 0.12.</p>
+<p>Allied Vision cameras using the Vimba X library are supported in Strand Camera
+and Braid.</p>
 <h3><a class="header" href="#trigger-box" id="trigger-box">Trigger box</a></h3>
 <p>Braid uses the <a href="https://github.com/strawlab/triggerbox">Straw Lab Triggerbox</a>
-hardware to synchronize the cameras. This is based on an Arduino
-microcontroller.</p>
+hardware to synchronize the cameras. Two hardware variants are supported: one
+based on an Arduino Nano and one based on a
+<a href="https://github.com/strawlab/triggerbox/tree/main/hardware_v3/braid-triggerbox-firmware-pico">Raspberry Pi Pico</a>.</p>
+<blockquote>
+<p><strong>Note:</strong> Cameras that support
+<a href="https://en.wikipedia.org/wiki/Precision_Time_Protocol">PTP (Precision Time Protocol, IEEE 1588)</a>
+can synchronize themselves over the network without any additional hardware,
+making the Triggerbox unnecessary. However, PTP is not the best choice in
+every situation, so Triggerbox support remains available.</p>
+</blockquote>
 <p>On Ubuntu, it is important to add your user to the <code>dialout</code> group so that you
 can access the Triggerbox. Do so like this:</p>
 <pre><code class="language-ignore">sudo adduser &lt;username&gt; dialout
 </code></pre>
 <h3><a class="header" href="#trigger-cables" id="trigger-cables">Trigger cables</a></h3>
-<p>TODO: write this and describe how to check everything is working.</p>
+<p>Each camera must be wired to receive the hardware trigger signal from the
+Triggerbox. The Triggerbox outputs a voltage pulse on each trigger event; this
+signal must be connected to the appropriate trigger input pin on every camera.</p>
+<p><strong>Which pin to use depends on the camera model.</strong> Strand Camera hard-codes the
+trigger input line for each supported camera backend:</p>
+<ul>
+<li><strong>Allied Vision cameras (Vimba X backend):</strong> <code>Line0</code> is used as the trigger
+source. Consult your camera's datasheet to identify which physical connector
+pin corresponds to <code>Line0</code> on your specific model.</li>
+<li><strong>Basler cameras (Pylon backend):</strong> No trigger source line is explicitly
+overridden by Strand Camera; the camera's current <code>TriggerSource</code> setting is
+used. On most Basler cameras this defaults to <code>Line1</code>, which is typically the
+opto-isolated hardware trigger input on the multi-function I/O connector.
+Consult your camera's datasheet to confirm the correct pin.</li>
+</ul>
+<p><strong>Building the cables.</strong> Because camera I/O connectors vary by manufacturer and
+model (Basler cameras commonly use a Hirose HR10 series connector; Allied Vision
+cameras vary by model), you will generally need to build or order custom cables.
+Each cable connects the Triggerbox trigger output to the appropriate trigger
+input pin on a single camera, along with a common ground reference. Consult the
+Triggerbox documentation and your camera's datasheet for the required voltage
+and connector pinouts before building cables.</p>
 
                     </main>
 

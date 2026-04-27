@@ -136,7 +136,7 @@
                         </a>
                         
                         
-                        <a href="https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/users-guide" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/users-guide" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
                         
@@ -254,6 +254,24 @@ the tracking process. Furthermore, because latency is no longer a significant
 concern, reconstruction for a particular instant need not be performed with only
 historical data but can also incorporate information that occurred after that
 instant.</p>
+<h2><a class="header" href="#visualizing-live-tracking-with-rerun" id="visualizing-live-tracking-with-rerun">Visualizing live tracking with Rerun</a></h2>
+<p><a href="https://rerun.io/">Rerun</a> can display the current tracking state in real time
+as Braid runs. Start the Rerun viewer in one terminal:</p>
+<pre><code class="language-sh">rerun
+</code></pre>
+<p>Then, before launching Braid, set the <code>RERUN_VIEWER_URL</code> environment variable
+to the address the Rerun viewer is listening on (its default):</p>
+<pre><code class="language-sh">export RERUN_VIEWER_URL=&quot;rerun+http://127.0.0.1:9876/proxy&quot;
+</code></pre>
+<p>Launch Braid as normal. As objects are tracked, their 3D positions will stream
+into the Rerun viewer alongside the calibrated camera positions. This is useful
+for monitoring tracking quality during a recording session without needing to
+post-process the <code>.braidz</code> file first.</p>
+<p>If <code>RERUN_VIEWER_URL</code> is not set, Braid launches normally without any Rerun
+integration — no error is produced.</p>
+<p>The same Rerun viewer appearance is produced when opening a <code>.braidz</code> file
+after recording — see <a href="./braidz-files.html">BRAIDZ files and Analysis Scripts</a>
+for details.</p>
 
                     </main>
 

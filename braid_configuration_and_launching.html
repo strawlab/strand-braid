@@ -136,7 +136,7 @@
                         </a>
                         
                         
-                        <a href="https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/users-guide" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/users-guide" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
                         
@@ -204,6 +204,14 @@ name = &quot;Basler-0815-0001&quot;
 [[cameras]]
 name = &quot;Basler-0815-0002&quot;
 </code></pre>
+<h2><a class="header" href="#inspecting-the-resolved-configuration" id="inspecting-the-resolved-configuration">Inspecting the resolved configuration</a></h2>
+<p>To see the full configuration that Braid will use — including all default
+values filled in for options not present in your <code>.toml</code> file — run:</p>
+<pre><code class="language-sh">braid-show-config &lt;config.toml&gt;
+</code></pre>
+<p>This prints the complete resolved configuration to stdout without launching
+Braid. It is useful for verifying settings before a recording session and for
+understanding what defaults are in effect.</p>
 
                     </main>
 

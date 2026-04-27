@@ -136,7 +136,7 @@
                         </a>
                         
                         
-                        <a href="https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/users-guide" title="Git repository" aria-label="Git repository">
+                        <a href="https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/users-guide" title="Git repository" aria-label="Git repository">
                             <i id="git-repository-button" class="fa fa-github"></i>
                         </a>
                         
@@ -169,11 +169,72 @@
                     <main>
                         <h1><a class="header" href="#braidz-files" id="braidz-files"><code>.braidz</code> files</a></h1>
 <p>A <code>.braidz</code> file contains the results of realtime tracking, the tracking
-parameters, and so on.</p>
+parameters, and so on. By default, Braid saves <code>.braidz</code> files to
+<code>~/BRAID-DATA/</code>. Each filename encodes the date and time recording began
+(e.g. <code>20240315_143022.braidz</code>).</p>
 <h2><a class="header" href="#viewer" id="viewer">Viewer</a></h2>
 <p>A viewer for <code>.braidz</code> files is at <a href="https://braidz.strawlab.org/">braidz.strawlab.org</a>.</p>
+<h2><a class="header" href="#visualizing-with-rerun" id="visualizing-with-rerun">Visualizing with Rerun</a></h2>
+<p><a href="https://rerun.io/">Rerun</a> can display a <code>.braidz</code> file as an interactive 3D
+reconstruction alongside the 2D detections from each camera. Use
+<code>braidz-export-rrd</code> to produce a Rerun <code>.rrd</code> file, then open it with <code>rerun</code>:</p>
+<pre><code class="language-sh">braidz-export-rrd &lt;recording.braidz&gt;
+rerun &lt;recording.braidz&gt;.rrd
+</code></pre>
+<p>To specify a different output path, use <code>--output</code>:</p>
+<pre><code class="language-sh">braidz-export-rrd &lt;recording.braidz&gt; --output &lt;output.rrd&gt;
+rerun &lt;output.rrd&gt;
+</code></pre>
+<p>If you recorded MP4 videos at the same time, pass them as additional positional
+arguments to embed camera video frames in the viewer:</p>
+<pre><code class="language-sh">braidz-export-rrd &lt;recording.braidz&gt; &lt;camera1.mp4&gt; &lt;camera2.mp4&gt; --output &lt;output.rrd&gt;
+rerun &lt;output.rrd&gt;
+</code></pre>
+<p>Omitting the video files produces a smaller <code>.rrd</code> much faster.</p>
+<p>The Rerun viewer shows the 3D trajectory of each tracked object alongside 2D
+detections for each camera. Each camera view displays two markers per detected
+object: the raw 2D detection from Strand Camera and the reprojection of Braid's
+3D estimate into that camera's image plane.</p>
+<h2><a class="header" href="#offline-retracking" id="offline-retracking">Offline retracking</a></h2>
+<p>Braid prioritises low latency during live operation: if 2D detections arrive
+out of order (e.g. delayed by the network), those late detections are discarded
+rather than held for later processing. All detections are still written to the
+<code>.braidz</code> file, however, so it is possible to reprocess the data offline and
+recover 3D estimates that were missed during live tracking.</p>
+<p>Use <code>braid-offline-retrack</code> to retrack a <code>.braidz</code> file with all available
+data:</p>
+<pre><code class="language-sh">braid-offline-retrack --data-src &lt;input.braidz&gt; --output &lt;retracked.braidz&gt;
+</code></pre>
+<p>The output file uses the same calibration and tracking parameters as the
+original recording. You can override either or both:</p>
+<pre><code class="language-sh">braid-offline-retrack \
+  --data-src &lt;input.braidz&gt; \
+  --output &lt;retracked.braidz&gt; \
+  --tracking-params &lt;params.toml&gt; \
+  --new-calibration &lt;calibration.xml&gt;
+</code></pre>
+<p><code>--tracking-params</code> accepts a TOML file containing
+<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.TrackingParams.html"><code>TrackingParams</code></a>
+fields. <code>--new-calibration</code> accepts a Braid XML calibration file. Both are
+optional and can be combined or used independently.</p>
+<p>Retracking commonly improves results in these ways:</p>
+<ul>
+<li>3D position estimates may be added or adjusted for frames where they were
+absent in the live recording.</li>
+<li>Trajectories that were assigned separate object IDs (due to brief tracking
+loss) may be unified into a single object.</li>
+<li>Low-confidence projections near periods of lost tracking may be reduced.</li>
+</ul>
+<blockquote>
+<p><strong>Warning:</strong> Object IDs in the output file are renumbered starting from 0,
+regardless of the IDs in the original recording. Any downstream scripts that
+reference object IDs from the original <code>.braidz</code> file must be updated to use
+the new IDs.</p>
+</blockquote>
+<p>Note: <code>braid-offline-retrack</code> will not overwrite an existing file, so the
+output filename must differ from the input.</p>
 <h2><a class="header" href="#analysis-scripts" id="analysis-scripts">Analysis scripts</a></h2>
-<p>Scripts to analyze your <code>.braidz</code> files can be found at <a href="https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis">github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis</a>.</p>
+<p>Scripts to analyze your <code>.braidz</code> files can be found at <a href="https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/analysis">github.com/strawlab/strand-braid/tree/main/docs/user-docs/analysis</a>.</p>
 <h3><a class="header" href="#latency-analysis" id="latency-analysis">Latency Analysis</a></h3>
 <p>To analyze the latency of your setup with Braid, you can use the Jupyter Notebook <code>braid-latency-analysis.ipynb</code>.</p>
 <h3><a class="header" href="#content-analysis" id="content-analysis">Content analysis</a></h3>
@@ -182,7 +243,7 @@ parameters, and so on.</p>
 <p>The following plots were made with the file
 <a href="https://strawlab-cdn.com/assets/20201112_133722.braidz">20201112_133722.braidz</a>.
 The scripts can be accessed at
-<a href="https://github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis">github.com/strawlab/strand-braid/tree/main/strand-braid-user/analysis</a>.
+<a href="https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/analysis">github.com/strawlab/strand-braid/tree/main/docs/user-docs/analysis</a>.
 A Jupyter Notebook to create all of these plots can be found in <code>braid-plotting.ipynb</code> in the same folder.</p>
 <h3><a class="header" href="#braid-analysis-plot-data2d-timeseriespy" id="braid-analysis-plot-data2d-timeseriespy"><code>braid-analysis-plot-data2d-timeseries.py</code></a></h3>
 <p><img src="images/braid-analysis-plot-data2d-timeseries.png" alt="images/braid-analysis-plot-data2d-timeseries.png" /></p>
