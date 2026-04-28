@@ -1067,14 +1067,9 @@ pub(crate) async fn frame_process_task<'a>(
                                     let fdp = flydra2::FrameDataAndPoints { frame_data, points };
                                     let si = flydra2::StreamItem::Packet(fdp);
 
-                                    // block until sent
-                                    match futures::executor::block_on(futures::sink::SinkExt::send(
-                                        flydra2_stream,
-                                        si,
-                                    )) {
-                                        Ok(()) => {}
-                                        Err(e) => return Err(e.into()),
-                                    }
+                                    futures::sink::SinkExt::send(flydra2_stream, si)
+                                        .await
+                                        .map_err(|e| eyre::eyre!("{e}"))?;
                                 }
                             }
 
