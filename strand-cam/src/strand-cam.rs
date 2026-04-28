@@ -739,11 +739,38 @@ async fn callback_handler(
     axum::extract::State(app_state): axum::extract::State<StrandCamAppState>,
     session_key: axum_token_auth::SessionKey,
     TolerantJson(payload): TolerantJson<CallbackType>,
-) -> impl axum::response::IntoResponse {
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
     session_key.is_present();
     tracing::trace!("callback");
     match payload {
         CallbackType::ToCamera(cam_arg) => {
+            // Validate YAML strings before enqueuing so callers get a proper
+            // error response instead of a silent HTTP 200 with config discarded.
+            let yaml_err: Option<String> = match &cam_arg {
+                #[cfg(feature = "flydra_feat_detect")]
+                CamArg::SetObjDetectionConfig(y) => serde_yaml::from_str::<ImPtDetectCfg>(y)
+                    .err()
+                    .map(|e| e.to_string()),
+                #[cfg(feature = "flydratrax")]
+                CamArg::CamArgSetKalmanTrackingConfig(y) => {
+                    serde_yaml::from_str::<KalmanTrackingConfig>(y)
+                        .err()
+                        .map(|e| e.to_string())
+                }
+                #[cfg(feature = "flydratrax")]
+                CamArg::CamArgSetLedProgramConfig(y) => serde_yaml::from_str::<LedProgramConfig>(y)
+                    .err()
+                    .map(|e| e.to_string()),
+                _ => None,
+            };
+            if let Some(e) = yaml_err {
+                return (
+                    StatusCode::UNPROCESSABLE_ENTITY,
+                    format!("YAML parse error: {e}"),
+                )
+                    .into_response();
+            }
             debug!("in cb: {:?}", cam_arg);
             app_state
                 .callback_senders
@@ -790,7 +817,7 @@ async fn callback_handler(
                 .ignore_send_error();
         }),
     }
-    Ok::<_, axum::extract::rejection::JsonRejection>(axum::Json(()))
+    ().into_response()
 }
 
 async fn handle_auth_error(err: tower::BoxError) -> (StatusCode, &'static str) {
