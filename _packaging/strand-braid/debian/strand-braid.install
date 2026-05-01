@@ -14,10 +14,13 @@ compute-flydra1-compat usr/bin
 flytrax-csv-to-braidz usr/bin
 fmf usr/bin
 gocal usr/bin
+rerun-braidz-viewer usr/bin
 show-timestamps usr/bin
 strand-cam-pylon usr/bin
 strand-cam-flydratrax-pylon usr/bin
 strand-cam-flydratrax-pylon.desktop usr/share/applications
+rerun-braidz-viewer.desktop usr/share/applications
+strand-braid.xml usr/share/mime/packages
 strand-cam-vimba usr/bin
 strand-convert usr/bin
 

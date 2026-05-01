@@ -739,11 +739,14 @@ extra-programs:
     - cp $CI_PROJECT_DIR/target/release/braid-april-cal-cli $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR
+
     - cargo build --release -p braidz-export-rrd
     - ldd -v $CI_PROJECT_DIR/target/release/braidz-export-rrd
     - cp $CI_PROJECT_DIR/target/release/braidz-export-rrd $CI_PROJECT_DIR/build
 
-    - cd $CI_PROJECT_DIR
+    - cargo build --release -p rerun-braidz-viewer
+    - cp $CI_PROJECT_DIR/target/release/rerun-braidz-viewer $CI_PROJECT_DIR/build
+
     - cargo build --release -p braidz-cli
     - cp target/release/braidz-cli $CI_PROJECT_DIR/build
 

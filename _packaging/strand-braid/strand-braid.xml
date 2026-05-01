@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-braidz">
+    <comment>BRAIDZ Archive</comment>
+    <sub-class-of type="application/zip"/>
+    <glob pattern="*.braidz"/>
+    <icon name="application-x-braidz"/>
+  </mime-type>
+</mime-info>
