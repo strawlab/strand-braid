@@ -11,6 +11,8 @@ braidz-mcsc usr/bin
 braidz-export-rrd usr/bin
 cal-to-xml usr/bin
 compute-flydra1-compat usr/bin
+flydra-feature-detector-bench usr/bin
+flydra-feature-detector-bench-ipp usr/bin
 flytrax-csv-to-braidz usr/bin
 fmf usr/bin
 gocal usr/bin
