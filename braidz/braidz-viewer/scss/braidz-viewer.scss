@@ -1,49 +1,101 @@
-@use '../../../web/ads-webasm/scss/colors';
-@use '../../../web/ads-webasm/scss/base';
 @use '../../../web/ads-webasm/scss/custom_file_upload';
 @use '../../../web/ads-webasm/scss/lds_ellipsis';
 
 $footer-height: 2.5rem;
 
-@include base.base($body-color-dark: colors.$body-color-dark,
-    $body-background-dark: colors.$body-background-dark,
-    $modal-background-dark: colors.$modal-background-dark,
-    $text-background-dark: colors.$text-background-dark,
-    $text-color-dark: colors.$text-color-dark,
+:root {
+    color-scheme: light dark;
+    --bg: #f6f3ee;
+    --panel: #ffffff;
+    --panel-muted: #f0ebe4;
+    --text: #24272b;
+    --muted: #68707b;
+    --border: #d7cec1;
+    --accent: #137f83;
+    --accent-strong: #0c6266;
+    --danger: #b33a3a;
+    --shadow: 0 12px 32px rgba(32, 24, 16, 0.10);
+}
 
-    $body-color-light: colors.$body-color-light,
-    $body-background-light: colors.$body-background-light,
-    $modal-background-light: colors.$modal-background-light,
-    $text-background-light: colors.$text-background-light,
-    $text-color-light: colors.$text-color-light,
-);
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #111417;
+        --panel: #1a2025;
+        --panel-muted: #232b31;
+        --text: #edf1f3;
+        --muted: #a8b1ba;
+        --border: #34404a;
+        --accent: #38aeb3;
+        --accent-strong: #70d0d3;
+        --danger: #f27c7c;
+        --shadow: 0 14px 36px rgba(0, 0, 0, 0.32);
+    }
+}
+
+* {
+    box-sizing: border-box;
+}
 
 html,
 body {
     margin: 0;
-    padding: 5px;
+    min-height: 100%;
+}
+
+body {
+    background:
+        linear-gradient(180deg, rgba(19, 127, 131, 0.10), transparent 340px),
+        var(--bg);
+    color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+a {
+    color: var(--accent-strong);
+}
+
+button,
+.custom-file-upload {
+    border: 1px solid var(--accent);
+    border-radius: 6px;
+    background: var(--accent);
+    color: #ffffff;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    min-height: 40px;
+    padding: 0 14px;
+    font: inherit;
+    font-weight: 650;
+}
+
+button:disabled,
+button[disabled] {
+    cursor: not-allowed;
+    opacity: 0.55;
 }
 
 .compute-modal {
-    background-color: rgba(0, 0, 0, 0.5);
+    align-items: flex-start;
+    background-color: rgba(0, 0, 0, 0.48);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    padding: 18px;
     position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
+    z-index: 20;
 }
 
 .compute-modal-inner {
-    line-height: 1.5em;
-    position: fixed;
-    background-color: #7f7f7f;
-    color: black;
-    top: 10px;
-    padding: 10px;
-    left: 5%;
-    width: 90%;
-    box-shadow: 10px 5px 5px black;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    color: var(--text);
+    max-width: 720px;
+    padding: 18px 24px;
     text-align: center;
+    width: min(90vw, 720px);
 }
 
 .display-none {
@@ -51,36 +103,283 @@ body {
 }
 
 #page-container {
-    position: relative;
     min-height: 100vh;
+    position: relative;
 }
 
 #content-wrap {
-    padding-bottom: $footer-height;
+    margin: 0 auto;
+    max-width: 1280px;
+    padding: 28px 24px calc($footer-height + 28px);
 }
+
+.app-header {
+    align-items: center;
+    display: flex;
+    gap: 20px;
+    justify-content: space-between;
+    margin-bottom: 22px;
+}
+
+.app-header h1 {
+    font-size: 2rem;
+    line-height: 1.05;
+    margin: 0 0 8px;
+}
+
+.app-header p,
+.panel-heading p,
+.empty-state p {
+    color: var(--muted);
+    margin: 0;
+}
+
+.viewer-main {
+    display: grid;
+    gap: 18px;
+}
+
+.panel,
+.empty-state {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    padding: 18px;
+}
+
+.panel-heading {
+    align-items: baseline;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+
+.panel-heading h2,
+.empty-state h2 {
+    font-size: 1.15rem;
+    margin: 0;
+}
+
+.error-state {
+    border-color: color-mix(in srgb, var(--danger), var(--border) 45%);
+}
+
+.metric-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    margin-bottom: 14px;
+}
+
+.metric-card,
+.detail-card,
+.plot-card {
+    background: var(--panel-muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.metric-card {
+    min-height: 84px;
+    padding: 12px;
+}
+
+.metric-card span,
+.detail-card dt {
+    color: var(--muted);
+    display: block;
+    font-size: 0.78rem;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+}
+
+.metric-card strong {
+    display: block;
+    font-size: 1.25rem;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.details-grid,
+.stats-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 12px;
+}
+
+.detail-card {
+    padding: 14px;
+}
+
+.detail-card h3 {
+    font-size: 0.95rem;
+    margin: 0 0 12px;
+}
+
+.detail-card dl {
+    display: grid;
+    gap: 8px 14px;
+    grid-template-columns: minmax(130px, max-content) minmax(0, 1fr);
+    margin: 0;
+}
+
+.detail-card dt,
+.detail-card dd {
+    margin: 0;
+}
+
+.detail-card dd {
+    overflow-wrap: anywhere;
+}
+
+.camera-plot-grid {
+    display: grid;
+    gap: 12px;
+}
+
+.plot-card {
+    min-height: 260px;
+    overflow: hidden;
+    padding: 8px;
+}
+
+.plot {
+    height: 240px;
+    width: 100%;
+}
+
+.trajectory-view {
+    background:
+        linear-gradient(135deg, rgba(19, 127, 131, 0.10), transparent 42%),
+        var(--panel-muted);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    height: min(68vh, 660px);
+    min-height: 420px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.trajectory-toolbar {
+    align-items: center;
+    display: flex;
+    gap: 12px;
+    justify-content: space-between;
+    margin: 0 0 12px;
+}
+
+.segmented-control {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.segmented-control button {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text);
+    min-height: 34px;
+    padding: 0 11px;
+}
+
+.segmented-control button:hover,
+.segmented-control button.is-active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+}
+
+.trajectory-view-status {
+    color: var(--muted);
+    font-size: 0.86rem;
+    white-space: nowrap;
+}
+
+
+.table-scroll {
+    overflow: auto;
+}
+
+.stats-table {
+    border-collapse: collapse;
+    min-width: 420px;
+    width: 100%;
+}
+
+.stats-table th,
+.stats-table td {
+    border-bottom: 1px solid var(--border);
+    padding: 8px 10px;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.stats-table th {
+    color: var(--muted);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+}
+
+.table-note {
+    color: var(--muted);
+    font-size: 0.86rem;
+    margin: 0 0 12px;
+}
+
 
 #footer {
-    position: absolute;
     bottom: 0;
-    width: 100%;
+    color: var(--muted);
+    font-size: 0.8rem;
     height: $footer-height;
+    left: 0;
+    padding: 0 24px 14px;
+    position: absolute;
+    width: 100%;
 }
 
-@media (prefers-color-scheme: dark) {
+@media (max-width: 900px) {
+    #content-wrap {
+        padding: 18px 14px calc($footer-height + 24px);
+    }
 
-    button:disabled,
-    button[disabled] {
-        color: colors.$text-background-dark;
-        border: 1px solid colors.$text-background-dark;
+    .app-header,
+    .panel-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .metric-grid,
+    .details-grid,
+    .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 
+@media (max-width: 560px) {
+    .metric-grid,
+    .details-grid,
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
 
-@media (prefers-color-scheme: light) {
+    .detail-card dl {
+        grid-template-columns: 1fr;
+    }
 
-    button:disabled,
-    button[disabled] {
-        color: colors.$text-background-light;
-        border: 1px solid colors.$text-background-light;
+    .trajectory-view {
+        min-height: 340px;
+    }
+
+    .trajectory-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .trajectory-view-status {
+        white-space: normal;
     }
 }

@@ -4,19 +4,11 @@
 //! uploading them from the browser).
 use std::collections::HashMap;
 
-use gloo::timers::callback::Timeout;
 use gloo_file::{File, callbacks::FileReader};
 
 use wasm_bindgen::prelude::*;
 
 use yew::prelude::*;
-
-use plotters::{
-    drawing::IntoDrawingArea,
-    prelude::{ChartBuilder, Circle, FontDesc, GREEN, LineSeries, RED, WHITE},
-    style::Color,
-};
-use plotters_canvas::CanvasBackend;
 
 use web_sys::{self, console::log_1};
 
@@ -24,8 +16,9 @@ use ads_webasm::components::file_input::FileInput;
 
 // -----------------------------------------------------------------------------
 
-const TOPVIEW: &str = "3d-topview-canvas";
-const SIDE1VIEW: &str = "3d-side1view-canvas";
+const TRAJECTORY_3D_VIEW: &str = "trajectory-3d-view";
+const OBJECT_TRACK_TABLE_LIMIT: usize = 50;
+const TRAJECTORY_3D_LIMIT: usize = 500;
 
 // -----------------------------------------------------------------------------
 
@@ -46,11 +39,11 @@ pub struct ValidBraidzFile {
 // -----------------------------------------------------------------------------
 
 struct Model {
-    timeout: Option<Timeout>,
     readers: HashMap<String, FileReader>,
     braidz_file: MaybeValidBraidzFile,
-    did_error: bool,
+    render_error: Option<String>,
     html_page_title: Option<String>,
+    render_after_next_paint: bool,
     why_busy: WhyBusy,
 }
 
@@ -58,6 +51,7 @@ pub enum Msg {
     RenderAll,
     FileChanged(File),
     Loaded(String, Vec<u8>),
+    Set3dView(&'static str),
 }
 
 enum WhyBusy {
@@ -72,11 +66,11 @@ impl Component for Model {
 
     fn create(_ctx: &Context<Self>) -> Self {
         Self {
-            timeout: None,
             braidz_file: MaybeValidBraidzFile::default(),
             readers: HashMap::default(),
-            did_error: false,
+            render_error: None,
             html_page_title: None,
+            render_after_next_paint: false,
             why_busy: WhyBusy::NotBusy,
         }
     }
@@ -84,8 +78,9 @@ impl Component for Model {
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::RenderAll => {
-                update_2d_canvas(self);
-                update_canvas(self);
+                self.render_error = None;
+                update_2d_plots(self);
+                update_3d_view(self);
                 self.why_busy = WhyBusy::NotBusy;
             }
             Msg::Loaded(filename, rbuf) => {
@@ -133,19 +128,20 @@ impl Component for Model {
                 };
 
                 self.braidz_file = file;
-
-                // Render plots after delay (so canvas is in DOM). TODO: make
-                // this more robust by triggering the render once the canvas is
-                // added to the DOM.
-                let handle = {
-                    let link = ctx.link().clone();
-                    Timeout::new(3, move || link.send_message(Msg::RenderAll))
-                };
-
-                self.timeout = Some(handle);
+                self.render_error = None;
+                self.render_after_next_paint =
+                    matches!(self.braidz_file, MaybeValidBraidzFile::Valid(_));
+            }
+            Msg::Set3dView(preset) => {
+                if let Err(e) = set_trajectory_view(preset) {
+                    let msg = js_error_message("3D view preset failed", &e);
+                    log_1(&msg.clone().into());
+                    model_set_render_error(self, msg);
+                }
             }
             Msg::FileChanged(file) => {
                 let filename = file.name();
+                self.render_error = None;
                 self.why_busy = WhyBusy::LoadingFile(filename.clone());
                 let link = ctx.link().clone();
                 let filename2 = filename.clone();
@@ -158,31 +154,47 @@ impl Component for Model {
         true
     }
 
+    fn rendered(&mut self, ctx: &Context<Self>, _first_render: bool) {
+        if self.render_after_next_paint {
+            self.render_after_next_paint = false;
+            ctx.link().send_message(Msg::RenderAll);
+        }
+    }
+
     fn view(&self, ctx: &Context<Self>) -> Html {
         use crate::MaybeValidBraidzFile::*;
         let braidz_file_part = match &self.braidz_file {
             Valid(fd) => detail_table_valid(fd),
             &NotLoaded => {
                 html! {
-                    <div><p></p>{"No BRAIDZ file loaded."}</div>
+                    <section class="empty-state">
+                        <h2>{"Open a .braidz file"}</h2>
+                        <p>{"The archive is parsed locally in this browser."}</p>
+                    </section>
                 }
             }
             ParseFail(_e) => {
                 html! {
-                <div>{"Parsing file failed."}</div>
+                    <section class="empty-state error-state">
+                        <h2>{"Parsing failed"}</h2>
+                        <p>{"This file could not be read as a BRAIDZ archive."}</p>
+                    </section>
                 }
             }
         };
 
-        let did_error_part = if self.did_error {
+        let render_error_part = if let Some(err) = &self.render_error {
             html! {
-                <div>
-                    <p></p>
-                    {"❌ Error: DOM element not ready prior to drawing figure. \
-                      Please reload this page and try again."}
-                </div>
+                <section class="empty-state error-state">
+                    <h2>{"Plot rendering failed"}</h2>
+                    <p>{err}</p>
+                </section>
             }
-        } else if let Valid(fd) = &self.braidz_file {
+        } else {
+            empty()
+        };
+
+        let the_2d_part = if let Valid(fd) = &self.braidz_file {
             add_2d_dom_elements(fd)
         } else {
             empty()
@@ -190,10 +202,16 @@ impl Component for Model {
 
         let the_3d_part = if let Valid(fd) = &self.braidz_file {
             if fd.archive.kalman_estimates_info.is_some() {
-                add_3d_traj_dom_elements()
+                add_3d_traj_dom_elements(ctx, fd)
             } else {
                 empty()
             }
+        } else {
+            empty()
+        };
+
+        let stats_part = if let Valid(fd) = &self.braidz_file {
+            stats_dom_elements(fd)
         } else {
             empty()
         };
@@ -219,29 +237,33 @@ impl Component for Model {
                     </div>
                 </div>
                 <div id="content-wrap">
-                    <h1>{"BRAIDZ Viewer"}</h1>
-                    <p>
-                        {"Viewer for files saved by "}
-                        <a href="https://strawlab.org/braid">{"Braid"}</a>{". Created by the "}
-                        <a href="https://strawlab.org/">{"Straw Lab"}</a>{", University of Freiburg."}
-                    </p>
-                    <p>
-                    </p>
-                    <FileInput
-                        button_text={"Select a BRAIDZ file."}
-                        accept={".braidz"}
-                        multiple=false
-                        on_changed={ctx.link().callback(|files: Vec<File>| {
-                            assert_eq!(files.len(),1);
-                            let file = files.into_iter().next().unwrap();
-                            Msg::FileChanged(file)
-                        })}
-                    />
-                    <div>
+                    <header class="app-header">
+                        <div>
+                            <h1>{"BRAIDZ Viewer"}</h1>
+                            <p>
+                                {"Explore local "}
+                                <a href="https://strawlab.org/braid">{"Braid"}</a>
+                                {" archives with interactive 2D and 3D views."}
+                            </p>
+                        </div>
+                        <FileInput
+                            button_text={"Select a BRAIDZ file"}
+                            accept={".braidz"}
+                            multiple=false
+                            on_changed={ctx.link().callback(|files: Vec<File>| {
+                                assert_eq!(files.len(),1);
+                                let file = files.into_iter().next().unwrap();
+                                Msg::FileChanged(file)
+                            })}
+                        />
+                    </header>
+                    <main class="viewer-main">
                         {braidz_file_part}
-                        {did_error_part}
+                        {render_error_part}
+                        {the_2d_part}
                         {the_3d_part}
-                    </div>
+                        {stats_part}
+                    </main>
                     <footer id="footer">{format!("Viewer date: {} (revision {})",
                                         env!("GIT_DATE"),
                                         env!("GIT_HASH"))}
@@ -258,61 +280,28 @@ fn empty() -> Html {
     }
 }
 
-fn update_2d_canvas(model: &mut Model) {
+fn model_set_render_error(model: &mut Model, msg: String) {
+    model.render_error = Some(msg);
+}
+
+fn update_2d_plots(model: &mut Model) {
     if let MaybeValidBraidzFile::Valid(fd) = &model.braidz_file {
         for (camid, camn) in fd.archive.cam_info.camid2camn.iter() {
-            let canv_id = get_canv_id(camid);
-            let backend = CanvasBackend::new(&canv_id);
-            let backend = if let Some(be) = backend {
-                be
-            } else {
-                model.did_error = true;
-                return;
-            };
-            let root = backend.into_drawing_area();
-            root.fill(&WHITE).unwrap_throw();
-
             match &fd.archive.data2d_distorted {
                 Some(d2d) => {
-                    let frame_lim = &d2d.frame_lim;
                     let seq = d2d.qz.get(camn).expect("get camn");
-
-                    let mut chart = ChartBuilder::on(&root)
-                        // .caption(format!("y=x^{}", pow), font)
-                        .x_label_area_size(30)
-                        .y_label_area_size(30)
-                        .build_cartesian_2d(
-                            frame_lim[0] as i64..frame_lim[1] as i64,
-                            0.0..*seq.max_pixel,
-                        )
-                        .unwrap_throw();
-
-                    chart
-                        .configure_mesh()
-                        .x_labels(3)
-                        .y_labels(3)
-                        .x_desc("Frame")
-                        .y_desc("Pixel")
-                        .draw()
-                        .unwrap_throw();
-
-                    chart
-                        .draw_series(
-                            seq.frame
-                                .iter()
-                                .zip(seq.xdata.iter())
-                                .map(|(frame, x)| Circle::new((*frame, **x), 2, RED.filled())),
-                        )
-                        .unwrap_throw();
-
-                    chart
-                        .draw_series(
-                            seq.frame
-                                .iter()
-                                .zip(seq.ydata.iter())
-                                .map(|(frame, y)| Circle::new((*frame, **y), 2, GREEN.filled())),
-                        )
-                        .unwrap_throw();
+                    let plot_id = get_plot_id(camid);
+                    let frames = array_from_i64(seq.frame.iter().copied());
+                    let xs = array_from_f64(seq.xdata.iter().map(|x| **x));
+                    let ys = array_from_f64(seq.ydata.iter().map(|y| **y));
+                    if let Err(e) =
+                        plot_camera_2d(&plot_id, &frames.into(), &xs.into(), &ys.into(), camid)
+                    {
+                        let msg = js_error_message("2D plot rendering failed", &e);
+                        log_1(&msg.clone().into());
+                        model.render_error = Some(msg);
+                        return;
+                    }
                 }
                 &None => {
                     log_1(&("no data2d_distorted - cannot plot".into()));
@@ -322,118 +311,44 @@ fn update_2d_canvas(model: &mut Model) {
     }
 }
 
-fn update_canvas(model: &mut Model) {
-    let mut trajectories = None;
-    let mut xlim = -1.0..1.0;
-    let mut ylim = -1.0..1.0;
-    let mut zlim = -1.0..1.0;
-    if let MaybeValidBraidzFile::Valid(fd) = &model.braidz_file
-        && let Some(k) = &fd.archive.kalman_estimates_info
-    {
-        trajectories = Some(&k.trajectories);
-        xlim = k.xlim[0]..k.xlim[1];
-        ylim = k.ylim[0]..k.ylim[1];
-        zlim = k.zlim[0]..k.zlim[1];
-    }
+fn update_3d_view(model: &mut Model) {
+    let MaybeValidBraidzFile::Valid(fd) = &model.braidz_file else {
+        return;
+    };
 
-    if trajectories.is_none() {
+    let Some(k) = &fd.archive.kalman_estimates_info else {
+        return;
+    };
+
+    if !k.xlim.iter().all(|v| v.is_finite())
+        || !k.ylim.iter().all(|v| v.is_finite())
+        || !k.zlim.iter().all(|v| v.is_finite())
+    {
         return;
     }
 
-    let mut do_3d_plots = false;
-    if xlim.start.is_finite()
-        && xlim.end.is_finite()
-        && ylim.start.is_finite()
-        && ylim.end.is_finite()
-        && zlim.start.is_finite()
-        && zlim.end.is_finite()
+    let trajectories = trajectories_to_js(k);
+    let bounds = bounds_to_js(k.xlim, k.ylim, k.zlim);
+    if let Err(e) = render_trajectories_3d(TRAJECTORY_3D_VIEW, &trajectories.into(), &bounds.into())
     {
-        do_3d_plots = true;
+        let msg = js_error_message("3D trajectory rendering failed", &e);
+        log_1(&msg.clone().into());
+        model.render_error = Some(msg);
+    }
+}
+
+fn js_error_message(prefix: &str, value: &JsValue) -> String {
+    if let Some(message) = value.as_string() {
+        return format!("{prefix}: {message}");
     }
 
-    // top view
-    if do_3d_plots {
-        let backend = match CanvasBackend::new(TOPVIEW) {
-            Some(be) => be,
-            _ => {
-                model.did_error = true;
-                return;
-            }
-        };
-        let root = backend.into_drawing_area();
-        let _font: FontDesc = ("Arial", 20.0).into();
-
-        root.fill(&WHITE).unwrap_throw();
-
-        let mut chart = ChartBuilder::on(&root)
-            // .caption(format!("y=x^{}", pow), font)
-            .x_label_area_size(30)
-            .y_label_area_size(30)
-            .build_cartesian_2d(xlim.clone(), ylim)
-            .unwrap_throw();
-
-        chart
-            .configure_mesh()
-            .x_labels(3)
-            .y_labels(3)
-            .x_desc("x (m)")
-            .y_desc("y (m)")
-            .draw()
-            .unwrap_throw();
-
-        if let Some(traj) = trajectories {
-            for (_obj_id, traj_data) in traj.iter() {
-                chart
-                    .draw_series(LineSeries::new(
-                        traj_data
-                            .position
-                            .iter()
-                            .map(|pt| (pt[0] as f64, pt[1] as f64)),
-                        &RED,
-                    ))
-                    .unwrap_throw();
-            }
-        }
+    if let Ok(message) = js_sys::Reflect::get(value, &"message".into())
+        && let Some(message) = message.as_string()
+    {
+        return format!("{prefix}: {message}");
     }
 
-    // side1 view
-    if do_3d_plots {
-        let backend = CanvasBackend::new(SIDE1VIEW).unwrap_throw();
-        let root = backend.into_drawing_area();
-        let _font: FontDesc = ("Arial", 20.0).into();
-
-        root.fill(&WHITE).unwrap_throw();
-
-        let mut chart = ChartBuilder::on(&root)
-            // .caption(format!("y=x^{}", pow), font)
-            .x_label_area_size(30)
-            .y_label_area_size(30)
-            .build_cartesian_2d(xlim, zlim)
-            .unwrap_throw();
-
-        chart
-            .configure_mesh()
-            .x_labels(3)
-            .y_labels(3)
-            .x_desc("x (m)")
-            .y_desc("z (m)")
-            .draw()
-            .unwrap_throw();
-
-        if let Some(traj) = trajectories {
-            for (_obj_id, traj_data) in traj.iter() {
-                chart
-                    .draw_series(LineSeries::new(
-                        traj_data
-                            .position
-                            .iter()
-                            .map(|pt| (pt[0] as f64, pt[2] as f64)),
-                        &RED,
-                    ))
-                    .unwrap_throw();
-            }
-        }
-    }
+    format!("{prefix}. See the browser console for details.")
 }
 
 fn add_2d_dom_elements(fd: &ValidBraidzFile) -> Html {
@@ -443,40 +358,84 @@ fn add_2d_dom_elements(fd: &ValidBraidzFile) -> Html {
         .camid2camn
         .keys()
         .map(|camid| {
-            let canv_id = get_canv_id(camid);
+            let plot_id = get_plot_id(camid);
             html! {
-                <div>
-                    <p>
-                        {format!("{}", camid)}
-                        <canvas id={canv_id} width="1000" height="200"/>
-                    </p>
-                </div>
+                <article class="plot-card">
+                    <div id={plot_id} class="plot plot-2d"></div>
+                </article>
             }
         })
         .collect();
     html! {
-        <div>
-            {divs}
-        </div>
+        <section class="panel">
+            <div class="panel-heading">
+                <h2>{"Camera Detections"}</h2>
+                <p>{"Frame-indexed pixel detections. Drag to pan; scroll or toolbar to zoom."}</p>
+            </div>
+            <div class="camera-plot-grid">{divs}</div>
+        </section>
     }
 }
 
-fn get_canv_id(camid: &str) -> String {
-    format!("canv2d-{}", camid)
+fn get_plot_id(camid: &str) -> String {
+    let safe_camid: String = camid
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    format!("plot-2d-{}", safe_camid)
 }
 
-fn add_3d_traj_dom_elements() -> Html {
+fn add_3d_traj_dom_elements(ctx: &Context<Model>, fd: &ValidBraidzFile) -> Html {
+    let note = fd
+        .archive
+        .kalman_estimates_info
+        .as_ref()
+        .and_then(|k| {
+            let omitted = k.trajectories.len().saturating_sub(TRAJECTORY_3D_LIMIT);
+            (omitted > 0).then(|| {
+                format!(
+                    "Rendering the {} longest tracks to keep the 3D view responsive. {} shorter tracks are omitted from this view.",
+                    TRAJECTORY_3D_LIMIT,
+                    omitted
+                )
+            })
+        });
+
     html! {
-        <div>
-            <div>
-                <p>{"Top view"}</p>
-                <canvas id={TOPVIEW} width="600" height="400"/>
+        <section class="panel">
+            <div class="panel-heading">
+                <h2>{"3D Trajectories"}</h2>
+                <p>{format!(
+                    "Blender-style navigation: middle-drag orbit, Shift+middle-drag pan, wheel zoom. Trackpad fallback: Alt+left-drag orbit, Shift+Alt+left-drag pan.",
+                )}</p>
             </div>
-            <div>
-                <p>{"Side view"}</p>
-                <canvas id={SIDE1VIEW} width="600" height="400"/>
+            if let Some(note) = note {
+                <p class="table-note">{note}</p>
+            }
+            <div class="trajectory-toolbar">
+                <div class="segmented-control" aria-label="3D view presets">
+                    <button type="button" data-view-preset="top-xy" onclick={ctx.link().callback(|_| Msg::Set3dView("top-xy"))}>
+                        {"Top-view (XY)"}
+                    </button>
+                    <button type="button" data-view-preset="side-xz" onclick={ctx.link().callback(|_| Msg::Set3dView("side-xz"))}>
+                        {"Side-view (XZ)"}
+                    </button>
+                    <button type="button" data-view-preset="free" onclick={ctx.link().callback(|_| Msg::Set3dView("free"))}>
+                        {"Free view"}
+                    </button>
+                </div>
+                <span id="trajectory-view-status" class="trajectory-view-status">
+                    {"Free view, perspective"}
+                </span>
             </div>
-        </div>
+            <div id={TRAJECTORY_3D_VIEW} class="trajectory-view"></div>
+        </section>
     }
 }
 
@@ -513,7 +472,7 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
     };
 
     let total_distance = if let Some(k) = &summary.kalman_estimates_summary {
-        format!("{:.3}", k.total_distance)
+        format!("{:.3} m", k.total_distance)
     } else {
         "(No 3D data)".to_string()
     };
@@ -544,25 +503,196 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
     };
 
     html! {
-        <div>
-            <table>
-                <tr><td>{"File name:"}</td><td>{&fd.filename}</td></tr>
-                <tr><td>{"File size:"}</td><td>{bytesize::to_string(fd.filesize, false)}</td></tr>
-                <tr><td>{"Schema version:"}</td><td>{format!("{}", md.schema)}</td></tr>
-                <tr><td>{"Git revision:"}</td><td>{&md.git_revision}</td></tr>
-                <tr><td>{"Original recording time:"}</td><td>{orig_rec_time}</td></tr>
-                <tr><td>{"Duration:"}</td><td>{duration_str}</td></tr>
-                <tr><td>{"Frame range:"}</td><td>{frame_range_str}</td></tr>
-                <tr><td>{"Number of cameras:"}</td><td>{num_cameras}</td></tr>
-                <tr><td>{"Camera calibration:"}</td><td>{cal}</td></tr>
-                <tr><td>{"Number of 3d trajectories:"}</td><td>{kest_est}</td></tr>
-                <tr><td>{"Total distance:"}</td><td>{total_distance}</td></tr>
-                <tr><td>{"X limits:"}</td><td>{bx}</td></tr>
-                <tr><td>{"Y limits:"}</td><td>{by}</td></tr>
-                <tr><td>{"Z limits:"}</td><td>{bz}</td></tr>
-            </table>
+        <section class="panel">
+            <div class="panel-heading">
+                <h2>{"Archive Summary"}</h2>
+                <p>{&fd.filename}</p>
+            </div>
+            <div class="metric-grid">
+                {metric_card("File size", bytesize::to_string(fd.filesize, false))}
+                {metric_card("Duration", duration_str)}
+                {metric_card("Frame range", frame_range_str)}
+                {metric_card("Cameras", num_cameras)}
+                {metric_card("3D trajectories", kest_est)}
+                {metric_card("Total distance", total_distance)}
+            </div>
+            <div class="details-grid">
+                {detail_card("Recording", vec![
+                    ("Schema version".to_string(), format!("{}", md.schema)),
+                    ("Git revision".to_string(), md.git_revision.clone()),
+                    ("Original recording time".to_string(), orig_rec_time),
+                    ("Camera calibration".to_string(), cal),
+                ])}
+                {detail_card("Spatial bounds", vec![
+                    ("X limits".to_string(), bx),
+                    ("Y limits".to_string(), by),
+                    ("Z limits".to_string(), bz),
+                ])}
+            </div>
+        </section>
+    }
+}
+
+fn stats_dom_elements(fd: &ValidBraidzFile) -> Html {
+    html! {
+        <section class="panel">
+            <div class="panel-heading">
+                <h2>{"Statistics"}</h2>
+                <p>{"Computed from the parsed archive tables."}</p>
+            </div>
+            {object_stats_panel(fd)}
+        </section>
+    }
+}
+
+fn metric_card(label: &str, value: String) -> Html {
+    html! {
+        <article class="metric-card">
+            <span>{label}</span>
+            <strong>{value}</strong>
+        </article>
+    }
+}
+
+fn detail_card(title: &str, rows: Vec<(String, String)>) -> Html {
+    html! {
+        <article class="detail-card">
+            <h3>{title}</h3>
+            <dl>
+                {rows.into_iter().map(|(label, value)| html! {
+                    <>
+                        <dt>{label}</dt>
+                        <dd>{value}</dd>
+                    </>
+                }).collect::<Html>()}
+            </dl>
+        </article>
+    }
+}
+
+fn object_stats_panel(fd: &ValidBraidzFile) -> Html {
+    let Some(k) = &fd.archive.kalman_estimates_info else {
+        return empty();
+    };
+
+    let mut tracks: Vec<_> = k.trajectories.iter().collect();
+    tracks.sort_by_key(|(_obj_id, traj)| std::cmp::Reverse(traj.position.len()));
+    let omitted = tracks.len().saturating_sub(OBJECT_TRACK_TABLE_LIMIT);
+    let rows = tracks
+        .into_iter()
+        .take(OBJECT_TRACK_TABLE_LIMIT)
+        .map(|(obj_id, traj)| {
+            let samples = traj.position.len();
+            let end_frame = traj.start_frame + samples.saturating_sub(1) as u64;
+            html! {
+                <tr>
+                    <td>{*obj_id}</td>
+                    <td>{format!("{} - {}", traj.start_frame, end_frame)}</td>
+                    <td>{samples}</td>
+                    <td>{format!("{:.3}", traj.distance)}</td>
+                </tr>
+            }
+        });
+
+    let note = if omitted > 0 {
+        html! {
+            <p class="table-note">
+                {format!(
+                    "Showing the {} longest tracks. {} shorter tracks are omitted from this table; the histogram still includes all tracks.",
+                    OBJECT_TRACK_TABLE_LIMIT,
+                    omitted
+                )}
+            </p>
+        }
+    } else {
+        empty()
+    };
+
+    html! {
+        <div class="stats-grid">
+            <article class="detail-card">
+                <h3>{"Object Tracks"}</h3>
+                <p class="table-note">
+                    {format!("Table is limited to the {} longest trajectories.", OBJECT_TRACK_TABLE_LIMIT)}
+                </p>
+                {note}
+                <div class="table-scroll">
+                    <table class="stats-table">
+                        <thead>
+                            <tr>
+                                <th>{"Object"}</th>
+                                <th>{"Frames"}</th>
+                                <th>{"Samples"}</th>
+                                <th>{"Distance (m)"}</th>
+                            </tr>
+                        </thead>
+                        <tbody>{rows.collect::<Html>()}</tbody>
+                    </table>
+                </div>
+            </article>
         </div>
     }
+}
+
+fn array_from_i64(values: impl Iterator<Item = i64>) -> js_sys::Array {
+    values
+        .map(|value| JsValue::from_f64(value as f64))
+        .collect()
+}
+
+fn array_from_f64(values: impl Iterator<Item = f64>) -> js_sys::Array {
+    values.map(JsValue::from_f64).collect()
+}
+
+fn bounds_to_js(xlim: [f64; 2], ylim: [f64; 2], zlim: [f64; 2]) -> js_sys::Object {
+    let bounds = js_sys::Object::new();
+    js_sys::Reflect::set(
+        &bounds,
+        &"x".into(),
+        &array_from_f64(xlim.into_iter()).into(),
+    )
+    .unwrap_throw();
+    js_sys::Reflect::set(
+        &bounds,
+        &"y".into(),
+        &array_from_f64(ylim.into_iter()).into(),
+    )
+    .unwrap_throw();
+    js_sys::Reflect::set(
+        &bounds,
+        &"z".into(),
+        &array_from_f64(zlim.into_iter()).into(),
+    )
+    .unwrap_throw();
+    bounds
+}
+
+fn trajectories_to_js(k: &braidz_parser::KalmanEstimatesInfo) -> js_sys::Array {
+    let trajectories = js_sys::Array::new();
+    let mut tracks: Vec<_> = k.trajectories.iter().collect();
+    tracks.sort_by_key(|(_obj_id, traj)| std::cmp::Reverse(traj.position.len()));
+    for (obj_id, traj) in tracks.into_iter().take(TRAJECTORY_3D_LIMIT) {
+        let obj = js_sys::Object::new();
+        let xs = array_from_f64(traj.position.iter().map(|pt| pt[0] as f64));
+        let ys = array_from_f64(traj.position.iter().map(|pt| pt[1] as f64));
+        let zs = array_from_f64(traj.position.iter().map(|pt| pt[2] as f64));
+
+        js_sys::Reflect::set(&obj, &"objId".into(), &JsValue::from_f64(*obj_id as f64))
+            .unwrap_throw();
+        js_sys::Reflect::set(&obj, &"x".into(), &xs.into()).unwrap_throw();
+        js_sys::Reflect::set(&obj, &"y".into(), &ys.into()).unwrap_throw();
+        js_sys::Reflect::set(&obj, &"z".into(), &zs.into()).unwrap_throw();
+        js_sys::Reflect::set(
+            &obj,
+            &"startFrame".into(),
+            &JsValue::from_f64(traj.start_frame as f64),
+        )
+        .unwrap_throw();
+        js_sys::Reflect::set(&obj, &"distance".into(), &JsValue::from_f64(traj.distance))
+            .unwrap_throw();
+        trajectories.push(&obj);
+    }
+    trajectories
 }
 
 // -----------------------------------------------------------------------------
@@ -570,6 +700,34 @@ fn detail_table_valid(fd: &ValidBraidzFile) -> Html {
 #[wasm_bindgen(module = "/js/launch_queue_support.js")]
 extern "C" {
     fn launch_queue_set_consumer(f4: &Closure<dyn FnMut(JsValue)>);
+}
+
+#[wasm_bindgen(module = "/js/viewer3d.js")]
+extern "C" {
+    #[wasm_bindgen(catch, js_name = setTrajectoryView)]
+    fn set_trajectory_view(preset: &str) -> Result<(), JsValue>;
+}
+
+#[wasm_bindgen(module = "/js/plots.js")]
+extern "C" {
+    #[wasm_bindgen(catch, js_name = plotCamera2d)]
+    fn plot_camera_2d(
+        container_id: &str,
+        frames: &JsValue,
+        xs: &JsValue,
+        ys: &JsValue,
+        title: &str,
+    ) -> Result<(), JsValue>;
+}
+
+#[wasm_bindgen(module = "/js/viewer3d.js")]
+extern "C" {
+    #[wasm_bindgen(catch, js_name = renderTrajectories3d)]
+    fn render_trajectories_3d(
+        container_id: &str,
+        trajectories: &JsValue,
+        bounds: &JsValue,
+    ) -> Result<(), JsValue>;
 }
 
 pub fn main() {

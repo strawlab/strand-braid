@@ -16,17 +16,6 @@ yew.workspace = true
 
 wasm-bindgen.workspace = true
 js-sys.workspace = true
-plotters = { version = "0.3.4", default-features = false, features = [
-    "bitmap_encoder",
-    "bitmap_gif",
-    "svg_backend",
-    "image",
-    "deprecated_items",
-    "all_series",
-    "all_elements",
-    "full_palette",
-] }
-plotters-canvas = "0.3"
 serde.workspace = true
 futures.workspace = true
 
