@@ -20,7 +20,15 @@ jobs:
       - name: Build braid-process-video app
         run: |
           cargo build --release -p braid-process-video
+      - name: Generate THIRD-PARTY-LICENSES
+        working-directory: braid/braid-process-video
+        run: |
+          cargo install cargo-bundle-licenses --locked
+          cargo bundle-licenses --format yaml --prefer MIT --output "$GITHUB_WORKSPACE/target/release/THIRD-PARTY-LICENSES.yml"
+        shell: bash
       - uses: actions/upload-artifact@v6
         with:
           name: braid-process-video-${{ matrix.runs-on }}
-          path: ${{ github.workspace }}/target/release/braid-process-vid*
+          path: |
+            ${{ github.workspace }}/target/release/braid-process-vid*
+            ${{ github.workspace }}/target/release/THIRD-PARTY-LICENSES.yml

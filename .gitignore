@@ -1,2 +1,8 @@
 target
 scratch/
+
+# CI/local outputs for release packaging
+/build/
+/licenses/
+/led-box/led-box/THIRD-PARTY-LICENSES.yml
+/led-box/led-box-standalone/THIRD-PARTY-LICENSES.yml

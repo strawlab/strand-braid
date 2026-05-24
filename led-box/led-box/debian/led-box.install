@@ -1,2 +1,3 @@
 led-box usr/bin
 led-box-firmware.bin usr/share/led-box
+THIRD-PARTY-LICENSES.yml usr/share/doc/led-box

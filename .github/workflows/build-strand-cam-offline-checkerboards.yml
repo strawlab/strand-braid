@@ -29,10 +29,15 @@ jobs:
           unzip checkerboard_debug_20240222_164128.zip
           ${{ github.workspace }}/target/release/strand-cam-offline-checkerboards checkerboard_debug_20240222_164128 18 8
           cat checkerboard_debug_20240222_164128.yaml
+      - name: Generate THIRD-PARTY-LICENSES
+        run: |
+          cargo install cargo-bundle-licenses --locked
+          cargo bundle-licenses --format yaml --prefer MIT --output "${{ github.workspace }}/target/release/THIRD-PARTY-LICENSES.yml"
       - name: Create release directory
         run: |
           mkdir ${{ github.workspace }}/strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}
           cp ${{ github.workspace }}/target/release/strand-cam-offline-checkerboards ${{ github.workspace }}/strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}/
+          cp ${{ github.workspace }}/target/release/THIRD-PARTY-LICENSES.yml ${{ github.workspace }}/strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}/
           cp README.md ${{ github.workspace }}/strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}/
           find ${{ github.workspace }}/strand-cam-offline-checkerboards-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}
       - uses: actions/upload-artifact@v6
