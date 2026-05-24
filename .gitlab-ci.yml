@@ -607,6 +607,8 @@ braid-webapps:
 
     - rustup target add wasm32-unknown-unknown
 
+    - cargo install cargo-bundle-licenses --locked
+
     - cd $CI_PROJECT_DIR/braidz/braidz-viewer
     - ./build.sh
 
