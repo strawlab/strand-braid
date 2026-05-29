@@ -13,7 +13,7 @@ chrono.workspace = true
 lazy_static.workspace = true
 
 ci2 = { path = "../ci2" }
-pylon-cxx = "0.4.0"
+pylon-shimload.workspace = true
 machine-vision-formats.workspace = true
 strand-dynamic-frame.workspace = true
 ci2-pylon-types.workspace = true

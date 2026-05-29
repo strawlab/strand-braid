@@ -5,8 +5,8 @@ lazy_static::lazy_static! {
 }
 
 fn main() -> Result<()> {
-    let guard = ci2_pyloncxx::make_singleton_guard(&&*PYLON_MODULE)?;
-    let mymod = ci2_async::into_threaded_async(&*PYLON_MODULE, &guard);
+    let mymod =
+        ci2_async::into_threaded_async(&*PYLON_MODULE, &ci2_pyloncxx::PylonTerminateGuard {});
     strand_cam::cli_app::cli_main(mymod, env!("CARGO_PKG_NAME"))?;
     Ok(())
 }

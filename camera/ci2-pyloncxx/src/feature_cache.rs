@@ -81,11 +81,19 @@ impl PfsCache {
 }
 
 pub(crate) trait PfsTrackedIntegerNode {
-    fn set_value_pfs(&mut self, pfs: &mut PfsCache, new_value: i64) -> pylon_cxx::PylonResult<()>;
+    fn set_value_pfs(
+        &mut self,
+        pfs: &mut PfsCache,
+        new_value: i64,
+    ) -> pylon_shimload::PylonResult<()>;
 }
 
-impl PfsTrackedIntegerNode for pylon_cxx::IntegerNode {
-    fn set_value_pfs(&mut self, pfs: &mut PfsCache, new_value: i64) -> pylon_cxx::PylonResult<()> {
+impl PfsTrackedIntegerNode for pylon_shimload::IntegerNode {
+    fn set_value_pfs(
+        &mut self,
+        pfs: &mut PfsCache,
+        new_value: i64,
+    ) -> pylon_shimload::PylonResult<()> {
         self.set_value(new_value)?;
         pfs.update(self.name(), new_value.to_string());
         Ok(())
@@ -93,11 +101,19 @@ impl PfsTrackedIntegerNode for pylon_cxx::IntegerNode {
 }
 
 pub(crate) trait PfsTrackedEnumNode {
-    fn set_value_pfs(&mut self, pfs: &mut PfsCache, new_value: &str) -> pylon_cxx::PylonResult<()>;
+    fn set_value_pfs(
+        &mut self,
+        pfs: &mut PfsCache,
+        new_value: &str,
+    ) -> pylon_shimload::PylonResult<()>;
 }
 
-impl PfsTrackedEnumNode for pylon_cxx::EnumNode {
-    fn set_value_pfs(&mut self, pfs: &mut PfsCache, new_value: &str) -> pylon_cxx::PylonResult<()> {
+impl PfsTrackedEnumNode for pylon_shimload::EnumNode {
+    fn set_value_pfs(
+        &mut self,
+        pfs: &mut PfsCache,
+        new_value: &str,
+    ) -> pylon_shimload::PylonResult<()> {
         self.set_value(new_value)?;
         pfs.update(self.name(), new_value.to_string());
         Ok(())
@@ -105,11 +121,19 @@ impl PfsTrackedEnumNode for pylon_cxx::EnumNode {
 }
 
 pub(crate) trait PfsTrackedFloatNode {
-    fn set_value_pfs(&mut self, pfs: &mut PfsCache, new_value: f64) -> pylon_cxx::PylonResult<()>;
+    fn set_value_pfs(
+        &mut self,
+        pfs: &mut PfsCache,
+        new_value: f64,
+    ) -> pylon_shimload::PylonResult<()>;
 }
 
-impl PfsTrackedFloatNode for pylon_cxx::FloatNode {
-    fn set_value_pfs(&mut self, pfs: &mut PfsCache, new_value: f64) -> pylon_cxx::PylonResult<()> {
+impl PfsTrackedFloatNode for pylon_shimload::FloatNode {
+    fn set_value_pfs(
+        &mut self,
+        pfs: &mut PfsCache,
+        new_value: f64,
+    ) -> pylon_shimload::PylonResult<()> {
         self.set_value(new_value)?;
         pfs.update(self.name(), float_to_str(new_value));
         Ok(())
@@ -137,11 +161,19 @@ fn test_float_to_str() {
 }
 
 pub(crate) trait PfsTrackedBooleanNode {
-    fn set_value_pfs(&mut self, pfs: &mut PfsCache, new_value: bool) -> pylon_cxx::PylonResult<()>;
+    fn set_value_pfs(
+        &mut self,
+        pfs: &mut PfsCache,
+        new_value: bool,
+    ) -> pylon_shimload::PylonResult<()>;
 }
 
-impl PfsTrackedBooleanNode for pylon_cxx::BooleanNode {
-    fn set_value_pfs(&mut self, pfs: &mut PfsCache, new_value: bool) -> pylon_cxx::PylonResult<()> {
+impl PfsTrackedBooleanNode for pylon_shimload::BooleanNode {
+    fn set_value_pfs(
+        &mut self,
+        pfs: &mut PfsCache,
+        new_value: bool,
+    ) -> pylon_shimload::PylonResult<()> {
         self.set_value(new_value)?;
         pfs.update(self.name(), format!("{}", new_value as i8)); // make '0' or '1'
         Ok(())

@@ -6,14 +6,14 @@ use std::sync::{Arc, Mutex};
 use ci2::{
     AcquisitionMode, AutoMode, DynamicFrameWithInfo, HostTimingInfo, TriggerMode, TriggerSelector,
 };
-use pylon_cxx::HasProperties;
+use pylon_shimload::HasProperties;
 use strand_dynamic_frame::DynamicFrameOwned;
 
 trait ExtendedError<T> {
     fn map_pylon_err(self) -> ci2::Result<T>;
 }
 
-impl<T> ExtendedError<T> for std::result::Result<T, pylon_cxx::PylonError> {
+impl<T> ExtendedError<T> for std::result::Result<T, pylon_shimload::PylonError> {
     fn map_pylon_err(self) -> ci2::Result<T> {
         self.map_err(|pylon_error| ci2::Error::BackendError(anyhow::Error::new(pylon_error)))
     }
@@ -31,7 +31,7 @@ pub enum Error {
     #[error("Pylon error: {source}")]
     PylonError {
         #[from]
-        source: pylon_cxx::PylonError,
+        source: pylon_shimload::PylonError,
     },
     #[error("int parse error: {source}")]
     IntParseError {
@@ -48,11 +48,9 @@ impl From<Error> for ci2::Error {
     }
 }
 
-pub struct WrappedModule {
-    pylon_auto_init: pylon_cxx::Pylon,
-}
+pub struct WrappedModule {}
 
-fn to_name(info: &pylon_cxx::DeviceInfo) -> String {
+fn to_name(info: &pylon_shimload::DeviceInfo) -> String {
     // TODO: make ci2 cameras have full_name and friendly_name attributes?
     // &info.property_value("FullName").unwrap()
     let serial = &info.property_value("SerialNumber").unwrap();
@@ -61,44 +59,28 @@ fn to_name(info: &pylon_cxx::DeviceInfo) -> String {
 }
 
 pub fn new_module() -> ci2::Result<WrappedModule> {
-    Ok(WrappedModule {
-        pylon_auto_init: pylon_cxx::Pylon::new(),
-    })
+    Ok(WrappedModule {})
 }
 
-pub struct PylonTerminateGuard {
-    already_dropped: bool,
-}
-
-impl Drop for PylonTerminateGuard {
-    fn drop(&mut self) {
-        if !self.already_dropped {
-            unsafe {
-                pylon_cxx::terminate(true);
-            }
-            self.already_dropped = true;
-        }
-    }
-}
+// This is just here for backwards compatibility. It doesn't do anything.
+// pylon-shimload handles its own runtime and lifetimes.
+pub struct PylonTerminateGuard {}
 
 pub fn make_singleton_guard(
     _pylon_module: &dyn ci2::CameraModule<CameraType = WrappedCamera, Guard = PylonTerminateGuard>,
 ) -> ci2::Result<PylonTerminateGuard> {
-    Ok(PylonTerminateGuard {
-        already_dropped: false,
-    })
+    Ok(PylonTerminateGuard {})
 }
 
 impl<'a> ci2::CameraModule for &'a WrappedModule {
-    type CameraType = WrappedCamera<'a>;
+    type CameraType = WrappedCamera;
     type Guard = PylonTerminateGuard;
 
     fn name(self: &&'a WrappedModule) -> &'static str {
         "pyloncxx"
     }
     fn camera_infos(self: &&'a WrappedModule) -> ci2::Result<Vec<Box<dyn ci2::CameraInfo>>> {
-        let pylon_infos = pylon_cxx::TlFactory::instance(&self.pylon_auto_init)
-            .enumerate_devices()
+        let pylon_infos = pylon_shimload::enumerate_devices()
             .map_pylon_err()
             .context("enumerate_devices")?;
         let infos = pylon_infos
@@ -121,7 +103,7 @@ impl<'a> ci2::CameraModule for &'a WrappedModule {
         Ok(infos)
     }
     fn camera(self: &mut &'a WrappedModule, name: &str) -> ci2::Result<Self::CameraType> {
-        WrappedCamera::new(&self.pylon_auto_init, name)
+        WrappedCamera::new(name)
     }
     fn settings_file_extension(&self) -> &str {
         // See https://www.baslerweb.com/en/sales-support/knowledge-base/frequently-asked-questions/saving-camera-features-or-user-sets-as-file-on-hard-disk/588482/
@@ -153,14 +135,14 @@ impl ci2::CameraInfo for PylonCameraInfo {
 }
 
 #[derive(Clone)]
-pub struct WrappedCamera<'a> {
-    inner: Arc<Mutex<pylon_cxx::InstantCamera<'a>>>,
+pub struct WrappedCamera {
+    inner: Arc<Mutex<pylon_shimload::InstantCamera>>,
     store_fno: usize,
     name: String,
     serial: String,
     model: String,
     vendor: String,
-    grab_result: Arc<Mutex<pylon_cxx::GrabResult>>,
+    grab_result: Arc<Mutex<pylon_shimload::GrabResult>>,
     is_sfnc2: bool,
     pfs_cache: Arc<Mutex<PfsCache>>,
 }
@@ -171,15 +153,12 @@ fn _test_camera_is_send() {
     implements::<WrappedCamera>();
 }
 
-impl<'a> WrappedCamera<'a> {
-    fn new(lib: &'a pylon_cxx::Pylon, name: &str) -> ci2::Result<Self> {
+impl WrappedCamera {
+    fn new(name: &str) -> ci2::Result<Self> {
         let max_u64_as_usize: usize = u64::MAX.try_into().unwrap();
         assert_eq!(max_u64_as_usize, BAD_FNO);
 
-        let tl_factory = pylon_cxx::TlFactory::instance(lib);
-        let devices = tl_factory
-            .enumerate_devices()
-            .context("enumerate_devices")?;
+        let devices = pylon_shimload::enumerate_devices().context("enumerate_devices")?;
 
         for device_info in devices.into_iter() {
             let this_name = to_name(&device_info);
@@ -195,9 +174,7 @@ impl<'a> WrappedCamera<'a> {
                     .context("getting vendor")?;
                 let store_fno = 0;
 
-                let cam = tl_factory
-                    .create_device(&device_info)
-                    .context("creating device")?;
+                let cam = pylon_shimload::create_device(&device_info).context("creating device")?;
                 cam.open().context("opening camera")?;
 
                 let is_sfnc2 = match cam
@@ -309,10 +286,11 @@ impl<'a> WrappedCamera<'a> {
                 };
                 let pfs_cache = Arc::new(Mutex::new(pfs_cache));
 
-                let grab_result =
-                    Arc::new(Mutex::new(pylon_cxx::GrabResult::new().map_pylon_err()?));
+                let grab_result = Arc::new(Mutex::new(
+                    pylon_shimload::GrabResult::new().map_pylon_err()?,
+                ));
                 return Ok(Self {
-                    // pylon_auto_init: Arc::new(Mutex::new(pylon_cxx::Pylon::new())),
+                    // pylon_auto_init: Arc::new(Mutex::new(pylon_shimload::Pylon::new())),
                     inner: Arc::new(Mutex::new(cam)),
                     name: name.to_string(),
                     store_fno,
@@ -348,7 +326,7 @@ impl<'a> WrappedCamera<'a> {
     }
 }
 
-impl<'a> ci2::CameraInfo for WrappedCamera<'a> {
+impl<'a> ci2::CameraInfo for WrappedCamera {
     fn name(&self) -> &str {
         &self.name
     }
@@ -363,7 +341,7 @@ impl<'a> ci2::CameraInfo for WrappedCamera<'a> {
     }
 }
 
-impl<'a> ci2::Camera for WrappedCamera<'a> {
+impl<'a> ci2::Camera for WrappedCamera {
     // ----- start: weakly typed but easier to implement API -----
 
     // fn feature_access_query(&self, name: &str) -> ci2::Result<ci2::AccessQueryResult> {
@@ -949,7 +927,7 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         self.inner
             .lock()
             .unwrap()
-            .start_grabbing(&pylon_cxx::GrabOptions::default())
+            .start_grabbing(&pylon_shimload::GrabOptions::default())
             .map_pylon_err()?;
         Ok(())
     }
@@ -966,8 +944,12 @@ impl<'a> ci2::Camera for WrappedCamera<'a> {
         let cam = self.inner.lock().unwrap();
 
         // Wait for an image and then retrieve it. A timeout of 99999 ms is used.
-        cam.retrieve_result(99999, &mut gr, pylon_cxx::TimeoutHandling::ThrowException)
-            .map_pylon_err()?;
+        cam.retrieve_result(
+            99999,
+            &mut gr,
+            pylon_shimload::TimeoutHandling::ThrowException,
+        )
+        .map_pylon_err()?;
 
         let now = chrono::Utc::now(); // earliest possible timestamp
 

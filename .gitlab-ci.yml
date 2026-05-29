@@ -14,8 +14,6 @@ check_and_test_workspace:
 
     # Install prerequisites
     - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg libopencv-dev
-    - cd $CI_PROJECT_DIR
-    - _packaging/install-pylon-linux.sh
 
     # Build frontends for strand-cam and braid so the final step below also compiles.
     - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
@@ -106,21 +104,6 @@ test_crates:
     # Test freemovr-calibration-cli
     - cd geometry/freemovr-calibration/freemovr-calibration-cli
     - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --features "opencv"
-    - cd ../../..
-
-    # Test Pylon stuff
-    - _packaging/install-pylon-linux.sh
-    - cd $CI_PROJECT_DIR/camera/ci2-simple-demo
-    - LD_LIBRARY_PATH="/opt/pylon/lib" cargo test --features backend_pyloncxx
-
-    - cd $CI_PROJECT_DIR/camera/ci2-simple-async-demo
-    - LD_LIBRARY_PATH="/opt/pylon/lib" cargo test --features backend_pyloncxx
-
-    - cd $CI_PROJECT_DIR/camera/ci2-cli
-    - cargo test --features backend_pyloncxx
-
-    - cd $CI_PROJECT_DIR/led-box/strand-led-box-comms
-    - cargo test
 
 test_flydra2:
   dependencies: []
@@ -441,7 +424,6 @@ build-api-docs:
     - NUM_JOBS=2 cargo doc --no-default-features --features serve_files
     - cd $CI_PROJECT_DIR
 
-    - _packaging/install-pylon-linux.sh
     - cd $CI_PROJECT_DIR/strand-cam
     - >
       source /opt/intel/bin/compilervars.sh -arch intel64 -platform linux &&
@@ -516,7 +498,6 @@ strand-cam-pylon-binary:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/install-pylon-linux.sh
     - _packaging/setup-ubuntu-ipp.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
 
@@ -531,7 +512,7 @@ strand-cam-pylon-binary:
       OPENCV_STATIC=1
       PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig
       IPP_STATIC=1
-      RUSTFLAGS="$RUSTFLAGS -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
+      RUSTFLAGS="$RUSTFLAGS -C codegen-units=1"
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial strand-cam/flydra_feat_detect strand-cam/use_ipp strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
 
@@ -615,7 +596,6 @@ strand-cam-flydratrax-pylon-binary:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/install-pylon-linux.sh
     - _packaging/setup-ubuntu-ipp.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export RUSTFLAGS="-D warnings"
@@ -628,7 +608,7 @@ strand-cam-flydratrax-pylon-binary:
       OPENCV_STATIC=1
       PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig:/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
       IPP_STATIC=1
-      RUSTFLAGS="$RUSTFLAGS -C codegen-units=1 -C link-args=-Wl,-rpath,/opt/pylon/lib"
+      RUSTFLAGS="$RUSTFLAGS -C codegen-units=1"
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle ipp-sys/2019 strand-cam/checkercal strand-cam/fiducial strand-cam/flydra_feat_detect strand-cam/use_ipp tracing/release_max_level_debug" --release
 
@@ -940,6 +920,8 @@ strand-braid-ubuntu-2604:
     - ldd -v $CI_PROJECT_DIR/build/braid-april-cal-cli
     - ldd -v $CI_PROJECT_DIR/build/braidz-export-rrd
     - ldd -v $CI_PROJECT_DIR/build/braid-process-video
+    # Download libpylon-cabi.so
+    - curl --fail -L -o $CI_PROJECT_DIR/build/libpylon-cabi.so "https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so"
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2604-${CI_COMMIT_TAG}/
@@ -1000,6 +982,8 @@ strand-braid-ubuntu-2404:
     - ldd -v $CI_PROJECT_DIR/build/braid-april-cal-cli
     - ldd -v $CI_PROJECT_DIR/build/braidz-export-rrd
     - ldd -v $CI_PROJECT_DIR/build/braid-process-video
+    # Download libpylon-cabi.so
+    - curl --fail -L -o $CI_PROJECT_DIR/build/libpylon-cabi.so "https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so"
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/
@@ -1060,6 +1044,8 @@ strand-braid-ubuntu-2004:
     - ldd -v $CI_PROJECT_DIR/build/braid-april-cal-cli
     - ldd -v $CI_PROJECT_DIR/build/braidz-export-rrd
     - ldd -v $CI_PROJECT_DIR/build/braid-process-video
+    # Download libpylon-cabi.so
+    - curl --fail -L -o $CI_PROJECT_DIR/build/libpylon-cabi.so "https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so"
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
@@ -1120,6 +1106,8 @@ strand-braid-ubuntu-2204:
     - ldd -v $CI_PROJECT_DIR/build/braid-april-cal-cli
     - ldd -v $CI_PROJECT_DIR/build/braidz-export-rrd
     - ldd -v $CI_PROJECT_DIR/build/braid-process-video
+    # Download libpylon-cabi.so
+    - curl --fail -L -o $CI_PROJECT_DIR/build/libpylon-cabi.so "https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so"
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/
@@ -1150,9 +1138,6 @@ build_simple:
   dependencies: []
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
   script:
-    # Install Pylon
-    - _packaging/install-pylon-linux.sh
-
     # Build strand-cam-pylon with simplest build configuration possible
     - cd $CI_PROJECT_DIR/strand-cam/yew_frontend
     - ./build.sh

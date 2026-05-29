@@ -16,7 +16,7 @@ machine-vision-formats.workspace = true
 ci2.workspace = true
 ci2-async.workspace = true
 
-pylon-cxx = { version = "0.4.0", optional = true }
+pylon-shimload = { workspace = true, optional = true }
 ci2-pyloncxx = { workspace = true, optional = true }
 ci2-pylon-types = { workspace = true, optional = true }
 
@@ -27,5 +27,5 @@ ci2-vimba-types = { workspace = true, optional = true }
 default = ["backend_pyloncxx"]
 
 # Backend choice
-backend_pyloncxx = ["dep:ci2-pyloncxx", "dep:pylon-cxx", "dep:ci2-pylon-types"]
+backend_pyloncxx = ["dep:ci2-pyloncxx", "dep:pylon-shimload", "dep:ci2-pylon-types"]
 backend_vimba = ["dep:ci2-vimba", "dep:ci2-vimba-types"]
