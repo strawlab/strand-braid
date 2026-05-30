@@ -255,6 +255,25 @@ async fn convert_stream(
     Ok(())
 }
 
+/// Find the local source IP address the OS would use to reach `remote_ip`.
+///
+/// Uses a UDP socket `connect()` (which performs endpoint association and
+/// routing/source-address selection without sending application payload) to ask
+/// the OS which local IP it would use for traffic to `remote_ip`.
+///
+/// Note: this is a local routing decision only. It does not guarantee that a
+/// remote peer can connect back (for example due to NAT or firewall rules).
+fn find_local_ip_for_remote(remote_ip: IpAddr) -> std::io::Result<IpAddr> {
+    let bind_addr: SocketAddr = match remote_ip {
+        IpAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
+        IpAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
+    };
+    let socket = UdpSocket::bind(bind_addr)?;
+    // Port 1 is arbitrary; UDP connect() only records the routing decision.
+    socket.connect(SocketAddr::new(remote_ip, 1))?;
+    Ok(socket.local_addr()?.ip())
+}
+
 fn open_braid_destination_addr(camdata_udp_addr: &SocketAddr) -> Result<UdpSocket> {
     info!(
         "Sending detected coordinates via UDP to: {}",
@@ -839,6 +858,8 @@ async fn handle_auth_error(err: tower::BoxError) -> (StatusCode, &'static str) {
 /// Information acquired from Braid when the HTTP session is established.
 #[derive(Debug)]
 struct BraidInfo {
+    mainbrain_bui_loc: BuiServerAddrInfo,
+
     mainbrain_session: braid_http_session::MainbrainSession,
     /// The address to which low-latency tracking data should be sent.
     ///
@@ -1032,6 +1053,9 @@ struct GuiAppStuff {
     egui_ctx_rx: std::sync::mpsc::Receiver<eframe::egui::Context>,
 }
 
+/// Connect to the braid server and return information.
+///
+/// Store cookie if set by braid so that next connection does not need token.
 async fn connect_to_braid(braid_args: &BraidArgs) -> Result<BraidInfo> {
     info!("Will connect to braid at \"{}\"", braid_args.braid_url);
     let mainbrain_bui_loc = BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
@@ -1073,6 +1097,7 @@ async fn connect_to_braid(braid_args: &BraidArgs) -> Result<BraidInfo> {
     );
 
     Ok(BraidInfo {
+        mainbrain_bui_loc,
         mainbrain_session,
         config_from_braid,
         camdata_udp_addr,
@@ -1103,35 +1128,52 @@ where
     C: 'static + ci2::Camera + Send,
     G: Send,
 {
-    // If connecting to braid, do it here.
-    let braid_info = {
-        match &args.standalone_or_braid {
-            StandaloneOrBraid::Braid(braid_args) => Some(connect_to_braid(braid_args).await?),
-            StandaloneOrBraid::Standalone(_) => None,
-        }
-    };
-
+    let cfg_from_braid;
     let strand_cam_bui_http_address_string = match &args.standalone_or_braid {
         StandaloneOrBraid::Braid(braid_args) => {
-            let braid_info = match &braid_info {
-                Some(braid_info) => braid_info,
-                None => {
-                    eyre::bail!("requested braid, but no braid config");
-                }
-            };
-            let http_server_addr = braid_info.config_from_braid.config.http_server_addr.clone();
-            let braid_info = BuiServerAddrInfo::parse_url_with_token(&braid_args.braid_url)?;
+            // Connect to braid and get configuration if running in braid context.
+            let from_mainbrain = connect_to_braid(braid_args).await?;
 
-            if braid_info.addr().ip().is_loopback() {
+            // We have already connected to the Mainbrain BUI server and gotten
+            // configuration information from it. Use that to set things up.
+            let http_server_addr = from_mainbrain
+                .config_from_braid
+                .config
+                .http_server_addr
+                .clone();
+            let mainbrain_bui_loc = &from_mainbrain.mainbrain_bui_loc;
+
+            let strand_cam_bui_http_address_string = if mainbrain_bui_loc.addr().ip().is_loopback()
+            {
                 http_server_addr.unwrap_or_else(|| "127.0.0.1:0".to_string())
             } else {
-                http_server_addr.unwrap_or_else(|| "0.0.0.0:0".to_string())
-            }
+                http_server_addr.unwrap_or_else(|| {
+                    // When braid is on a different machine it must connect back
+                    // to this strand-cam's HTTP server. Find the outgoing
+                    // interface IP that braid can reach.
+                    let braid_ip = mainbrain_bui_loc.addr().ip();
+                    match find_local_ip_for_remote(braid_ip) {
+                        Ok(local_ip) => format!("{local_ip}:0"),
+                        Err(e) => {
+                            tracing::warn!(
+                                "Could not determine local IP for braid at {braid_ip}: {e}. \
+                                Falling back to 127.0.0.1, which may fail for remote connections."
+                            );
+                            "127.0.0.1:0".to_string()
+                        }
+                    }
+                })
+            };
+            cfg_from_braid = Some(from_mainbrain);
+            strand_cam_bui_http_address_string
         }
-        StandaloneOrBraid::Standalone(standalone_args) => standalone_args
-            .http_server_addr
-            .clone()
-            .unwrap_or_else(|| "127.0.0.1:3440".to_string()),
+        StandaloneOrBraid::Standalone(standalone_args) => {
+            cfg_from_braid = None;
+            standalone_args
+                .http_server_addr
+                .clone()
+                .unwrap_or_else(|| "127.0.0.1:3440".to_string())
+        }
     };
     tracing::debug!("Strand Camera HTTP server: {strand_cam_bui_http_address_string}");
 
@@ -1191,7 +1233,7 @@ where
         mymod,
         args,
         app_name,
-        braid_info,
+        cfg_from_braid,
         strand_cam_bui_http_address_string,
         use_camera_name,
         gui_app_stuff,

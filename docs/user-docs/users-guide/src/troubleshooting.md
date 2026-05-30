@@ -79,7 +79,61 @@ while recording AprilTag detections for calibration, try one of the following:
 - Run Strand Camera as a standalone instance (not via Braid) for the calibration step.
 - Reduce the camera frame rate to around 10 FPS for this step only.
 
+## Remote cameras fail to connect: "Connection refused" on `0.0.0.0`
+
+If Braid shows an error like the following when remote cameras (on a separate
+computer) try to connect:
+
+```text
+Internal server error: hyper-util error `client error (Connect)`
+BuiBackendSessionError { source: HyperUtil(...Connect, ConnectError("tcp connect error",
+0.0.0.0:PORT, Os { code: 111, kind: ConnectionRefused ... })) }
+```
+
+This means Braid cannot connect back to the Strand Camera HTTP server on the
+remote machine. The address `0.0.0.0:PORT` is not a routable destination from a
+different computer.
+
+**Common causes and fixes:**
+
+1. **Old version of Strand Camera**: Versions before 1.0.0-rc.2 did not
+   automatically detect the correct local IP. Upgrade to the current release.
+
+2. **Using an explicit `--braid-url` in shell scripts that differs from the URL
+   Braid prints on startup**: Use the URL that Braid prints at startup. Braid
+   also prints the suggested `strand-cam-pylon` command line for each remote
+   camera.
+
+3. **Network path does not exist**: Ensure there is a network route from the
+   Braid machine to the remote camera computer and back. Check firewall rules on
+   both machines.
+
+4. **Manual override needed**: If auto-discovery fails, set the
+   `http_server_addr` in the camera's `[[cameras]]` config entry in the braid
+   toml configuration to the specific IP of the camera machine:
+
+   ```toml
+   [[cameras]]
+   name = "Camera-1"
+   start_backend = "remote"
+   http_server_addr = "192.168.1.20:0"  # IP of the remote camera machine
+   ```
+
+See [Remote Cameras for Braid](braid_remote_cameras.md) for the full setup guide.
+
 ## Any other problem or question
+
+To help diagnose issues, it is helpful to increase logging verbosity by setting
+the `RUST_LOG` environment variable to `debug` (or, more verbose, `trace`) when
+running Braid or Strand Camera. For example:
+
+```sh
+RUST_LOG=debug braid run braid-config.toml
+```
+
+```sh
+RUST_LOG=debug strand-cam-pylon
+```
 
 Please [report any issues you
 face](https://github.com/strawlab/strand-braid/issues) or [ask any questions you
