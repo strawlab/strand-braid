@@ -210,14 +210,25 @@ impl TrackingState {
         }
 
         if cfg.use_cmp {
-            // clip the minimum comparison value to diff_threshold
-            ripp::threshold_val_8u_c1ir(
-                &mut self.background.cmp_im,
-                self.background.current_roi.size(),
-                cfg.diff_threshold,
-                cfg.diff_threshold,
-                CompareOp::Less,
-            )?;
+            // Clip the minimum comparison value to diff_threshold. This clamp is
+            // idempotent and operates in place on cmp_im, which only changes when
+            // the background model is updated (every `bg_update_interval` frames).
+            // So we only need to (re)apply it when cmp_im was just refreshed or
+            // when diff_threshold changed since it was last applied; skipping it
+            // on the other frames yields a bit-identical cmp_im. (Because the
+            // clamp is cumulative in place, re-applying with the current
+            // threshold reproduces the previous per-frame behavior exactly,
+            // including the "sticky" result when diff_threshold is lowered.)
+            if self.background.cmp_thresh_applied != Some(cfg.diff_threshold) {
+                ripp::threshold_val_8u_c1ir(
+                    &mut self.background.cmp_im,
+                    self.background.current_roi.size(),
+                    cfg.diff_threshold,
+                    cfg.diff_threshold,
+                    CompareOp::Less,
+                )?;
+                self.background.cmp_thresh_applied = Some(cfg.diff_threshold);
+            }
         }
 
         let origin = fastim_mod::Point::new(0, 0);

@@ -25,6 +25,11 @@ pub(crate) struct BackgroundModel {
     pub(crate) mean_im: FastImageData<u8>,
     pub(crate) mean_squared_im: FastImageData<f32>,
     pub(crate) cmp_im: FastImageData<u8>,
+    /// The `diff_threshold` value with which `cmp_im` has already been clamped
+    /// (in place) by `do_work`, or `None` if `cmp_im` is freshly installed and
+    /// not yet clamped. Used to skip the (idempotent) per-frame clamp whenever
+    /// neither `cmp_im` nor `diff_threshold` has changed.
+    pub(crate) cmp_thresh_applied: Option<u8>,
     pub(crate) current_roi: FastImageRegion,
     // pub(crate) complete_stamp: (chrono::DateTime<chrono::Utc>, usize),
     pub(crate) complete_stamp: chrono::DateTime<chrono::Utc>,
@@ -135,6 +140,7 @@ impl BackgroundModel {
             mean_squared_im,
             mean_im,
             cmp_im,
+            cmp_thresh_applied: None,
             current_roi,
             tx_to_worker,
             rx_from_worker,
@@ -172,6 +178,8 @@ impl BackgroundModel {
                 self.mean_squared_im = mean_squared_im;
                 self.mean_im = mean_im;
                 self.cmp_im = cmp_im;
+                // Freshly installed cmp_im has not been clamped yet.
+                self.cmp_thresh_applied = None;
                 self.current_roi = roi;
                 self.complete_stamp = ts;
                 Ok(true)
