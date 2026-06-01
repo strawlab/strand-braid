@@ -1,7 +1,9 @@
-## 1.0.0-rc.1 - 2026-04-26
+## 1.0.0-rc.2 - 2026-04-26
 
 ### Added
 
+* The support of Basler's cameras via their Pylon library is moved to a shim
+  library to decouple the main codebase from the Pylon library.
 * Save video to .mp4 files in Strand Camera (instead of .mkv files). Update
   Braid, `braid-process-video`, `strand-convert`, and other utilities to use
   MP4. Video is encoded with the H.264 codec and metadata, including precise
@@ -111,9 +113,15 @@
 * Migrated all crates to Rust edition 2024.
 * Version 1.0.0 — first major release. The jump from 0.x reflects the maturity
   and long-term stability of the software.
+* Web UI frontends are now automatically built when using `cargo build` for Strand Cam and Braid. This is
+  done with the `trunk` tool, which is now a build dependency. If the web UI
+  has not yet been built, an explicit compile-time error is shown with instructions
+  on how to build the web UI.
 
 ### Fixed
 
+* Fixed a bug in which a remote camera could not be connected to by braid when
+  launched on a remote computer.
 * The `alpha` parameter in the feature detector was inadvertently ignored. This
   has been corrected. Thanks to Antoine Cribellier for noticing this.
 * PTP synchronization: Strand Camera now waits for the PTP clock to converge
