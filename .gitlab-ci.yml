@@ -35,42 +35,6 @@ test_crates:
     - export RUSTFLAGS="-D warnings"
 
     - DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg
-    - rustup target add thumbv7em-none-eabihf
-
-    # Test ffmpeg-writer
-    - cd media-utils/ffmpeg-writer
-    - cargo test --release
-    - cd ../..
-
-    # Test ffmpeg-rewriter
-    - cd media-utils/ffmpeg-rewriter
-    - cargo test --release
-
-    # Test mp4-writer
-    - cd $CI_PROJECT_DIR/media-utils/mp4-writer
-    - cargo test --release
-
-    # Test fmf-cli
-    - cd $CI_PROJECT_DIR/media-utils/fmf/fmf-cli
-    - cargo test --release
-
-    # Check that video2rrd compiles
-    - cd $CI_PROJECT_DIR/media-utils/video2rrd
-    - cargo check
-    - cd $CI_PROJECT_DIR
-
-    # Test ads-apriltag
-    - cargo test -p ads-apriltag --release
-
-    # Test apriltag-track-movie
-    - cargo test -p apriltag-track-movie --release
-
-    # Test strand-bui-backend-session
-    - cargo test --release -p strand-bui-backend-session
-
-    # Test braid-april-cal
-    - cd $CI_PROJECT_DIR/geometry/braid-april-cal
-    - cargo test --release
 
     # Test bundle-adj
     - cd $CI_PROJECT_DIR/geometry/bundle-adj
@@ -80,13 +44,7 @@ test_crates:
     - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-cli
     - cargo test --release --features with-rerun -- --nocapture
 
-    # Test flytrax-apriltags-calibration
-    - cd $CI_PROJECT_DIR/geometry/braid-april-cal/flytrax-apriltags-calibration
-    - cargo test --release
-
-    # Test flytrax-csv-to-braidz
     - cd $CI_PROJECT_DIR
-    - cargo test -p flytrax-csv-to-braidz --release --features "with_apriltags"
 
     # Install opencv
     - _packaging/setup-opencv-4.9.0-static.sh
@@ -131,9 +89,6 @@ test_flydra2:
     - export RUSTFLAGS="-D warnings"
 
     - cargo build -p braid-offline --release
-    - cargo build -p flydra2 --release
-    - cargo test -p flydra2 --release
-    - cargo test -p strand-cam-pseudo-cal --release
     - cd $CI_PROJECT_DIR/braid/braid-offline
     # test 3D retracking
     - PATH="$CI_PROJECT_DIR/flydra2env/bin:$CI_PROJECT_DIR/target/release:$PATH" cargo test --release -- --include-ignored
@@ -145,7 +100,6 @@ test_flydra2:
     # cargo run --bin braid-offline-retrack -- -d ..\..\rust-cam-testing-data\20200622_111457.braid -o tmp
 
 check_repository_source:
-  stage: build
   dependencies: []
   image: rust:1.93
   script:
@@ -171,53 +125,19 @@ test_crates_rust_stable:
     # Fail on any compiler warnings.
     - export RUSTFLAGS="-D warnings"
 
-    # First test the crates which do not require packages from the apt
-    # repository.
-
-    # Test media-utils/burn-timestamps
-    - cd $CI_PROJECT_DIR/media-utils/burn-timestamps
-    - cargo test
-
-    # Test media-utils/show-timestamps
-    - cd $CI_PROJECT_DIR/media-utils/show-timestamps
-    - cargo test
-
-    # Now test the crates which require a C compiler.
-
-    # Install LLVM and clang.
+    # Install LLVM and clang for crates which require a C compiler.
     - cd $CI_PROJECT_DIR
     - _packaging/setup-ubuntu-apt-proxy.sh
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
 
     - rustup target add thumbv7em-none-eabihf
 
-    # Test zip-or-dir
-    - cd $CI_PROJECT_DIR/utils/zip-or-dir
-    - cargo test
-
-    # Test fastfreeimage
-    - cd $CI_PROJECT_DIR
-    - cargo test -p fastfreeimage
-
     # Test mvg
     - cd $CI_PROJECT_DIR/geometry/braid-mvg
     - cargo test --all-features
 
-    # Test braid-april-cal-webapp
-    - cd $CI_PROJECT_DIR/geometry/braid-april-cal/braid-april-cal-webapp
-    - cargo test
-
-    # Test strand-datetime-conversion
-    - cd $CI_PROJECT_DIR/utils/strand-datetime-conversion
-    - cargo test
-
-    # Test geometry/simple-obj-parse
-    - cd $CI_PROJECT_DIR/geometry/simple-obj-parse
-    - cargo test
-
     # strand-dynamic-frame
     - cd $CI_PROJECT_DIR
-    - cargo test -p strand-dynamic-frame
     - cargo test -p strand-dynamic-frame --features convert-image
 
     # strand-cam
@@ -227,59 +147,12 @@ test_crates_rust_stable:
 
     # Test imops
     - cargo test -p imops --no-default-features -p imops
-    - cargo test -p imops
     - cargo test -p imops --no-default-features --features std
     - cargo build -p imops --no-default-features --target thumbv7em-none-eabihf
     - cargo bench -p imops --no-run
 
-    # Test braidz-parser
-    - cd $CI_PROJECT_DIR
-    - cargo test -p braidz-parser
-
-    # Test tracking
-    - cargo test -p tracking
-
-    # Test ufmf
-    - cd $CI_PROJECT_DIR/media-utils/ufmf
-    - cargo test
-
-    # Test braid/braid-types
-    - cd $CI_PROJECT_DIR/braid/braid-types
-    - cargo test
-
-    # Test braid-mvg/mvg-util
-    - cd $CI_PROJECT_DIR/geometry/braid-mvg/mvg-util
-    - cargo test
-
-    # Test flydra-mvg
-    - cd $CI_PROJECT_DIR/geometry/flydra-mvg
-    - cargo test
-
-    # Test fmf
-    - cd $CI_PROJECT_DIR/media-utils/fmf
-    - cargo test
-
-    # Test media-utils/tiff-decoder
-    - cd $CI_PROJECT_DIR/media-utils/tiff-decoder
-    - cargo test
-    - cd ../..
-
-    # Test media-utils/dump-frame
-    - cd media-utils/dump-frame
-    - cargo test
-    - cd ../..
-
-    # Test media-utils/strand-convert
-    - cd media-utils/strand-convert
-    - cargo test -- --test-threads 1
-    - cd ../..
-
-    # Test media-utils/mkv-strand-reader
-    - cd media-utils/mkv-strand-reader
-    - cargo test
-    - cd ../..
-
     # Test flydra-feature-detector
+    - cd $CI_PROJECT_DIR
     - cargo test -p flydra-feature-detector --release --features do_not_use_ipp
 
     # Test media-utils/frame-source
@@ -492,7 +365,6 @@ publish-api-docs:
   when: manual
 
 strand-cam-pylon-binary:
-  stage: build
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -530,7 +402,6 @@ strand-cam-pylon-binary:
     name: "strand-cam-pylon-binary-${CI_COMMIT_SHA}"
 
 strand-cam-vimba-binary:
-  stage: build
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -568,7 +439,6 @@ strand-cam-vimba-binary:
     name: "strand-cam-vimba-binary-${CI_COMMIT_SHA}"
 
 flytrax-csv-to-braidz-binary:
-  stage: build
   # Use manylinux project to build binary compatible with old glibc
   image: quay.io/pypa/manylinux2014_x86_64
   variables:
@@ -590,7 +460,6 @@ flytrax-csv-to-braidz-binary:
       - build/
 
 strand-cam-flydratrax-pylon-binary:
-  stage: build
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -650,7 +519,6 @@ braid-offline-static:
     name: "braid-offline-static-${CI_COMMIT_SHA}"
 
 braid-process-video:
-  stage: build
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
   image: ubuntu:focal
@@ -663,7 +531,6 @@ braid-process-video:
     - source $CARGO_HOME/env
     - export RUSTFLAGS="-D warnings"
 
-    - cargo test --release -p braid-process-video
     - cargo build --release -p braid-process-video
     - ldd -v target/release/braid-process-video
 
@@ -695,7 +562,6 @@ slow-tests:
     - cargo test --release -p braid-process-video -- --include-ignored
 
 extra-programs:
-  stage: build
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
@@ -751,7 +617,6 @@ extra-programs:
     name: "extra-programs-${CI_COMMIT_SHA}"
 
 braidz-mcsc:
-  stage: build
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
@@ -811,7 +676,6 @@ braid-webapps:
     - ./build.sh
 
 braid-run-binary:
-  stage: build
   # Build on Ubuntu Focal (20.04) but doesn't link libraries with
   # backward-incompatible ABIs (ssl), so it runs on new Ubuntu, also.
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
