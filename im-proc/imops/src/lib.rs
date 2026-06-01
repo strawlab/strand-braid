@@ -11,6 +11,10 @@ use machine_vision_formats::{
     ImageMutData, iter::HasRowChunksExact, iter::HasRowChunksExactMut, pixel_format::Mono8,
 };
 
+// `Power`, `mypow` and the generic `spatial_moment` are now used only as the
+// reference oracle in the tests; `calculate_moments` computes all moments in a
+// single fused pass. Gate them on `test` so they don't warn as dead code.
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Power {
     Zero,
@@ -18,6 +22,7 @@ enum Power {
     Two,
 }
 
+#[cfg(test)]
 #[inline]
 fn mypow(x: u32, exp: Power) -> f64 {
     match exp {
@@ -27,6 +32,7 @@ fn mypow(x: u32, exp: Power) -> f64 {
     }
 }
 
+#[cfg(test)]
 impl From<u8> for Power {
     fn from(orig: u8) -> Self {
         match orig {
@@ -40,6 +46,7 @@ impl From<u8> for Power {
     }
 }
 
+#[cfg(test)]
 fn spatial_moment<IM>(im: &IM, m_ord: Power, n_ord: Power) -> f32
 where
     IM: HasRowChunksExact<Mono8>,
@@ -202,16 +209,61 @@ pub fn calculate_moments<IM>(im: &IM) -> Moments
 where
     IM: HasRowChunksExact<Mono8>,
 {
-    let m00 = spatial_moment_00(im);
-    let m01 = spatial_moment_01(im);
-    let m10 = spatial_moment_10(im);
+    // Compute all six raw moments in a single pass over the pixels rather than
+    // six separate passes (three of which used to be fully scalar). For each
+    // row `y` we accumulate exact integer per-row sums over the columns `x`:
+    //   rs0 = Σ v, rs_x = Σ x·v, rs_xx = Σ x²·v
+    // and combine them with the row index:
+    //   m00 += rs0,      m01 += y·rs0,   m02 += y²·rs0,
+    //   m10 += rs_x,     m11 += y·rs_x,  m20 += rs_xx
+    // matching spatial_moment_00 / _01 (Σ row·v) / _10 (Σ col·v) and
+    // spatial_moment(One,One)/(Zero,Two)/(Two,Zero). The per-row sums are exact
+    // integers, so this is at least as accurate as the previous per-moment SIMD
+    // (and more accurate than the old f32-intermediate `m01`).
+    let width = im.width() as usize;
+
+    let mut m00 = 0.0f64;
+    let mut m01 = 0.0f64;
+    let mut m10 = 0.0f64;
+    let mut m11 = 0.0f64;
+    let mut m02 = 0.0f64;
+    let mut m20 = 0.0f64;
+
+    for (row, rowdata) in im.rowchunks_exact().enumerate() {
+        // trim from stride to width
+        let rowdata = &rowdata[..width];
+
+        let mut rs0: u64 = 0;
+        let mut rs_x: u64 = 0;
+        let mut rs_xx: u64 = 0;
+        for (col, element) in rowdata.iter().enumerate() {
+            let v = *element as u64;
+            let x = col as u64;
+            rs0 += v;
+            rs_x += x * v;
+            rs_xx += x * x * v;
+        }
+
+        let y = row as f64;
+        let rs0 = rs0 as f64;
+        let rs_x = rs_x as f64;
+        m00 += rs0;
+        m01 += y * rs0;
+        m02 += y * y * rs0;
+        m10 += rs_x;
+        m11 += y * rs_x;
+        m20 += rs_xx as f64;
+    }
+
+    let m00 = m00 as f32;
+    let m01 = m01 as f32;
+    let m10 = m10 as f32;
+    let m11 = m11 as f32;
+    let m02 = m02 as f32;
+    let m20 = m20 as f32;
 
     let centroid_x = m01 / m00;
     let centroid_y = m10 / m00;
-
-    let m11 = spatial_moment(im, Power::One, Power::One);
-    let m02 = spatial_moment(im, Power::Zero, Power::Two);
-    let m20 = spatial_moment(im, Power::Two, Power::Zero);
 
     let u11 = m11 - centroid_x * m10;
     let u02 = m02 - centroid_x * m01;
