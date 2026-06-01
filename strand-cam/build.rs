@@ -7,22 +7,13 @@ compile_error!(
 );
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Embed the git hash and date so the binary can report its exact revision.
     build_util::git_hash(env!("CARGO_PKG_VERSION"))?;
 
+    // When `bundle_files` is enabled, compile the Yew/WASM frontend with trunk
+    // and embed the resulting assets into the binary via `include_dir`.
     #[cfg(feature = "bundle_files")]
-    {
-        let frontend_dir = std::path::PathBuf::from("yew_frontend");
-        let frontend_dist_dir = frontend_dir.join("dist");
-
-        if !frontend_dist_dir.join("index.html").exists() {
-            return Err(format!(
-                "The frontend is required but not present. Hint: go to {} and \
-                run `trunk build`.",
-                frontend_dir.display()
-            )
-            .into());
-        }
-    }
+    build_util::trunk_build("yew_frontend", &["index.html"])?;
 
     Ok(())
 }
