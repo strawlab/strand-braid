@@ -274,6 +274,48 @@ fn find_local_ip_for_remote(remote_ip: IpAddr) -> std::io::Result<IpAddr> {
     Ok(socket.local_addr()?.ip())
 }
 
+/// Decide the HTTP server listen address that strand-cam should bind to and
+/// advertise to Braid when running in the Braid context.
+///
+/// Braid must be able to connect back to this strand-cam's HTTP server (see
+/// `docs/.../braid_remote_cameras.md`). The address is chosen as follows:
+///
+/// - If Braid's per-camera config provides an explicit `http_server_addr`
+///   override, always use it verbatim.
+/// - Otherwise, if Braid is on loopback, bind loopback (`127.0.0.1:0`).
+/// - Otherwise (Braid is remote), use `resolver` to find the local source IP
+///   the OS would use to reach Braid, so Braid can connect back to it. If that
+///   fails, warn and fall back to loopback (which will likely fail for a remote
+///   Braid, but is the safest local default).
+///
+/// `resolver` is injected (rather than calling [`find_local_ip_for_remote`]
+/// directly) so the decision logic can be unit-tested without real sockets.
+fn braid_strand_cam_http_address(
+    mainbrain_ip: IpAddr,
+    http_server_addr_override: Option<String>,
+    resolver: impl FnOnce(IpAddr) -> std::io::Result<IpAddr>,
+) -> String {
+    if mainbrain_ip.is_loopback() {
+        http_server_addr_override.unwrap_or_else(|| "127.0.0.1:0".to_string())
+    } else {
+        http_server_addr_override.unwrap_or_else(|| {
+            // When braid is on a different machine it must connect back to this
+            // strand-cam's HTTP server. Find the outgoing interface IP that
+            // braid can reach.
+            match resolver(mainbrain_ip) {
+                Ok(local_ip) => format!("{local_ip}:0"),
+                Err(e) => {
+                    tracing::warn!(
+                        "Could not determine local IP for braid at {mainbrain_ip}: {e}. \
+                        Falling back to 127.0.0.1, which may fail for remote connections."
+                    );
+                    "127.0.0.1:0".to_string()
+                }
+            }
+        })
+    }
+}
+
 fn open_braid_destination_addr(camdata_udp_addr: &SocketAddr) -> Result<UdpSocket> {
     info!(
         "Sending detected coordinates via UDP to: {}",
@@ -1143,27 +1185,11 @@ where
                 .clone();
             let mainbrain_bui_loc = &from_mainbrain.mainbrain_bui_loc;
 
-            let strand_cam_bui_http_address_string = if mainbrain_bui_loc.addr().ip().is_loopback()
-            {
-                http_server_addr.unwrap_or_else(|| "127.0.0.1:0".to_string())
-            } else {
-                http_server_addr.unwrap_or_else(|| {
-                    // When braid is on a different machine it must connect back
-                    // to this strand-cam's HTTP server. Find the outgoing
-                    // interface IP that braid can reach.
-                    let braid_ip = mainbrain_bui_loc.addr().ip();
-                    match find_local_ip_for_remote(braid_ip) {
-                        Ok(local_ip) => format!("{local_ip}:0"),
-                        Err(e) => {
-                            tracing::warn!(
-                                "Could not determine local IP for braid at {braid_ip}: {e}. \
-                                Falling back to 127.0.0.1, which may fail for remote connections."
-                            );
-                            "127.0.0.1:0".to_string()
-                        }
-                    }
-                })
-            };
+            let strand_cam_bui_http_address_string = braid_strand_cam_http_address(
+                mainbrain_bui_loc.addr().ip(),
+                http_server_addr,
+                find_local_ip_for_remote,
+            );
             cfg_from_braid = Some(from_mainbrain);
             strand_cam_bui_http_address_string
         }
@@ -3655,4 +3681,137 @@ impl FinalMp4RecordingConfig {
 
 fn to_eyre<T>(e: SendError<T>) -> eyre::Report {
     eyre!("SendError: {e} {e:?}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::net::Ipv4Addr;
+
+    // ---- Layer 1: `find_local_ip_for_remote` ----
+    //
+    // These exercise the real UDP-connect routing primitive. UDP `connect()`
+    // sends no packets, so these do not require actual network connectivity,
+    // only that the relevant route/interface exists. Cases that depend on
+    // optional setup (IPv6, a non-loopback interface) skip rather than fail.
+
+    #[test]
+    fn local_ip_for_loopback_is_loopback() {
+        let local = find_local_ip_for_remote(IpAddr::V4(Ipv4Addr::LOCALHOST))
+            .expect("resolving local IP for IPv4 loopback should always succeed");
+        assert!(
+            local.is_loopback(),
+            "expected loopback source for loopback remote, got {local}"
+        );
+    }
+
+    #[test]
+    fn local_ip_for_ipv6_loopback_is_loopback() {
+        // Skip on hosts without IPv6 (some CI environments).
+        if UdpSocket::bind(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0)).is_err() {
+            eprintln!("skipping: no IPv6 support on this host");
+            return;
+        }
+        let local = find_local_ip_for_remote(IpAddr::V6(Ipv6Addr::LOCALHOST))
+            .expect("resolving local IP for IPv6 loopback should succeed when IPv6 is present");
+        assert!(
+            local.is_loopback(),
+            "expected loopback source for loopback remote, got {local}"
+        );
+    }
+
+    /// Connecting to one of the machine's own non-loopback interface IPs makes
+    /// the OS select that same IP as the source. This is the property that lets
+    /// a single node simulate a "remote" Braid in a future integration test.
+    #[test]
+    fn local_ip_for_own_interface_is_that_interface() {
+        // Find a non-loopback IPv4 address that is actually bindable on this
+        // host (i.e. assigned to a local interface). `0` lets the OS pick a
+        // free port; a successful bind proves the IP is local.
+        let Some(local_iface_ip) = local_non_loopback_ipv4() else {
+            eprintln!("skipping: no non-loopback IPv4 interface on this host");
+            return;
+        };
+        let resolved = find_local_ip_for_remote(local_iface_ip)
+            .expect("resolving local IP for an own interface IP should succeed");
+        assert_eq!(
+            resolved, local_iface_ip,
+            "expected own interface IP {local_iface_ip} to resolve to itself, got {resolved}"
+        );
+    }
+
+    /// Return a non-loopback IPv4 address assigned to this host, if any.
+    ///
+    /// Rather than enumerating interfaces (which needs a platform-specific
+    /// crate), we probe a few common destinations and treat the resulting
+    /// non-loopback source IP as a known-local interface address.
+    fn local_non_loopback_ipv4() -> Option<IpAddr> {
+        // Public IPs route via the default gateway interface (if one exists);
+        // the documentation/TEST-NET ranges are used purely as routing targets,
+        // no packets are sent.
+        for probe in ["8.8.8.8", "192.0.2.1", "1.1.1.1"] {
+            let remote: IpAddr = probe.parse().unwrap();
+            if let Ok(local) = find_local_ip_for_remote(remote)
+                && !local.is_loopback()
+                && local.is_ipv4()
+            {
+                return Some(local);
+            }
+        }
+        None
+    }
+
+    // ---- Layer 2: `braid_strand_cam_http_address` decision logic ----
+    //
+    // Pure logic, tested with an injected resolver so no sockets are involved.
+
+    const LOOPBACK: IpAddr = IpAddr::V4(Ipv4Addr::LOCALHOST);
+    const REMOTE: IpAddr = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 10));
+
+    fn resolver_ok(ip: IpAddr) -> impl FnOnce(IpAddr) -> std::io::Result<IpAddr> {
+        move |_remote| Ok(ip)
+    }
+
+    fn resolver_err() -> impl FnOnce(IpAddr) -> std::io::Result<IpAddr> {
+        |_remote| Err(std::io::Error::other("simulated resolver failure"))
+    }
+
+    #[test]
+    fn loopback_braid_no_override_binds_loopback() {
+        let addr = braid_strand_cam_http_address(LOOPBACK, None, resolver_ok(REMOTE));
+        assert_eq!(addr, "127.0.0.1:0");
+    }
+
+    #[test]
+    fn remote_braid_no_override_uses_resolved_local_ip() {
+        let local = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 20));
+        let addr = braid_strand_cam_http_address(REMOTE, None, resolver_ok(local));
+        assert_eq!(addr, "192.168.1.20:0");
+    }
+
+    #[test]
+    fn remote_braid_resolver_failure_falls_back_to_loopback() {
+        let addr = braid_strand_cam_http_address(REMOTE, None, resolver_err());
+        assert_eq!(addr, "127.0.0.1:0");
+    }
+
+    #[test]
+    fn override_is_used_verbatim_for_remote_braid() {
+        // The override must win even though the resolver would return something
+        // else; the resolver must not even be consulted.
+        let addr = braid_strand_cam_http_address(REMOTE, Some("10.0.0.5:1234".to_string()), |_| {
+            panic!("resolver must not be called when an override is present")
+        });
+        assert_eq!(addr, "10.0.0.5:1234");
+    }
+
+    #[test]
+    fn override_is_used_verbatim_for_loopback_braid() {
+        let addr =
+            braid_strand_cam_http_address(LOOPBACK, Some("0.0.0.0:44444".to_string()), |_| {
+                panic!("resolver must not be called when an override is present")
+            });
+        assert_eq!(addr, "0.0.0.0:44444");
+    }
 }
