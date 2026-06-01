@@ -994,6 +994,25 @@ cameras.</p>
 <p>It can also be useful to launch cameras as &quot;remote cameras&quot; even if they run on
 the same computer. For example, this can help distinguishing the source of
 messages printed to the terminal.</p>
+<h2><a class="header" href="#network-communication-overview" id="network-communication-overview">Network communication overview</a></h2>
+<p>The connection between Braid and remote Strand Camera instances is bidirectional:</p>
+<ol>
+<li><strong>Strand Camera → Braid (TCP)</strong>: Strand Camera connects to the Braid HTTP
+server (specified by <code>--braid-url</code>) to register itself and send updates.</li>
+<li><strong>Braid → Strand Camera (TCP)</strong>: Braid connects back to each Strand Camera's
+HTTP server to send commands (e.g. frame offsets, recording start/stop).</li>
+<li><strong>Strand Camera → Braid (UDP)</strong>: Strand Camera sends low-latency 2D feature
+detection data to the Braid UDP port.</li>
+</ol>
+<p>For remote cameras (Strand Camera on a different machine than Braid), all three
+paths must be reachable across the network.</p>
+<p>When Strand Camera starts, it automatically determines which local network
+interface IP to advertise to Braid for the return TCP connection (path 2 above),
+based on the network interface that would be used to reach the Braid server IP.
+This ensures Braid can connect back to Strand Camera even when they are on
+different machines.</p>
+<p>The low-latency UDP path is likewise specified by Braid and returned to Strand
+Camera upon initial connection.</p>
 <h2><a class="header" href="#relevant-aspects-of-braid-configuration" id="relevant-aspects-of-braid-configuration">Relevant aspects of Braid configuration</a></h2>
 <p>(Relevant background reading: <a href="braid_configuration_and_launching.html#braid-toml-configuration-files">Braid TOML configuration
 files</a>.)</p>
@@ -1008,8 +1027,6 @@ synchronize the cameras and allow recording of data.</p>
 server. See the reference documentation for <a href="https://strawlab.org/strand-braid-api-docs/latest/braid_config_data/struct.MainbrainConfig.html#structfield.http_api_server_addr">the <code>http_api_server_addr</code>
 field</a>.</p>
 <pre><code class="language-toml">[mainbrain]
-http_api_server_addr = &quot;0.0.0.0:44444&quot;
-
 [[cameras]]
 name = &quot;Camera-1&quot;
 start_backend = &quot;remote&quot;
@@ -1027,9 +1044,28 @@ a remote camera for Braid.</p>
 specifying the URL for the braid HTTP address. The camera name should also be
 specified on the command line using <code>--camera-name &lt;CAMERA NAME&gt;</code>.</p>
 <p>In the following example, the Strand Camera will open the camera named
-<code>Camera-12345</code> and will connect to Braid running at <code>http://127.0.0.1:44444</code>.</p>
-<pre><code class="language-ignore">strand-cam-pylon --camera-name Camera-12345 --braid-url http://127.0.0.1:44444
+<code>Camera-12345</code> and will connect to Braid running at <code>http://192.168.1.10:44444</code>.</p>
+<pre><code class="language-ignore">strand-cam-pylon --camera-name Camera-12345 --braid-url http://192.168.1.10:44444/?token=&lt;TOKEN&gt;
 </code></pre>
+<p>The <code>?token=&lt;TOKEN&gt;</code> query parameter is required when the Braid server is
+listening on a non-loopback address and strand camera has not made a connection
+recently. (Strand Camera uses this for an initial connection and then stores a
+cookie that lets it reconnect without the token in the future.) Braid prints the
+full URL with the token on startup — use that URL directly.</p>
+<h2><a class="header" href="#overriding-the-strand-camera-http-server-address" id="overriding-the-strand-camera-http-server-address">Overriding the Strand Camera HTTP server address</a></h2>
+<p>In rare cases (e.g. complex network configurations), Strand Camera's automatic
+IP detection may choose the wrong network interface. You can override the
+address that Strand Camera advertises to Braid by setting the <code>http_server_addr</code>
+field in the relevant <code>[[cameras]]</code> entry in the Braid <code>.toml</code> file:</p>
+<pre><code class="language-toml">[[cameras]]
+name = &quot;Camera-1&quot;
+start_backend = &quot;remote&quot;
+# Override the IP that braid uses to connect back to this strand-cam instance.
+# Replace 192.168.1.20 with the IP of the remote camera computer.
+http_server_addr = &quot;192.168.1.20:0&quot;
+</code></pre>
+<p>The port <code>0</code> instructs the operating system to assign a free port automatically.
+You may also specify a fixed port number if needed (e.g. for firewall rules).</p>
 <h1><a class="header" href="#scripting-with-python" id="scripting-with-python">Scripting with Python</a></h1>
 <p>Everything in Strand Camera and Braid that can be controlled from the web
 browser can also be controlled from a Python script. The general technique is to
@@ -1316,7 +1352,53 @@ while recording AprilTag detections for calibration, try one of the following:</
 <li>Run Strand Camera as a standalone instance (not via Braid) for the calibration step.</li>
 <li>Reduce the camera frame rate to around 10 FPS for this step only.</li>
 </ul>
+<h2><a class="header" href="#remote-cameras-fail-to-connect-connection-refused-on-0000" id="remote-cameras-fail-to-connect-connection-refused-on-0000">Remote cameras fail to connect: &quot;Connection refused&quot; on <code>0.0.0.0</code></a></h2>
+<p>If Braid shows an error like the following when remote cameras (on a separate
+computer) try to connect:</p>
+<pre><code class="language-text">Internal server error: hyper-util error `client error (Connect)`
+BuiBackendSessionError { source: HyperUtil(...Connect, ConnectError(&quot;tcp connect error&quot;,
+0.0.0.0:PORT, Os { code: 111, kind: ConnectionRefused ... })) }
+</code></pre>
+<p>This means Braid cannot connect back to the Strand Camera HTTP server on the
+remote machine. The address <code>0.0.0.0:PORT</code> is not a routable destination from a
+different computer.</p>
+<p><strong>Common causes and fixes:</strong></p>
+<ol>
+<li>
+<p><strong>Old version of Strand Camera</strong>: Versions before 1.0.0-rc.2 did not
+automatically detect the correct local IP. Upgrade to the current release.</p>
+</li>
+<li>
+<p><strong>Using an explicit <code>--braid-url</code> in shell scripts that differs from the URL
+Braid prints on startup</strong>: Use the URL that Braid prints at startup. Braid
+also prints the suggested <code>strand-cam-pylon</code> command line for each remote
+camera.</p>
+</li>
+<li>
+<p><strong>Network path does not exist</strong>: Ensure there is a network route from the
+Braid machine to the remote camera computer and back. Check firewall rules on
+both machines.</p>
+</li>
+<li>
+<p><strong>Manual override needed</strong>: If auto-discovery fails, set the
+<code>http_server_addr</code> in the camera's <code>[[cameras]]</code> config entry in the braid
+toml configuration to the specific IP of the camera machine:</p>
+<pre><code class="language-toml">[[cameras]]
+name = &quot;Camera-1&quot;
+start_backend = &quot;remote&quot;
+http_server_addr = &quot;192.168.1.20:0&quot;  # IP of the remote camera machine
+</code></pre>
+</li>
+</ol>
+<p>See <a href="braid_remote_cameras.html">Remote Cameras for Braid</a> for the full setup guide.</p>
 <h2><a class="header" href="#any-other-problem-or-question" id="any-other-problem-or-question">Any other problem or question</a></h2>
+<p>To help diagnose issues, it is helpful to increase logging verbosity by setting
+the <code>RUST_LOG</code> environment variable to <code>debug</code> (or, more verbose, <code>trace</code>) when
+running Braid or Strand Camera. For example:</p>
+<pre><code class="language-sh">RUST_LOG=debug braid run braid-config.toml
+</code></pre>
+<pre><code class="language-sh">RUST_LOG=debug strand-cam-pylon
+</code></pre>
 <p>Please <a href="https://github.com/strawlab/strand-braid/issues">report any issues you
 face</a> or <a href="https://groups.google.com/forum/#!forum/multicams">ask any questions you
 may have</a>.</p>
