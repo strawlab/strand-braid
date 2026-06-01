@@ -592,7 +592,13 @@ impl FlydraFeatureDetector {
             sender.try_send(self.cfg.clone()).unwrap();
         }
 
-        self.mask_image = Some(compute_mask_image(self.roi_sz, &self.cfg.valid_region)?);
+        // When the entire frame is valid, the mask is all-zero and applying it
+        // is a no-op. Skip building it so we also skip the (full-image) masking
+        // pass in `do_work` on every frame.
+        self.mask_image = match self.cfg.valid_region {
+            Shape::Everything => None,
+            _ => Some(compute_mask_image(self.roi_sz, &self.cfg.valid_region)?),
+        };
         Ok(())
     }
 
