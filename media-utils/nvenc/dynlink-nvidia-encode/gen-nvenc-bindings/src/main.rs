@@ -3,8 +3,8 @@ use std::io::Write;
 #[derive(Debug)]
 pub struct Fix753 {}
 impl bindgen::callbacks::ParseCallbacks for Fix753 {
-    fn item_name(&self, original_item_name: &str) -> Option<String> {
-        Some(original_item_name.trim_start_matches("Fix753_").to_owned())
+    fn item_name(&self, item_info: bindgen::callbacks::ItemInfo) -> Option<String> {
+        Some(item_info.name.trim_start_matches("Fix753_").to_owned())
     }
 }
 
@@ -26,8 +26,8 @@ fn main() {
         .allowlist_var("Fix753.*")
         .default_enum_style(bindgen::EnumVariation::ModuleConsts)
         .derive_debug(false)
-        .derive_eq(true)
-        .raw_line("#![allow(dead_code,non_upper_case_globals,non_camel_case_types,non_snake_case)]")
+        .raw_line("#![allow(dead_code,non_upper_case_globals,non_camel_case_types,non_snake_case,unused_imports)]")
+        .raw_line("#![expect(unnecessary_transmutes,reason = \"bindgen bitfields codegen under Rust 1.88+ - https://github.com/rust-lang/rust-bindgen/issues/3241\")]")
         .generate()
         .expect("Unable to generate bindings");
 

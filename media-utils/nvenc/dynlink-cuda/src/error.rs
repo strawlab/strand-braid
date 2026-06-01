@@ -8,7 +8,7 @@ pub enum CudaError {
         source: libloading::Error,
     },
     #[error("CUDA returned code `{status}`")]
-    ErrCode { status: i32 },
+    ErrCode { status: u32 },
     #[error("Name `{name}` could not be opened: `{source}`")]
     NameFFIError {
         name: String,

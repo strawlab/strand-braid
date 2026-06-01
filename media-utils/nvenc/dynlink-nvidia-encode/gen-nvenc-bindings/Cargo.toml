@@ -6,4 +6,4 @@ edition = "2024"
 description = "code generator for NVIDIA NVENC FFI bindings"
 
 [dependencies]
-bindgen = "0.66"
+bindgen = "0.72.1"
