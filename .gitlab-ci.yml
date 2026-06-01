@@ -896,8 +896,6 @@ strand-braid-ubuntu-2604:
     # package list here is probably more than needed, but should contain the required subset.
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl
 
-    # Download pylon and install so dpkg figues out the source
-    - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
     # Download vimba and install
     - $CI_PROJECT_DIR/_packaging/setup-ubuntu-vimba.sh
 
@@ -958,8 +956,6 @@ strand-braid-ubuntu-2404:
     # package list here is probably more than needed, but should contain the required subset.
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl
 
-    # Download pylon and install so dpkg figues out the source
-    - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
     # Download vimba and install
     - $CI_PROJECT_DIR/_packaging/setup-ubuntu-vimba.sh
 
@@ -1020,8 +1016,6 @@ strand-braid-ubuntu-2004:
     # package list here is probably more than needed, but should contain the required subset.
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl
 
-    # Download pylon and install so dpkg figues out the source
-    - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
     # Download vimba and install
     - $CI_PROJECT_DIR/_packaging/setup-ubuntu-vimba.sh
 
@@ -1082,8 +1076,6 @@ strand-braid-ubuntu-2204:
     # package list here is probably more than needed, but should contain the required subset.
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libudev-dev zlib1g-dev curl
 
-    # Download pylon and install so dpkg figues out the source
-    - $CI_PROJECT_DIR/_packaging/install-pylon-linux.sh
     # Download vimba and install
     - $CI_PROJECT_DIR/_packaging/setup-ubuntu-vimba.sh
 
