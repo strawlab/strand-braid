@@ -1,5 +1,5 @@
 [package]
-name = "find-chessboard"
+name = "find-chessboard-opencv"
 description = "find chessboard corners in an input image"
 version = "0.1.0"
 license = "BSD-3-Clause"

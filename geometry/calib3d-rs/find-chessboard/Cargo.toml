@@ -1,0 +1,19 @@
+[package]
+name = "find-chessboard"
+description = "find chessboard corners in an input image"
+version = "0.1.0"
+license = "BSD-3-Clause"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2024"
+
+[dependencies]
+calib3d-rs.workspace = true
+image =  {workspace = true, features = [
+    "bmp",
+    "jpeg",
+    "png",
+    "tiff",
+] }
+serde_yaml.workspace = true
+clap = { workspace = true, features = ["derive", "env", "string"] }
+anyhow.workspace = true

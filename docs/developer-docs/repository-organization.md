@@ -115,6 +115,7 @@
  - bundle-adj (geometry/bundle-adj) - bundle adjustment for multi-camera calibration
  - calib3d-rs (geometry/calib3d-rs) - Pure-Rust reimplementations of the OpenCV calibration routines used by strand-braid
  - camcal (geometry/camcal) - camera calibration utilities using checkerboard patterns
+ - find-chessboard (geometry/calib3d-rs/find-chessboard) - find chessboard corners in an input image
  - flydra-mvg (geometry/flydra-mvg) - Flydra-compatible multi-view geometry with refraction support
  - flytrax-apriltags-calibration (geometry/braid-april-cal/flytrax-apriltags-calibration) - CLI tool for FlyTrax camera calibration using AprilTags
  - freemovr-calibration (geometry/freemovr-calibration) - create calibration for FreeMoVR system

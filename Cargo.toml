@@ -50,6 +50,7 @@ members = [
     "geometry/camcal",
     "geometry/flydra-mvg",
     "geometry/calib3d-rs",
+    "geometry/calib3d-rs/find-chessboard",
     "geometry/mcsc-native",
     "geometry/mcsc-native/gocal",
     "geometry/mcsc-structs",
@@ -137,7 +138,7 @@ exclude = [
     # and the OpenCV cross-check harness runs via
     # `cargo test --manifest-path geometry/opencv-calibrate/Cargo.toml`.
     "geometry/opencv-calibrate",
-    "geometry/opencv-calibrate/find-chessboard",
+    "geometry/opencv-calibrate/find-chessboard-opencv",
 ]
 
 [profile.release]
