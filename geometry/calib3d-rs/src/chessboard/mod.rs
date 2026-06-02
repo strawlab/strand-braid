@@ -5,7 +5,7 @@
 //! bottom-up:
 //!   1. binarization primitives ([`binarize`]) — histogram equalization
 //!      (`CALIB_CB_NORMALIZE_IMAGE`) and adaptive-mean thresholding
-//!      (`CALIB_CB_ADAPTIVE_THRESH`) — **in progress**,
+//!      (`CALIB_CB_ADAPTIVE_THRESH`) — **done**, bit-exact vs OpenCV,
 //!   2. quad generation from contours (dilate, find contours, approximate
 //!      polygons, keep convex quadrilaterals) — todo,
 //!   3. linking quads into a board graph and ordering corners — todo,
