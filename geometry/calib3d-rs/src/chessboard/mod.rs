@@ -15,11 +15,13 @@
 //!      components ([`connected_components`]), consistent corner ordering
 //!      ([`order_all_corners`]), board-lattice propagation ([`assign_grid`]),
 //!      and row-major inner-corner readout ([`ordered_inner_corners`]),
-//!   4. board validation (size, monotonicity) and corner extraction — todo.
+//!   4. board validation (size, monotonicity) and corner extraction — **done**
+//!      (synthetic tests): [`check_board_monotony`] and [`extract_board`].
 //!
-//! Note: stages 1-2 provide the primitives; assembling the full multi-threshold,
-//! dilation, and hierarchy-driven `generateQuads` orchestration is part of
-//! wiring the end-to-end detector (stage 3+).
+//! All four stages' primitives are implemented. Still to do: assemble the full
+//! multi-threshold, dilation, and hierarchy-driven `generateQuads` orchestration
+//! and a public end-to-end `find_chessboard_corners` entry point, then match
+//! OpenCV's emitted corner order and validate against the detection golden.
 //!
 //! The detector flags requested by the strand-braid C++ wrapper are
 //! `CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_NORMALIZE_IMAGE | CALIB_CB_FAST_CHECK`.
