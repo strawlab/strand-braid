@@ -19,9 +19,18 @@ current `find_chessboard_corners` implementation, in detection order. Each file
 records the pattern size and the ordered `corners` array.
 
 The `tests/conformance.rs` harness compares fresh detections against these
-goldens (see [`TOL_PX`] there). To regenerate the goldens after an intentional
-change to the detector:
+goldens (see `TOL_PX` there). To regenerate them after an intentional change to
+the detector:
 
 ```sh
 BLESS_GOLDEN=1 cargo test -p opencv-calibrate --test conformance
+```
+
+`golden/calibration.json` pins the end-to-end result of running
+`calibrate_camera` on the corners detected across all sample frames (intrinsics,
+distortion, mean reprojection error). The `tests/calibration.rs` harness checks
+it. Regenerate with:
+
+```sh
+BLESS_GOLDEN=1 cargo test -p opencv-calibrate --test calibration
 ```
