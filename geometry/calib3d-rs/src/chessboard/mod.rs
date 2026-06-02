@@ -7,7 +7,9 @@
 //!      (`CALIB_CB_NORMALIZE_IMAGE`) and adaptive-mean thresholding
 //!      (`CALIB_CB_ADAPTIVE_THRESH`) — **done**, bit-exact vs OpenCV,
 //!   2. quad generation from contours (dilate, find contours, approximate
-//!      polygons, keep convex quadrilaterals) — todo,
+//!      polygons, keep convex quadrilaterals): contour finding ([`find_contours`],
+//!      Suzuki-Abe) **done** and cross-checked vs OpenCV; polygon approximation
+//!      (Douglas-Peucker) + convex-4-gon area filter — todo,
 //!   3. linking quads into a board graph and ordering corners — todo,
 //!   4. board validation (size, monotonicity) and corner extraction — todo.
 //!
