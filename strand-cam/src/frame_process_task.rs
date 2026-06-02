@@ -747,7 +747,7 @@ pub(crate) async fn frame_process_task<'a>(
                                         _,
                                         formats::pixel_format::RGB8,
                                     >(&x)?);
-                                    opencv_calibrate::find_chessboard_corners(
+                                    camcal::find_chessboard_corners(
                                         rgb.image_data(),
                                         rgb.width(),
                                         rgb.height(),
