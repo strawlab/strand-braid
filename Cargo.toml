@@ -53,8 +53,6 @@ members = [
     "geometry/mcsc-native",
     "geometry/mcsc-native/gocal",
     "geometry/mcsc-structs",
-    "geometry/opencv-calibrate",
-    "geometry/opencv-calibrate/find-chessboard",
     "geometry/parry-geom",
     "geometry/refraction",
     "geometry/refraction/bisection-search",
@@ -132,6 +130,14 @@ members = [
 exclude = [
     "led-box/led-box-firmware",
     "led-box/led-box-firmware-pico",
+    # The OpenCV C++ binding and its demo bin require OpenCV to build, so they
+    # are kept out of the workspace; a default `cargo build`/`test --workspace`
+    # needs no OpenCV. They are still usable on demand: the `camcal` crate's
+    # `opencv` feature pulls `opencv-calibrate` (path dependency) when selected,
+    # and the OpenCV cross-check harness runs via
+    # `cargo test --manifest-path geometry/opencv-calibrate/Cargo.toml`.
+    "geometry/opencv-calibrate",
+    "geometry/opencv-calibrate/find-chessboard",
 ]
 
 [profile.release]

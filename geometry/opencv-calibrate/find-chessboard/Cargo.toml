@@ -6,9 +6,17 @@ license = "BSD-3-Clause"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
 
+# NOTE: this crate is excluded from the workspace (it requires OpenCV via
+# opencv-calibrate), so dependencies are specified explicitly rather than
+# inherited from the workspace.
 [dependencies]
-opencv-calibrate.workspace = true
-image.workspace = true
-serde_yaml.workspace = true
-clap.workspace = true
-anyhow.workspace = true
+opencv-calibrate = { path = ".." }
+image = { version = "0.25.6", default-features = false, features = [
+    "bmp",
+    "jpeg",
+    "png",
+    "tiff",
+] }
+serde_yaml = "0.9"
+clap = { version = "4.5", features = ["derive", "env", "string"] }
+anyhow = "1.0.99"
