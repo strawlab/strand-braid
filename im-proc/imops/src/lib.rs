@@ -11,58 +11,6 @@ use machine_vision_formats::{
     ImageMutData, iter::HasRowChunksExact, iter::HasRowChunksExactMut, pixel_format::Mono8,
 };
 
-// `Power`, `mypow` and the generic `spatial_moment` are now used only as the
-// reference oracle in the tests; `calculate_moments` computes all moments in a
-// single fused pass. Gate them on `test` so they don't warn as dead code.
-#[cfg(test)]
-#[derive(Clone, Copy, Debug, PartialEq)]
-enum Power {
-    Zero,
-    One,
-    Two,
-}
-
-#[cfg(test)]
-#[inline]
-fn mypow(x: u32, exp: Power) -> f64 {
-    match exp {
-        Power::Zero => 1.0,
-        Power::One => x as f64,
-        Power::Two => x as f64 * x as f64,
-    }
-}
-
-#[cfg(test)]
-impl From<u8> for Power {
-    fn from(orig: u8) -> Self {
-        match orig {
-            0 => Power::Zero,
-            1 => Power::One,
-            2 => Power::Two,
-            _ => {
-                unimplemented!();
-            }
-        }
-    }
-}
-
-#[cfg(test)]
-fn spatial_moment<IM>(im: &IM, m_ord: Power, n_ord: Power) -> f32
-where
-    IM: HasRowChunksExact<Mono8>,
-{
-    let mut accum: f64 = 0.0;
-
-    let chunk_iter = im.rowchunks_exact();
-
-    for (row, rowdata) in chunk_iter.enumerate() {
-        for (col, element) in rowdata.iter().enumerate() {
-            accum += mypow(row as u32, n_ord) * mypow(col as u32, m_ord) * *element as f64;
-        }
-    }
-    accum as f32
-}
-
 /// Compute spatial image moment 0,0
 ///
 /// Panics: panics on image shape or stride problems.
@@ -417,6 +365,58 @@ mod tests {
     use std::u8;
 
     use super::*;
+
+    // `Power`, `mypow` and the generic `spatial_moment` are now used only as the
+    // reference oracle in the tests; `calculate_moments` computes all moments in a
+    // single fused pass. Gate them on `test` so they don't warn as dead code.
+    #[cfg(test)]
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    enum Power {
+        Zero,
+        One,
+        Two,
+    }
+
+    #[cfg(test)]
+    #[inline]
+    fn mypow(x: u32, exp: Power) -> f64 {
+        match exp {
+            Power::Zero => 1.0,
+            Power::One => x as f64,
+            Power::Two => x as f64 * x as f64,
+        }
+    }
+
+    #[cfg(test)]
+    impl From<u8> for Power {
+        fn from(orig: u8) -> Self {
+            match orig {
+                0 => Power::Zero,
+                1 => Power::One,
+                2 => Power::Two,
+                _ => {
+                    unimplemented!();
+                }
+            }
+        }
+    }
+
+    #[cfg(test)]
+    fn spatial_moment<IM>(im: &IM, m_ord: Power, n_ord: Power) -> f32
+    where
+        IM: HasRowChunksExact<Mono8>,
+    {
+        let mut accum: f64 = 0.0;
+
+        let chunk_iter = im.rowchunks_exact();
+
+        for (row, rowdata) in chunk_iter.enumerate() {
+            for (col, element) in rowdata.iter().enumerate() {
+                accum += mypow(row as u32, n_ord) * mypow(col as u32, m_ord) * *element as f64;
+            }
+        }
+        accum as f32
+    }
 
     #[test]
     fn test_clip_low() {
