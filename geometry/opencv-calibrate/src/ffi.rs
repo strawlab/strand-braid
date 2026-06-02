@@ -62,6 +62,14 @@ unsafe extern "C" {
         dst: *mut c_uchar,
     );
 
+    pub(crate) fn approx_poly_dp(
+        pts: *const c_int,
+        n: c_int,
+        eps: c_double,
+        closed: c_int,
+        out: *mut c_int,
+    ) -> c_int;
+
     pub(crate) fn contours_mask(
         src: *const c_uchar,
         width: c_int,

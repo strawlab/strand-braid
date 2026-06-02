@@ -349,6 +349,28 @@ pub fn adaptive_threshold_mean(
     dst
 }
 
+/// OpenCV `approxPolyDP` on an integer contour, exposed for cross-checking the
+/// pure-Rust port. Returns the approximated vertices in order.
+pub fn approx_poly_dp(points: &[(i32, i32)], eps: f64, closed: bool) -> Vec<(i32, i32)> {
+    let n = points.len();
+    let mut flat = Vec::with_capacity(n * 2);
+    for &(x, y) in points {
+        flat.push(x as c_int);
+        flat.push(y as c_int);
+    }
+    let mut out = vec![0 as c_int; n * 2];
+    let count = unsafe {
+        ffi::approx_poly_dp(
+            flat.as_ptr(),
+            n as c_int,
+            eps,
+            closed as c_int,
+            out.as_mut_ptr(),
+        )
+    } as usize;
+    (0..count).map(|i| (out[2 * i], out[2 * i + 1])).collect()
+}
+
 /// Mask (255/0) of every border pixel found by OpenCV `findContours`
 /// (`RETR_LIST`, `CHAIN_APPROX_NONE`) on a binary image. Exposed for
 /// cross-checking the pure-Rust Suzuki-Abe tracer.
