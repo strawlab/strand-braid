@@ -66,7 +66,6 @@ impl FloatImage {
     }
 }
 
-#[cfg(feature = "opencv")]
 fn to_camcal(board: &Checkerboard) -> camcal::CheckerBoardData {
     let corners: Vec<(f64, f64)> = board.corners.clone();
     camcal::CheckerBoardData::new(board.n_rows, board.n_cols, &corners)
@@ -131,7 +130,6 @@ pub fn parse_pinhole_yaml<R: std::io::Read, P: AsRef<Path>>(
     Ok(result)
 }
 
-#[cfg(feature = "opencv")]
 pub fn intrinsics_from_checkerboards(
     checkerboards: &[Checkerboard],
     width: usize,

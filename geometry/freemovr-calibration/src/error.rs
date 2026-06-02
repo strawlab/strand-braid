@@ -28,11 +28,10 @@ pub enum Error {
         #[from]
         source: serde_json::Error,
     },
-    #[cfg(feature = "opencv")]
     #[error("{source}")]
-    OpenCvCalibrate {
+    Calibration {
         #[from]
-        source: opencv_calibrate::Error,
+        source: camcal::Error,
     },
     #[error("{source}")]
     ImageError {
