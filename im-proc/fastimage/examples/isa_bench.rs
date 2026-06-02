@@ -4,7 +4,7 @@
 //! unset for the CPU's best (AVX-512 here). The op sequence mirrors the
 //! flydra-feature-detector hot path (DetectAbsDiff + use_cmp, mask skipped).
 
-use fastimage::{CompareOp, FastImage, FastImageData, FastImageSize, MomentState, ripp};
+use fastimage::{CompareOp, FastImageData, FastImageSize, MomentState, ripp};
 
 fn name_of(version: *const ipp_sys::IppLibraryVersion) -> String {
     let inner = unsafe { *version };
