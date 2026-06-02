@@ -113,8 +113,8 @@
  - braid-mvg (geometry/braid-mvg) - Braid's camera geometry and multi-view geometry (MVG) types and algorithms.
  - braidz-mcsc (geometry/braidz-mcsc) - multi-camera self-calibration from .braidz tracking data
  - bundle-adj (geometry/bundle-adj) - bundle adjustment for multi-camera calibration
+ - calib3d-rs (geometry/calib3d-rs) - Pure-Rust reimplementations of the OpenCV calibration routines used by strand-braid
  - camcal (geometry/camcal) - camera calibration utilities using checkerboard patterns
- - find-chessboard (geometry/opencv-calibrate/find-chessboard) - find chessboard corners in an input image
  - flydra-mvg (geometry/flydra-mvg) - Flydra-compatible multi-view geometry with refraction support
  - flytrax-apriltags-calibration (geometry/braid-april-cal/flytrax-apriltags-calibration) - CLI tool for FlyTrax camera calibration using AprilTags
  - freemovr-calibration (geometry/freemovr-calibration) - create calibration for FreeMoVR system
@@ -125,7 +125,6 @@
  - mcsc-structs (geometry/mcsc-structs) - data structures and file I/O for the MultiCamSelfCal calibration tool
  - mvg-util (geometry/braid-mvg/mvg-util) - CLI utilities for inspecting and converting camera calibration files
  - ncollide-geom (geometry/freemovr-calibration/ncollide-geom) - create mask from points using ncollide2d
- - opencv-calibrate (geometry/opencv-calibrate) - Rust bindings to OpenCV camera calibration routines
  - parry-geom (geometry/parry-geom) - create collision masks from point sets using the Parry geometry library
  - refraction (geometry/refraction) - compute light refraction at planar interfaces using Snell's law
  - simple-obj-parse (geometry/simple-obj-parse) - parse Wavefront OBJ 3D model files into triangle meshes
