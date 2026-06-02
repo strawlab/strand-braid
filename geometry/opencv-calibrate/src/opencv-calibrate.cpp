@@ -142,6 +142,22 @@ extern "C"
         return result;
     }
 
+    // Test-only helpers exposing the binarization primitives used by
+    // findChessboardCorners, so a pure-Rust port can be cross-checked.
+    void equalize_hist(const uchar *src, int width, int height, uchar *dst)
+    {
+        cv::Mat s(height, width, CV_8UC1, (void *)src);
+        cv::Mat d(height, width, CV_8UC1, (void *)dst);
+        cv::equalizeHist(s, d);
+    }
+
+    void adaptive_threshold_mean(const uchar *src, int width, int height, int block_size, double c, uchar *dst)
+    {
+        cv::Mat s(height, width, CV_8UC1, (void *)src);
+        cv::Mat d(height, width, CV_8UC1, (void *)dst);
+        cv::adaptiveThreshold(s, d, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, block_size, c);
+    }
+
     std::vector<cv::Point2f> *vec_point2f_new()
     {
         return new std::vector<cv::Point2f>;

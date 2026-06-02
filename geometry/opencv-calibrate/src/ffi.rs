@@ -46,6 +46,22 @@ unsafe extern "C" {
         result: *mut c_void,
     ) -> cv_return_value_bool;
 
+    pub(crate) fn equalize_hist(
+        src: *const c_uchar,
+        width: c_int,
+        height: c_int,
+        dst: *mut c_uchar,
+    );
+
+    pub(crate) fn adaptive_threshold_mean(
+        src: *const c_uchar,
+        width: c_int,
+        height: c_int,
+        block_size: c_int,
+        c: c_double,
+        dst: *mut c_uchar,
+    );
+
     pub(crate) fn vec_point2f_new() -> *mut c_void;
     pub(crate) fn vec_point2f_delete(result: *mut c_void);
     pub(crate) fn vec_point2f_slice(result: *mut c_void) -> cv_return_value_slice;

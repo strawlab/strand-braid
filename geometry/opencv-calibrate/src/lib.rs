@@ -1,6 +1,6 @@
 mod ffi;
 
-use std::os::raw::{c_int, c_void};
+use std::os::raw::{c_int, c_uchar, c_void};
 
 #[derive(Debug)]
 pub enum Error {
@@ -307,6 +307,46 @@ fn find_chessboard_corners_inner(
 pub struct Extrinsics {
     pub rvec: [f64; 3],
     pub tvec: [f64; 3],
+}
+
+/// OpenCV `equalizeHist` on an 8-bit single-channel image, exposed for
+/// cross-checking the pure-Rust port.
+pub fn equalize_hist(src: &[u8], width: u32, height: u32) -> Vec<u8> {
+    assert_eq!(src.len(), (width * height) as usize);
+    let mut dst = vec![0u8; src.len()];
+    unsafe {
+        ffi::equalize_hist(
+            src.as_ptr(),
+            width as c_int,
+            height as c_int,
+            dst.as_mut_ptr(),
+        );
+    }
+    dst
+}
+
+/// OpenCV `adaptiveThreshold(ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY)` on an
+/// 8-bit single-channel image, exposed for cross-checking the pure-Rust port.
+pub fn adaptive_threshold_mean(
+    src: &[u8],
+    width: u32,
+    height: u32,
+    block_size: i32,
+    c: f64,
+) -> Vec<u8> {
+    assert_eq!(src.len(), (width * height) as usize);
+    let mut dst = vec![0u8; src.len()];
+    unsafe {
+        ffi::adaptive_threshold_mean(
+            src.as_ptr(),
+            width as c_int,
+            height as c_int,
+            block_size as c_int,
+            c,
+            dst.as_mut_ptr() as *mut c_uchar,
+        );
+    }
+    dst
 }
 
 #[test]
