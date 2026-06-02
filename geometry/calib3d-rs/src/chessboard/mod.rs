@@ -10,10 +10,11 @@
 //!      contour finding ([`find_contours`], Suzuki-Abe), polygon approximation
 //!      ([`approx_poly_dp`], Douglas-Peucker), and the convex-4-gon area filter
 //!      ([`find_quads`], with [`contour_area`] / [`is_contour_convex`]),
-//!   3. linking quads into a board graph and ordering corners: neighbor
-//!      linking ([`link_quads`]) + connected components ([`connected_components`])
-//!      **done** (synthetic tests); ordering the connected group into a grid —
-//!      todo,
+//!   3. linking quads into a board graph and ordering corners — **done**
+//!      (synthetic tests): neighbor linking ([`link_quads`]), connected
+//!      components ([`connected_components`]), consistent corner ordering
+//!      ([`order_all_corners`]), board-lattice propagation ([`assign_grid`]),
+//!      and row-major inner-corner readout ([`ordered_inner_corners`]),
 //!   4. board validation (size, monotonicity) and corner extraction — todo.
 //!
 //! Note: stages 1-2 provide the primitives; assembling the full multi-threshold,
