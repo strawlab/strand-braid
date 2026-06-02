@@ -11,3 +11,8 @@ description = "Rust bindings to OpenCV camera calibration routines"
 [build-dependencies]
 pkg-config = "0.3.26"
 cc = "1.1.12"
+
+[dev-dependencies]
+approx.workspace = true
+image.workspace = true
+serde_json.workspace = true
