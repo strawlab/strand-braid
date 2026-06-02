@@ -1,6 +1,12 @@
 use nalgebra::RealField;
 use serde::{Deserialize, Serialize};
 
+mod backend;
+
+pub use backend::{
+    CalibrationResult, CorrespondingPoint, Error, calibrate_camera, find_chessboard_corners,
+};
+
 type Coords3D = (f64, f64, f64);
 type Coords2D = (f64, f64);
 
@@ -42,7 +48,7 @@ pub fn save_yaml<P: AsRef<std::path::Path>>(
     cam_info_file_stamped: P,
     pkg_name: &str,
     local: chrono::DateTime<chrono::Local>,
-    raw_opencv_cal: &opencv_calibrate::CalibrationResult,
+    raw_opencv_cal: &CalibrationResult,
     raw_cam_name: &str,
 ) -> eyre::Result<()> {
     let intrinsics = convert_to_cam_geom::<f64>(raw_opencv_cal);
@@ -74,7 +80,7 @@ pub fn save_yaml<P: AsRef<std::path::Path>>(
 pub fn compute_intrinsics_with_raw_opencv<R: RealField>(
     size: PixelSize,
     data: &[CheckerBoardData],
-) -> Result<opencv_calibrate::CalibrationResult, opencv_calibrate::Error> {
+) -> Result<CalibrationResult, Error> {
     /*
     cal = camera_calibration.calibrator.MonoCalibrator([])
     cal.size = (width,height)
@@ -87,7 +93,6 @@ pub fn compute_intrinsics_with_raw_opencv<R: RealField>(
 
     debug_assert!(object_points.len() == image_points.len());
 
-    use opencv_calibrate::CorrespondingPoint;
     let pts: Vec<Vec<CorrespondingPoint>> = object_points
         .into_iter()
         .zip(image_points)
@@ -103,11 +108,11 @@ pub fn compute_intrinsics_with_raw_opencv<R: RealField>(
         })
         .collect();
 
-    opencv_calibrate::calibrate_camera(&pts, size.width as i32, size.height as i32)
+    calibrate_camera(&pts, size.width as i32, size.height as i32)
 }
 
 pub fn convert_to_cam_geom<R: RealField>(
-    opencv_results: &opencv_calibrate::CalibrationResult,
+    opencv_results: &CalibrationResult,
 ) -> opencv_ros_camera::RosOpenCvIntrinsics<R> {
     let fx = nalgebra::convert(opencv_results.camera_matrix[0]);
     let skew = nalgebra::convert(opencv_results.camera_matrix[1]);
@@ -135,7 +140,7 @@ pub fn convert_to_cam_geom<R: RealField>(
 pub fn compute_intrinsics<R: RealField>(
     size: PixelSize,
     data: &[CheckerBoardData],
-) -> Result<opencv_ros_camera::RosOpenCvIntrinsics<R>, opencv_calibrate::Error> {
+) -> Result<opencv_ros_camera::RosOpenCvIntrinsics<R>, Error> {
     let opencv_results = compute_intrinsics_with_raw_opencv::<R>(size, data)?;
     Ok(convert_to_cam_geom(&opencv_results))
 }
