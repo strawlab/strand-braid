@@ -3,7 +3,7 @@ Encoding=UTF-8
 Version=0.1.0
 Type=Application
 Categories=Application
-Exec=env PYLON_CABI=/usr/lib/strand-braid/libpylon-cabi.so /usr/bin/strand-cam-flydratrax-pylon --led-box /dev/ttyACM0
+Exec=/usr/bin/strand-cam-flydratrax-pylon --led-box /dev/ttyACM0
 Name=Strand Camera (flydratrax, pylon)
 Terminal=false
 GenericName=Live camera-based tracking

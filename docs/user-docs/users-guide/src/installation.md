@@ -33,10 +33,10 @@ rebuilding** Strand Camera or Braid — you only swap the shim and the matching
 Pylon runtime.
 
 The `.deb` package bundles a default shim built against Pylon
-`7.3.0.27189`. It is installed under `/usr/lib/strand-braid/`, and the package
-sets the `PYLON_CABI` environment variable (via `/etc/profile.d/`) so the
-programs find it automatically. For most users this is all you need, and you can
-skip this section.
+`7.3.0.27189`. The versioned shim is installed under `/usr/lib/strand-braid/`,
+with a `libpylon-cabi.so` symlink in `/usr/lib` so the dynamic loader finds it
+automatically — no environment variable or other configuration is needed. For
+most users this is all you need, and you can skip the rest of this section.
 
 ### Using a different Pylon version
 
@@ -63,10 +63,10 @@ To run against a different Pylon version, you need two matching pieces:
 > specific shim ABI generation (currently `v1`). Use a shim with the matching
 > ABI generation; a mismatch is reported with a clear error at startup.
 
-Once you have downloaded the shim, point `PYLON_CABI` at it. Because the bundled
-default is only applied when `PYLON_CABI` is unset, your value always takes
-precedence. The most direct way is to set it on the command line for a single
-run:
+Once you have downloaded the shim, point `PYLON_CABI` at it. `pylon-shimload`
+checks `PYLON_CABI` before falling back to the bundled shim, so your value
+always takes precedence. The most direct way is to set it on the command line
+for a single run:
 
 ```ignore
 PYLON_CABI=/path/to/libpylon-cabi-v1-linux-x86_64-pylon_<VERSION>.so strand-cam-pylon
@@ -79,10 +79,9 @@ file (for example `~/.bashrc`):
 export PYLON_CABI=/path/to/libpylon-cabi-v1-linux-x86_64-pylon_<VERSION>.so
 ```
 
-This overrides the package default in interactive shells. If you launch the
-software in an environment that does not read your shell startup files (for
-example a `systemd` service, a `cron` job, or `sudo` without `-E`), set
-`PYLON_CABI` explicitly in that environment too.
+`PYLON_CABI` is read from the process environment, so make sure it is set
+wherever the software is launched — including non-interactive contexts such as a
+`systemd` service, a `cron` job, or `sudo` without `-E`.
 
 ## Hardware installation
 
