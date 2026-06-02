@@ -1,0 +1,12 @@
+[package]
+name = "calib3d-rs"
+license = "MIT/Apache-2.0"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2024"
+description = "Pure-Rust reimplementations of the OpenCV calibration routines used by strand-braid"
+
+[dependencies]
+
+[dev-dependencies]
+approx.workspace = true
