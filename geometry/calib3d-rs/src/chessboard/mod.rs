@@ -18,10 +18,11 @@
 //!   4. board validation (size, monotonicity) and corner extraction — **done**
 //!      (synthetic tests): [`check_board_monotony`] and [`extract_board`].
 //!
-//! All four stages' primitives are implemented. Still to do: assemble the full
-//! multi-threshold, dilation, and hierarchy-driven `generateQuads` orchestration
-//! and a public end-to-end `find_chessboard_corners` entry point, then match
-//! OpenCV's emitted corner order and validate against the detection golden.
+//! The stages are wired together in [`find_chessboard_corners`], which on the
+//! OpenCV `left*.jpg` samples recovers OpenCV's corner positions to <=0.066px
+//! on 12 of 13 frames (validated in the `opencv-calibrate` crate). Remaining:
+//! board augmentation for incomplete boards (`left02`), and — only if exact
+//! OpenCV output order is required — pose-dependent corner-order canonicalization.
 //!
 //! The detector flags requested by the strand-braid C++ wrapper are
 //! `CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_NORMALIZE_IMAGE | CALIB_CB_FAST_CHECK`.
