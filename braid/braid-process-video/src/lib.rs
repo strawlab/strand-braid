@@ -981,6 +981,9 @@ fn gather_frame_data<'a>(
                                 im_pt_cfg,
                                 None,
                                 None,
+                                // Offline processing: use synchronous background
+                                // updates so results are reproducible run-to-run.
+                                flydra_feature_detector::BackgroundUpdateMode::Synchronous,
                             )
                             .unwrap()
                         });

@@ -1,4 +1,4 @@
-use flydra_feature_detector::{FlydraFeatureDetector, TimingInfo, UfmfState};
+use flydra_feature_detector::{BackgroundUpdateMode, FlydraFeatureDetector, TimingInfo, UfmfState};
 
 const FNAME: &str = "movie20190115_221756.fmf";
 const URL_BASE: &str = "https://strawlab-cdn.com/assets";
@@ -25,6 +25,7 @@ async fn track_fmf() -> eyre::Result<()> {
         cfg,
         None,
         None,
+        BackgroundUpdateMode::Synchronous,
     )?;
 
     // Buffer all frames first to exclude IO from timing of processing.
@@ -52,6 +53,76 @@ async fn track_fmf() -> eyre::Result<()> {
         dur.as_secs_f32(),
         fps,
         n_pts
+    );
+
+    Ok(())
+}
+
+/// Per-frame detected points, used to compare two runs for bit-identical output.
+type FrameResults = Vec<Vec<(f64, f64, f64)>>;
+
+/// With [BackgroundUpdateMode::Synchronous], processing identical input must
+/// produce bit-identical output on every run. (With the asynchronous worker
+/// thread, the frame at which a background-model update lands depends on thread
+/// scheduling, so threshold-edge detections flip and the total point count
+/// varies run-to-run.) Enough frames are processed to trigger several
+/// background-model updates (`bg_update_interval` defaults to 200).
+#[tokio::test]
+async fn deterministic_across_runs() -> eyre::Result<()> {
+    let _ = env_logger::builder().is_test(true).try_init();
+
+    let local_fname = format!("scratch/{}", FNAME);
+    download_verify::download_verify(
+        format!("{}/{}", URL_BASE, FNAME).as_str(),
+        &local_fname,
+        &download_verify::Hash::Sha256(SHA256SUM.into()),
+    )?;
+
+    let reader = fmf::FMFReader::new(&local_fname)?;
+    let width = reader.width();
+    let height = reader.height();
+    let buffered_frames: Vec<_> = Result::from_iter(reader)?;
+
+    // 3 cycles over 120 frames = 360 frames, enough to fire background updates.
+    const N_CYCLES: usize = 3;
+
+    let run_once = || -> eyre::Result<FrameResults> {
+        let cfg = flydra_pt_detect_cfg::default_absdiff();
+        let mut ft = FlydraFeatureDetector::new(
+            &braid_types::RawCamName::new("fmf".to_string()),
+            width,
+            height,
+            cfg,
+            None,
+            None,
+            BackgroundUpdateMode::Synchronous,
+        )?;
+        let mut per_frame = FrameResults::new();
+        for _ in 0..N_CYCLES {
+            for (fno, (frame, timestamp)) in buffered_frames.iter().enumerate() {
+                let found = ft.process_new_frame(
+                    &frame.borrow(),
+                    UfmfState::Stopped,
+                    TimingInfo::minimal(fno, *timestamp),
+                )?;
+                per_frame.push(
+                    found
+                        .0
+                        .points
+                        .iter()
+                        .map(|p| (p.x0_abs, p.y0_abs, p.area))
+                        .collect(),
+                );
+            }
+        }
+        Ok(per_frame)
+    };
+
+    let run_a = run_once()?;
+    let run_b = run_once()?;
+    assert_eq!(
+        run_a, run_b,
+        "synchronous background updates must yield identical output run-to-run"
     );
 
     Ok(())

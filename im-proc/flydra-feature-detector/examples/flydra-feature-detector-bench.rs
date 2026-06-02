@@ -1,6 +1,6 @@
 use eyre::Result;
 
-use flydra_feature_detector::{FlydraFeatureDetector, TimingInfo, UfmfState};
+use flydra_feature_detector::{BackgroundUpdateMode, FlydraFeatureDetector, TimingInfo, UfmfState};
 
 const FNAME: &str = "movie20190115_221756.fmf";
 const URL_BASE: &str = "https://strawlab-cdn.com/assets";
@@ -27,6 +27,7 @@ async fn main() -> eyre::Result<()> {
         cfg,
         None,
         None,
+        BackgroundUpdateMode::Synchronous,
     )?;
 
     // Buffer all frames first to exclude IO from timing of processing.

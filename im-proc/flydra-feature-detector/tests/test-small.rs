@@ -1,5 +1,5 @@
 use chrono::DateTime;
-use flydra_feature_detector::{FlydraFeatureDetector, TimingInfo, UfmfState};
+use flydra_feature_detector::{BackgroundUpdateMode, FlydraFeatureDetector, TimingInfo, UfmfState};
 use strand_dynamic_frame::DynamicFrame;
 
 fn init() {
@@ -26,6 +26,7 @@ async fn track_small() -> eyre::Result<()> {
         cfg,
         None,
         None,
+        BackgroundUpdateMode::Synchronous,
     )?;
 
     let buf = vec![0; stride * H as usize];
@@ -59,6 +60,7 @@ async fn track_moving_stride() -> eyre::Result<()> {
         cfg,
         None,
         None,
+        BackgroundUpdateMode::Synchronous,
     )?;
 
     for fno in 0..100 {

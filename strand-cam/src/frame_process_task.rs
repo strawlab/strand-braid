@@ -161,6 +161,9 @@ pub(crate) async fn frame_process_task<'a>(
         im_pt_detect_cfg.clone(),
         transmit_feature_detect_settings_tx,
         acquisition_duration_allowed_imprecision_msec,
+        // Live capture: update the background model on a worker thread to keep
+        // per-frame latency low.
+        flydra_feature_detector::BackgroundUpdateMode::Asynchronous,
     )?;
     #[cfg(feature = "flydra_feat_detect")]
     let mut csv_save_state = SavingState::NotSaving;

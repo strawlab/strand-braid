@@ -120,6 +120,7 @@ impl TrackingState {
         cfg: &ImPtDetectCfg,
         pixel_format: formats::PixFmt,
         complete_stamp: chrono::DateTime<chrono::Utc>,
+        bg_update_mode: BackgroundUpdateMode,
     ) -> Result<Self>
     where
         S: FastImage<D = u8>,
@@ -133,6 +134,7 @@ impl TrackingState {
             cfg,
             pixel_format,
             complete_stamp,
+            bg_update_mode,
         )?;
 
         Ok(Self {
@@ -408,6 +410,21 @@ fn save_bg_data(
     Ok(())
 }
 
+/// Controls how the background model is updated relative to frame processing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BackgroundUpdateMode {
+    /// Update the background model on a dedicated worker thread, applying the
+    /// result whenever it becomes ready. Because the frame at which the updated
+    /// model lands depends on thread scheduling, results are *not* reproducible
+    /// run-to-run. Intended for live capture, where keeping per-frame latency
+    /// low matters more than determinism.
+    Asynchronous,
+    /// Update the background model synchronously, applying it at a fixed frame
+    /// boundary. Results are bit-reproducible for identical input. Intended for
+    /// offline processing of recorded data.
+    Synchronous,
+}
+
 /// Implementation of low-latency feature detector.
 ///
 /// Maintains compatibility with old flydra camera node.
@@ -419,6 +436,7 @@ pub struct FlydraFeatureDetector {
     roi_sz: FastImageSize,
     mask_image: Option<FastImageData<u8>>,
     background_update_state: BackgroundAcquisitionState, // command from UI "take a new bg image"
+    bg_update_mode: BackgroundUpdateMode,
     acquisition_histogram: AcquisitionHistogram,
     acquisition_duration_allowed_imprecision_msec: Option<f64>,
 
@@ -567,6 +585,7 @@ impl FlydraFeatureDetector {
             mpsc::Sender<flydra_feature_detector_types::ImPtDetectCfg>,
         >,
         acquisition_duration_allowed_imprecision_msec: Option<f64>,
+        bg_update_mode: BackgroundUpdateMode,
     ) -> Result<Self> {
         let acquisition_histogram =
             AcquisitionHistogram::new(raw_cam_name, acquisition_duration_allowed_imprecision_msec);
@@ -577,6 +596,7 @@ impl FlydraFeatureDetector {
             roi_sz: FastImageSize::new(w as ipp_ctypes::c_int, h as ipp_ctypes::c_int),
             mask_image: None,
             background_update_state: BackgroundAcquisitionState::Initialization,
+            bg_update_mode,
             acquisition_histogram,
             acquisition_duration_allowed_imprecision_msec,
             transmit_feature_detect_settings_tx,
@@ -775,6 +795,7 @@ impl FlydraFeatureDetector {
                         &self.cfg,
                         pixel_format,
                         complete_stamp,
+                        self.bg_update_mode,
                     )?);
                     (packet, BackgroundAcquisitionState::NormalUpdates(state))
                 } else {
@@ -800,6 +821,7 @@ impl FlydraFeatureDetector {
                     &self.cfg,
                     pixel_format,
                     complete_stamp,
+                    self.bg_update_mode,
                 )?);
                 debug!("cleared background model to value {}", value);
                 (packet, BackgroundAcquisitionState::NormalUpdates(state))
