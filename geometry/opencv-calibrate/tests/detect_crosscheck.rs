@@ -1,6 +1,6 @@
 //! End-to-end check of the pure-Rust chessboard detector against the golden.
 //!
-//! Runs `calib3d_rs::chessboard::find_chessboard_corners` on the sample frames,
+//! Runs `checkerboard_calibrate::chessboard::find_chessboard_corners` on the sample frames,
 //! applies the pure-Rust cornerSubPix, and compares to the OpenCV detection
 //! golden (which is OpenCV detect + cornerSubPix). cornerSubPix converges to the
 //! true saddle, so matching does not require identical raw corners — only the
@@ -8,8 +8,8 @@
 
 use std::path::PathBuf;
 
-use calib3d_rs::chessboard;
-use calib3d_rs::{CornerSubPixParams, GrayImageRef, corner_subpix};
+use checkerboard_calibrate::chessboard;
+use checkerboard_calibrate::{CornerSubPixParams, GrayImageRef, corner_subpix};
 use image::GenericImageView;
 
 const COLS: usize = 9;

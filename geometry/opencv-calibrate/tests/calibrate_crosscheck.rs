@@ -1,4 +1,4 @@
-//! Cross-check the pure-Rust `calib3d_rs::calibrate::calibrate_camera` against
+//! Cross-check the pure-Rust `checkerboard_calibrate::calibrate::calibrate_camera` against
 //! OpenCV's calibration golden.
 //!
 //! Both calibrations consume the identical OpenCV-detected corners from the
@@ -8,7 +8,7 @@
 
 use std::path::{Path, PathBuf};
 
-use calib3d_rs::calibrate::{CorrespondingPoint, calibrate_camera};
+use checkerboard_calibrate::calibrate::{CorrespondingPoint, calibrate_camera};
 use image::GenericImageView;
 
 const FRAMES: &[&str] = &[

@@ -21,7 +21,7 @@ fn main() -> anyhow::Result<()> {
     let rgb = img.to_rgb8().into_raw();
 
     let start = std::time::Instant::now();
-    let corners = calib3d_rs::chessboard::find_chessboard_corners(
+    let corners = checkerboard_calibrate::chessboard::find_chessboard_corners(
         &rgb,
         w.try_into().unwrap(),
         h.try_into().unwrap(),

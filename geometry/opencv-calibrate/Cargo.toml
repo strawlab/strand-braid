@@ -25,4 +25,4 @@ image = { version = "0.25.6", default-features = false, features = [
 ] }
 serde_json = "1.0.142"
 
-calib3d-rs = { path = "../calib3d-rs" }
+checkerboard-calibrate = { path = "../checkerboard-calibrate" }

@@ -1,6 +1,6 @@
 //! Backend facade for chessboard detection and camera calibration.
 //!
-//! By default these route to the pure-Rust [`calib3d_rs`] implementation. With
+//! By default these route to the pure-Rust [`checkerboard_calibrate`] implementation. With
 //! the `opencv` feature enabled they route to the OpenCV C++ implementation in
 //! `opencv-calibrate` instead. The two backends are validated against each
 //! other in the `opencv-calibrate` crate's cross-check tests and `compare`
@@ -76,12 +76,17 @@ pub fn find_chessboard_corners(
     pattern_width: usize,
     pattern_height: usize,
 ) -> Result<Option<Vec<(f32, f32)>>, Error> {
-    use calib3d_rs::{CornerSubPixParams, GrayImageRef, corner_subpix};
+    use checkerboard_calibrate::{CornerSubPixParams, GrayImageRef, corner_subpix};
 
     let gray = rgb_to_gray(rgb, width, height);
     let (w, h) = (width as usize, height as usize);
-    let corners =
-        calib3d_rs::chessboard::find_chessboard_corners(&gray, w, h, pattern_width, pattern_height);
+    let corners = checkerboard_calibrate::chessboard::find_chessboard_corners(
+        &gray,
+        w,
+        h,
+        pattern_width,
+        pattern_height,
+    );
     // Match the OpenCV wrapper, which sub-pixel refines before returning.
     Ok(corners.map(|raw| {
         corner_subpix(
@@ -98,11 +103,11 @@ pub fn calibrate_camera(
     width: i32,
     height: i32,
 ) -> Result<CalibrationResult, Error> {
-    let views: Vec<Vec<calib3d_rs::calibrate::CorrespondingPoint>> = all_pts
+    let views: Vec<Vec<checkerboard_calibrate::calibrate::CorrespondingPoint>> = all_pts
         .iter()
         .map(|view| {
             view.iter()
-                .map(|cp| calib3d_rs::calibrate::CorrespondingPoint {
+                .map(|cp| checkerboard_calibrate::calibrate::CorrespondingPoint {
                     object_point: cp.object_point,
                     image_point: cp.image_point,
                 })
@@ -110,8 +115,9 @@ pub fn calibrate_camera(
         })
         .collect();
 
-    let res = calib3d_rs::calibrate::calibrate_camera(&views, width as u32, height as u32)
-        .map_err(|e| Error::Calibration(e.to_string()))?;
+    let res =
+        checkerboard_calibrate::calibrate::calibrate_camera(&views, width as u32, height as u32)
+            .map_err(|e| Error::Calibration(e.to_string()))?;
 
     Ok(CalibrationResult {
         mean_reprojection_distance_pixels: res.rms_reprojection_error,

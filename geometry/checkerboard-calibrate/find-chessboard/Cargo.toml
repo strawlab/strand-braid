@@ -7,7 +7,7 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
 
 [dependencies]
-calib3d-rs.workspace = true
+checkerboard-calibrate.workspace = true
 image =  {workspace = true, features = [
     "bmp",
     "jpeg",

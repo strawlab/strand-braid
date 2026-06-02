@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use calib3d_rs::chessboard;
+use checkerboard_calibrate::chessboard;
 use image::GenericImageView;
 
 const FRAMES: &[&str] = &["left01.jpg", "left07.jpg", "left14.jpg"];

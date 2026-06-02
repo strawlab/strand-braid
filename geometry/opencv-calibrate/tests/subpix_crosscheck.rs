@@ -1,4 +1,4 @@
-//! Cross-check the pure-Rust `calib3d_rs::corner_subpix` against OpenCV.
+//! Cross-check the pure-Rust `checkerboard_calibrate::corner_subpix` against OpenCV.
 //!
 //! For each sample image we take OpenCV's *pre-refinement* corners (via
 //! [`opencv_calibrate::find_chessboard_corners_no_refine`]), run the pure-Rust
@@ -13,7 +13,7 @@
 
 use std::path::{Path, PathBuf};
 
-use calib3d_rs::{CornerSubPixParams, GrayImageRef, corner_subpix};
+use checkerboard_calibrate::{CornerSubPixParams, GrayImageRef, corner_subpix};
 use image::GenericImageView;
 
 /// Tolerance vs OpenCV. The two implementations follow the same algorithm, so

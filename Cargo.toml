@@ -49,8 +49,8 @@ members = [
     "geometry/bundle-adj",
     "geometry/camcal",
     "geometry/flydra-mvg",
-    "geometry/calib3d-rs",
-    "geometry/calib3d-rs/find-chessboard",
+    "geometry/checkerboard-calibrate",
+    "geometry/checkerboard-calibrate/find-chessboard",
     "geometry/mcsc-native",
     "geometry/mcsc-native/gocal",
     "geometry/mcsc-structs",
@@ -310,7 +310,7 @@ braidz-types = { path = "braidz/braidz-types" }
 braidz-writer = { path = "braid/braidz-writer" }
 build-util = { path = "utils/build-util" }
 bundle-adj = { path = "geometry/bundle-adj" }
-calib3d-rs = { path = "geometry/calib3d-rs" }
+checkerboard-calibrate = { path = "geometry/checkerboard-calibrate" }
 camcal = { path = "geometry/camcal" }
 ci2 = { path = "camera/ci2" }
 ci2-async = { path = "camera/ci2-async" }

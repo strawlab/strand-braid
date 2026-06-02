@@ -1,4 +1,4 @@
-//! Side-by-side comparison of the OpenCV C++ and pure-Rust (`calib3d-rs`)
+//! Side-by-side comparison of the OpenCV C++ and pure-Rust (`checkerboard-calibrate`)
 //! chessboard-calibration pipelines, end to end.
 //!
 //! For each image it runs chessboard detection both ways (OpenCV
@@ -22,8 +22,8 @@
 
 use std::path::PathBuf;
 
-use calib3d_rs::chessboard;
-use calib3d_rs::{CornerSubPixParams, GrayImageRef, corner_subpix};
+use checkerboard_calibrate::chessboard;
+use checkerboard_calibrate::{CornerSubPixParams, GrayImageRef, corner_subpix};
 use image::GenericImageView;
 
 /// Default sample frames (OpenCV `left*.jpg`), all 9x6 inner corners.
@@ -148,7 +148,7 @@ fn main() {
     // Calibration comparison on the OpenCV-detected corners (consistent order),
     // run through both calibrators.
     let mut cv_views: Vec<Vec<opencv_calibrate::CorrespondingPoint>> = Vec::new();
-    let mut rs_views: Vec<Vec<calib3d_rs::calibrate::CorrespondingPoint>> = Vec::new();
+    let mut rs_views: Vec<Vec<checkerboard_calibrate::calibrate::CorrespondingPoint>> = Vec::new();
     let (mut w, mut h) = (0u32, 0u32);
     for (det, c, r) in &detections {
         let Some(corners) = &det.opencv else { continue };
@@ -172,7 +172,7 @@ fn main() {
             corners
                 .iter()
                 .zip(&obj)
-                .map(|(&(x, y), &o)| calib3d_rs::calibrate::CorrespondingPoint {
+                .map(|(&(x, y), &o)| checkerboard_calibrate::calibrate::CorrespondingPoint {
                     object_point: o,
                     image_point: (x as f64, y as f64),
                 })
@@ -187,7 +187,7 @@ fn main() {
 
     let cv = opencv_calibrate::calibrate_camera(&cv_views, w as i32, h as i32)
         .expect("opencv calibrate");
-    let rs = calib3d_rs::calibrate::calibrate_camera(&rs_views, w, h).expect("rust calibrate");
+    let rs = checkerboard_calibrate::calibrate::calibrate_camera(&rs_views, w, h).expect("rust calibrate");
 
     println!(
         "\n== camera calibration on {} shared views ==",
