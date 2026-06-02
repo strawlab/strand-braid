@@ -107,16 +107,12 @@ pub fn assign_grid(quads: &[LinkedQuad], component: &[usize]) -> HashMap<usize, 
     coords
 }
 
-/// Inner board corners with their lattice coordinates (unordered).
-///
-/// Inner corners are the lattice points referenced by two or more quads (the
-/// interior points where black squares meet); outer-boundary corners, touched
-/// by a single quad, are excluded. Linked corners are already snapped to a
-/// shared position, so all references to a lattice point coincide.
-pub fn inner_corner_lattice(
+/// Every lattice point referenced by at least one quad corner, mapped to its
+/// averaged position and the number of referencing quad corners.
+pub fn corner_lattice(
     quads: &[LinkedQuad],
     coords: &HashMap<usize, QuadGrid>,
-) -> Vec<((i32, i32), (f32, f32))> {
+) -> HashMap<(i32, i32), ((f32, f32), usize)> {
     // lattice point -> (summed position, count)
     let mut acc: HashMap<(i32, i32), ((f64, f64), usize)> = HashMap::new();
     for (&qi, grid) in coords {
@@ -129,11 +125,27 @@ pub fn inner_corner_lattice(
     }
 
     acc.into_iter()
-        .filter(|(_, (_, count))| *count >= 2)
         .map(|(lattice, ((sx, sy), count))| {
             let n = count as f64;
-            (lattice, ((sx / n) as f32, (sy / n) as f32))
+            (lattice, (((sx / n) as f32, (sy / n) as f32), count))
         })
+        .collect()
+}
+
+/// Inner board corners with their lattice coordinates (unordered).
+///
+/// Inner corners are the lattice points referenced by two or more quads (the
+/// interior points where black squares meet); outer-boundary corners, touched
+/// by a single quad, are excluded. Linked corners are already snapped to a
+/// shared position, so all references to a lattice point coincide.
+pub fn inner_corner_lattice(
+    quads: &[LinkedQuad],
+    coords: &HashMap<usize, QuadGrid>,
+) -> Vec<((i32, i32), (f32, f32))> {
+    corner_lattice(quads, coords)
+        .into_iter()
+        .filter(|(_, (_, count))| *count >= 2)
+        .map(|(lattice, (pos, _))| (lattice, pos))
         .collect()
 }
 

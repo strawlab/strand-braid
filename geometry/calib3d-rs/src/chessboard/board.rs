@@ -13,8 +13,12 @@
 
 use std::collections::HashMap;
 
+use nalgebra::Vector3;
+
+use crate::calibrate::find_homography;
+
 use super::link::LinkedQuad;
-use super::order::{QuadGrid, inner_corner_lattice};
+use super::order::{QuadGrid, corner_lattice, inner_corner_lattice};
 
 /// Port of OpenCV `icvCheckBoardMonotony`.
 ///
@@ -63,42 +67,78 @@ pub fn check_board_monotony(corners: &[(f32, f32)], w: usize, h: usize) -> bool 
 /// Validate and extract a `pattern_w x pattern_h` board from a lattice-assigned
 /// connected component.
 ///
-/// Succeeds only when the inner corners form a fully-populated
-/// `pattern_w x pattern_h` rectangle in lattice space and pass the monotonicity
-/// check. Returns the corners row-major (lattice row then column).
+/// The reliable inner corners (referenced by >= 2 quads) must span a
+/// `pattern_w x pattern_h` lattice rectangle. Interior corners missing from
+/// that rectangle (because a neighboring square was not detected) are filled
+/// in — analogous to OpenCV's board augmentation: a corner referenced by a
+/// single quad is taken directly, otherwise its position is predicted from a
+/// homography fit to the reliable corners (lattice -> pixel). The caller's
+/// sub-pixel refinement then snaps any predicted corner to the true saddle.
+///
+/// Returns the corners row-major (lattice row then column), after a
+/// monotonicity check.
 pub fn extract_board(
     quads: &[LinkedQuad],
     coords: &HashMap<usize, QuadGrid>,
     pattern_w: usize,
     pattern_h: usize,
 ) -> Option<Vec<(f32, f32)>> {
-    let pts = inner_corner_lattice(quads, coords);
-    if pts.is_empty() {
+    let inner = inner_corner_lattice(quads, coords);
+    if inner.len() < 4 {
         return None;
     }
 
-    let min_x = pts.iter().map(|(l, _)| l.0).min().unwrap();
-    let max_x = pts.iter().map(|(l, _)| l.0).max().unwrap();
-    let min_y = pts.iter().map(|(l, _)| l.1).min().unwrap();
-    let max_y = pts.iter().map(|(l, _)| l.1).max().unwrap();
+    let min_x = inner.iter().map(|(l, _)| l.0).min().unwrap();
+    let max_x = inner.iter().map(|(l, _)| l.0).max().unwrap();
+    let min_y = inner.iter().map(|(l, _)| l.1).min().unwrap();
+    let max_y = inner.iter().map(|(l, _)| l.1).max().unwrap();
     let width = (max_x - min_x + 1) as usize;
     let height = (max_y - min_y + 1) as usize;
 
-    if width != pattern_w || height != pattern_h || pts.len() != pattern_w * pattern_h {
+    if width != pattern_w || height != pattern_h {
         return None;
     }
 
-    // Index by lattice position, origin-shifted.
-    let map: HashMap<(i32, i32), (f32, f32)> = pts
+    // All detected corners (count >= 1), origin-shifted to grid coordinates.
+    let full = corner_lattice(quads, coords);
+    let detected: HashMap<(i32, i32), (f32, f32)> = full
         .iter()
-        .map(|(l, p)| ((l.0 - min_x, l.1 - min_y), *p))
+        .map(|(l, (p, _))| ((l.0 - min_x, l.1 - min_y), *p))
         .collect();
+
+    // Homography from grid coordinates to pixels, fit on the reliable inner
+    // corners, used only to fill holes.
+    let needs_fill = (0..height as i32)
+        .flat_map(|gy| (0..width as i32).map(move |gx| (gx, gy)))
+        .any(|cell| !detected.contains_key(&cell));
+    let homography = if needs_fill {
+        let src: Vec<(f64, f64)> = inner
+            .iter()
+            .map(|(l, _)| ((l.0 - min_x) as f64, (l.1 - min_y) as f64))
+            .collect();
+        let dst: Vec<(f64, f64)> = inner
+            .iter()
+            .map(|(_, p)| (p.0 as f64, p.1 as f64))
+            .collect();
+        Some(find_homography(&src, &dst)?)
+    } else {
+        None
+    };
 
     let mut ordered = Vec::with_capacity(pattern_w * pattern_h);
     for gy in 0..height as i32 {
         for gx in 0..width as i32 {
-            // Missing lattice point => not a full rectangle.
-            ordered.push(*map.get(&(gx, gy))?);
+            if let Some(p) = detected.get(&(gx, gy)) {
+                ordered.push(*p);
+            } else {
+                // Predict the missing corner from the grid homography.
+                let h = homography.as_ref()?;
+                let v = h * Vector3::new(gx as f64, gy as f64, 1.0);
+                if v[2].abs() < f64::EPSILON {
+                    return None;
+                }
+                ordered.push(((v[0] / v[2]) as f32, (v[1] / v[2]) as f32));
+            }
         }
     }
 

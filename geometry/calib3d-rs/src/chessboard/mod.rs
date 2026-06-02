@@ -43,7 +43,7 @@ pub use contour::{Contour, find_contours};
 pub use detect::find_chessboard_corners;
 pub use link::{LinkedQuad, connected_components, link_quads};
 pub use order::{
-    QuadGrid, assign_grid, inner_corner_lattice, order_all_corners, order_quad_corners,
-    ordered_inner_corners,
+    QuadGrid, assign_grid, corner_lattice, inner_corner_lattice, order_all_corners,
+    order_quad_corners, ordered_inner_corners,
 };
 pub use quad::{Quad, contour_area, find_quads, is_contour_convex};
