@@ -353,11 +353,7 @@ pub fn adaptive_threshold_mean(
 /// pure-Rust port. Returns the approximated vertices in order.
 pub fn approx_poly_dp(points: &[(i32, i32)], eps: f64, closed: bool) -> Vec<(i32, i32)> {
     let n = points.len();
-    let mut flat = Vec::with_capacity(n * 2);
-    for &(x, y) in points {
-        flat.push(x as c_int);
-        flat.push(y as c_int);
-    }
+    let flat = flatten_points(points);
     let mut out = vec![0 as c_int; n * 2];
     let count = unsafe {
         ffi::approx_poly_dp(
@@ -369,6 +365,27 @@ pub fn approx_poly_dp(points: &[(i32, i32)], eps: f64, closed: bool) -> Vec<(i32
         )
     } as usize;
     (0..count).map(|i| (out[2 * i], out[2 * i + 1])).collect()
+}
+
+/// OpenCV `contourArea`, exposed for cross-checking the pure-Rust port.
+pub fn contour_area(points: &[(i32, i32)]) -> f64 {
+    let flat = flatten_points(points);
+    unsafe { ffi::contour_area(flat.as_ptr(), points.len() as c_int) }
+}
+
+/// OpenCV `isContourConvex`, exposed for cross-checking the pure-Rust port.
+pub fn is_contour_convex(points: &[(i32, i32)]) -> bool {
+    let flat = flatten_points(points);
+    unsafe { ffi::is_contour_convex(flat.as_ptr(), points.len() as c_int) != 0 }
+}
+
+fn flatten_points(points: &[(i32, i32)]) -> Vec<c_int> {
+    let mut flat = Vec::with_capacity(points.len() * 2);
+    for &(x, y) in points {
+        flat.push(x as c_int);
+        flat.push(y as c_int);
+    }
+    flat
 }
 
 /// Mask (255/0) of every border pixel found by OpenCV `findContours`

@@ -70,6 +70,10 @@ unsafe extern "C" {
         out: *mut c_int,
     ) -> c_int;
 
+    pub(crate) fn contour_area(pts: *const c_int, n: c_int) -> c_double;
+
+    pub(crate) fn is_contour_convex(pts: *const c_int, n: c_int) -> c_int;
+
     pub(crate) fn contours_mask(
         src: *const c_uchar,
         width: c_int,

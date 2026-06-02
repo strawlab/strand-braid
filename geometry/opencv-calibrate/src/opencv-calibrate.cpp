@@ -177,6 +177,26 @@ extern "C"
         return (int)approx.size();
     }
 
+    double contour_area(const int *pts, int n)
+    {
+        std::vector<cv::Point> contour(n);
+        for (int i = 0; i < n; i++)
+        {
+            contour[i] = cv::Point(pts[2 * i], pts[2 * i + 1]);
+        }
+        return cv::contourArea(contour);
+    }
+
+    int is_contour_convex(const int *pts, int n)
+    {
+        std::vector<cv::Point> contour(n);
+        for (int i = 0; i < n; i++)
+        {
+            contour[i] = cv::Point(pts[2 * i], pts[2 * i + 1]);
+        }
+        return cv::isContourConvex(contour) ? 1 : 0;
+    }
+
     // Paint every border pixel found by findContours (RETR_LIST,
     // CHAIN_APPROX_NONE) into `dst` as 255, for cross-checking the pure-Rust
     // Suzuki-Abe tracer's set of border pixels.
