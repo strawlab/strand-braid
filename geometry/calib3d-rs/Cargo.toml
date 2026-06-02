@@ -7,6 +7,7 @@ edition = "2024"
 description = "Pure-Rust reimplementations of the OpenCV calibration routines used by strand-braid"
 
 [dependencies]
+nalgebra.workspace = true
 
 [dev-dependencies]
 approx.workspace = true

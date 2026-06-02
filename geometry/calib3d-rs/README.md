@@ -1,16 +1,19 @@
 # calib3d-rs
 
-Pure-Rust, dependency-free reimplementations of the small set of OpenCV
-routines that strand-braid uses for camera calibration. The goal is to
-eventually replace the C++ `opencv-calibrate` crate (and its OpenCV build
-dependency) with equivalent Rust code.
+Pure-Rust reimplementations of the small set of OpenCV routines that
+strand-braid uses for camera calibration. The goal is to eventually replace the
+C++ `opencv-calibrate` crate (and its OpenCV build dependency) with equivalent
+Rust code. The corner-refinement code is dependency-free; the calibration code
+uses `nalgebra` for linear algebra.
 
 The OpenCV surface being replaced is:
 
-- `cv::cornerSubPix` — sub-pixel corner refinement (**implemented here**, see
+- `cv::cornerSubPix` — sub-pixel corner refinement (**done**, see
   [`corner_subpix`]).
+- `cv::calibrateCamera` — intrinsic/distortion calibration (**in progress**, see
+  the [`calibrate`] module; per-view homography estimation done, Zhang
+  intrinsics / extrinsics / LM refinement todo).
 - `cv::findChessboardCorners` — chessboard corner detection (todo).
-- `cv::calibrateCamera` — intrinsic/distortion calibration (todo).
 
 ## Validation
 
