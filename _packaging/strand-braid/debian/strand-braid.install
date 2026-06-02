@@ -16,7 +16,8 @@ flydra-feature-detector-bench-ipp usr/bin
 flytrax-csv-to-braidz usr/bin
 fmf usr/bin
 gocal usr/bin
-libpylon-cabi.so usr/lib
+libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so usr/lib/strand-braid
+strand-braid-pylon.sh etc/profile.d
 rerun-braidz-viewer usr/bin
 show-timestamps usr/bin
 strand-cam-pylon usr/bin
