@@ -782,8 +782,9 @@ strand-braid-ubuntu-2604:
     - ldd -v $CI_PROJECT_DIR/build/braid-april-cal-cli
     - ldd -v $CI_PROJECT_DIR/build/braidz-export-rrd
     - ldd -v $CI_PROJECT_DIR/build/braid-process-video
-    # Download libpylon-cabi.so
-    - curl --fail -L -o $CI_PROJECT_DIR/build/libpylon-cabi.so "https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so"
+    # Download the Basler Pylon C-ABI shim, keeping its versioned filename so it
+    # installs into /usr/lib/strand-braid/ next to a stable libpylon-cabi.so symlink.
+    - curl --fail -L -o $CI_PROJECT_DIR/build/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so "https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so"
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2604-${CI_COMMIT_TAG}/
@@ -842,8 +843,9 @@ strand-braid-ubuntu-2404:
     - ldd -v $CI_PROJECT_DIR/build/braid-april-cal-cli
     - ldd -v $CI_PROJECT_DIR/build/braidz-export-rrd
     - ldd -v $CI_PROJECT_DIR/build/braid-process-video
-    # Download libpylon-cabi.so
-    - curl --fail -L -o $CI_PROJECT_DIR/build/libpylon-cabi.so "https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so"
+    # Download the Basler Pylon C-ABI shim, keeping its versioned filename so it
+    # installs into /usr/lib/strand-braid/ next to a stable libpylon-cabi.so symlink.
+    - curl --fail -L -o $CI_PROJECT_DIR/build/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so "https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so"
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/
@@ -902,8 +904,9 @@ strand-braid-ubuntu-2004:
     - ldd -v $CI_PROJECT_DIR/build/braid-april-cal-cli
     - ldd -v $CI_PROJECT_DIR/build/braidz-export-rrd
     - ldd -v $CI_PROJECT_DIR/build/braid-process-video
-    # Download libpylon-cabi.so
-    - curl --fail -L -o $CI_PROJECT_DIR/build/libpylon-cabi.so "https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so"
+    # Download the Basler Pylon C-ABI shim, keeping its versioned filename so it
+    # installs into /usr/lib/strand-braid/ next to a stable libpylon-cabi.so symlink.
+    - curl --fail -L -o $CI_PROJECT_DIR/build/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so "https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so"
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
@@ -962,8 +965,9 @@ strand-braid-ubuntu-2204:
     - ldd -v $CI_PROJECT_DIR/build/braid-april-cal-cli
     - ldd -v $CI_PROJECT_DIR/build/braidz-export-rrd
     - ldd -v $CI_PROJECT_DIR/build/braid-process-video
-    # Download libpylon-cabi.so
-    - curl --fail -L -o $CI_PROJECT_DIR/build/libpylon-cabi.so "https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so"
+    # Download the Basler Pylon C-ABI shim, keeping its versioned filename so it
+    # installs into /usr/lib/strand-braid/ next to a stable libpylon-cabi.so symlink.
+    - curl --fail -L -o $CI_PROJECT_DIR/build/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so "https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so"
     - make
     - for F in *.deb; do echo; echo $F; dpkg-deb -I $F; done
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/
