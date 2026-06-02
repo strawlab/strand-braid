@@ -16,8 +16,10 @@
 //! The detector flags requested by the strand-braid C++ wrapper are
 //! `CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_NORMALIZE_IMAGE | CALIB_CB_FAST_CHECK`.
 
+mod approx;
 mod binarize;
 mod contour;
 
+pub use approx::approx_poly_dp;
 pub use binarize::{adaptive_threshold_mean, equalize_hist};
 pub use contour::{Contour, find_contours};
