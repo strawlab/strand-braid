@@ -10,7 +10,6 @@ const EXR_COMMENT: Option<&str> = Some("Created by freemovr-calibration-cli.");
 #[derive(Debug, Parser)]
 #[command(version)]
 enum Opt {
-    #[cfg(feature = "opencv")]
     WithCheckerboards(WithCheckerboards),
 
     /// Convert a pinhole wizard .yaml file into a FreeMoVR calibration .exr file.
@@ -31,7 +30,6 @@ enum Opt {
     DebugObj2Csv(DebugObj2Csv),
 }
 
-#[cfg(feature = "opencv")]
 #[derive(Debug, Parser)]
 struct WithCheckerboards {
     /// Filename of input yaml file in pinhole wizard schema
@@ -104,7 +102,6 @@ struct MultiDisplayExr {
     epsilon: f64,
 }
 
-#[cfg(feature = "opencv")]
 fn with_checkerboards(c: WithCheckerboards) -> anyhow::Result<()> {
     let src_dir = c
         .input_yaml
@@ -261,7 +258,6 @@ fn main() -> anyhow::Result<()> {
     let opt = Opt::parse();
 
     match opt {
-        #[cfg(feature = "opencv")]
         Opt::WithCheckerboards(c) => with_checkerboards(c),
         Opt::GenerateExr(c) => no_distortion(c),
         Opt::MultiDisplayExr(c) => multi_display(c),
