@@ -158,6 +158,26 @@ extern "C"
         cv::adaptiveThreshold(s, d, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, block_size, c);
     }
 
+    // Paint every border pixel found by findContours (RETR_LIST,
+    // CHAIN_APPROX_NONE) into `dst` as 255, for cross-checking the pure-Rust
+    // Suzuki-Abe tracer's set of border pixels.
+    void contours_mask(const uchar *src, int width, int height, uchar *dst)
+    {
+        cv::Mat s(height, width, CV_8UC1, (void *)src);
+        cv::Mat work = s.clone(); // findContours modifies its input
+        std::vector<std::vector<cv::Point>> contours;
+        cv::findContours(work, contours, cv::RETR_LIST, cv::CHAIN_APPROX_NONE);
+        cv::Mat d(height, width, CV_8UC1, (void *)dst);
+        d.setTo(0);
+        for (const auto &contour : contours)
+        {
+            for (const auto &p : contour)
+            {
+                d.at<uchar>(p.y, p.x) = 255;
+            }
+        }
+    }
+
     std::vector<cv::Point2f> *vec_point2f_new()
     {
         return new std::vector<cv::Point2f>;

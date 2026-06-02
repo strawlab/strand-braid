@@ -349,6 +349,23 @@ pub fn adaptive_threshold_mean(
     dst
 }
 
+/// Mask (255/0) of every border pixel found by OpenCV `findContours`
+/// (`RETR_LIST`, `CHAIN_APPROX_NONE`) on a binary image. Exposed for
+/// cross-checking the pure-Rust Suzuki-Abe tracer.
+pub fn contours_mask(src: &[u8], width: u32, height: u32) -> Vec<u8> {
+    assert_eq!(src.len(), (width * height) as usize);
+    let mut dst = vec![0u8; src.len()];
+    unsafe {
+        ffi::contours_mask(
+            src.as_ptr(),
+            width as c_int,
+            height as c_int,
+            dst.as_mut_ptr() as *mut c_uchar,
+        );
+    }
+    dst
+}
+
 #[test]
 #[should_panic]
 fn test_linking() {
