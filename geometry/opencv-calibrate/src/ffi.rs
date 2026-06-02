@@ -42,8 +42,44 @@ unsafe extern "C" {
         frame_height: c_int,
         pattern_width: c_int,
         pattern_height: c_int,
+        refine: bool,
         result: *mut c_void,
     ) -> cv_return_value_bool;
+
+    pub(crate) fn equalize_hist(
+        src: *const c_uchar,
+        width: c_int,
+        height: c_int,
+        dst: *mut c_uchar,
+    );
+
+    pub(crate) fn adaptive_threshold_mean(
+        src: *const c_uchar,
+        width: c_int,
+        height: c_int,
+        block_size: c_int,
+        c: c_double,
+        dst: *mut c_uchar,
+    );
+
+    pub(crate) fn approx_poly_dp(
+        pts: *const c_int,
+        n: c_int,
+        eps: c_double,
+        closed: c_int,
+        out: *mut c_int,
+    ) -> c_int;
+
+    pub(crate) fn contour_area(pts: *const c_int, n: c_int) -> c_double;
+
+    pub(crate) fn is_contour_convex(pts: *const c_int, n: c_int) -> c_int;
+
+    pub(crate) fn contours_mask(
+        src: *const c_uchar,
+        width: c_int,
+        height: c_int,
+        dst: *mut c_uchar,
+    );
 
     pub(crate) fn vec_point2f_new() -> *mut c_void;
     pub(crate) fn vec_point2f_delete(result: *mut c_void);

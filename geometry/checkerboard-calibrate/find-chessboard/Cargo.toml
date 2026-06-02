@@ -7,8 +7,13 @@ authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
 
 [dependencies]
-opencv-calibrate.workspace = true
-image.workspace = true
+checkerboard-calibrate.workspace = true
+image =  {workspace = true, features = [
+    "bmp",
+    "jpeg",
+    "png",
+    "tiff",
+] }
 serde_yaml.workspace = true
-clap.workspace = true
+clap = { workspace = true, features = ["derive", "env", "string"] }
 anyhow.workspace = true

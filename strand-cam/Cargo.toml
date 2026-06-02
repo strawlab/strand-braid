@@ -99,7 +99,6 @@ strand-bui-backend-session-types.workspace = true
 braid-config-data = { workspace = true, optional = true }
 ci2-pylon-types.workspace = true
 ci2-vimba-types.workspace = true
-opencv-calibrate = { workspace = true, optional = true }
 camcal = { workspace = true, optional = true }
 strand-cam-bui-types.workspace = true
 mp4-writer = { workspace = true, features = ["openh264-encode", "nv-encode"] }
@@ -133,7 +132,11 @@ fiducial = [
     "dep:apriltag-detection-writer",
 ]
 
-checkercal = ["dep:opencv-calibrate", "dep:camcal", "dep:braid-mvg"]
+checkercal = ["dep:camcal", "dep:braid-mvg"]
+
+# Escape hatch: when checkercal is enabled, route its chessboard
+# detection/calibration through the OpenCV C++ backend instead of pure-Rust.
+opencv = ["camcal?/opencv"]
 
 # Serve style
 ## Bundle files into executable

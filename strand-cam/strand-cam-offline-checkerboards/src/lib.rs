@@ -4,8 +4,9 @@ use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
 use eyre::{self as anyhow, Context, Result};
 use image::GenericImageView;
-use opencv_calibrate::CalibrationResult;
 use tracing::info;
+
+use camcal::CalibrationResult;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -92,7 +93,7 @@ pub fn run_cal(cli: Cli) -> Result<CalibrationResult> {
         image_height = h;
         let rgb = img.to_rgb8().into_raw();
 
-        let corners = opencv_calibrate::find_chessboard_corners(
+        let corners = camcal::find_chessboard_corners(
             &rgb,
             w,
             h,

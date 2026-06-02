@@ -1,6 +1,6 @@
 mod ffi;
 
-use std::os::raw::{c_int, c_void};
+use std::os::raw::{c_int, c_uchar, c_void};
 
 #[derive(Debug)]
 pub enum Error {
@@ -240,6 +240,47 @@ pub fn find_chessboard_corners(
     pattern_width: usize,
     pattern_height: usize,
 ) -> Result<Option<Vec<(f32, f32)>>, Error> {
+    find_chessboard_corners_inner(
+        rgb_data,
+        im_width,
+        im_height,
+        pattern_width,
+        pattern_height,
+        true,
+    )
+}
+
+/// Like [`find_chessboard_corners`] but skips OpenCV's sub-pixel refinement,
+/// returning the raw integer-ish corner locations from `findChessboardCorners`.
+///
+/// This is the input that the sub-pixel refinement (`cornerSubPix`) operates on.
+/// It exists so a pure-Rust port of `cornerSubPix` can be validated against
+/// OpenCV by feeding it the same starting corners.
+pub fn find_chessboard_corners_no_refine(
+    rgb_data: &[u8],
+    im_width: u32,
+    im_height: u32,
+    pattern_width: usize,
+    pattern_height: usize,
+) -> Result<Option<Vec<(f32, f32)>>, Error> {
+    find_chessboard_corners_inner(
+        rgb_data,
+        im_width,
+        im_height,
+        pattern_width,
+        pattern_height,
+        false,
+    )
+}
+
+fn find_chessboard_corners_inner(
+    rgb_data: &[u8],
+    im_width: u32,
+    im_height: u32,
+    pattern_width: usize,
+    pattern_height: usize,
+    refine: bool,
+) -> Result<Option<Vec<(f32, f32)>>, Error> {
     let mut corners = VecPoint2f::new();
     let r1: Result<bool, Error> = unsafe {
         ffi::find_chessboard_corners_inner(
@@ -248,6 +289,7 @@ pub fn find_chessboard_corners(
             im_height as c_int,
             pattern_width as c_int,
             pattern_height as c_int,
+            refine,
             corners.inner(),
         )
     }
@@ -265,6 +307,102 @@ pub fn find_chessboard_corners(
 pub struct Extrinsics {
     pub rvec: [f64; 3],
     pub tvec: [f64; 3],
+}
+
+/// OpenCV `equalizeHist` on an 8-bit single-channel image, exposed for
+/// cross-checking the pure-Rust port.
+pub fn equalize_hist(src: &[u8], width: u32, height: u32) -> Vec<u8> {
+    assert_eq!(src.len(), (width * height) as usize);
+    let mut dst = vec![0u8; src.len()];
+    unsafe {
+        ffi::equalize_hist(
+            src.as_ptr(),
+            width as c_int,
+            height as c_int,
+            dst.as_mut_ptr(),
+        );
+    }
+    dst
+}
+
+/// OpenCV `adaptiveThreshold(ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY)` on an
+/// 8-bit single-channel image, exposed for cross-checking the pure-Rust port.
+pub fn adaptive_threshold_mean(
+    src: &[u8],
+    width: u32,
+    height: u32,
+    block_size: i32,
+    c: f64,
+) -> Vec<u8> {
+    assert_eq!(src.len(), (width * height) as usize);
+    let mut dst = vec![0u8; src.len()];
+    unsafe {
+        ffi::adaptive_threshold_mean(
+            src.as_ptr(),
+            width as c_int,
+            height as c_int,
+            block_size as c_int,
+            c,
+            dst.as_mut_ptr() as *mut c_uchar,
+        );
+    }
+    dst
+}
+
+/// OpenCV `approxPolyDP` on an integer contour, exposed for cross-checking the
+/// pure-Rust port. Returns the approximated vertices in order.
+pub fn approx_poly_dp(points: &[(i32, i32)], eps: f64, closed: bool) -> Vec<(i32, i32)> {
+    let n = points.len();
+    let flat = flatten_points(points);
+    let mut out = vec![0 as c_int; n * 2];
+    let count = unsafe {
+        ffi::approx_poly_dp(
+            flat.as_ptr(),
+            n as c_int,
+            eps,
+            closed as c_int,
+            out.as_mut_ptr(),
+        )
+    } as usize;
+    (0..count).map(|i| (out[2 * i], out[2 * i + 1])).collect()
+}
+
+/// OpenCV `contourArea`, exposed for cross-checking the pure-Rust port.
+pub fn contour_area(points: &[(i32, i32)]) -> f64 {
+    let flat = flatten_points(points);
+    unsafe { ffi::contour_area(flat.as_ptr(), points.len() as c_int) }
+}
+
+/// OpenCV `isContourConvex`, exposed for cross-checking the pure-Rust port.
+pub fn is_contour_convex(points: &[(i32, i32)]) -> bool {
+    let flat = flatten_points(points);
+    unsafe { ffi::is_contour_convex(flat.as_ptr(), points.len() as c_int) != 0 }
+}
+
+fn flatten_points(points: &[(i32, i32)]) -> Vec<c_int> {
+    let mut flat = Vec::with_capacity(points.len() * 2);
+    for &(x, y) in points {
+        flat.push(x as c_int);
+        flat.push(y as c_int);
+    }
+    flat
+}
+
+/// Mask (255/0) of every border pixel found by OpenCV `findContours`
+/// (`RETR_LIST`, `CHAIN_APPROX_NONE`) on a binary image. Exposed for
+/// cross-checking the pure-Rust Suzuki-Abe tracer.
+pub fn contours_mask(src: &[u8], width: u32, height: u32) -> Vec<u8> {
+    assert_eq!(src.len(), (width * height) as usize);
+    let mut dst = vec![0u8; src.len()];
+    unsafe {
+        ffi::contours_mask(
+            src.as_ptr(),
+            width as c_int,
+            height as c_int,
+            dst.as_mut_ptr() as *mut c_uchar,
+        );
+    }
+    dst
 }
 
 #[test]

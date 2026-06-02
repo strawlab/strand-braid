@@ -1,4 +1,3 @@
-#[cfg(feature = "opencv")]
 #[test]
 fn integration_checkerboards() {
     use freemovr_calibration::pinhole_wizard_yaml_support::PinholeCalib;
@@ -83,7 +82,7 @@ fn test_chessboard_corner_finding() {
     let (w, h) = img.dimensions();
     let rgb = img.into_rgb8().into_raw();
 
-    let corners = opencv_calibrate::find_chessboard_corners(&rgb, w, h, 9, 6)
+    let corners = camcal::find_chessboard_corners(&rgb, w, h, 9, 6)
         .unwrap()
         .unwrap();
     assert_eq!(corners.len(), 54);
@@ -94,7 +93,7 @@ fn test_chessboard_corner_finding() {
     let (w, h) = img.dimensions();
     let rgb = img.into_rgb8().into_raw();
 
-    let corners = opencv_calibrate::find_chessboard_corners(&rgb, w, h, 9, 6).unwrap();
+    let corners = camcal::find_chessboard_corners(&rgb, w, h, 9, 6).unwrap();
     assert!(corners.is_none());
 }
 

@@ -94,7 +94,7 @@ extern "C"
         return result;
     }
 
-    struct cv_return_value_bool find_chessboard_corners_inner(uchar *frameDataRGB, int frameWidth, int frameHeight, int patternWidth, int patternHeight, std::vector<cv::Point2f> *corners)
+    struct cv_return_value_bool find_chessboard_corners_inner(uchar *frameDataRGB, int frameWidth, int frameHeight, int patternWidth, int patternHeight, bool refine, std::vector<cv::Point2f> *corners)
     {
         struct cv_return_value_bool result = {0, 0, true};
 
@@ -114,12 +114,15 @@ extern "C"
 
             if (patternfound)
             {
-                // Perform subpixel refinement.
-                cv::Mat gray;
-                cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+                if (refine)
+                {
+                    // Perform subpixel refinement.
+                    cv::Mat gray;
+                    cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
 
-                cv::cornerSubPix(gray, *corners, cv::Size(11, 11), cv::Size(-1, -1),
-                                 cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.1));
+                    cv::cornerSubPix(gray, *corners, cv::Size(11, 11), cv::Size(-1, -1),
+                                     cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.1));
+                }
                 result.result = true;
             }
             else
@@ -137,6 +140,81 @@ extern "C"
         }
 
         return result;
+    }
+
+    // Test-only helpers exposing the binarization primitives used by
+    // findChessboardCorners, so a pure-Rust port can be cross-checked.
+    void equalize_hist(const uchar *src, int width, int height, uchar *dst)
+    {
+        cv::Mat s(height, width, CV_8UC1, (void *)src);
+        cv::Mat d(height, width, CV_8UC1, (void *)dst);
+        cv::equalizeHist(s, d);
+    }
+
+    void adaptive_threshold_mean(const uchar *src, int width, int height, int block_size, double c, uchar *dst)
+    {
+        cv::Mat s(height, width, CV_8UC1, (void *)src);
+        cv::Mat d(height, width, CV_8UC1, (void *)dst);
+        cv::adaptiveThreshold(s, d, 255, cv::ADAPTIVE_THRESH_MEAN_C, cv::THRESH_BINARY, block_size, c);
+    }
+
+    // Run approxPolyDP on an interleaved [x0,y0,x1,y1,...] int contour, writing
+    // the result into `out` (capacity 2*n ints) and returning the vertex count.
+    int approx_poly_dp(const int *pts, int n, double eps, int closed, int *out)
+    {
+        std::vector<cv::Point> contour(n);
+        for (int i = 0; i < n; i++)
+        {
+            contour[i] = cv::Point(pts[2 * i], pts[2 * i + 1]);
+        }
+        std::vector<cv::Point> approx;
+        cv::approxPolyDP(contour, approx, eps, closed != 0);
+        for (size_t i = 0; i < approx.size(); i++)
+        {
+            out[2 * i] = approx[i].x;
+            out[2 * i + 1] = approx[i].y;
+        }
+        return (int)approx.size();
+    }
+
+    double contour_area(const int *pts, int n)
+    {
+        std::vector<cv::Point> contour(n);
+        for (int i = 0; i < n; i++)
+        {
+            contour[i] = cv::Point(pts[2 * i], pts[2 * i + 1]);
+        }
+        return cv::contourArea(contour);
+    }
+
+    int is_contour_convex(const int *pts, int n)
+    {
+        std::vector<cv::Point> contour(n);
+        for (int i = 0; i < n; i++)
+        {
+            contour[i] = cv::Point(pts[2 * i], pts[2 * i + 1]);
+        }
+        return cv::isContourConvex(contour) ? 1 : 0;
+    }
+
+    // Paint every border pixel found by findContours (RETR_LIST,
+    // CHAIN_APPROX_NONE) into `dst` as 255, for cross-checking the pure-Rust
+    // Suzuki-Abe tracer's set of border pixels.
+    void contours_mask(const uchar *src, int width, int height, uchar *dst)
+    {
+        cv::Mat s(height, width, CV_8UC1, (void *)src);
+        cv::Mat work = s.clone(); // findContours modifies its input
+        std::vector<std::vector<cv::Point>> contours;
+        cv::findContours(work, contours, cv::RETR_LIST, cv::CHAIN_APPROX_NONE);
+        cv::Mat d(height, width, CV_8UC1, (void *)dst);
+        d.setTo(0);
+        for (const auto &contour : contours)
+        {
+            for (const auto &p : contour)
+            {
+                d.at<uchar>(p.y, p.x) = 255;
+            }
+        }
     }
 
     std::vector<cv::Point2f> *vec_point2f_new()

@@ -11,3 +11,18 @@ description = "Rust bindings to OpenCV camera calibration routines"
 [build-dependencies]
 pkg-config = "0.3.26"
 cc = "1.1.12"
+
+# NOTE: this crate is excluded from the workspace (it requires OpenCV), so
+# dependencies are specified explicitly rather than inherited from the
+# workspace.
+[dev-dependencies]
+approx = "0.5"
+image = { version = "0.25.6", default-features = false, features = [
+    "bmp",
+    "jpeg",
+    "png",
+    "tiff",
+] }
+serde_json = "1.0.142"
+
+checkerboard-calibrate = { path = "../checkerboard-calibrate" }

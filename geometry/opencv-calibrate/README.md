@@ -2,6 +2,22 @@
 
 A wrapper of OpenCV `cvCalibrateCamera2` and `findChessboardCorners` functions.
 
+## Comparing against the pure-Rust implementation
+
+The `calib3d-rs` crate provides pure-Rust ports of these routines. The example
+`compare` runs both the OpenCV C++ and pure-Rust pipelines end to end
+(chessboard detection + sub-pixel refinement, then camera calibration) and
+prints a side-by-side comparison:
+
+    # over the bundled left*.jpg sample frames (9x6 inner corners)
+    cargo run -p opencv-calibrate --example compare
+
+    # or on a specific image
+    cargo run -p opencv-calibrate --example compare -- path/to/board.png 9 6
+
+It needs OpenCV available to build this crate (see below); no Cargo feature is
+required (the example uses dev-dependencies).
+
 ## Building OpenCV on macOS and linux for static linking
 
 On macOS, I found that I had to compile and install OpenCV statically. To do so
