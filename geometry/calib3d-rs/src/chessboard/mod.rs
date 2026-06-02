@@ -26,6 +26,7 @@
 
 mod approx;
 mod binarize;
+mod board;
 mod contour;
 mod link;
 mod order;
@@ -33,9 +34,11 @@ mod quad;
 
 pub use approx::approx_poly_dp;
 pub use binarize::{adaptive_threshold_mean, equalize_hist};
+pub use board::{check_board_monotony, extract_board};
 pub use contour::{Contour, find_contours};
 pub use link::{LinkedQuad, connected_components, link_quads};
 pub use order::{
-    QuadGrid, assign_grid, order_all_corners, order_quad_corners, ordered_inner_corners,
+    QuadGrid, assign_grid, inner_corner_lattice, order_all_corners, order_quad_corners,
+    ordered_inner_corners,
 };
 pub use quad::{Quad, contour_area, find_quads, is_contour_convex};

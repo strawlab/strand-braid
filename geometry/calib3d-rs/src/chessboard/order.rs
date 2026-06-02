@@ -107,17 +107,16 @@ pub fn assign_grid(quads: &[LinkedQuad], component: &[usize]) -> HashMap<usize, 
     coords
 }
 
-/// Read out the inner board corners from an assigned grid, sorted row-major
-/// (by lattice row then column).
+/// Inner board corners with their lattice coordinates (unordered).
 ///
 /// Inner corners are the lattice points referenced by two or more quads (the
 /// interior points where black squares meet); outer-boundary corners, touched
 /// by a single quad, are excluded. Linked corners are already snapped to a
 /// shared position, so all references to a lattice point coincide.
-pub fn ordered_inner_corners(
+pub fn inner_corner_lattice(
     quads: &[LinkedQuad],
     coords: &HashMap<usize, QuadGrid>,
-) -> Vec<(f32, f32)> {
+) -> Vec<((i32, i32), (f32, f32))> {
     // lattice point -> (summed position, count)
     let mut acc: HashMap<(i32, i32), ((f64, f64), usize)> = HashMap::new();
     for (&qi, grid) in coords {
@@ -129,15 +128,22 @@ pub fn ordered_inner_corners(
         }
     }
 
-    let mut inner: Vec<((i32, i32), (f32, f32))> = acc
-        .into_iter()
+    acc.into_iter()
         .filter(|(_, (_, count))| *count >= 2)
         .map(|(lattice, ((sx, sy), count))| {
             let n = count as f64;
             (lattice, ((sx / n) as f32, (sy / n) as f32))
         })
-        .collect();
+        .collect()
+}
 
+/// Read out the inner board corners from an assigned grid, sorted row-major
+/// (by lattice row then column).
+pub fn ordered_inner_corners(
+    quads: &[LinkedQuad],
+    coords: &HashMap<usize, QuadGrid>,
+) -> Vec<(f32, f32)> {
+    let mut inner = inner_corner_lattice(quads, coords);
     // Row-major: lattice y (row) then x (column).
     inner.sort_by(|a, b| (a.0.1, a.0.0).cmp(&(b.0.1, b.0.0)));
     inner.into_iter().map(|(_, pt)| pt).collect()
