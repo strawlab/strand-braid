@@ -692,4 +692,115 @@ mod tests {
             spatial_moment(&im, Power::One, Power::Zero)
         );
     }
+
+    /// Independently recompute the same [`Moments`] using the per-moment
+    /// reference oracle [`spatial_moment`], with the identical central-moment
+    /// formula as [`calculate_moments`]. The single-pass `calculate_moments`
+    /// must agree with this for the same input.
+    fn oracle_moments<IM>(im: &IM) -> Moments
+    where
+        IM: HasRowChunksExact<Mono8>,
+    {
+        let m00 = spatial_moment(im, Power::Zero, Power::Zero);
+        let m01 = spatial_moment(im, Power::Zero, Power::One);
+        let m10 = spatial_moment(im, Power::One, Power::Zero);
+        let m11 = spatial_moment(im, Power::One, Power::One);
+        let m02 = spatial_moment(im, Power::Zero, Power::Two);
+        let m20 = spatial_moment(im, Power::Two, Power::Zero);
+
+        let centroid_x = m01 / m00;
+        let centroid_y = m10 / m00;
+
+        Moments {
+            centroid_x,
+            centroid_y,
+            m00,
+            m01,
+            m10,
+            u11: m11 - centroid_x * m10,
+            u02: m02 - centroid_x * m01,
+            u20: m20 - centroid_y * m10,
+        }
+    }
+
+    fn assert_moments_eq(got: &Moments, want: &Moments) {
+        // The raw moments are exact integer totals (well under 2^53) for every
+        // image built below, so f64 accumulation is exact regardless of
+        // summation order and both paths cast to the same f32. The central
+        // moments are then derived with the identical f32 formula, so equality
+        // is exact (no tolerance needed). A wrong coefficient or a swapped
+        // m02/m20 term would change these values and fail the check.
+        assert_eq!(got.m00, want.m00, "m00");
+        assert_eq!(got.m01, want.m01, "m01");
+        assert_eq!(got.m10, want.m10, "m10");
+        assert_eq!(got.centroid_x, want.centroid_x, "centroid_x");
+        assert_eq!(got.centroid_y, want.centroid_y, "centroid_y");
+        assert_eq!(got.u11, want.u11, "u11");
+        assert_eq!(got.u02, want.u02, "u02");
+        assert_eq!(got.u20, want.u20, "u20");
+    }
+
+    /// Cross-check the single-pass `calculate_moments` (in particular its fused
+    /// `m11`/`m02`/`m20` terms) against the per-moment `spatial_moment` oracle
+    /// on the same nontrivial, strided, and large images the other tests use.
+    #[test]
+    fn test_calculate_moments_matches_oracle() {
+        // Strided (stride 24 != width 20), varied pixel values, with data both
+        // in the final valid column and outside the width. Mirrors
+        // `test_image_moments_remainder`.
+        {
+            const STRIDE: usize = 24;
+            const W: usize = 20;
+            const H: usize = 20;
+            let mut image_data = vec![0u8; STRIDE * H];
+            image_data[4 * STRIDE + 3] = 20;
+            image_data[5 * STRIDE + 3] = 21;
+            image_data[5 * STRIDE + 4] = 22;
+            image_data[6 * STRIDE + 4] = 23;
+            image_data[4 * STRIDE + 19] = 1;
+            image_data[5 * STRIDE + 19] = 1;
+            image_data[6 * STRIDE + 19] = 1;
+            // Out-of-width data that must be ignored.
+            image_data[4 * STRIDE + 23] = 255;
+            image_data[5 * STRIDE + 23] = 255;
+
+            let im =
+                machine_vision_formats::owned::OImage::new(W as u32, H as u32, STRIDE, image_data)
+                    .unwrap();
+            assert_moments_eq(&calculate_moments(&im), &oracle_moments(&im));
+        }
+
+        // Very wide image (stride 10000, width 9000), exercising large-magnitude
+        // f64 accumulation before the f32 cast. Mirrors
+        // `test_wide_image_moments_simd`.
+        {
+            const STRIDE: usize = 10000;
+            const W: usize = 9000;
+            const H: usize = 20;
+            let mut image_data = vec![u8::MAX; STRIDE * H];
+            image_data[W + 23] = 0;
+            image_data[W + 24] = 0;
+
+            let im =
+                machine_vision_formats::owned::OImage::new(W as u32, H as u32, STRIDE, image_data)
+                    .unwrap();
+            assert_moments_eq(&calculate_moments(&im), &oracle_moments(&im));
+        }
+
+        // Very tall image (10000 rows), exercising large row indices in the
+        // `m01`/`m02`/`m11` terms. Mirrors `test_tall_image_moments_simd`.
+        {
+            const STRIDE: usize = 32;
+            const W: usize = 20;
+            const H: usize = 10000;
+            let mut image_data = vec![u8::MAX; STRIDE * H];
+            image_data[W + 3] = 0;
+            image_data[W + 4] = 0;
+
+            let im =
+                machine_vision_formats::owned::OImage::new(W as u32, H as u32, STRIDE, image_data)
+                    .unwrap();
+            assert_moments_eq(&calculate_moments(&im), &oracle_moments(&im));
+        }
+    }
 }
