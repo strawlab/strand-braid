@@ -7,8 +7,10 @@
 //!   4. joint Levenberg-Marquardt refinement of intrinsics, distortion, and
 //!      extrinsics — todo.
 
+mod extrinsics;
 mod homography;
 mod intrinsics;
 
+pub use extrinsics::{Extrinsics, init_extrinsics};
 pub use homography::find_homography;
 pub use intrinsics::{InitialIntrinsics, init_intrinsics};
