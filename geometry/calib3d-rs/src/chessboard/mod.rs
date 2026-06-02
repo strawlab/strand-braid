@@ -6,12 +6,16 @@
 //!   1. binarization primitives ([`binarize`]) — histogram equalization
 //!      (`CALIB_CB_NORMALIZE_IMAGE`) and adaptive-mean thresholding
 //!      (`CALIB_CB_ADAPTIVE_THRESH`) — **done**, bit-exact vs OpenCV,
-//!   2. quad generation from contours (dilate, find contours, approximate
-//!      polygons, keep convex quadrilaterals): contour finding ([`find_contours`],
-//!      Suzuki-Abe) **done** and cross-checked vs OpenCV; polygon approximation
-//!      (Douglas-Peucker) + convex-4-gon area filter — todo,
+//!   2. quad generation from contours — **done**, all cross-checked vs OpenCV:
+//!      contour finding ([`find_contours`], Suzuki-Abe), polygon approximation
+//!      ([`approx_poly_dp`], Douglas-Peucker), and the convex-4-gon area filter
+//!      ([`find_quads`], with [`contour_area`] / [`is_contour_convex`]),
 //!   3. linking quads into a board graph and ordering corners — todo,
 //!   4. board validation (size, monotonicity) and corner extraction — todo.
+//!
+//! Note: stages 1-2 provide the primitives; assembling the full multi-threshold,
+//! dilation, and hierarchy-driven `generateQuads` orchestration is part of
+//! wiring the end-to-end detector (stage 3+).
 //!
 //! The detector flags requested by the strand-braid C++ wrapper are
 //! `CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_NORMALIZE_IMAGE | CALIB_CB_FAST_CHECK`.
