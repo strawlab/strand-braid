@@ -37,19 +37,58 @@ struct Fixture {
 /// All sample frames are from the OpenCV `samples/data/left*.jpg` series
 /// (9x6 inner corners). See `tests/data/README.md` for provenance.
 const FIXTURES: &[Fixture] = &[
-    Fixture { file: "left01.jpg", pattern: (9, 6) },
-    Fixture { file: "left02.jpg", pattern: (9, 6) },
-    Fixture { file: "left03.jpg", pattern: (9, 6) },
-    Fixture { file: "left04.jpg", pattern: (9, 6) },
-    Fixture { file: "left05.jpg", pattern: (9, 6) },
-    Fixture { file: "left06.jpg", pattern: (9, 6) },
-    Fixture { file: "left07.jpg", pattern: (9, 6) },
-    Fixture { file: "left08.jpg", pattern: (9, 6) },
-    Fixture { file: "left09.jpg", pattern: (9, 6) },
-    Fixture { file: "left11.jpg", pattern: (9, 6) },
-    Fixture { file: "left12.jpg", pattern: (9, 6) },
-    Fixture { file: "left13.jpg", pattern: (9, 6) },
-    Fixture { file: "left14.jpg", pattern: (9, 6) },
+    Fixture {
+        file: "left01.jpg",
+        pattern: (9, 6),
+    },
+    Fixture {
+        file: "left02.jpg",
+        pattern: (9, 6),
+    },
+    Fixture {
+        file: "left03.jpg",
+        pattern: (9, 6),
+    },
+    Fixture {
+        file: "left04.jpg",
+        pattern: (9, 6),
+    },
+    Fixture {
+        file: "left05.jpg",
+        pattern: (9, 6),
+    },
+    Fixture {
+        file: "left06.jpg",
+        pattern: (9, 6),
+    },
+    Fixture {
+        file: "left07.jpg",
+        pattern: (9, 6),
+    },
+    Fixture {
+        file: "left08.jpg",
+        pattern: (9, 6),
+    },
+    Fixture {
+        file: "left09.jpg",
+        pattern: (9, 6),
+    },
+    Fixture {
+        file: "left11.jpg",
+        pattern: (9, 6),
+    },
+    Fixture {
+        file: "left12.jpg",
+        pattern: (9, 6),
+    },
+    Fixture {
+        file: "left13.jpg",
+        pattern: (9, 6),
+    },
+    Fixture {
+        file: "left14.jpg",
+        pattern: (9, 6),
+    },
 ];
 
 fn data_dir() -> PathBuf {
@@ -148,7 +187,11 @@ fn chessboard_corners_match_golden() {
                 ));
             }
         }
-        eprintln!("{}: {} corners, worst drift {worst:.4}px", fx.file, detected.len());
+        eprintln!(
+            "{}: {} corners, worst drift {worst:.4}px",
+            fx.file,
+            detected.len()
+        );
     }
 
     if blessing() {
@@ -156,7 +199,11 @@ fn chessboard_corners_match_golden() {
         return;
     }
 
-    assert!(failures.is_empty(), "conformance failures:\n{}", failures.join("\n"));
+    assert!(
+        failures.is_empty(),
+        "conformance failures:\n{}",
+        failures.join("\n")
+    );
 }
 
 /// A blank image must yield no detection.

@@ -240,6 +240,47 @@ pub fn find_chessboard_corners(
     pattern_width: usize,
     pattern_height: usize,
 ) -> Result<Option<Vec<(f32, f32)>>, Error> {
+    find_chessboard_corners_inner(
+        rgb_data,
+        im_width,
+        im_height,
+        pattern_width,
+        pattern_height,
+        true,
+    )
+}
+
+/// Like [`find_chessboard_corners`] but skips OpenCV's sub-pixel refinement,
+/// returning the raw integer-ish corner locations from `findChessboardCorners`.
+///
+/// This is the input that the sub-pixel refinement (`cornerSubPix`) operates on.
+/// It exists so a pure-Rust port of `cornerSubPix` can be validated against
+/// OpenCV by feeding it the same starting corners.
+pub fn find_chessboard_corners_no_refine(
+    rgb_data: &[u8],
+    im_width: u32,
+    im_height: u32,
+    pattern_width: usize,
+    pattern_height: usize,
+) -> Result<Option<Vec<(f32, f32)>>, Error> {
+    find_chessboard_corners_inner(
+        rgb_data,
+        im_width,
+        im_height,
+        pattern_width,
+        pattern_height,
+        false,
+    )
+}
+
+fn find_chessboard_corners_inner(
+    rgb_data: &[u8],
+    im_width: u32,
+    im_height: u32,
+    pattern_width: usize,
+    pattern_height: usize,
+    refine: bool,
+) -> Result<Option<Vec<(f32, f32)>>, Error> {
     let mut corners = VecPoint2f::new();
     let r1: Result<bool, Error> = unsafe {
         ffi::find_chessboard_corners_inner(
@@ -248,6 +289,7 @@ pub fn find_chessboard_corners(
             im_height as c_int,
             pattern_width as c_int,
             pattern_height as c_int,
+            refine,
             corners.inner(),
         )
     }

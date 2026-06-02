@@ -42,6 +42,7 @@ unsafe extern "C" {
         frame_height: c_int,
         pattern_width: c_int,
         pattern_height: c_int,
+        refine: bool,
         result: *mut c_void,
     ) -> cv_return_value_bool;
 

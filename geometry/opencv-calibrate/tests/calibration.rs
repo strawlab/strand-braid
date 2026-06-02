@@ -17,7 +17,7 @@
 use std::path::{Path, PathBuf};
 
 use image::GenericImageView;
-use opencv_calibrate::{calibrate_camera, CorrespondingPoint};
+use opencv_calibrate::{CorrespondingPoint, calibrate_camera};
 
 /// 9x6 inner corners, present in every `left*.jpg` frame.
 const COLS: usize = 9;
@@ -27,9 +27,19 @@ const IMG_H: i32 = 480;
 
 /// Frames that detect a full board (see `conformance.rs`).
 const FRAMES: &[&str] = &[
-    "left01.jpg", "left02.jpg", "left03.jpg", "left04.jpg", "left05.jpg",
-    "left06.jpg", "left07.jpg", "left08.jpg", "left09.jpg", "left11.jpg",
-    "left12.jpg", "left13.jpg", "left14.jpg",
+    "left01.jpg",
+    "left02.jpg",
+    "left03.jpg",
+    "left04.jpg",
+    "left05.jpg",
+    "left06.jpg",
+    "left07.jpg",
+    "left08.jpg",
+    "left09.jpg",
+    "left11.jpg",
+    "left12.jpg",
+    "left13.jpg",
+    "left14.jpg",
 ];
 
 /// Absolute tolerances. The current OpenCV build is deterministic well within
@@ -59,7 +69,11 @@ fn detect_correspondences(file: &str) -> Vec<CorrespondingPoint> {
     let corners = opencv_calibrate::find_chessboard_corners(&rgb, w, h, COLS, ROWS)
         .unwrap_or_else(|e| panic!("detection error on {file}: {e}"))
         .unwrap_or_else(|| panic!("no board found in {file}"));
-    assert_eq!(corners.len(), COLS * ROWS, "{file}: unexpected corner count");
+    assert_eq!(
+        corners.len(),
+        COLS * ROWS,
+        "{file}: unexpected corner count"
+    );
 
     corners
         .iter()
@@ -102,8 +116,18 @@ fn calibration_matches_golden() {
     });
     let g: serde_json::Value = serde_json::from_str(&text).unwrap();
 
-    let gm: Vec<f64> = g["camera_matrix"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect();
-    let gd: Vec<f64> = g["distortion_coeffs"].as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect();
+    let gm: Vec<f64> = g["camera_matrix"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_f64().unwrap())
+        .collect();
+    let gd: Vec<f64> = g["distortion_coeffs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_f64().unwrap())
+        .collect();
 
     // camera_matrix is row-major: [fx 0 cx; 0 fy cy; 0 0 1].
     approx::assert_abs_diff_eq!(result.camera_matrix[0], gm[0], epsilon = TOL_FOCAL_PX); // fx

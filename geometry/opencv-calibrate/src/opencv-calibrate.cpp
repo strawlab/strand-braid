@@ -94,7 +94,7 @@ extern "C"
         return result;
     }
 
-    struct cv_return_value_bool find_chessboard_corners_inner(uchar *frameDataRGB, int frameWidth, int frameHeight, int patternWidth, int patternHeight, std::vector<cv::Point2f> *corners)
+    struct cv_return_value_bool find_chessboard_corners_inner(uchar *frameDataRGB, int frameWidth, int frameHeight, int patternWidth, int patternHeight, bool refine, std::vector<cv::Point2f> *corners)
     {
         struct cv_return_value_bool result = {0, 0, true};
 
@@ -114,12 +114,15 @@ extern "C"
 
             if (patternfound)
             {
-                // Perform subpixel refinement.
-                cv::Mat gray;
-                cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
+                if (refine)
+                {
+                    // Perform subpixel refinement.
+                    cv::Mat gray;
+                    cv::cvtColor(frame, gray, cv::COLOR_BGR2GRAY);
 
-                cv::cornerSubPix(gray, *corners, cv::Size(11, 11), cv::Size(-1, -1),
-                                 cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.1));
+                    cv::cornerSubPix(gray, *corners, cv::Size(11, 11), cv::Size(-1, -1),
+                                     cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 30, 0.1));
+                }
                 result.result = true;
             }
             else
