@@ -28,6 +28,13 @@ pub struct LinkedQuad {
     pub edge_len: f32,
 }
 
+/// Fraction of the (squared) edge length within which two corners are treated
+/// as the same shared corner. Shared corners of adjacent squares are
+/// near-coincident, while the next-closest corners are about a full edge away
+/// (squared distance ~= `edge_len`), so any value well below 1 separates them;
+/// 0.25 (a linear gap up to half an edge) is generous but safe.
+const LINK_THRESH_SCALE: f32 = 0.25;
+
 fn dist2(a: (f32, f32), b: (f32, f32)) -> f32 {
     let dx = a.0 - b.0;
     let dy = a.1 - b.1;
@@ -44,9 +51,10 @@ fn min_edge_len2(corners: &[(f32, f32); 4]) -> f32 {
 
 /// Build [`LinkedQuad`]s from detected quads and link neighboring corners.
 ///
-/// Two corners are eligible to link when their squared distance is within the
-/// smaller of the two quads' edge-length scales. Among all eligible corner
-/// pairs, the closest are matched first; each corner links at most once.
+/// Two corners are eligible to link when their squared distance is within
+/// [`LINK_THRESH_SCALE`] of the smaller of the two quads' edge-length scales.
+/// Among all eligible corner pairs, the closest are matched first; each corner
+/// links at most once.
 pub fn link_quads(quads: &[Quad]) -> Vec<LinkedQuad> {
     let mut linked: Vec<LinkedQuad> = quads
         .iter()
@@ -77,7 +85,7 @@ pub fn link_quads(quads: &[Quad]) -> Vec<LinkedQuad> {
     let n = linked.len();
     for i in 0..n {
         for j in (i + 1)..n {
-            let thr = linked[i].edge_len.min(linked[j].edge_len);
+            let thr = linked[i].edge_len.min(linked[j].edge_len) * LINK_THRESH_SCALE;
             for ci in 0..4 {
                 for cj in 0..4 {
                     let d = dist2(linked[i].corners[ci], linked[j].corners[cj]);
