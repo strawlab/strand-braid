@@ -86,11 +86,8 @@ fn detector_finds_opencv_corner_positions() {
     let mut worst = 0.0f64;
     for &file in FRAMES {
         let (g, w, h) = gray(file);
-        let Some(raw) = chessboard::find_chessboard_corners(&g, w as usize, h as usize, COLS, ROWS)
-        else {
-            eprintln!("{file}: NO BOARD FOUND");
-            continue;
-        };
+        let raw = chessboard::find_chessboard_corners(&g, w as usize, h as usize, COLS, ROWS)
+            .unwrap_or_else(|| panic!("{file}: NO BOARD FOUND"));
         assert_eq!(raw.len(), COLS * ROWS, "{file}: wrong corner count");
         let refined = corner_subpix(
             GrayImageRef::new(&g, w as usize, h as usize),
@@ -111,10 +108,9 @@ fn detector_finds_opencv_corner_positions() {
         "detected {detected}/{} frames; worst set-dist {worst:.4}px",
         FRAMES.len()
     );
-    // left02 currently needs OpenCV's board-augmentation (addOuterQuad) which
-    // is not yet ported; the rest must all be found.
-    assert!(
-        detected >= FRAMES.len() - 1,
+    assert_eq!(
+        detected,
+        FRAMES.len(),
         "only detected {detected}/{}",
         FRAMES.len()
     );
