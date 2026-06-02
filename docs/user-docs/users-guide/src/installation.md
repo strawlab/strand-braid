@@ -23,6 +23,67 @@ in _packaging/ubuntu-2404-installer-zip-readme.txt
 
 -->
 
+## Selecting or upgrading the Pylon version (Basler cameras)
+
+Strand Camera and Braid talk to Basler cameras through a small *shim* library
+(`libpylon-cabi`) that is loaded at runtime. The shim is what links against
+Basler's proprietary Pylon SDK; the Strand Camera and Braid programs themselves
+do not. This means you can change the Pylon version **without reinstalling or
+rebuilding** Strand Camera or Braid — you only swap the shim and the matching
+Pylon runtime.
+
+The `.deb` package bundles a default shim built against Pylon
+`7.3.0.27189`. It is installed under `/usr/lib/strand-braid/`, and the package
+sets the `PYLON_CABI` environment variable (via `/etc/profile.d/`) so the
+programs find it automatically. For most users this is all you need, and you can
+skip this section.
+
+### Using a different Pylon version
+
+To run against a different Pylon version, you need two matching pieces:
+
+1. **The Pylon runtime**, installed from Basler (for example into `/opt/pylon`).
+   Install the Basler `.deb` for the version you want exactly as described under
+   the Pylon prerequisite above, just with the version of your choice.
+2. **A shim built against that same Pylon version.** Pre-compiled shims are
+   published at
+   <https://strawlab.org/assets/libpylon-cabi/precompiled/>, with names like
+   `libpylon-cabi-v1-linux-x86_64-pylon_<VERSION>.so`. Download the one whose
+   `<VERSION>` matches the Pylon runtime you installed. (The shim can also be
+   built from source from the
+   [`pylon-shimload`](https://crates.io/crates/pylon-shimload) project if a
+   pre-built one is not available.)
+
+> **The shim and the Pylon runtime must be a matched pair.** A shim built for
+> Pylon `X` requires the Pylon `X` runtime to be installed and discoverable at
+> runtime; otherwise loading fails. Always install the two together.
+
+> **The `v1` in the shim filename is the shim ABI generation**, not the Pylon
+> version. The Strand Camera / Braid release you have installed expects a
+> specific shim ABI generation (currently `v1`). Use a shim with the matching
+> ABI generation; a mismatch is reported with a clear error at startup.
+
+Once you have downloaded the shim, point `PYLON_CABI` at it. Because the bundled
+default is only applied when `PYLON_CABI` is unset, your value always takes
+precedence. The most direct way is to set it on the command line for a single
+run:
+
+```ignore
+PYLON_CABI=/path/to/libpylon-cabi-v1-linux-x86_64-pylon_<VERSION>.so strand-cam-pylon
+```
+
+To make the change persistent for your shell, export it from your shell startup
+file (for example `~/.bashrc`):
+
+```ignore
+export PYLON_CABI=/path/to/libpylon-cabi-v1-linux-x86_64-pylon_<VERSION>.so
+```
+
+This overrides the package default in interactive shells. If you launch the
+software in an environment that does not read your shell startup files (for
+example a `systemd` service, a `cron` job, or `sudo` without `-E`), set
+`PYLON_CABI` explicitly in that environment too.
+
 ## Hardware installation
 
 ### Cameras
