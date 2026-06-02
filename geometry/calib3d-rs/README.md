@@ -10,9 +10,9 @@ The OpenCV surface being replaced is:
 
 - `cv::cornerSubPix` — sub-pixel corner refinement (**done**, see
   [`corner_subpix`]).
-- `cv::calibrateCamera` — intrinsic/distortion calibration (**in progress**, see
-  the [`calibrate`] module; per-view homography estimation done, Zhang
-  intrinsics / extrinsics / LM refinement todo).
+- `cv::calibrateCamera` — intrinsic/distortion calibration (**done**, see the
+  [`calibrate`] module: homography → initial intrinsics → per-view extrinsics →
+  joint Levenberg-Marquardt refinement).
 - `cv::findChessboardCorners` — chessboard corner detection (todo).
 
 ## Validation
