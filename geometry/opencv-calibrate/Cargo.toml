@@ -16,3 +16,5 @@ cc = "1.1.12"
 approx.workspace = true
 image.workspace = true
 serde_json.workspace = true
+
+calib3d-rs.workspace = true
