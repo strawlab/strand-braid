@@ -9,8 +9,6 @@ eyre.workspace = true
 lazy_static.workspace = true
 tracing.workspace = true
 
-ipp-sys = { workspace = true, optional = true }
-
 ci2-async.workspace = true
 ci2-pyloncxx.workspace = true
 

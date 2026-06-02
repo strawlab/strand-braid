@@ -1,17 +1,7 @@
 //! detect features in images, maximally backwards compatible with Flydra
 use tracing::{debug, error, info, warn};
 
-#[cfg(not(any(feature = "do_not_use_ipp", feature = "use_ipp")))]
-compile_error!("Need either feature 'do_not_use_ipp' or 'use_ipp' enabled.");
-
-#[cfg(all(feature = "do_not_use_ipp", feature = "use_ipp"))]
-compile_error!("Need only one of feature 'do_not_use_ipp' or 'use_ipp' enabled, not both.");
-
-#[cfg(feature = "do_not_use_ipp")]
 use fastfreeimage as fastim_mod;
-
-#[cfg(feature = "use_ipp")]
-use fastimage as fastim_mod;
 
 use borrow_fastimage::BorrowedFrame;
 use tokio::sync::mpsc;

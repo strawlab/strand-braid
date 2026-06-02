@@ -49,14 +49,10 @@ async fn main() -> eyre::Result<()> {
     }
     let dur = start.elapsed();
     let fps = count as f64 / dur.as_secs_f64();
-    #[cfg(feature = "use_ipp")]
-    let impl_str = " with IPP";
-    #[cfg(feature = "do_not_use_ipp")]
-    let impl_str = "";
 
     let target_feature_string = target::features().join(", ");
     println!(
-        "{target_feature_string}{impl_str}: processed {count} frames in {:.2} seconds ({fps:.1} fps). Found {n_pts} points total.",
+        "{target_feature_string}: processed {count} frames in {:.2} seconds ({fps:.1} fps). Found {n_pts} points total.",
         dur.as_secs_f32()
     );
 

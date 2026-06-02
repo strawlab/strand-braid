@@ -18,10 +18,8 @@ serde_yaml.workspace = true
 tokio.workspace = true
 nalgebra.workspace = true
 parry2d-f64 = { workspace = true, features = ["default"] }
-ipp-sys = { workspace = true, optional = true }
 
-fastimage = { path = "../fastimage", optional = true }
-fastfreeimage = { workspace = true, optional = true }
+fastfreeimage.workspace = true
 strand-cam-bui-types.workspace = true
 braid-types.workspace = true
 ufmf.workspace = true
@@ -40,7 +38,3 @@ env_logger.workspace = true
 flydra-pt-detect-cfg.workspace = true
 eyre.workspace = true
 target.workspace = true
-
-[features]
-use_ipp = ["fastimage", "dep:ipp-sys"]
-do_not_use_ipp = ["fastfreeimage"]

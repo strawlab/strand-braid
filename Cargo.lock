@@ -1628,7 +1628,6 @@ dependencies = [
  "futures",
  "image",
  "indicatif 0.17.11",
- "ipp-sys",
  "machine-vision-formats",
  "mp4-writer",
  "nalgebra 0.34.2",
@@ -4777,16 +4776,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "fastimage"
-version = "0.1.0"
-dependencies = [
- "ipp-sys",
- "machine-vision-formats",
- "num-traits 0.2.19",
- "thiserror 1.0.69",
-]
-
-[[package]]
 name = "fastrand"
 version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4961,11 +4950,9 @@ dependencies = [
  "env_logger",
  "eyre",
  "fastfreeimage",
- "fastimage",
  "flydra-feature-detector-types",
  "flydra-pt-detect-cfg",
  "fmf",
- "ipp-sys",
  "machine-vision-formats",
  "nalgebra 0.34.2",
  "num-traits 0.2.19",
@@ -7094,32 +7081,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d98f6fed1fde3f8c21bc40a1abb88dd75e67924f9cffc3ef95607bad8017f8e2"
 
 [[package]]
-name = "ipp-headers-sys"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "facdceb416ba237e380b8fb3fc6ad490c96732f0ae4aa56dddd3ad8fe4808790"
-
-[[package]]
-name = "ipp-sys"
-version = "0.4.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b144415698b40502cfcf4b6c51e1d52e18ceecc8608046571fb3ee7aacbafc51"
-dependencies = [
- "ipp-headers-sys",
- "link-ippcore",
- "link-ippcv",
- "link-ippi",
- "link-ipps",
- "link-ippvm",
-]
-
-[[package]]
-name = "ipp-sys-build-help"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78d16a53ae939f595c1b0e0c37616455ba06cff71543a97af6ec8e515aeec3fa"
-
-[[package]]
 name = "is-terminal"
 version = "0.4.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7697,58 +7658,6 @@ name = "linebender_resource_handle"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d4a5ff6bcca6c4867b1c4fd4ef63e4db7436ef363e0ad7531d1558856bae64f4"
-
-[[package]]
-name = "link-ippcore"
-version = "0.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34497ec9f8e2527015a9f02041a652ec8c6cf815e067ad3a238b710ee441cc51"
-dependencies = [
- "ipp-sys-build-help",
-]
-
-[[package]]
-name = "link-ippcv"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28cd9b2fb73f3166700eb4d8e829129105ea2cd515aacee3151f6513737c4518"
-dependencies = [
- "ipp-sys-build-help",
- "link-ippcore",
- "link-ipps",
-]
-
-[[package]]
-name = "link-ippi"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd406646d910b006a177127e7ee944021eacca272900b39aa8cdd4c8cd32892b"
-dependencies = [
- "ipp-sys-build-help",
- "link-ippcore",
- "link-ipps",
-]
-
-[[package]]
-name = "link-ipps"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14a6b03cd9109fb12e2292fba05bfeac090e65b9e4b07d055cf2bd839a4518b0"
-dependencies = [
- "ipp-sys-build-help",
- "link-ippcore",
- "link-ippvm",
-]
-
-[[package]]
-name = "link-ippvm"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7c46ef6ed70851a4a87f909d10eca34bb6b3362c7ab81b609d0e3633f551591"
-dependencies = [
- "ipp-sys-build-help",
- "link-ippcore",
-]
 
 [[package]]
 name = "linked-hash-map"
@@ -14037,7 +13946,6 @@ dependencies = [
  "hyper-util",
  "imops",
  "include_dir",
- "ipp-sys",
  "json-lines",
  "libflate",
  "lstsq 0.7.0",
@@ -14182,7 +14090,6 @@ dependencies = [
  "ci2-async",
  "ci2-pyloncxx",
  "eyre",
- "ipp-sys",
  "lazy_static",
  "strand-cam",
  "tracing",
@@ -14195,7 +14102,6 @@ dependencies = [
  "ci2-async",
  "ci2-pyloncxx",
  "eyre",
- "ipp-sys",
  "lazy_static",
  "strand-cam",
  "tracing",
@@ -14244,7 +14150,6 @@ dependencies = [
  "ci2-async",
  "ci2-vimba",
  "eyre",
- "ipp-sys",
  "lazy_static",
  "strand-cam",
  "tracing",

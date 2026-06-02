@@ -823,9 +823,6 @@ impl PixelType for f32 {
 /// * [Self::valid_row_iter] takes size information.
 /// * [Self::stride], [Self::width], and [Self::height] return
 ///   [ipp_ctypes::c_int].
-///
-/// This trait was originally implemented to wrap Intel IPP image data
-/// structures.
 pub trait FastImage {
     /// Pixel data type (e.g. [u8] or [f32])
     type D: PixelType;
@@ -1685,12 +1682,6 @@ impl MomentState {
     pub fn new(_hint_algorithm: AlgorithmHint) -> Result<MomentState> {
         Ok(MomentState { results: None })
     }
-    // fn as_mut_ptr(&mut self) -> *mut ipp_sys::MomentState64f {
-    //     self.data.as_mut_ptr() as *mut ipp_sys::MomentState64f
-    // }
-    // fn as_ptr(&self) -> *const ipp_sys::MomentState64f {
-    //     self.data.as_ptr() as *const ipp_sys::MomentState64f
-    // }
     pub fn spatial(
         &self,
         m_ord: ipp_ctypes::c_int,

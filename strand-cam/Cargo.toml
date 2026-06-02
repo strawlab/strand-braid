@@ -28,7 +28,6 @@ preferences-serde1.workspace = true
 base64.workspace = true
 directories = "6.0.0"
 eyre.workspace = true
-ipp-sys = { workspace = true, optional = true }
 ci2.workspace = true
 ci2-async.workspace = true
 strand-cam-types.workspace = true
@@ -123,7 +122,7 @@ v4l = "0.14"
 build-util.workspace = true
 
 [features]
-default = ["flydra_feat_detect", "imtrack-absdiff", "do_not_use_ipp"]
+default = ["flydra_feat_detect", "imtrack-absdiff"]
 
 eframe-gui = ["eframe"]
 fiducial = [
@@ -157,6 +156,3 @@ flydratrax = [
 
 # build with the flydra-feature-detector
 flydra_feat_detect = ["dep:flydra-feature-detector"]
-
-use_ipp = ["flydra-feature-detector?/use_ipp"]
-do_not_use_ipp = ["flydra-feature-detector?/do_not_use_ipp"]

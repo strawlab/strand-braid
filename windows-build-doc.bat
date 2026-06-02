@@ -2,9 +2,6 @@
 
 set PYLON_VERSION=6
 
-@REM Set IPPROOT environment variable: run this script in a shell opened with:
-@REM cmd /k "c:\Program Files (x86)\IntelSWTools\compilers_and_libraries_2019\windows\ipp\bin\ippvars.bat" intel64
-
 REM Download opencv-4.5.5-vc14_vc15.exe from https://github.com/opencv/opencv/releases/download/4.5.5/opencv-4.5.5-vc14_vc15.exe
 REM then expand it in your Downloads directory.
 
@@ -20,5 +17,5 @@ set VPX_LIB_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\lib\x64
 set VPX_INCLUDE_DIR=%HomeDrive%%HomePath%\libvpx_v1.10.0_msvc16\include
 SET VPX_NO_PKG_CONFIG=1
 
-cargo doc --features "ipp-sys/2019 braid-run/serve_files"
-@REM cargo build --no-default-features --features bundle_files,backend_pyloncxx,ipp-sys/2019 --release
+cargo doc --features braid-run/serve_files
+@REM cargo build --no-default-features --features bundle_files,backend_pyloncxx --release

@@ -1,6 +1,5 @@
-//! Pure-Rust counterpart of fastimage's isa_bench: same per-frame full-image
-//! op sequence (DetectAbsDiff + use_cmp, mask skipped), so the two are directly
-//! comparable. Build with default flags for the sandybridge floor, or with
+//! Benchmark of the per-frame full-image op sequence (DetectAbsDiff + use_cmp,
+//! mask skipped). Build with default flags for the sandybridge floor, or with
 //! RUSTFLAGS="-C target-cpu=native" to let `wide` use AVX2.
 
 use fastfreeimage::{

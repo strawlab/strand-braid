@@ -10,7 +10,6 @@ can serve as a reference for your builds.
 
 | Dependency | Available | Description | Usage in `strand-braid` |
 | :--- | :--- | :--- | :--- |
-| [Intel IPP (Integrated Performance Primitives)](https://www.intel.com/content/www/us/en/developer/tools/oneapi/ipp.html) | see [here](https://www.intel.com/content/www/us/en/developer/tools/oneapi/ipp-download.html) | SIMD for high performance image processing on x86 | optional, used when the Cargo feature `use_ipp` is enabled. |
 | [Basler Pylon](https://www.baslerweb.com/pylon) | free download, [not available for automatic use](https://github.com/basler/pypylon/issues/521#issuecomment-1206256554) | drivers for Basler cameras | used in `strand-cam-pylon` |
 | [Allied Vision Technologies Vimba X](https://www.alliedvision.com/en/support/software-downloads/vimba-x-sdk/vimba-x) | free download, not available for automatic use | drivers for Allied Vision Technologies cameras | used in `strand-cam-vimba` |
 
