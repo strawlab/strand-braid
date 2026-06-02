@@ -8,5 +8,7 @@
 //!      extrinsics — todo.
 
 mod homography;
+mod intrinsics;
 
 pub use homography::find_homography;
+pub use intrinsics::{InitialIntrinsics, init_intrinsics};
