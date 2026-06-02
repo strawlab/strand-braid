@@ -15,5 +15,7 @@
 //! `CALIB_CB_ADAPTIVE_THRESH | CALIB_CB_NORMALIZE_IMAGE | CALIB_CB_FAST_CHECK`.
 
 mod binarize;
+mod contour;
 
 pub use binarize::{adaptive_threshold_mean, equalize_hist};
+pub use contour::{Contour, find_contours};
