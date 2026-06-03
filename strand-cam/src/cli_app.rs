@@ -8,6 +8,51 @@ use crate::APP_INFO;
 
 use eyre::{Result, WrapErr, eyre};
 
+/// Which camera vendor backend the merged Strand Camera binary should load.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CameraBackend {
+    /// Basler Pylon backend (`ci2-pyloncxx`).
+    Pylon,
+    /// Allied Vision Vimba backend (`ci2-vimba`).
+    Vimba,
+}
+
+impl CameraBackend {
+    /// Parse the backend from the value of the `--camera-backend` argument.
+    pub fn from_arg(value: &str) -> Result<Self> {
+        match value {
+            "pylon" => Ok(CameraBackend::Pylon),
+            "vimba" => Ok(CameraBackend::Vimba),
+            other => Err(eyre!(
+                "unknown camera backend '{other}', expected 'pylon' or 'vimba'"
+            )),
+        }
+    }
+}
+
+/// Determine which camera backend was requested on the command line.
+///
+/// This peeks at the process arguments so that the merged Strand Camera binary
+/// can construct the correct backend module *before* the full argument parser
+/// (which is backend-agnostic) runs in [cli_main]. Returns `None` if
+/// `--camera-backend` was not supplied, in which case the caller should apply
+/// its own default.
+pub fn requested_camera_backend() -> Result<Option<CameraBackend>> {
+    let mut args = std::env::args();
+    while let Some(arg) = args.next() {
+        if let Some(value) = arg.strip_prefix("--camera-backend=") {
+            return Ok(Some(CameraBackend::from_arg(value)?));
+        }
+        if arg == "--camera-backend" {
+            let value = args
+                .next()
+                .ok_or_else(|| eyre!("--camera-backend requires a value ('pylon' or 'vimba')"))?;
+            return Ok(Some(CameraBackend::from_arg(&value)?));
+        }
+    }
+    Ok(None)
+}
+
 pub fn cli_main<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     app_name: &'static str,
@@ -110,6 +155,15 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
                 Arg::new("camera_name")
                     .long("camera-name")
                     .help("The name of the desired camera."),
+            )
+            .arg(
+                Arg::new("camera_backend")
+                    .long("camera-backend")
+                    .value_parser(["pylon", "vimba"])
+                    .help(
+                        "Which camera backend library to load. Only meaningful for \
+                        the merged Strand Camera binary that supports multiple backends.",
+                    ),
             )
             .arg(
                 Arg::new("camera_settings_filename")
