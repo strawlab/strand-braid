@@ -101,7 +101,7 @@ different computer.
 
 2. **Using an explicit `--braid-url` in shell scripts that differs from the URL
    Braid prints on startup**: Use the URL that Braid prints at startup. Braid
-   also prints the suggested `strand-cam-pylon` command line for each remote
+   also prints the suggested `strand-cam` command line for each remote
    camera.
 
 3. **Network path does not exist**: Ensure there is a network route from the
@@ -132,7 +132,7 @@ RUST_LOG=debug braid run braid-config.toml
 ```
 
 ```sh
-RUST_LOG=debug strand-cam-pylon
+RUST_LOG=debug strand-cam
 ```
 
 Please [report any issues you

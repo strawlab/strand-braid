@@ -71,16 +71,17 @@ When launching Braid with a configuration file as above, the messages printed by
 Braid will suggest the relevant arguments to use when starting Strand Camera as
 a remote camera for Braid.
 
-To start Strand Camera as a remote camera for Braid, run `strand-cam-pylon` (or
-`strand-cam-vimba`) with the command line argument `--braid-url <URL>`
-specifying the URL for the braid HTTP address. The camera name should also be
-specified on the command line using `--camera-name <CAMERA NAME>`.
+To start Strand Camera as a remote camera for Braid, run `strand-cam` with the
+command line argument `--braid-url <URL>` specifying the URL for the braid HTTP
+address. The camera name should also be specified on the command line using
+`--camera-name <CAMERA NAME>`. Select the camera vendor backend with
+`--camera-backend pylon` (the default) or `--camera-backend vimba`.
 
 In the following example, the Strand Camera will open the camera named
 `Camera-12345` and will connect to Braid running at `http://192.168.1.10:44444`.
 
 ```ignore
-strand-cam-pylon --camera-name Camera-12345 --braid-url http://192.168.1.10:44444/?token=<TOKEN>
+strand-cam --camera-backend pylon --camera-name Camera-12345 --braid-url http://192.168.1.10:44444/?token=<TOKEN>
 ```
 
 The `?token=<TOKEN>` query parameter is required when the Braid server is

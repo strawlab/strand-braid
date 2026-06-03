@@ -342,7 +342,11 @@ publish-api-docs:
     - build-api-docs
   when: manual
 
-strand-cam-pylon-binary:
+# The single `strand-cam` executable supports both the Basler Pylon and Allied
+# Vision Vimba backends, selecting one at runtime via `--camera-backend`. Both
+# vendor SDKs are loaded dynamically at runtime (Pylon via pylon-shimload, Vimba
+# via libloading), so neither SDK is required to build this binary.
+strand-cam-binary:
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -354,61 +358,27 @@ strand-cam-pylon-binary:
 
     - rustc --version
 
-    - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
+    - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR
 
     - >
       OPENCV_STATIC=1
       PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig
       RUSTFLAGS="$RUSTFLAGS -C codegen-units=1"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/checkercal strand-cam/fiducial strand-cam/flydra_feat_detect strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
+      cargo build -p strand-cam --bin strand-cam --no-default-features --features "bundle_files checkercal fiducial flydra_feat_detect imtrack-absdiff tracing/release_max_level_debug" --release
 
-    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-pylon
-    - $CI_PROJECT_DIR/target/release/strand-cam-pylon --version
+    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam
+    - $CI_PROJECT_DIR/target/release/strand-cam --version
     - mkdir -p $CI_PROJECT_DIR/build
-    - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon $CI_PROJECT_DIR/build/
+    - cp $CI_PROJECT_DIR/target/release/strand-cam $CI_PROJECT_DIR/build/
     - cd $CI_PROJECT_DIR
     - cargo build --release -p write-debian-changelog
-    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-pylon focal > $CI_PROJECT_DIR/build/strand-cam-pylon.changelog
+    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam focal > $CI_PROJECT_DIR/build/strand-cam.changelog
     - cp $CI_PROJECT_DIR/target/release/write-debian-changelog $CI_PROJECT_DIR/build/
   artifacts:
     paths:
       - build/
-    name: "strand-cam-pylon-binary-${CI_COMMIT_SHA}"
-
-strand-cam-vimba-binary:
-  image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
-  variables:
-    GIT_SUBMODULE_STRATEGY: recursive
-  script:
-    - _packaging/setup-opencv-4.9.0-static.sh
-    - _packaging/setup-ubuntu-vimba.sh
-    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
-
-    - export RUSTFLAGS="-D warnings"
-
-    - rustc --version
-
-    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-vimba
-
-    - >
-      OPENCV_STATIC=1
-      PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig
-      RUSTFLAGS="$RUSTFLAGS -C codegen-units=1"
-      NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/checkercal strand-cam/fiducial strand-cam/flydra_feat_detect strand-cam/imtrack-absdiff tracing/release_max_level_debug" --release
-
-    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-vimba
-    - $CI_PROJECT_DIR/target/release/strand-cam-vimba --version
-    - mkdir -p $CI_PROJECT_DIR/build
-    - cp $CI_PROJECT_DIR/target/release/strand-cam-vimba $CI_PROJECT_DIR/build
-    - cd $CI_PROJECT_DIR
-    - cargo build --release -p write-debian-changelog
-    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-vimba focal > $CI_PROJECT_DIR/build/strand-cam-vimba.changelog
-  artifacts:
-    paths:
-      - build/
-    name: "strand-cam-vimba-binary-${CI_COMMIT_SHA}"
+    name: "strand-cam-binary-${CI_COMMIT_SHA}"
 
 flytrax-csv-to-braidz-binary:
   # Use manylinux project to build binary compatible with old glibc
@@ -733,12 +703,11 @@ strand-braid-ubuntu-2604:
     - cd $CI_PROJECT_DIR/_packaging
     - pwd
     - ls -l $CI_PROJECT_DIR/build
-    - $CI_PROJECT_DIR/build/strand-cam-pylon --version
+    - $CI_PROJECT_DIR/build/strand-cam --version
     - $CI_PROJECT_DIR/build/braid-run --version
     - ldd -v $CI_PROJECT_DIR/build/flytrax-csv-to-braidz
     - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
-    - ldd -v $CI_PROJECT_DIR/build/strand-cam-pylon
-    - ldd -v $CI_PROJECT_DIR/build/strand-cam-vimba
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam
     - ldd -v $CI_PROJECT_DIR/build/braid
     - ldd -v $CI_PROJECT_DIR/build/braid-run
     - ldd -v $CI_PROJECT_DIR/build/cal-to-xml
@@ -764,8 +733,7 @@ strand-braid-ubuntu-2604:
     - braidz-mcsc
     - extra-programs
     - fmf-cli
-    - strand-cam-vimba-binary
-    - strand-cam-pylon-binary
+    - strand-cam-binary
     - flytrax-csv-to-braidz-binary
     - strand-cam-flydratrax-pylon-binary
   # For releases, we should upload the .zip to the github releases page, as the
@@ -794,12 +762,11 @@ strand-braid-ubuntu-2404:
     - cd $CI_PROJECT_DIR/_packaging
     - pwd
     - ls -l $CI_PROJECT_DIR/build
-    - $CI_PROJECT_DIR/build/strand-cam-pylon --version
+    - $CI_PROJECT_DIR/build/strand-cam --version
     - $CI_PROJECT_DIR/build/braid-run --version
     - ldd -v $CI_PROJECT_DIR/build/flytrax-csv-to-braidz
     - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
-    - ldd -v $CI_PROJECT_DIR/build/strand-cam-pylon
-    - ldd -v $CI_PROJECT_DIR/build/strand-cam-vimba
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam
     - ldd -v $CI_PROJECT_DIR/build/braid
     - ldd -v $CI_PROJECT_DIR/build/braid-run
     - ldd -v $CI_PROJECT_DIR/build/cal-to-xml
@@ -825,8 +792,7 @@ strand-braid-ubuntu-2404:
     - braidz-mcsc
     - extra-programs
     - fmf-cli
-    - strand-cam-vimba-binary
-    - strand-cam-pylon-binary
+    - strand-cam-binary
     - flytrax-csv-to-braidz-binary
     - strand-cam-flydratrax-pylon-binary
   # For releases, we should upload the .zip to the github releases page, as the
@@ -855,12 +821,11 @@ strand-braid-ubuntu-2004:
     - cd $CI_PROJECT_DIR/_packaging
     - pwd
     - ls -l $CI_PROJECT_DIR/build
-    - $CI_PROJECT_DIR/build/strand-cam-pylon --version
+    - $CI_PROJECT_DIR/build/strand-cam --version
     - $CI_PROJECT_DIR/build/braid-run --version
     - ldd -v $CI_PROJECT_DIR/build/flytrax-csv-to-braidz
     - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
-    - ldd -v $CI_PROJECT_DIR/build/strand-cam-pylon
-    - ldd -v $CI_PROJECT_DIR/build/strand-cam-vimba
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam
     - ldd -v $CI_PROJECT_DIR/build/braid
     - ldd -v $CI_PROJECT_DIR/build/braid-run
     - ldd -v $CI_PROJECT_DIR/build/cal-to-xml
@@ -886,8 +851,7 @@ strand-braid-ubuntu-2004:
     - braidz-mcsc
     - extra-programs
     - fmf-cli
-    - strand-cam-vimba-binary
-    - strand-cam-pylon-binary
+    - strand-cam-binary
     - flytrax-csv-to-braidz-binary
     - strand-cam-flydratrax-pylon-binary
   # For releases, we should upload the .zip to the github releases page, as the
@@ -916,12 +880,11 @@ strand-braid-ubuntu-2204:
     - cd $CI_PROJECT_DIR/_packaging
     - pwd
     - ls -l $CI_PROJECT_DIR/build
-    - $CI_PROJECT_DIR/build/strand-cam-pylon --version
+    - $CI_PROJECT_DIR/build/strand-cam --version
     - $CI_PROJECT_DIR/build/braid-run --version
     - ldd -v $CI_PROJECT_DIR/build/flytrax-csv-to-braidz
     - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
-    - ldd -v $CI_PROJECT_DIR/build/strand-cam-pylon
-    - ldd -v $CI_PROJECT_DIR/build/strand-cam-vimba
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam
     - ldd -v $CI_PROJECT_DIR/build/braid
     - ldd -v $CI_PROJECT_DIR/build/braid-run
     - ldd -v $CI_PROJECT_DIR/build/cal-to-xml
@@ -947,8 +910,7 @@ strand-braid-ubuntu-2204:
     - braidz-mcsc
     - extra-programs
     - fmf-cli
-    - strand-cam-vimba-binary
-    - strand-cam-pylon-binary
+    - strand-cam-binary
     - flytrax-csv-to-braidz-binary
     - strand-cam-flydratrax-pylon-binary
   # For releases, we should upload the .zip to the github releases page, as the
@@ -963,11 +925,11 @@ build_simple:
   dependencies: []
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
   script:
-    # Build strand-cam-pylon with simplest build configuration possible
+    # Build strand-cam with simplest build configuration possible
     - cd $CI_PROJECT_DIR/strand-cam/yew_frontend
     - ./build.sh
-    - cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon
-    - cargo build --release
+    - cd $CI_PROJECT_DIR/strand-cam
+    - cargo build --release --bin strand-cam
 
     # Build braid-run with simplest build configuration possible
     - cd $CI_PROJECT_DIR/braid/braid-run/braid_frontend

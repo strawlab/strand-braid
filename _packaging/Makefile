@@ -9,9 +9,9 @@ all: strand-braid_VERSION_amd64.deb
 .PHONY: all strand-braid_VERSION_amd64.deb
 
 # Move all binaries (except write-debian-changelog) from ../build/ to
-# ./strand-braid/ (This has "strand-cam-pylon" as the target, but also all
+# ./strand-braid/ (This has "strand-cam" as the target, but also all
 # other files brought along.)
-strand-braid/strand-cam-pylon:
+strand-braid/strand-cam:
 	mkdir -p strand-braid
 	mv -t strand-braid $(BUILD_DIR)/*
 	# Move this file back
@@ -22,5 +22,5 @@ strand-braid/debian/changelog:
 	$(BUILD_DIR)/write-debian-changelog strand-braid focal > strand-braid/debian/changelog
 
 # The full deb
-strand-braid_VERSION_amd64.deb: strand-braid/debian/changelog strand-braid/strand-cam-pylon
+strand-braid_VERSION_amd64.deb: strand-braid/debian/changelog strand-braid/strand-cam
 	cd strand-braid && dpkg-buildpackage -rfakeroot -b -uc -us
