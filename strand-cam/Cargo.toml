@@ -10,6 +10,12 @@ description = "Strand Camera: a single-camera recording and realtime tracking ap
 [lib]
 path = "src/strand-cam.rs"
 
+# The `strand-cam` executable supports multiple camera backends (Basler Pylon
+# and Allied Vision Vimba), selected at runtime via `--camera-backend`.
+[[bin]]
+name = "strand-cam"
+path = "src/main.rs"
+
 [dependencies]
 async-change-tracker.workspace = true
 qrcode.workspace = true
@@ -30,6 +36,8 @@ directories = "6.0.0"
 eyre.workspace = true
 ci2.workspace = true
 ci2-async.workspace = true
+ci2-pyloncxx.workspace = true
+ci2-vimba.workspace = true
 strand-cam-types.workspace = true
 strand-cam-remote-control.workspace = true
 machine-vision-formats.workspace = true
@@ -121,7 +129,7 @@ v4l = "0.14"
 build-util.workspace = true
 
 [features]
-default = ["flydra_feat_detect", "imtrack-absdiff"]
+default = ["flydra_feat_detect", "imtrack-absdiff", "bundle_files"]
 
 eframe-gui = ["eframe"]
 fiducial = [

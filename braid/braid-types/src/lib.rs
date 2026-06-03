@@ -427,20 +427,36 @@ const fn default_send_current_image_interval_msec() -> u64 {
 pub enum StartCameraBackend {
     /// Do not start a camera locally. Rather, wait for a remote camera to connect.
     Remote,
-    /// Start a Pylon camera locally using `strand-cam-pylon` program.
+    /// Start a Pylon camera locally using the `strand-cam` program with the
+    /// `--camera-backend pylon` argument.
     #[default]
     Pylon,
-    /// Start a Vimba camera locally using `strand-cam-vimba` program.
+    /// Start a Vimba camera locally using the `strand-cam` program with the
+    /// `--camera-backend vimba` argument.
     Vimba,
 }
 
 impl StartCameraBackend {
     /// Get the executable name for the camera backend.
+    ///
+    /// Both local backends are served by the single merged `strand-cam`
+    /// executable, which selects the backend at runtime via
+    /// [Self::camera_backend_arg].
     pub fn strand_cam_exe_name(&self) -> Option<&str> {
         match self {
             StartCameraBackend::Remote => None,
-            StartCameraBackend::Pylon => Some("strand-cam-pylon"),
-            StartCameraBackend::Vimba => Some("strand-cam-vimba"),
+            StartCameraBackend::Pylon | StartCameraBackend::Vimba => Some("strand-cam"),
+        }
+    }
+
+    /// Get the value for the `--camera-backend` argument of the `strand-cam`
+    /// executable, or `None` for a remote camera (whose backend is chosen on
+    /// the remote machine).
+    pub fn camera_backend_arg(&self) -> Option<&'static str> {
+        match self {
+            StartCameraBackend::Remote => None,
+            StartCameraBackend::Pylon => Some("pylon"),
+            StartCameraBackend::Vimba => Some("vimba"),
         }
     }
 }
