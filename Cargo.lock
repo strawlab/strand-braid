@@ -2207,6 +2207,7 @@ dependencies = [
 name = "camcal"
 version = "0.1.0"
 dependencies = [
+ "checkerboard-calibrate",
  "chrono",
  "eyre",
  "nalgebra 0.34.2",
@@ -2333,6 +2334,15 @@ dependencies = [
  "mint",
  "num-traits 0.1.43",
  "rand 0.4.6",
+]
+
+[[package]]
+name = "checkerboard-calibrate"
+version = "0.1.0"
+dependencies = [
+ "approx 0.5.1",
+ "levenberg-marquardt-sparse",
+ "nalgebra 0.34.2",
 ]
 
 [[package]]
@@ -4865,9 +4875,9 @@ name = "find-chessboard"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "checkerboard-calibrate",
  "clap",
  "image",
- "opencv-calibrate",
  "serde_yaml",
 ]
 
@@ -5333,7 +5343,6 @@ dependencies = [
  "ncollide2d-updated",
  "ncollide3d-updated",
  "obj",
- "opencv-calibrate",
  "opencv-ros-camera",
  "serde",
  "serde_json",
@@ -13953,7 +13962,6 @@ dependencies = [
  "mp4-writer",
  "nalgebra 0.34.2",
  "nvenc",
- "opencv-calibrate",
  "opencv-ros-camera",
  "preferences-serde1",
  "qrcode",
@@ -14059,7 +14067,6 @@ dependencies = [
  "eyre",
  "glob",
  "image",
- "opencv-calibrate",
  "opencv-ros-camera",
  "serde_yaml",
  "strand-cam-storetype",
