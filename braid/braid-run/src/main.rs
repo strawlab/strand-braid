@@ -30,12 +30,19 @@ fn compute_strand_cam_args(
         .first()
         .ok_or_else(|| eyre::eyre!("need at least one URL"))?;
     let url_string = format!("{url}");
-    Ok(vec![
+    let mut args = vec![
         "--camera-name".into(),
         camera.name.clone(),
         "--braid-url".into(),
         url_string,
-    ])
+    ];
+    // Tell the merged `strand-cam` executable which backend to load. This is
+    // `None` for remote cameras, whose backend is chosen on the remote machine.
+    if let Some(backend) = camera.start_backend.camera_backend_arg() {
+        args.push("--camera-backend".into());
+        args.push(backend.into());
+    }
+    Ok(args)
 }
 
 fn launch_strand_cam(

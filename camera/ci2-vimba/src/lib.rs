@@ -264,8 +264,8 @@ impl Drop for VimbaTerminateGuard {
     }
 }
 
-pub fn make_singleton_guard<'a>(
-    _vimba_module: &dyn ci2::CameraModule<CameraType = WrappedCamera<'a>, Guard = VimbaTerminateGuard>,
+pub fn make_singleton_guard(
+    _vimba_module: &dyn ci2::CameraModule<CameraType = WrappedCamera<'static>, Guard = VimbaTerminateGuard>,
 ) -> ci2::Result<VimbaTerminateGuard> {
     Ok(VimbaTerminateGuard {
         already_dropped: false,
@@ -273,7 +273,11 @@ pub fn make_singleton_guard<'a>(
 }
 
 impl<'a> ci2::CameraModule for &'a WrappedModule {
-    type CameraType = WrappedCamera<'a>;
+    // The camera borrows from `VIMBA_LIB`, which is a `lazy_static` and thus
+    // effectively `'static`, so the camera type carries no borrow from the
+    // module reference. Pinning it to `'static` makes this backend's shape match
+    // the Pylon backend (no lifetime parameter on the camera type).
+    type CameraType = WrappedCamera<'static>;
     type Guard = VimbaTerminateGuard;
 
     fn name(self: &&'a WrappedModule) -> &'static str {

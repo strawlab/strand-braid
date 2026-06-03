@@ -69,7 +69,7 @@ always takes precedence. The most direct way is to set it on the command line
 for a single run:
 
 ```ignore
-PYLON_CABI=/path/to/libpylon-cabi-v1-linux-x86_64-pylon_<VERSION>.so strand-cam-pylon
+PYLON_CABI=/path/to/libpylon-cabi-v1-linux-x86_64-pylon_<VERSION>.so strand-cam --camera-backend pylon
 ```
 
 To make the change persistent for your shell, export it from your shell startup

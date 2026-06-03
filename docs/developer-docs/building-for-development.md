@@ -10,8 +10,8 @@ can serve as a reference for your builds.
 
 | Dependency | Available | Description | Usage in `strand-braid` |
 | :--- | :--- | :--- | :--- |
-| [Basler Pylon](https://www.baslerweb.com/pylon) | free download, [not available for automatic use](https://github.com/basler/pypylon/issues/521#issuecomment-1206256554) | drivers for Basler cameras | used in `strand-cam-pylon` |
-| [Allied Vision Technologies Vimba X](https://www.alliedvision.com/en/support/software-downloads/vimba-x-sdk/vimba-x) | free download, not available for automatic use | drivers for Allied Vision Technologies cameras | used in `strand-cam-vimba` |
+| [Basler Pylon](https://www.baslerweb.com/pylon) | free download, [not available for automatic use](https://github.com/basler/pypylon/issues/521#issuecomment-1206256554) | drivers for Basler cameras | loaded at runtime by `strand-cam --camera-backend pylon` |
+| [Allied Vision Technologies Vimba X](https://www.alliedvision.com/en/support/software-downloads/vimba-x-sdk/vimba-x) | free download, not available for automatic use | drivers for Allied Vision Technologies cameras | loaded at runtime by `strand-cam --camera-backend vimba` |
 
 ## Prerequisites
 
@@ -42,23 +42,19 @@ cd /path/to/strand-braid/strand-cam/yew_frontend
 trunk build
 ```
 
-Then, build the Strand Cam executable for Basler cameras using the Pylon
-drivers, which must be preinstalled:
+Then, build the Strand Cam executable. A single `strand-cam` executable supports
+both the Basler Pylon and Allied Vision Vimba backends. The vendor drivers are
+loaded dynamically at runtime, so they do not need to be installed to build (but
+the relevant driver must be installed to actually open a camera):
 
 ```
-cd /path/to/strand-braid/strand-cam/strand-cam-pylon
-cargo build --release
-# By default, the executable will be put in /path/to/strand-braid/target/release/strand-cam-pylon
+cd /path/to/strand-braid/strand-cam
+cargo build --release --bin strand-cam
+# By default, the executable will be put in /path/to/strand-braid/target/release/strand-cam
 ```
 
-Alternatively or additionally, build the Strand Cam executable for Allied Vision
-cameras using the Vimba drivers, which must be preinstalled:
-
-```
-cd /path/to/strand-braid/strand-cam/strand-cam-vimba
-cargo build --release
-# By default, the executable will be put in /path/to/strand-braid/target/release/strand-cam-vimba
-```
+Select the camera vendor backend at runtime with `--camera-backend pylon` (the
+default) or `--camera-backend vimba`.
 
 Many compile-time options exist to adjust the exact features used, but the
 instructions above should build a working copy of Strand Camera albeit with

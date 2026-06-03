@@ -1,16 +1,16 @@
 [package]
-name = "strand-cam-pylon-gui"
+name = "strand-cam-gui"
 version = "1.0.0-rc.2"    # braid release synchronized
 edition = "2024"
-description = "Strand Camera with Basler Pylon backend and eframe GUI"
+description = "Strand Camera with an eframe GUI, supporting the Basler Pylon and Allied Vision Vimba backends"
 
 [dependencies]
 eyre.workspace = true
-lazy_static.workspace = true
 tracing.workspace = true
 
 ci2-async.workspace = true
 ci2-pyloncxx.workspace = true
+ci2-vimba.workspace = true
 
 strand-cam = { workspace = true, features = ["eframe-gui"] }
 

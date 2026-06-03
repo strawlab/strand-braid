@@ -13926,6 +13926,8 @@ dependencies = [
  "ci2",
  "ci2-async",
  "ci2-pylon-types",
+ "ci2-pyloncxx",
+ "ci2-vimba",
  "ci2-vimba-types",
  "clap",
  "convert-image",
@@ -14054,6 +14056,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "strand-cam-gui"
+version = "1.0.0-rc.2"
+dependencies = [
+ "ci2-async",
+ "ci2-pyloncxx",
+ "ci2-vimba",
+ "eyre",
+ "strand-cam",
+ "tracing",
+]
+
+[[package]]
 name = "strand-cam-offline-checkerboards"
 version = "0.1.0"
 dependencies = [
@@ -14091,30 +14105,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "strand-cam-pylon"
-version = "1.0.0-rc.2"
-dependencies = [
- "ci2-async",
- "ci2-pyloncxx",
- "eyre",
- "lazy_static",
- "strand-cam",
- "tracing",
-]
-
-[[package]]
-name = "strand-cam-pylon-gui"
-version = "1.0.0-rc.2"
-dependencies = [
- "ci2-async",
- "ci2-pyloncxx",
- "eyre",
- "lazy_static",
- "strand-cam",
- "tracing",
-]
-
-[[package]]
 name = "strand-cam-remote-control"
 version = "0.1.0"
 dependencies = [
@@ -14148,18 +14138,6 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "strand-cam-enum-iter",
-]
-
-[[package]]
-name = "strand-cam-vimba"
-version = "1.0.0-rc.2"
-dependencies = [
- "ci2-async",
- "ci2-vimba",
- "eyre",
- "lazy_static",
- "strand-cam",
- "tracing",
 ]
 
 [[package]]

@@ -39,10 +39,14 @@ navigator. Alternatively, you can install it from the command line:
 ## Running
 
 There are various ways to run Braid and Strand Camera. To get started, run
-strand camera for your camera. For Basler cameras, the Pylon driver is used:
+strand camera for your camera. A single `strand-cam` program supports both
+camera vendors; choose the driver with the `--camera-backend` argument.
 
-    strand-cam-pylon
+For Basler cameras, the Pylon driver is used (this is also the default when
+`--camera-backend` is omitted):
+
+    strand-cam --camera-backend pylon
 
 For Allied Vision cameras, the Vimba driver is used:
 
-    strand-cam-vimba
+    strand-cam --camera-backend vimba
