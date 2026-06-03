@@ -1,6 +1,6 @@
 use eyre::Result;
 
-const APP_NAME: &str = "strand-cam";
+const APP_NAME: &str = "strand-cam-gui";
 
 fn main() -> Result<()> {
     // Supports both the Basler Pylon and Allied Vision Vimba backends, selected

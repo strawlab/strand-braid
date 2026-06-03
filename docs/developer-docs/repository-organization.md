@@ -43,9 +43,9 @@
  - strand-cam (strand-cam) - Strand Camera: a single-camera recording and realtime tracking application
  - strand-cam-csv-config-types (strand-cam/strand-cam-csv-config-types) - support YAML frontmatter in .csv files saved by Strand Camera
  - strand-cam-frontend-yew (strand-cam/yew_frontend) - Yew WASM frontend for the Strand Camera web user interface
+ - strand-cam-gui (strand-cam/strand-cam-gui) - Strand Camera with an eframe GUI, supporting the Basler Pylon and Allied Vision Vimba backends
  - strand-cam-offline-checkerboards (strand-cam/strand-cam-offline-checkerboards) - Generate camera intrinsic camera calibration from directory full of images
  - strand-cam-pseudo-cal (strand-cam/strand-cam-pseudo-cal) - create camera calibration for Braid using only a view of a circle
- - strand-cam-pylon-gui (strand-cam/strand-cam-pylon-gui) - Strand Camera with Basler Pylon backend and eframe GUI
  - strand-cam-storetype (strand-cam/strand-cam-storetype) - Type definitions for Strand Camera's state management and browser UI communication.
 </details>
 

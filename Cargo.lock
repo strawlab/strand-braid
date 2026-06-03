@@ -14056,6 +14056,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "strand-cam-gui"
+version = "1.0.0-rc.2"
+dependencies = [
+ "ci2-async",
+ "ci2-pyloncxx",
+ "ci2-vimba",
+ "eyre",
+ "strand-cam",
+ "tracing",
+]
+
+[[package]]
 name = "strand-cam-offline-checkerboards"
 version = "0.1.0"
 dependencies = [
@@ -14090,18 +14102,6 @@ dependencies = [
  "opencv-ros-camera",
  "serde_json",
  "strand-http-video-streaming-types",
-]
-
-[[package]]
-name = "strand-cam-pylon-gui"
-version = "1.0.0-rc.2"
-dependencies = [
- "ci2-async",
- "ci2-pyloncxx",
- "eyre",
- "lazy_static",
- "strand-cam",
- "tracing",
 ]
 
 [[package]]

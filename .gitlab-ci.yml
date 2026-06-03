@@ -401,7 +401,10 @@ flytrax-csv-to-braidz-binary:
     paths:
       - build/
 
-strand-cam-flydratrax-pylon-binary:
+# The flydratrax GUI build of the multi-backend `strand-cam-gui` executable,
+# packaged as `strand-cam-flydratrax`. Like `strand-cam`, it selects the camera
+# vendor backend at runtime via `--camera-backend` (defaulting to pylon).
+strand-cam-flydratrax-binary:
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
@@ -411,7 +414,7 @@ strand-cam-flydratrax-pylon-binary:
     - export RUSTFLAGS="-D warnings"
     - rustc --version
 
-    - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-pylon-gui
+    - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-gui
 
     - >
       OPENCV_STATIC=1
@@ -420,19 +423,19 @@ strand-cam-flydratrax-pylon-binary:
       NUM_JOBS=2
       cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/imtrack-dark-circle strand-cam/checkercal strand-cam/fiducial strand-cam/flydra_feat_detect tracing/release_max_level_debug" --release
 
-    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui
-    - $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui --version
+    - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-gui
+    - $CI_PROJECT_DIR/target/release/strand-cam-gui --version
     - mkdir -p $CI_PROJECT_DIR/build
-    # Rename the target to `strand-cam-flydratrax-pylon`.
-    - cp $CI_PROJECT_DIR/target/release/strand-cam-pylon-gui $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
+    # Rename the target to `strand-cam-flydratrax`.
+    - cp $CI_PROJECT_DIR/target/release/strand-cam-gui $CI_PROJECT_DIR/build/strand-cam-flydratrax
     - cd $CI_PROJECT_DIR
     - cargo build --release -p write-debian-changelog
-    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-flydratrax-pylon focal > $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
-    - cat $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon.changelog
+    - $CI_PROJECT_DIR/target/release/write-debian-changelog strand-cam-flydratrax focal > $CI_PROJECT_DIR/build/strand-cam-flydratrax.changelog
+    - cat $CI_PROJECT_DIR/build/strand-cam-flydratrax.changelog
   artifacts:
     paths:
       - build/
-    name: "strand-cam-flydratrax-pylon-linux-${CI_COMMIT_SHA}"
+    name: "strand-cam-flydratrax-linux-${CI_COMMIT_SHA}"
 
 braid-offline-static:
   dependencies: []
@@ -706,7 +709,7 @@ strand-braid-ubuntu-2604:
     - $CI_PROJECT_DIR/build/strand-cam --version
     - $CI_PROJECT_DIR/build/braid-run --version
     - ldd -v $CI_PROJECT_DIR/build/flytrax-csv-to-braidz
-    - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax
     - ldd -v $CI_PROJECT_DIR/build/strand-cam
     - ldd -v $CI_PROJECT_DIR/build/braid
     - ldd -v $CI_PROJECT_DIR/build/braid-run
@@ -735,7 +738,7 @@ strand-braid-ubuntu-2604:
     - fmf-cli
     - strand-cam-binary
     - flytrax-csv-to-braidz-binary
-    - strand-cam-flydratrax-pylon-binary
+    - strand-cam-flydratrax-binary
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2604" in the
   # filename.
@@ -765,7 +768,7 @@ strand-braid-ubuntu-2404:
     - $CI_PROJECT_DIR/build/strand-cam --version
     - $CI_PROJECT_DIR/build/braid-run --version
     - ldd -v $CI_PROJECT_DIR/build/flytrax-csv-to-braidz
-    - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax
     - ldd -v $CI_PROJECT_DIR/build/strand-cam
     - ldd -v $CI_PROJECT_DIR/build/braid
     - ldd -v $CI_PROJECT_DIR/build/braid-run
@@ -794,7 +797,7 @@ strand-braid-ubuntu-2404:
     - fmf-cli
     - strand-cam-binary
     - flytrax-csv-to-braidz-binary
-    - strand-cam-flydratrax-pylon-binary
+    - strand-cam-flydratrax-binary
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2404" in the
   # filename.
@@ -824,7 +827,7 @@ strand-braid-ubuntu-2004:
     - $CI_PROJECT_DIR/build/strand-cam --version
     - $CI_PROJECT_DIR/build/braid-run --version
     - ldd -v $CI_PROJECT_DIR/build/flytrax-csv-to-braidz
-    - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax
     - ldd -v $CI_PROJECT_DIR/build/strand-cam
     - ldd -v $CI_PROJECT_DIR/build/braid
     - ldd -v $CI_PROJECT_DIR/build/braid-run
@@ -853,7 +856,7 @@ strand-braid-ubuntu-2004:
     - fmf-cli
     - strand-cam-binary
     - flytrax-csv-to-braidz-binary
-    - strand-cam-flydratrax-pylon-binary
+    - strand-cam-flydratrax-binary
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2004" in the
   # filename.
@@ -883,7 +886,7 @@ strand-braid-ubuntu-2204:
     - $CI_PROJECT_DIR/build/strand-cam --version
     - $CI_PROJECT_DIR/build/braid-run --version
     - ldd -v $CI_PROJECT_DIR/build/flytrax-csv-to-braidz
-    - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax-pylon
+    - ldd -v $CI_PROJECT_DIR/build/strand-cam-flydratrax
     - ldd -v $CI_PROJECT_DIR/build/strand-cam
     - ldd -v $CI_PROJECT_DIR/build/braid
     - ldd -v $CI_PROJECT_DIR/build/braid-run
@@ -912,7 +915,7 @@ strand-braid-ubuntu-2204:
     - fmf-cli
     - strand-cam-binary
     - flytrax-csv-to-braidz-binary
-    - strand-cam-flydratrax-pylon-binary
+    - strand-cam-flydratrax-binary
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2204" in the
   # filename.
