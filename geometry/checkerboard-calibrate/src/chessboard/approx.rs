@@ -3,8 +3,7 @@
 //!
 //! OpenCV's implementation is a specific stack-based Douglas–Peucker followed by
 //! a collinear-point cleanup pass, with particular wraparound/rounding behavior.
-//! This is ported literally so the output vertices match OpenCV exactly
-//! (verified by the cross-check in the `opencv-calibrate` crate). The chessboard
+//! This is ported literally so the output vertices match OpenCV exactly. The chessboard
 //! detector only ever calls it with `closed = true`, but the open-contour path
 //! is ported too for completeness.
 

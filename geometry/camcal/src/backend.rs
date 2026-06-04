@@ -1,10 +1,6 @@
 //! Backend facade for chessboard detection and camera calibration.
 //!
-//! By default these route to the pure-Rust [`checkerboard_calibrate`] implementation. With
-//! the `opencv` feature enabled they route to the OpenCV C++ implementation in
-//! `opencv-calibrate` instead. The two backends are validated against each
-//! other in the `opencv-calibrate` crate's cross-check tests and `compare`
-//! example.
+//! These route to the pure-Rust [`checkerboard_calibrate`] implementation.
 
 /// A point with a known world (3D) and image (2D) location.
 #[derive(Debug, Clone, Copy)]
@@ -44,15 +40,10 @@ impl std::fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
-// ---------------------------------------------------------------------------
-// Pure-Rust backend (default).
-// ---------------------------------------------------------------------------
-
-/// Convert an interleaved RGB buffer to grayscale, reproducing the channel
-/// handling of the OpenCV C++ wrapper (which interprets the buffer as BGR and
-/// applies `COLOR_BGR2GRAY`). For grayscale inputs (R == G == B) this is the
-/// identity. Matching it keeps the two backends consistent on color images.
-#[cfg(not(feature = "opencv"))]
+/// Convert an interleaved RGB buffer to grayscale. The buffer is interpreted as
+/// BGR and reduced as OpenCV's `COLOR_BGR2GRAY` would, so that color inputs are
+/// handled identically to historical behavior. For grayscale inputs (R == G ==
+/// B) this is the identity.
 fn rgb_to_gray(rgb: &[u8], width: u32, height: u32) -> Vec<u8> {
     let n = (width as usize) * (height as usize);
     let mut gray = vec![0u8; n];
@@ -68,7 +59,6 @@ fn rgb_to_gray(rgb: &[u8], width: u32, height: u32) -> Vec<u8> {
     gray
 }
 
-#[cfg(not(feature = "opencv"))]
 pub fn find_chessboard_corners(
     rgb: &[u8],
     width: u32,
@@ -87,7 +77,7 @@ pub fn find_chessboard_corners(
         pattern_width,
         pattern_height,
     );
-    // Match the OpenCV wrapper, which sub-pixel refines before returning.
+    // Sub-pixel refine before returning.
     Ok(corners.map(|raw| {
         corner_subpix(
             GrayImageRef::new(&gray, w, h),
@@ -97,7 +87,6 @@ pub fn find_chessboard_corners(
     }))
 }
 
-#[cfg(not(feature = "opencv"))]
 pub fn calibrate_camera(
     all_pts: &[Vec<CorrespondingPoint>],
     width: i32,
@@ -121,52 +110,6 @@ pub fn calibrate_camera(
 
     Ok(CalibrationResult {
         mean_reprojection_distance_pixels: res.rms_reprojection_error,
-        camera_matrix: res.camera_matrix,
-        distortion_coeffs: res.distortion_coeffs,
-        image_width: res.image_width,
-        image_height: res.image_height,
-    })
-}
-
-// ---------------------------------------------------------------------------
-// OpenCV C++ backend (`opencv` feature).
-// ---------------------------------------------------------------------------
-
-#[cfg(feature = "opencv")]
-pub fn find_chessboard_corners(
-    rgb: &[u8],
-    width: u32,
-    height: u32,
-    pattern_width: usize,
-    pattern_height: usize,
-) -> Result<Option<Vec<(f32, f32)>>, Error> {
-    opencv_calibrate::find_chessboard_corners(rgb, width, height, pattern_width, pattern_height)
-        .map_err(|e| Error::Detection(format!("{e:?}")))
-}
-
-#[cfg(feature = "opencv")]
-pub fn calibrate_camera(
-    all_pts: &[Vec<CorrespondingPoint>],
-    width: i32,
-    height: i32,
-) -> Result<CalibrationResult, Error> {
-    let views: Vec<Vec<opencv_calibrate::CorrespondingPoint>> = all_pts
-        .iter()
-        .map(|view| {
-            view.iter()
-                .map(|cp| opencv_calibrate::CorrespondingPoint {
-                    object_point: cp.object_point,
-                    image_point: cp.image_point,
-                })
-                .collect()
-        })
-        .collect();
-
-    let res = opencv_calibrate::calibrate_camera(&views, width, height)
-        .map_err(|e| Error::Calibration(format!("{e:?}")))?;
-
-    Ok(CalibrationResult {
-        mean_reprojection_distance_pixels: res.mean_reprojection_distance_pixels,
         camera_matrix: res.camera_matrix,
         distortion_coeffs: res.distortion_coeffs,
         image_width: res.image_width,

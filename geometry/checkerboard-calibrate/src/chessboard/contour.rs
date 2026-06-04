@@ -4,9 +4,8 @@
 //! Reference: S. Suzuki and K. Abe, "Topological structural analysis of
 //! digitized binary images by border following", CVGIP 30(1), 1985. OpenCV's
 //! `findContours` implements the same algorithm, so the set of border pixels
-//! produced here matches OpenCV exactly (verified in the `opencv-calibrate`
-//! cross-check). Ordering within a contour is an implementation detail and is
-//! not required to match.
+//! produced here matches OpenCV exactly. Ordering within a contour is an
+//! implementation detail and is not required to match.
 //!
 //! Input is a binary image (0 = background, non-zero = foreground). Output is
 //! the list of borders; each border is a closed sequence of `(x, y)` pixels,

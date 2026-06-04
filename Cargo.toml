@@ -129,14 +129,6 @@ members = [
 exclude = [
     "led-box/led-box-firmware",
     "led-box/led-box-firmware-pico",
-    # The OpenCV C++ binding and its demo bin require OpenCV to build, so they
-    # are kept out of the workspace; a default `cargo build`/`test --workspace`
-    # needs no OpenCV. They are still usable on demand: the `camcal` crate's
-    # `opencv` feature pulls `opencv-calibrate` (path dependency) when selected,
-    # and the OpenCV cross-check harness runs via
-    # `cargo test --manifest-path geometry/opencv-calibrate/Cargo.toml`.
-    "geometry/opencv-calibrate",
-    "geometry/opencv-calibrate/find-chessboard-opencv",
 ]
 
 [profile.release]
@@ -347,7 +339,6 @@ mkv-strand-reader = { path = "media-utils/mkv-strand-reader" }
 mp4-writer = { path = "media-utils/mp4-writer" }
 ncollide-geom = { path = "geometry/freemovr-calibration/ncollide-geom" }
 nvenc = { path = "media-utils/nvenc" }
-opencv-calibrate = { path = "geometry/opencv-calibrate" }
 parry-geom = { path = "geometry/parry-geom" }
 refraction = { path = "geometry/refraction" }
 simple-obj-parse = { path = "geometry/simple-obj-parse" }

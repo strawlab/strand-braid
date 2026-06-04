@@ -20,7 +20,7 @@
 //!
 //! The stages are wired together in [`find_chessboard_corners`], which on the
 //! OpenCV `left*.jpg` samples recovers OpenCV's corner positions to <=0.17px on
-//! all 13 frames (validated in the `opencv-calibrate` crate). Incomplete boards
+//! all 13 frames. Incomplete boards
 //! are filled at the lattice level (see [`extract_board`]). The only behavior
 //! not replicated is OpenCV's exact output corner order, which is pose-dependent
 //! and not required for the pure-Rust calibrator.

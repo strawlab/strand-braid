@@ -7,8 +7,7 @@
 //! 2x2 weighted least-squares system for the corner position.
 //!
 //! The algorithm mirrors OpenCV's `modules/imgproc/src/cornersubpix.cpp` so the
-//! results match within a small tolerance (see the cross-check tests in the
-//! `opencv-calibrate` crate). Notable fidelity points:
+//! results match within a small tolerance. Notable fidelity points:
 //!
 //! - The window weight is the separable Gaussian
 //!   `exp(-x^2) * exp(-y^2)` with `x = (col - win_w)/win_w`,

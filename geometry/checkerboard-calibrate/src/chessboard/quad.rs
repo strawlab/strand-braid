@@ -4,8 +4,7 @@
 //! For each contour, `approxPolyDP` is run with increasing accuracy until the
 //! polygon has four vertices; the result is kept if it is convex and large
 //! enough. The geometry helpers ([`contour_area`], [`is_contour_convex`]) match
-//! OpenCV's `contourArea` and `isContourConvex` exactly for integer contours
-//! (cross-checked in the `opencv-calibrate` crate).
+//! OpenCV's `contourArea` and `isContourConvex` exactly for integer contours.
 
 use super::approx::approx_poly_dp;
 use super::contour::Contour;

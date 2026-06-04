@@ -2211,7 +2211,6 @@ dependencies = [
  "chrono",
  "eyre",
  "nalgebra 0.34.2",
- "opencv-calibrate",
  "opencv-ros-camera",
  "serde",
  "serde_yaml",
@@ -9086,14 +9085,6 @@ name = "oorandom"
 version = "11.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
-
-[[package]]
-name = "opencv-calibrate"
-version = "0.1.0"
-dependencies = [
- "cc",
- "pkg-config",
-]
 
 [[package]]
 name = "opencv-ros-camera"

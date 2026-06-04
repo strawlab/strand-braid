@@ -13,7 +13,7 @@ check_and_test_workspace:
     - export RUSTFLAGS="-D warnings"
 
     # Install prerequisites
-    - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg libopencv-dev
+    - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg
 
     # Build frontends for strand-cam and braid so the final step below also compiles.
     - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
@@ -46,22 +46,19 @@ test_crates:
 
     - cd $CI_PROJECT_DIR
 
-    # Install opencv
-    - _packaging/setup-opencv-4.9.0-static.sh
-
-    # Test freemovr-calibration, which requires opencv
+    # Test freemovr-calibration
     - cd geometry/freemovr-calibration
-    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release --features "opencv"
+    - cargo test --release
     - cd ../..
 
     # Test strand-cam-offline-checkerboards
     - cd strand-cam/strand-cam-offline-checkerboards
-    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo test --release
+    - cargo test --release
     - cd ../..
 
     # Test freemovr-calibration-cli
     - cd geometry/freemovr-calibration/freemovr-calibration-cli
-    - PKG_CONFIG_PATH=/opt/opencv-4.9.0-static/lib/pkgconfig OPENCV_STATIC=1 cargo build --features "opencv"
+    - cargo build
 
 test_flydra2:
   dependencies: []

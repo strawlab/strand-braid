@@ -8,8 +8,8 @@
 //!      view's `(rvec, tvec)`, minimizing reprojection error.
 //!
 //! The distortion model matches OpenCV's `(k1, k2, p1, p2, k3)` with `k3` (and
-//! the rational terms k4..k6) fixed at zero, exactly as the `opencv-calibrate`
-//! C++ wrapper requests via `CALIB_FIX_K3..K6`. Because the refined optimum of
+//! the rational terms k4..k6) fixed at zero, exactly as OpenCV's
+//! `CALIB_FIX_K3..K6` flags request. Because the refined optimum of
 //! the reprojection cost is what we compare against OpenCV, the initialization
 //! only has to be good enough to converge there.
 

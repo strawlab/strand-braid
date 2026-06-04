@@ -35,7 +35,3 @@ approx.workspace = true
 
 [features]
 default = []
-
-# Escape hatch: route checkerboard detection/calibration through the OpenCV C++
-# backend instead of the default pure-Rust one.
-opencv = ["camcal/opencv"]

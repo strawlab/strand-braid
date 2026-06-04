@@ -15,10 +15,3 @@ chrono.workspace = true
 eyre.workspace = true
 
 checkerboard-calibrate.workspace = true
-opencv-calibrate = { workspace = true, optional = true }
-
-[features]
-default = []
-# Escape hatch: route chessboard detection and calibration through the OpenCV
-# C++ implementation instead of the default pure-Rust `checkerboard-calibrate`.
-opencv = ["dep:opencv-calibrate"]

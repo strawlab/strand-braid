@@ -142,10 +142,6 @@ fiducial = [
 
 checkercal = ["dep:camcal", "dep:braid-mvg"]
 
-# Escape hatch: when checkercal is enabled, route its chessboard
-# detection/calibration through the OpenCV C++ backend instead of pure-Rust.
-opencv = ["camcal?/opencv"]
-
 # Serve style
 ## Bundle files into executable
 bundle_files = ["flydra2?/bundle_files", "tower-serve-static", "include_dir"]
