@@ -6,7 +6,7 @@ fn test_read_32vert_polygon() {
 
     // This might fail but it should not panic. See
     // https://github.com/kvark/obj/pull/10
-    if let Ok(_) = simple_obj_parse::obj_parse(buf) {}
+    let _ = simple_obj_parse::obj_parse(buf).is_ok();
 }
 
 #[test]

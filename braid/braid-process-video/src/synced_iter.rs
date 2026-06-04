@@ -1,14 +1,13 @@
 use chrono::{DateTime, FixedOffset};
 use eyre::{self as anyhow, Result};
 
-use crate::{SyncedPictures, peek2::Peek2};
-use frame_source::FrameData;
+use crate::SyncedPictures;
 
 /// Iterate across multiple movies using the frame timestamps to synchronize.
 ///
 /// There is no braidz source of truth in this case.
 pub(crate) struct SyncedIter {
-    frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData, frame_source::Error>>>>>,
+    frame_readers: Vec<crate::FrameReader>,
     /// The shortest value to consider frames synchronized.
     sync_threshold: chrono::Duration,
     /// The expected interval between frames.
@@ -20,7 +19,7 @@ pub(crate) struct SyncedIter {
 
 impl SyncedIter {
     pub(crate) fn new(
-        frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData, frame_source::Error>>>>>,
+        frame_readers: Vec<crate::FrameReader>,
         sync_threshold: chrono::Duration,
         frame_duration: chrono::Duration,
         frame0_times: Vec<DateTime<FixedOffset>>,

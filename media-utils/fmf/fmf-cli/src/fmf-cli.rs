@@ -670,7 +670,7 @@ fn ffmpeg_to_frame(
         &format!("{}", png_fname.display()),
     ];
     let output = std::process::Command::new("ffmpeg")
-        .args(&args)
+        .args(args)
         .output()
         .with_context(|| format!("When running: ffmpeg {:?}", args))?;
 

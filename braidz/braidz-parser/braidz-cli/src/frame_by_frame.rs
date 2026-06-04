@@ -64,8 +64,7 @@ impl From<braid_types::Data2dDistortedRow> for DisplayData2dDistortedRow {
         let timestamp: Option<chrono::DateTime<chrono::Local>> = orig.timestamp.as_ref().map(|t| {
             let dt: chrono::DateTime<chrono::Utc> = t.into();
             let tz = TIMEZONE.get().expect("Timezone not set");
-            let timestamp = dt.with_timezone(tz);
-            timestamp
+            dt.with_timezone(tz)
         });
 
         let cam_latency = timestamp.map(|dtl| {
@@ -122,13 +121,13 @@ fn display_time(timestamp: &Option<chrono::DateTime<chrono::Local>>) -> String {
             let naive_time = dtl.time();
             format!("{naive_time}")
         })
-        .unwrap_or_else(|| "".to_string())
+        .unwrap_or_default()
 }
 
 fn display_option<T: std::fmt::Display>(opt: &Option<T>) -> String {
     opt.as_ref()
         .map(|v| format!("{}", v))
-        .unwrap_or_else(|| "".to_string())
+        .unwrap_or_default()
 }
 
 pub(crate) fn print_frame_by_frame(
@@ -148,7 +147,7 @@ pub(crate) fn print_frame_by_frame(
         for row in data_association.iter() {
             top_level_rows
                 .entry(row.frame.0)
-                .or_insert_with(Default::default)
+                .or_default()
                 .data_association
                 .push(row.into());
         }
@@ -159,7 +158,7 @@ pub(crate) fn print_frame_by_frame(
         if !row.x.is_nan() {
             top_level_rows
                 .entry(row.frame.try_into().unwrap())
-                .or_insert_with(Default::default)
+                .or_default()
                 .data2d_distorted_rows
                 .push(row.into());
         }
@@ -169,7 +168,7 @@ pub(crate) fn print_frame_by_frame(
         for row in kalman_estimates.iter() {
             top_level_rows
                 .entry(row.frame.0)
-                .or_insert_with(Default::default)
+                .or_default()
                 .kalman_estimates
                 .push(row.into());
         }

@@ -32,7 +32,7 @@ fn test_flytrax_apriltags() -> Result<()> {
         .with_context(|| format!("With file {fname} from {URL_BASE}/{fname}"))?;
     }
 
-    let intrinsics_buf = std::fs::read_to_string(&INTRINSICS)?;
+    let intrinsics_buf = std::fs::read_to_string(INTRINSICS)?;
 
     let intrinsics: opencv_ros_camera::RosCameraInfo<f64> = serde_yaml::from_str(&intrinsics_buf)?;
 

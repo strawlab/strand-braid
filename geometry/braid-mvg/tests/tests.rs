@@ -307,7 +307,7 @@ fn test_dlt_mvg() {
 
     // project original points again to 2D with the new camera
     let epsilon = 1e-7;
-    for (orig_pt, orig_uv) in orig_points.into_iter().zip(orig_uv.into_iter()) {
+    for (orig_pt, orig_uv) in orig_points.into_iter().zip(orig_uv) {
         let new_uv = cam2.project_3d_to_distorted_pixel(&orig_pt);
         approx::assert_relative_eq!(orig_uv.coords[0], new_uv.coords[0], epsilon = epsilon);
         approx::assert_relative_eq!(orig_uv.coords[1], new_uv.coords[1], epsilon = epsilon);

@@ -653,7 +653,7 @@ mod tests {
     }
 
     // tex coords are not entire 0-1 range for u or v
-    static SQUARE: &'static [u8] = b"
+    static SQUARE: &[u8] = b"
     v 0 1 0
     v 0 0 0
     v 1 0 0
@@ -816,7 +816,7 @@ mod tests {
         let mut buf_ref: &[u8] = buf.as_ref();
         let trimesh = parse_obj_from_reader(&mut buf_ref, None).unwrap();
 
-        let texcoords = vec![
+        let texcoords = [
             Point2::new(0.1, 0.1),
             Point2::new(0.25, 0.25),
             Point2::new(0.25, 0.75),
@@ -825,7 +825,7 @@ mod tests {
             Point2::new(0.75, 0.75),
         ];
 
-        let vertices = vec![
+        let vertices = [
             None,
             Some(Point3::new(0.25, 0.25, 0.5)),
             Some(Point3::new(0.25, -0.25, -0.5)),

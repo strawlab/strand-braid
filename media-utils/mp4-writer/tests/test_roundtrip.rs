@@ -212,7 +212,7 @@ fn generate_image(
                 strand_dynamic_frame::DynamicFrame::from_buf(
                     width.try_into().unwrap(),
                     height.try_into().unwrap(),
-                    stride.try_into().unwrap(),
+                    stride,
                     image_data,
                     machine_vision_formats::PixFmt::Mono8,
                 )
@@ -244,7 +244,7 @@ fn generate_image(
                 strand_dynamic_frame::DynamicFrame::from_buf(
                     width.try_into().unwrap(),
                     height.try_into().unwrap(),
-                    stride.try_into().unwrap(),
+                    stride,
                     image_data,
                     machine_vision_formats::PixFmt::RGB8,
                 )

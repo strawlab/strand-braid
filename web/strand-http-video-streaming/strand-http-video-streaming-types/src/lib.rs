@@ -282,7 +282,7 @@ fn test_polygon_from_yaml() {
         points: vec![(510.0, 520.0), (520.0, 530.0), (510.0, 540.0)],
     });
 
-    let polygon2: Shape = serde_yaml::from_str(&mystr).unwrap();
+    let polygon2: Shape = serde_yaml::from_str(mystr).unwrap();
     assert_eq!(polygon, polygon2);
 }
 

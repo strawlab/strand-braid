@@ -181,7 +181,6 @@ fn test_align_calibration() -> Result<()> {
         unaligned_3d,
         unaligned_cal,
         output_aligned_cal,
-        ..Default::default()
     };
     let _output_aligned_cal = align_cal(opt)?;
     // TODO: check the actual output...

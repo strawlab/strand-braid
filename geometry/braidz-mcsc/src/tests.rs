@@ -32,7 +32,7 @@ fn check_calibration_quality_from_xml(
     }
 
     // Load calibration from XML file
-    let loaded_system = flydra_mvg::FlydraMultiCameraSystem::from_path(&xml_path, false)
+    let loaded_system = flydra_mvg::FlydraMultiCameraSystem::from_path(xml_path, false)
         .with_context(|| format!("while attempting to read calibration file {xml_path}"))?;
 
     // Reload observations from braidz file

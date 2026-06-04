@@ -43,6 +43,7 @@ struct MyConfig {
 }
 
 #[derive(Clone, PartialEq, Serialize, Deserialize, Default)]
+#[allow(clippy::enum_variant_names)]
 enum MySelection {
     SelOne,
     #[default]

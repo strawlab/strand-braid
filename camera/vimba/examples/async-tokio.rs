@@ -23,6 +23,10 @@ struct Frame {
     pixel_format: u32,
 }
 
+/// # Safety
+///
+/// This is a C callback invoked by the Vimba library. `frame` must be a valid
+/// pointer to a `VmbFrame_t` for the given `camera_handle`.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn callback_c(
     camera_handle: vmbc_sys::VmbHandle_t,
@@ -135,8 +139,8 @@ async fn main() -> anyhow::Result<()> {
 
         camera.capture_start()?;
 
-        for mut frame in frames.iter_mut() {
-            camera.capture_frame_queue_with_callback(&mut frame, Some(callback_c))?;
+        for frame in frames.iter_mut() {
+            camera.capture_frame_queue_with_callback(frame, Some(callback_c))?;
         }
 
         camera.command_run("AcquisitionStart")?;

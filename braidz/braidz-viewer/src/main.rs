@@ -27,7 +27,7 @@ pub enum MaybeValidBraidzFile {
     #[default]
     NotLoaded,
     ParseFail(braidz_parser::Error),
-    Valid(ValidBraidzFile),
+    Valid(Box<ValidBraidzFile>),
 }
 
 pub struct ValidBraidzFile {
@@ -111,7 +111,7 @@ impl Component for Model {
                             .set_title(&title);
                         self.html_page_title = Some(title);
 
-                        MaybeValidBraidzFile::Valid(v)
+                        MaybeValidBraidzFile::Valid(Box::new(v))
                     }
                     Err(e) => {
                         let title = "BRAIDZ Viewer".to_string();

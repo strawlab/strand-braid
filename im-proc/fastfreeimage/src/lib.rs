@@ -252,7 +252,7 @@ where
 #[test]
 fn test_image_view_size() -> Result<()> {
     // Create a 3x3 image with a stride of 10 bytes
-    let data = aligned_vec::avec![42; 30 as usize];
+    let data = aligned_vec::avec![42; 30_usize];
     let data = data.into_boxed_slice();
     let mut im = FastImageData::<u8> {
         data,

@@ -164,7 +164,7 @@ impl ImageSequenceWriter {
 }
 
 enum FrameWriter<'a, T: std::io::Write + std::io::Seek> {
-    Mp4(mp4_writer::Mp4Writer<'a, T>),
+    Mp4(Box<mp4_writer::Mp4Writer<'a, T>>),
     Image(ImageSequenceWriter),
 }
 
@@ -775,11 +775,11 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
         let out_fd = std::fs::File::create(&output_fname)
             .with_context(|| format!("writing to {}", output_fname.display()))?;
-        FrameWriter::Mp4(mp4_writer::Mp4Writer::new(
+        FrameWriter::Mp4(Box::new(mp4_writer::Mp4Writer::new(
             out_fd,
             mp4_cfg,
             libs_and_nv_enc,
-        )?)
+        )?))
     };
 
     let mut delete_on_error = DeleteOnError::new(&output_fname);

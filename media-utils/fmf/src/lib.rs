@@ -288,8 +288,7 @@ mod tests {
     use machine_vision_formats::{owned::OImage, pixel_format::Mono8};
 
     fn zeros(w: u32, h: u32) -> OImage<Mono8> {
-        let mut image_data = Vec::new();
-        image_data.resize((w * h) as usize, 0);
+        let image_data = vec![0; (w * h) as usize];
 
         OImage::new(w, h, w.try_into().unwrap(), image_data).unwrap()
     }

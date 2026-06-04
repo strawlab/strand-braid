@@ -35,9 +35,9 @@ impl Hash {
     }
 }
 
-static CURRENT_DOWNLOADS: LazyLock<
-    Arc<Mutex<HashMap<(String, PathBuf), (String, Arc<Mutex<()>>)>>>,
-> = LazyLock::new(|| Default::default());
+type CurrentDownloads = Arc<Mutex<HashMap<(String, PathBuf), (String, Arc<Mutex<()>>)>>>;
+
+static CURRENT_DOWNLOADS: LazyLock<CurrentDownloads> = LazyLock::new(Default::default);
 
 /// Download a file to disk if necessary and validate it.
 ///
@@ -68,7 +68,7 @@ pub fn download_verify<P: AsRef<Path>>(url: &str, dest: P, hash: &Hash) -> Resul
             .or_insert_with(|| {
                 (
                     hash.as_string().clone(),
-                    Arc::new(Mutex::new(Default::default())),
+                    Arc::new(Mutex::new(())),
                 )
             })
             .clone()

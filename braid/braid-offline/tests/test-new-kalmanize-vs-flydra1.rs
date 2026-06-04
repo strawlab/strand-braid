@@ -140,7 +140,7 @@ where
     approx::assert_relative_eq!(
         expected_num_rows as f64,
         actual_num_rows as f64,
-        epsilon = std::f64::INFINITY,
+        epsilon = f64::INFINITY,
         max_relative = 2.0,
     );
 
@@ -148,7 +148,7 @@ where
     approx::assert_relative_eq!(
         expected_num_obj_ids as f64,
         actual_num_obj_ids as f64,
-        epsilon = std::f64::INFINITY,
+        epsilon = f64::INFINITY,
         max_relative = 2.0,
     );
 

@@ -656,8 +656,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
 fn show_points(points: &nalgebra::Matrix3xX<f64>, ids3d: &[u32], lines: &mut LineBuf) {
     // sort points
     let mut x = BTreeMap::new();
-    for i in 0..points.ncols() {
-        let id = &ids3d[i];
+    for (i, id) in ids3d.iter().enumerate() {
         let pt = points.column(i);
         x.insert(*id, pt);
     }
@@ -678,8 +677,7 @@ fn show_points_distances(
     assert_eq!(ids3d.len(), points1.ncols());
     // sort points
     let mut x = BTreeMap::new();
-    for i in 0..points1.ncols() {
-        let id = &ids3d[i];
+    for (i, id) in ids3d.iter().enumerate() {
         let pt1 = points1.column(i);
         let pt0 = points0.column(i);
         let dist = (pt1 - pt0).norm();
@@ -716,8 +714,7 @@ fn show_cams_distances(
 
 fn show_points_csv(points: &nalgebra::Matrix3xX<f64>, ids3d: &[u32], lines: &mut LineBuf) {
     lines.push("id,x,y,z".to_string());
-    for i in 0..points.ncols() {
-        let id = &ids3d[i];
+    for (i, id) in ids3d.iter().enumerate() {
         let pt = points.column(i);
         lines.push(format!("{id},{},{},{}", pt.x, pt.y, pt.z));
     }
@@ -846,7 +843,7 @@ mod test {
         mut archive: ZipArchive<R>,
         mcsc_dir_name: &Utf8Path,
     ) -> Result<()> {
-        fs::create_dir_all(&mcsc_dir_name).unwrap();
+        fs::create_dir_all(mcsc_dir_name).unwrap();
         for i in 0..archive.len() {
             let mut file = archive.by_index(i).unwrap();
             let outpath = match file.enclosed_name() {
@@ -858,10 +855,10 @@ mod test {
             if (*file.name()).ends_with('/') {
                 fs::create_dir_all(&outpath).unwrap();
             } else {
-                if let Some(p) = outpath.parent() {
-                    if !p.exists() {
-                        fs::create_dir_all(p).unwrap();
-                    }
+                if let Some(p) = outpath.parent()
+                    && !p.exists()
+                {
+                    fs::create_dir_all(p).unwrap();
                 }
                 let mut outfile = fs::File::create(&outpath).unwrap();
                 io::copy(&mut file, &mut outfile).unwrap();

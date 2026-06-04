@@ -631,15 +631,13 @@ where
             // Error happened in self.write().
             None => {}
             // When .finished() not already called.
-            Some(_) => {
-                if !std::thread::panicking() {
-                    // We are being dropping, so finish the file.
-                    self.finish().unwrap()
-                } else {
-                    // We are being dropped, but we are unwinding, so just leave
-                    // the file as-is. (Should we even truncate it?)
-                }
+            Some(_) if !std::thread::panicking() => {
+                // We are being dropping, so finish the file.
+                self.finish().unwrap()
             }
+            // We are being dropped, but we are unwinding, so just leave
+            // the file as-is. (Should we even truncate it?)
+            Some(_) => {}
         }
     }
 }

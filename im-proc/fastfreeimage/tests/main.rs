@@ -481,7 +481,7 @@ fn test_abs_diff_size() -> Result<()> {
             // we want one of the inputs aligned on SIMD boundaries and the
             // other not. Since FastImageData always allocates on SIMD
             // boundaries, we take a view which is not aligned.
-            let mut im10 = FastImageData::<u8>::new(w, h, 10)?;
+            let im10 = FastImageData::<u8>::new(w, h, 10)?;
             let im9 = FastImageData::<u8>::new(4, 4, 9)?;
 
             let sz = fastfreeimage::FastImageSize::new(4, 4);
@@ -490,7 +490,7 @@ fn test_abs_diff_size() -> Result<()> {
 
             // Here is the unaligned view.
             let roi = fastfreeimage::FastImageRegion::new(fastfreeimage::Point::new(3, 1), sz);
-            let im10_view = fastfreeimage::FastImageView::view_region(&mut im10, &roi)?;
+            let im10_view = fastfreeimage::FastImageView::view_region(&im10, &roi)?;
             let mut im_dest_view =
                 fastfreeimage::MutableFastImageView::view_region(&mut im_dest, &roi)?;
 
@@ -649,7 +649,7 @@ fn test_threshold_val_8u_c1ir() -> Result<()> {
 
             // less than
             let mut im2 = im.clone();
-            let size = im.size().clone();
+            let size = im.size();
             ripp::threshold_val_8u_c1ir(&mut im2, size, 22, 0, CompareOp::Less)?;
 
             let mut expected = FastImageData::<u8>::new(w, h, 0)?;
@@ -674,7 +674,7 @@ fn test_threshold_val_8u_c1ir() -> Result<()> {
 
             // greater than
             let mut im2 = im.clone();
-            let size = im.size().clone();
+            let size = im.size();
             ripp::threshold_val_8u_c1ir(&mut im2, size, 22, 0, CompareOp::Greater)?;
 
             let mut expected = FastImageData::<u8>::new(w, h, 0)?;

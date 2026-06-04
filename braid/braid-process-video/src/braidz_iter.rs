@@ -227,7 +227,7 @@ impl<'a> BraidArchiveSyncVideoData<'a> {
         archive: braidz_parser::BraidzArchive<std::io::BufReader<std::fs::File>>,
         data2d: &'a BTreeMap<CamNum, Vec<Data2dDistortedRow>>,
         camera_names: &[&str],
-        frame_readers: Vec<Peek2<Box<dyn Iterator<Item = Result<FrameData, frame_source::Error>>>>>,
+        frame_readers: Vec<crate::FrameReader>,
         sync_threshold: chrono::Duration,
         frame0_times: Vec<DateTime<FixedOffset>>,
     ) -> Result<Self> {

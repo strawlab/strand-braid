@@ -169,6 +169,11 @@ impl VimbaLibrary {
     /// This is unsafe because really you should drop [VimbaLibrary] rather than
     /// this. If you are using this, it cannot be guaranteed that VmbShutdown
     /// will not be called again.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that `VmbShutdown` is not called again (for
+    /// example via dropping [VimbaLibrary]) after this call.
     pub unsafe fn shutdown(&self) {
         vimba_call_no_err!(self.vimba_lib.VmbShutdown());
     }
@@ -249,7 +254,7 @@ impl VimbaLibrary {
                 serial_string: unsafe { std::ffi::CStr::from_ptr(ci.serialString).to_str() }
                     .unwrap()
                     .to_string(),
-                permitted_access: AccessMode::new(ci.permittedAccess.try_into().unwrap()),
+                permitted_access: AccessMode::new(ci.permittedAccess),
             })
             .collect();
         Ok(result)

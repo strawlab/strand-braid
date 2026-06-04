@@ -23,6 +23,7 @@ use flydra2::{
 use groupby::{AscendingGroupIter, BufferedSortIter};
 
 #[derive(thiserror::Error, Debug)]
+#[allow(clippy::enum_variant_names)]
 enum Error {
     #[error("{source}")]
     Io {

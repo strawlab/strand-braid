@@ -15,6 +15,10 @@ use braid_types::{Data2dDistortedRow, KalmanEstimatesRow, RawCamName};
 mod peek2;
 use peek2::Peek2;
 
+/// A frame reader with two-frame lookahead.
+pub(crate) type FrameReader =
+    Peek2<Box<dyn Iterator<Item = Result<FrameData, frame_source::Error>>>>;
+
 mod argmin;
 
 use strand_dynamic_frame::{DynamicFrame, DynamicFrameOwned};

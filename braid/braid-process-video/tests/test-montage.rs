@@ -27,10 +27,10 @@ async fn do_config(cfg: &Valid<BraidRetrackVideoConfig>) -> anyhow::Result<()> {
     // check output braidz
     let output_braidz = &output_fnames[1];
     assert_eq!("braidz", output_braidz.extension().unwrap());
-    let _out_ar = braidz_parser::braidz_parse_path(&output_braidz)?;
+    let _out_ar = braidz_parser::braidz_parse_path(output_braidz)?;
 
     if let Some(input_braidz) = &cfg.valid().input_braidz {
-        let _in_ar = braidz_parser::braidz_parse_path(&input_braidz)?;
+        let _in_ar = braidz_parser::braidz_parse_path(input_braidz)?;
         // TODO: compare results reasonably.
     }
 
@@ -86,7 +86,6 @@ fn get_files(
         }
     }
 
-    let input_braidz = input_braidz.map(Into::into);
     let output = vec![
         OutputConfig::Video(VideoOutputConfig {
             filename: format!("scratch/rendered/{}.mp4", dirname),

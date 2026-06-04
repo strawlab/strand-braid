@@ -80,7 +80,7 @@ pub fn assign_grid(quads: &[LinkedQuad], component: &[usize]) -> HashMap<usize, 
 
     while let Some(a) = stack.pop() {
         let a_grid = coords[&a];
-        for ci in 0..4 {
+        for (ci, &shared) in a_grid.iter().enumerate() {
             let Some(b) = quads[a].neighbors[ci] else {
                 continue;
             };
@@ -95,7 +95,6 @@ pub fn assign_grid(quads: &[LinkedQuad], component: &[usize]) -> HashMap<usize, 
                 .expect("neighbor link is reciprocal");
 
             // Origin so that b.corners[cj] lands on the shared lattice point.
-            let shared = a_grid[ci];
             let ox = shared.0 - CELL[cj].0;
             let oy = shared.1 - CELL[cj].1;
             let b_grid: QuadGrid = std::array::from_fn(|k| (ox + CELL[k].0, oy + CELL[k].1));
@@ -116,8 +115,8 @@ pub fn corner_lattice(
     // lattice point -> (summed position, count)
     let mut acc: HashMap<(i32, i32), ((f64, f64), usize)> = HashMap::new();
     for (&qi, grid) in coords {
-        for k in 0..4 {
-            let entry = acc.entry(grid[k]).or_insert(((0.0, 0.0), 0));
+        for (k, &cell) in grid.iter().enumerate() {
+            let entry = acc.entry(cell).or_insert(((0.0, 0.0), 0));
             entry.0.0 += quads[qi].corners[k].0 as f64;
             entry.0.1 += quads[qi].corners[k].1 as f64;
             entry.1 += 1;
@@ -157,7 +156,7 @@ pub fn ordered_inner_corners(
 ) -> Vec<(f32, f32)> {
     let mut inner = inner_corner_lattice(quads, coords);
     // Row-major: lattice y (row) then x (column).
-    inner.sort_by(|a, b| (a.0.1, a.0.0).cmp(&(b.0.1, b.0.0)));
+    inner.sort_by_key(|a| (a.0.1, a.0.0));
     inner.into_iter().map(|(_, pt)| pt).collect()
 }
 

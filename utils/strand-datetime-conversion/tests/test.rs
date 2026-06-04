@@ -28,7 +28,7 @@ fn test_roundtrip_local() {
 fn test_roundtrip_nonlocal() {
     let now = chrono::FixedOffset::east_opt(5 * 60 * 60)
         .unwrap()
-        .with_ymd_and_hms(2016, 11, 08, 0, 0, 0)
+        .with_ymd_and_hms(2016, 11, 8, 0, 0, 0)
         .unwrap();
     println!("now {:?}", now);
     let now_f64 = datetime_to_f64(&now);

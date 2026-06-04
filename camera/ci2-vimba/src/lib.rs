@@ -104,7 +104,7 @@ fn callback_rust(
                     DynamicFrameOwned::from_buf(
                         width,
                         height,
-                        min_stride.try_into().unwrap(),
+                        min_stride,
                         image_data,
                         pixel_format,
                     )
@@ -365,7 +365,7 @@ impl ci2::CameraInfo for VimbaCameraInfo {
 struct InvalidHostFramenumber(DynamicFrameWithInfo);
 
 impl InvalidHostFramenumber {
-    fn as_valid(self, fno: usize) -> DynamicFrameWithInfo {
+    fn into_valid(self, fno: usize) -> DynamicFrameWithInfo {
         let mut result = self.0;
         result.host_timing.fno = fno;
         result
@@ -872,7 +872,7 @@ impl<'lib> ci2::Camera for WrappedCamera<'lib> {
                 )));
             }
         };
-        let frame = msg?.as_valid(self.store_fno);
+        let frame = msg?.into_valid(self.store_fno);
         self.store_fno += 1;
         Ok(frame)
     }

@@ -326,7 +326,7 @@ impl WrappedCamera {
     }
 }
 
-impl<'a> ci2::CameraInfo for WrappedCamera {
+impl ci2::CameraInfo for WrappedCamera {
     fn name(&self) -> &str {
         &self.name
     }
@@ -341,7 +341,7 @@ impl<'a> ci2::CameraInfo for WrappedCamera {
     }
 }
 
-impl<'a> ci2::Camera for WrappedCamera {
+impl ci2::Camera for WrappedCamera {
     // ----- start: weakly typed but easier to implement API -----
 
     // fn feature_access_query(&self, name: &str) -> ci2::Result<ci2::AccessQueryResult> {
@@ -546,7 +546,6 @@ impl<'a> ci2::Camera for WrappedCamera {
 
     // Settings: Exposure Time ----------------------------
     /// value given in microseconds
-
     fn exposure_time(&self) -> ci2::Result<f64> {
         let camera = self.inner.lock().unwrap();
         let name = self.exposure_time_param_name();

@@ -76,7 +76,7 @@ pub fn init_intrinsics(
     let sol = ata.lu().solve(&atb)?;
     let (inv_fx2, inv_fy2) = (sol[0], sol[1]);
 
-    if !(inv_fx2 > 0.0) || !(inv_fy2 > 0.0) {
+    if !(inv_fx2 > 0.0 && inv_fy2 > 0.0) {
         return None;
     }
 

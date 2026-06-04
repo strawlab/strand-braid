@@ -177,30 +177,29 @@ fn test_cam_param_roundtrip_opencv0() {
 
 #[test]
 fn test_parameterization_extrinsics_only() {
-    for full_params in [[
+    let full_params = [
         1.0, 1.1, 2.0, 3.0, 0.01, 0.001, -0.01, -0.001, 0.0, 0.0, 1.0, 0.0, 7.0, 8.0, 9.0,
-    ]] {
-        let model_type = CameraModelType::ExtrinsicsOnly;
-        let fixed_params = &full_params[..model_type.info().num_fixed_params];
-        let params = &full_params[model_type.info().num_fixed_params..];
-        // Part 1: roundtrip
-        let cam = to_cam::<f64>(&params, CameraModelType::ExtrinsicsOnly, fixed_params);
-        let p2 = to_params::<f64>(&cam, CameraModelType::ExtrinsicsOnly);
-        assert_eq!(
-            p2.len(),
-            CameraModelType::ExtrinsicsOnly.info().num_cam_params()
-        );
+    ];
+    let model_type = CameraModelType::ExtrinsicsOnly;
+    let fixed_params = &full_params[..model_type.info().num_fixed_params];
+    let params = &full_params[model_type.info().num_fixed_params..];
+    // Part 1: roundtrip
+    let cam = to_cam::<f64>(params, CameraModelType::ExtrinsicsOnly, fixed_params);
+    let p2 = to_params::<f64>(&cam, CameraModelType::ExtrinsicsOnly);
+    assert_eq!(
+        p2.len(),
+        CameraModelType::ExtrinsicsOnly.info().num_cam_params()
+    );
 
-        let orig = na::DVector::from_column_slice(&params);
-        let extracted = na::DVector::from_column_slice(&p2);
-        approx::assert_relative_eq!(orig, extracted, epsilon = 1.0e-6);
+    let orig = na::DVector::from_column_slice(params);
+    let extracted = na::DVector::from_column_slice(&p2);
+    approx::assert_relative_eq!(orig, extracted, epsilon = 1.0e-6);
 
-        // Part 2: compare spot check values with expected.
-        // px: 1.0, py: 2.0, pz: 3.0,
-        let pts = cam_geom::Points::new(na::RowVector3::new(1.0, 2.0, 3.0));
-        let predicted = cam.world_to_pixel(&pts).data.transpose();
+    // Part 2: compare spot check values with expected.
+    // px: 1.0, py: 2.0, pz: 3.0,
+    let pts = cam_geom::Points::new(na::RowVector3::new(1.0, 2.0, 3.0));
+    let predicted = cam.world_to_pixel(&pts).data.transpose();
 
-        approx::assert_relative_eq!(predicted.x, -9.15875414775472, epsilon = 1.0e-10);
-        approx::assert_relative_eq!(predicted.y, -6.21053637093717, epsilon = 1.0e-10);
-    }
+    approx::assert_relative_eq!(predicted.x, -9.15875414775472, epsilon = 1.0e-10);
+    approx::assert_relative_eq!(predicted.y, -6.21053637093717, epsilon = 1.0e-10);
 }

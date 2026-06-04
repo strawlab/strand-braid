@@ -8,7 +8,7 @@ fn main() -> Result<()> {
     }
     let h264_in_mp4_path = &args[1];
 
-    let builder = frame_source::FrameSourceBuilder::new(&h264_in_mp4_path).do_decode_h264(false);
+    let builder = frame_source::FrameSourceBuilder::new(h264_in_mp4_path).do_decode_h264(false);
 
     let builder = if args.len() == 3 {
         println!("Using SRT file: {}", args[2]);

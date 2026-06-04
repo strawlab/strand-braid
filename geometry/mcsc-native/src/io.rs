@@ -290,7 +290,7 @@ fn compute_n_points(content: &str, n_cams: usize) -> Result<usize, eyre::Error> 
     for line in content.lines() {
         total_values += line.split_whitespace().count();
     }
-    if total_values % n_cams != 0 {
+    if !total_values.is_multiple_of(n_cams) {
         return Err(eyre::eyre!(
             "Matrix has {} values, not a multiple of Num-Cameras ({})",
             total_values,

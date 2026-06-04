@@ -73,7 +73,7 @@ fn to_my_package(p: &cargo_metadata::Package, root: &Utf8Path) -> Result<MyPacka
     if manifest_path.file_name() != Some("Cargo.toml") {
         eyre::bail!("expected manifest_path to end with 'Cargo.toml'");
     }
-    let relative_path: Utf8PathBuf = p.manifest_path.strip_prefix(&root).unwrap().into();
+    let relative_path: Utf8PathBuf = p.manifest_path.strip_prefix(root).unwrap().into();
     let workspace_dir: Utf8PathBuf = relative_path
         .parent()
         .ok_or_else(|| eyre::eyre!("no parent"))?
@@ -112,7 +112,7 @@ fn get_packages_from_cargo(path: &Utf8Path) -> Result<Vec<MyPackage>> {
     let mut pkgs = metadata
         .packages
         .iter()
-        .map(|p| to_my_package(&p, path))
+        .map(|p| to_my_package(p, path))
         .collect::<Result<Vec<MyPackage>>>()?;
     pkgs.sort();
     Ok(pkgs)
@@ -192,10 +192,10 @@ fn compute_markdown_docs(
     // for (section_name, pkgs) in pkgs_by_section_name.iter() {
     for section_name in pkg_sections.iter() {
         let pkgs = pkgs_by_section_name.get(section_name).unwrap();
-        if let Some(section_name) = section_name {
-            if done_sections.contains(section_name) {
-                continue;
-            }
+        if let Some(section_name) = section_name
+            && done_sections.contains(section_name)
+        {
+            continue;
         }
         orphan_pkgs.extend(pkgs);
     }
@@ -225,7 +225,7 @@ fn main() -> Result<()> {
     for pkg in pkgs.into_iter() {
         pkgs_by_section_name
             .entry(pkg.section.clone())
-            .or_insert_with(Default::default)
+            .or_default()
             .push(pkg);
     }
 

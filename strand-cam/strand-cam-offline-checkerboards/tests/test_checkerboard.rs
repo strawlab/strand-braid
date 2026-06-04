@@ -12,7 +12,7 @@ fn unpack_zip_into<R: Read + Seek>(
     mut archive: ZipArchive<R>,
     mcsc_dir_name: &Utf8Path,
 ) -> Result<()> {
-    std::fs::create_dir_all(&mcsc_dir_name).unwrap();
+    std::fs::create_dir_all(mcsc_dir_name).unwrap();
     for i in 0..archive.len() {
         let mut file = archive.by_index(i).unwrap();
         let outpath = match file.enclosed_name() {
@@ -24,10 +24,10 @@ fn unpack_zip_into<R: Read + Seek>(
         if (*file.name()).ends_with('/') {
             std::fs::create_dir_all(&outpath).unwrap();
         } else {
-            if let Some(p) = outpath.parent() {
-                if !p.exists() {
-                    std::fs::create_dir_all(p).unwrap();
-                }
+            if let Some(p) = outpath.parent()
+                && !p.exists()
+            {
+                std::fs::create_dir_all(p).unwrap();
             }
             let mut outfile = std::fs::File::create(&outpath).unwrap();
             std::io::copy(&mut file, &mut outfile).unwrap();

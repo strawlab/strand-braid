@@ -109,7 +109,7 @@ fn with_checkerboards(c: WithCheckerboards) -> anyhow::Result<()> {
         .expect("cannot get input directory name");
     let fd = std::fs::File::open(&c.input_yaml)?;
 
-    let data = freemovr_calibration::parse_pinhole_yaml(fd, &src_dir)?;
+    let data = freemovr_calibration::parse_pinhole_yaml(fd, src_dir)?;
     use freemovr_calibration::pinhole_wizard_yaml_support::PinholeCalib;
     let (width, height) = (data.loaded.width(), data.loaded.height());
     let intrinsics = freemovr_calibration::intrinsics_from_checkerboards(

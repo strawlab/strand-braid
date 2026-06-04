@@ -130,7 +130,7 @@ where
             rowsum += x * col;
         }
 
-        accum += rowsum.reduce_add() as f64;
+        accum += rowsum.reduce_add();
 
         for (i, x) in row_chunk_iter.remainder().iter().enumerate() {
             let col = i + start_idx;
@@ -361,8 +361,6 @@ where
 #[cfg(feature = "std")]
 #[cfg(test)]
 mod tests {
-
-    use std::u8;
 
     use super::*;
 

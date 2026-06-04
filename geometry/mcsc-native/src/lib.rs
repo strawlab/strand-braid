@@ -2023,7 +2023,7 @@ mod tests {
         // factor as K_full · R with R a proper rotation (det = +1,
         // orthonormal columns).  Since K_full has zero skew, this is
         // the key property that the Octave / self-cal path loses.
-        for i in 0..n_cams {
+        for (i, k_full) in k_full_list.iter().enumerate().take(n_cams) {
             let mut m33 = Matrix3::zeros();
             for r in 0..3 {
                 for c in 0..3 {
@@ -2031,7 +2031,7 @@ mod tests {
                 }
             }
             // R = K_full^{-1} * M should be orthonormal.
-            let k_inv = k_full_list[i].try_inverse().unwrap();
+            let k_inv = k_full.try_inverse().unwrap();
             let r_recovered = k_inv * m33;
             let r_rt_r = r_recovered.transpose() * r_recovered;
             for a in 0..3 {
