@@ -115,6 +115,17 @@ check_generated_bundle_adj_code:
     - cd geometry/bundle-adj/codegen && ./regenerate.sh
     - git diff --exit-code
 
+# Verify the strand-braid THIRD-PARTY-LICENSES crate list is up to date: every
+# listed crate exists, and every binary shipped by strand-braid.install is
+# produced by a crate on the list. The third-party-licenses job below additionally
+# runs the generator itself (cargo bundle-licenses) on every pipeline.
+check_third_party_licenses:
+  dependencies: []
+  image: rust:1.93
+  script:
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y python3
+    - _packaging/check-strand-braid-third-party-licenses.sh
+
 test_crates_rust_stable:
   dependencies: []
   image: rust:1.93
