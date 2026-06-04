@@ -59,8 +59,7 @@ fn main() -> anyhow::Result<()> {
         println!("Opening camera {}", cam_id);
         println!("  {:?}", camera_infos[0]);
 
-        let camera =
-            vimba::Camera::open(cam_id, vimba::access_mode::FULL, &VIMBA.vimba_lib)?;
+        let camera = vimba::Camera::open(cam_id, vimba::access_mode::FULL, &VIMBA.vimba_lib)?;
         let pixel_format = camera.pixel_format()?;
         println!("  pixel_format: {:?}", pixel_format);
 

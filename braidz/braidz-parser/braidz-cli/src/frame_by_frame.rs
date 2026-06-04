@@ -125,9 +125,7 @@ fn display_time(timestamp: &Option<chrono::DateTime<chrono::Local>>) -> String {
 }
 
 fn display_option<T: std::fmt::Display>(opt: &Option<T>) -> String {
-    opt.as_ref()
-        .map(|v| format!("{}", v))
-        .unwrap_or_default()
+    opt.as_ref().map(|v| format!("{}", v)).unwrap_or_default()
 }
 
 pub(crate) fn print_frame_by_frame(

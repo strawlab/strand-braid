@@ -65,12 +65,7 @@ pub fn download_verify<P: AsRef<Path>>(url: &str, dest: P, hash: &Hash) -> Resul
         let mut guard = CURRENT_DOWNLOADS.lock().unwrap();
         guard
             .entry(key.clone())
-            .or_insert_with(|| {
-                (
-                    hash.as_string().clone(),
-                    Arc::new(Mutex::new(())),
-                )
-            })
+            .or_insert_with(|| (hash.as_string().clone(), Arc::new(Mutex::new(()))))
             .clone()
     };
 
