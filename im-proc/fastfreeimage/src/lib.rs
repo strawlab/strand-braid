@@ -1,7 +1,3 @@
-/// The `portsimd` feature is now deprecated because SIMD is always enabled.
-#[cfg(feature = "portsimd")]
-const THE_PORTSIMD_FEATURE_IS_DEPRECATED__SIMD_IS_NOW_ALWAYS_ENABLED: () = ();
-
 pub use std::os::raw as ipp_ctypes;
 
 /// SIMD vector width, in bytes. Also used for alignment.

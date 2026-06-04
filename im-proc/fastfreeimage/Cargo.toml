@@ -18,10 +18,6 @@ criterion = "0.5"
 approx.workspace = true
 anyhow.workspace = true
 
-[features]
-# This feature now does nothing and is here only for backwards compatibility.
-portsimd = []
-
 [[bench]]
 name = "bench"
 harness = false

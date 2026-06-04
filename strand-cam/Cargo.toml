@@ -129,7 +129,7 @@ v4l = "0.14"
 build-util.workspace = true
 
 [features]
-default = ["flydra_feat_detect", "imtrack-absdiff", "bundle_files"]
+default = ["flydra_feat_detect", "bundle_files"]
 
 eframe-gui = ["eframe"]
 fiducial = [
@@ -151,9 +151,6 @@ opencv = ["camcal?/opencv"]
 bundle_files = ["flydra2?/bundle_files", "tower-serve-static", "include_dir"]
 ## Serve files from disk at runtime
 serve_files = ["flydra2?/serve_files"]
-
-imtrack-dark-circle = []
-imtrack-absdiff = []
 
 flydratrax = [
     "dep:braid-config-data",

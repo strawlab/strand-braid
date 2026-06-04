@@ -19,9 +19,6 @@ criterion = "0.5"
 default = ["std"]
 std = ["machine-vision-formats/std"]
 
-# This feature now does nothing and is here only for backwards compatibility.
-simd = []
-
 [[bench]]
 name = "my_benchmark"
 harness = false

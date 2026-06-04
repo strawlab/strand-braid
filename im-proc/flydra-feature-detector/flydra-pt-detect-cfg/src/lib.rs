@@ -35,15 +35,3 @@ fn my_default(polarity: ContrastPolarity, valid_region: Shape) -> ImPtDetectCfg 
 pub fn default_absdiff() -> ImPtDetectCfg {
     my_default(ContrastPolarity::DetectAbsDiff, Shape::Everything)
 }
-
-/// Default configuration for detecting features darker than background in a circular region of interest
-pub fn default_dark_circle() -> ImPtDetectCfg {
-    my_default(
-        ContrastPolarity::DetectDark,
-        Shape::Circle(strand_http_video_streaming_types::CircleParams {
-            center_x: 640,
-            center_y: 512,
-            radius: 512,
-        }),
-    )
-}

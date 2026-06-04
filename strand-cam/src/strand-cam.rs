@@ -72,10 +72,7 @@ pub const APP_INFO: AppInfo = AppInfo {
     author: "AndrewStraw",
 };
 
-#[cfg(feature = "imtrack-absdiff")]
 pub use flydra_pt_detect_cfg::default_absdiff as default_im_pt_detect;
-#[cfg(feature = "imtrack-dark-circle")]
-pub use flydra_pt_detect_cfg::default_dark_circle as default_im_pt_detect;
 
 #[cfg(feature = "bundle_files")]
 static ASSETS_DIR: include_dir::Dir<'static> =

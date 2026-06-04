@@ -84,6 +84,4 @@ default = ["bundle_files"]
 bundle_files = ["tower-serve-static", "include_dir"]
 serve_files = ["tower-http"]
 
-braid = []
-
 with-rerun = ["braid-mvg/rerun-io", "dep:re_sdk", "dep:re_sdk_types"]

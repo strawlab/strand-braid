@@ -62,7 +62,7 @@ braid-types = { workspace = true, features = [
     "start-listener",
     "with-tokio-codec",
 ] }
-flydra2 = { workspace = true, features = ["braid"] }
+flydra2.workspace = true
 braid-mvg.workspace = true
 strand-cam-bui-types.workspace = true
 strand-cam-storetype.workspace = true
