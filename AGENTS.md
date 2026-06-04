@@ -1,5 +1,17 @@
 # AGENTS.md — Coding agent guidance for strand-braid
 
+## Before declaring a task done
+
+Run every step. CI runs the same checks; skipping them will fail CI.
+
+1. `cargo fmt` — format the code. (`cargo fmt --check` is the CI gate.)
+2. `cargo check --workspace` — must succeed.
+3. `cargo test --workspace --release` — all tests must pass.
+4. `cargo clippy --all-targets --workspace -- -D warnings` — no lints, no warnings.
+5. `cargo run -p workspace-docs -- --check` — must succeed.
+
+## Style and tooling
+
 - Follow `rustfmt` defaults; do not add `rustfmt.toml` overrides without
   discussion. Use `cargo fmt` to reformat code.
 - When removing functionality, delete the code entirely. Do not comment it out.
