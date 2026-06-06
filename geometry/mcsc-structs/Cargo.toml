@@ -8,7 +8,7 @@ description = "data structures and file I/O for the MultiCamSelfCal calibration 
 [dependencies]
 eyre.workspace = true
 opencv-ros-camera.workspace = true
-zip.workspace = true
+zip = { workspace = true, optional = true }
 
 [features]
-with-octave = []
+with-octave = ["dep:zip"]
