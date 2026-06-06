@@ -10,7 +10,7 @@ eyre.workspace = true
 tracing.workspace = true
 
 ci2-async.workspace = true
-ci2-pyloncxx.workspace = true
+ci2-pylon.workspace = true
 ci2-vimba.workspace = true
 
 strand-cam = { workspace = true, features = ["eframe-gui"] }

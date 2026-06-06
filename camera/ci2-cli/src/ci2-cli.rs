@@ -1,8 +1,8 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-#[cfg(feature = "backend_pyloncxx")]
-extern crate ci2_pyloncxx as backend;
+#[cfg(feature = "backend_pylon")]
+extern crate ci2_pylon as backend;
 
 use clap::Parser;
 use tracing::{error, info};

@@ -1,5 +1,5 @@
 [package]
-name = "ci2-pyloncxx"
+name = "ci2-pylon"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"

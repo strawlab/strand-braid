@@ -56,8 +56,8 @@
  - ci2 (camera/ci2) - camera interface (ci2) trait definitions for machine vision cameras
  - ci2-async (camera/ci2-async) - asynchronous wrapper for the ci2 camera interface
  - ci2-cli (camera/ci2-cli) - command-line interface for ci2 camera backends
+ - ci2-pylon (camera/ci2-pylon) - ci2 camera backend using the Basler Pylon SDK
  - ci2-pylon-types (camera/ci2-pylon-types) - Pylon-specific type definitions for the ci2 camera interface
- - ci2-pyloncxx (camera/ci2-pyloncxx) - ci2 camera backend using the Basler Pylon SDK
  - ci2-simple-async-demo (camera/ci2-simple-async-demo) - simple demonstration of the ci2 asynchronous camera API
  - ci2-simple-demo (camera/ci2-simple-demo) - simple demonstration of the ci2 camera API
  - ci2-vimba (camera/ci2-vimba) - ci2 camera backend using the Allied Vision Vimba SDK

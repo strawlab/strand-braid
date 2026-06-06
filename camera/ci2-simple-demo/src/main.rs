@@ -4,8 +4,8 @@
 extern crate env_logger;
 
 extern crate ci2;
-#[cfg(feature = "backend_pyloncxx")]
-extern crate ci2_pyloncxx as backend;
+#[cfg(feature = "backend_pylon")]
+extern crate ci2_pylon as backend;
 #[cfg(feature = "backend_vimba")]
 extern crate ci2_vimba as backend;
 extern crate machine_vision_formats as formats;

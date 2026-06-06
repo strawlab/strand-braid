@@ -6,8 +6,8 @@ use futures::stream::StreamExt;
 use ci2::{BackendData, Camera, CameraModule};
 use ci2_async::AsyncCamera;
 
-#[cfg(feature = "backend_pyloncxx")]
-use ci2_pyloncxx as backend;
+#[cfg(feature = "backend_pylon")]
+use ci2_pylon as backend;
 #[cfg(feature = "backend_vimba")]
 use ci2_vimba as backend;
 
@@ -15,7 +15,7 @@ lazy_static::lazy_static! {
     static ref CAMLIB: backend::WrappedModule = backend::new_module().unwrap();
 }
 
-#[cfg(feature = "backend_pyloncxx")]
+#[cfg(feature = "backend_pylon")]
 pub fn print_backend_specific_data(backend_data: &dyn BackendData) {
     let pylon_extra = backend_data
         .as_any()
@@ -40,7 +40,7 @@ pub fn print_backend_specific_data(backend_data: &dyn BackendData) {
     );
 }
 
-#[cfg(not(any(feature = "backend_pyloncxx", feature = "backend_vimba")))]
+#[cfg(not(any(feature = "backend_pylon", feature = "backend_vimba")))]
 pub fn print_backend_specific_data(_: &dyn BackendData) {
     // do nothing
 }

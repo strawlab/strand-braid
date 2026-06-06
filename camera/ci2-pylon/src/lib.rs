@@ -80,7 +80,7 @@ impl<'a> ci2::CameraModule for &'a WrappedModule {
     type Guard = PylonTerminateGuard;
 
     fn name(self: &&'a WrappedModule) -> &'static str {
-        "pyloncxx"
+        "pylon"
     }
     fn camera_infos(self: &&'a WrappedModule) -> ci2::Result<Vec<Box<dyn ci2::CameraInfo>>> {
         let pylon_infos = pylon_shimload::enumerate_devices()

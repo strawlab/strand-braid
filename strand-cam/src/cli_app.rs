@@ -14,7 +14,7 @@ use eyre::{Result, WrapErr, eyre};
 /// Which camera vendor backend the merged Strand Camera binary should load.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CameraBackend {
-    /// Basler Pylon backend (`ci2-pyloncxx`).
+    /// Basler Pylon backend (`ci2-pylon`).
     Pylon,
     /// Allied Vision Vimba backend (`ci2-vimba`).
     Vimba,
@@ -69,9 +69,9 @@ pub fn cli_main_dispatch(app_name: &'static str) -> Result<()> {
 
     match backend {
         CameraBackend::Pylon => {
-            let module: &'static ci2_pyloncxx::WrappedModule =
-                Box::leak(Box::new(ci2_pyloncxx::new_module()?));
-            let guard = ci2_pyloncxx::make_singleton_guard(&module)?;
+            let module: &'static ci2_pylon::WrappedModule =
+                Box::leak(Box::new(ci2_pylon::new_module()?));
+            let guard = ci2_pylon::make_singleton_guard(&module)?;
             let mymod = ci2_async::into_threaded_async(module, &guard);
             cli_main(mymod, app_name)?;
         }
