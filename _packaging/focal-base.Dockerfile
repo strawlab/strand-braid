@@ -10,7 +10,7 @@
 FROM ubuntu:focal
 
 # Although this is redundant with _packaging/setup-ubuntu-base.sh, we do it here to put it in the docker cache.
-RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y cpio libudev-dev zlib1g-dev pkg-config curl build-essential git libvpx-dev clang libclang-dev dpkg-dev debhelper zip llvm-dev
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y cpio libudev-dev zlib1g-dev pkg-config curl build-essential git clang libclang-dev dpkg-dev debhelper zip llvm-dev
 
 ENV CARGO_HOME=/usr
 
