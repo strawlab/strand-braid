@@ -24,14 +24,13 @@ use machine_vision_formats as formats;
 use preferences_serde1::{AppInfo, Preferences};
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::error::SendError;
-use tower_http::trace::TraceLayer;
 use tracing::{debug, error, info, trace, warn};
 
 use ci2::{Camera, CameraInfo, CameraModule, DynamicFrameWithInfo};
 use ci2_async::AsyncCamera;
 use fmf::FMFWriter;
 use formats::PixFmt;
-use strand_bui_backend_session_types::{AccessToken, BuiServerAddrInfo, ConnectionKey};
+use strand_bui_backend_session_types::{BuiServerAddrInfo, ConnectionKey};
 use strand_dynamic_frame::DynamicFrame;
 
 use video_streaming::AnnotatedFrame;
@@ -100,6 +99,7 @@ mod frame_process_task;
 
 mod cam_arg_task;
 mod cam_stream_task;
+mod http_router;
 mod led_box_task;
 use frame_process_task::frame_process_task;
 
@@ -2114,70 +2114,11 @@ where
         }
     };
 
-    #[cfg(feature = "bundle_files")]
-    let serve_dir = tower_serve_static::ServeDir::new(&ASSETS_DIR);
-
-    #[cfg(feature = "serve_files")]
-    let serve_dir = tower_http::services::fs::ServeDir::new(
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("yew_frontend")
-            .join("dist"),
-    );
-
-    use base64::Engine;
-    let persistent_secret_base64 = if let Some(secret) = &args.secret {
-        secret.clone()
-    } else {
-        match String::load(&APP_INFO, COOKIE_SECRET_KEY) {
-            Ok(secret_base64) => secret_base64,
-            Err(_) => {
-                tracing::debug!("No secret loaded from preferences file, generating new.");
-                let persistent_secret = cookie::Key::generate();
-                let persistent_secret_base64 =
-                    base64::engine::general_purpose::STANDARD.encode(persistent_secret.master());
-                persistent_secret_base64.save(&APP_INFO, COOKIE_SECRET_KEY)?;
-                persistent_secret_base64
-            }
-        }
-    };
-
-    let persistent_secret =
-        base64::engine::general_purpose::STANDARD.decode(persistent_secret_base64)?;
-    let persistent_secret = cookie::Key::try_from(persistent_secret.as_slice())?;
-
-    // Setup our auth layer.
-    let token_config = match http_camserver_info.token() {
-        AccessToken::PreSharedToken(value) => Some(axum_token_auth::TokenConfig {
-            name: "token".to_string(),
-            value: value.clone(),
-        }),
-        AccessToken::NoToken => None,
-    };
-    let cfg = axum_token_auth::AuthConfig {
-        token_config,
-        persistent_secret,
-        cookie_name: "strand-cam-session",
-        cookie_expires: Some(std::time::Duration::from_secs(60 * 60 * 24 * 400)), // 400 days
-    };
-
-    let auth_layer = cfg.into_layer();
-    // Create axum router.
-    let router = axum::Router::new()
-        .route("/strand-cam-events", axum::routing::get(events_handler))
-        .route("/cam-name", axum::routing::get(cam_name_handler))
-        .route("/callback", axum::routing::post(callback_handler))
-        .fallback_service(serve_dir)
-        .layer(
-            tower::ServiceBuilder::new()
-                .layer(TraceLayer::new_for_http())
-                // Auth layer will produce an error if the request cannot be
-                // authorized so we must handle that.
-                .layer(axum::error_handling::HandleErrorLayer::new(
-                    handle_auth_error,
-                ))
-                .layer(auth_layer),
-        )
-        .with_state(app_state);
+    let router = http_router::build_http_router(
+        args.secret.clone(),
+        http_camserver_info.token(),
+        app_state,
+    )?;
 
     // create future for our app
     let http_serve_future = {
