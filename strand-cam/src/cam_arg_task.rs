@@ -65,7 +65,7 @@ pub(crate) async fn run_cam_arg_task<C>(
     current_cam_settings_extension: String,
     raw_cam_name: braid_types::RawCamName,
     tx_frame2: tokio::sync::mpsc::Sender<Msg>,
-    tracker_cfg_src: crate::ImPtDetectCfgSource,
+    #[cfg(feature = "flydra_feat_detect")] tracker_cfg_src: crate::ImPtDetectCfgSource,
     #[cfg(feature = "checkercal")] cam_name2: braid_types::RawCamName,
     #[cfg(feature = "checkercal")] collected_corners_arc: crate::CollectedCornersArc,
     #[cfg(feature = "checkercal")] image_width: u32,

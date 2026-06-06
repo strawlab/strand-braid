@@ -2344,6 +2344,7 @@ where
             current_cam_settings_extension,
             raw_cam_name,
             tx_frame2,
+            #[cfg(feature = "flydra_feat_detect")]
             tracker_cfg_src,
             #[cfg(feature = "checkercal")]
             cam_name2,
