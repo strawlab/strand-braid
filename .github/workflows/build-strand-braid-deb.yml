@@ -1,0 +1,198 @@
+name: Build strand-braid Debian packages
+
+# Build a strand-braid .deb for each supported Ubuntu version. This is a port of
+# the `strand-braid-ubuntu-XXXX` jobs (and their `needs:` build jobs) from
+# `.gitlab-ci.yml` to GitHub Actions, so that release artifacts can be built and
+# published directly from GitHub.
+#
+# Unlike GitLab CI -- which builds every binary once in a custom Ubuntu Focal
+# (20.04) image and then packages the same binaries into a .deb for each Ubuntu
+# release -- this workflow builds the binaries natively on each Ubuntu runner.
+# The matrix is therefore limited to the Ubuntu versions for which GitHub
+# provides hosted runners (currently 22.04 and 24.04); Ubuntu 20.04 runners have
+# been retired and 26.04 is not yet available.
+#
+# The proprietary camera SDKs (Basler Pylon, Allied Vision Vimba) are loaded at
+# runtime via dlopen, so they are not needed to build or package these binaries.
+# Only the small public Pylon C-ABI shim is downloaded, matching the GitLab jobs.
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["*"]
+  pull_request:
+    branches: ["**"]
+
+env:
+  # The Basler Pylon C-ABI shim. Loaded at runtime; downloaded here only so it
+  # can be installed into /usr/lib/strand-braid/ alongside a stable
+  # libpylon-cabi.so symlink (see _packaging/strand-braid/debian/strand-braid.links).
+  PYLON_CABI_SHIM: libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so
+  PYLON_CABI_URL: https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so
+
+permissions:
+  contents: write
+
+jobs:
+  strand-braid-deb:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runs-on: ubuntu-22.04
+            ubuntu-version: "2204"
+          - runs-on: ubuntu-24.04
+            ubuntu-version: "2404"
+    runs-on: ${{ matrix.runs-on }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      # The Debian packaging infrastructure needs the .so files available so that
+      # dpkg-shlibdeps can automatically determine package dependencies. The list
+      # is a superset of what is strictly required (mirrors the GitLab jobs plus
+      # the build dependencies from _packaging/setup-ubuntu-base.sh).
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install -y \
+            dpkg-dev debhelper libudev-dev zlib1g-dev pkg-config curl \
+            build-essential git libvpx-dev clang libclang-dev llvm-dev zip cmake
+
+      - name: Install Rust wasm target and trunk
+        run: |
+          rustup target add wasm32-unknown-unknown
+          curl --location --remote-name https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-musl.tar.gz
+          tar xzf trunk-x86_64-unknown-linux-musl.tar.gz
+          sudo mv trunk /usr/local/bin/
+          trunk --version
+
+      - name: Build web frontends
+        run: |
+          (cd strand-cam/yew_frontend && ./build.sh)
+          (cd braid/braid-run/braid_frontend && ./build.sh)
+
+      - name: Build strand-cam
+        run: |
+          cargo build -p strand-cam --bin strand-cam --release \
+            --no-default-features \
+            --features "bundle_files checkercal fiducial flydra_feat_detect tracing/release_max_level_debug"
+
+      - name: Build strand-cam-flydratrax
+        working-directory: strand-cam/strand-cam-gui
+        run: |
+          cargo build --release \
+            --no-default-features \
+            --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/checkercal strand-cam/fiducial strand-cam/flydra_feat_detect tracing/release_max_level_debug"
+
+      - name: Build braid-run, braid
+        run: |
+          cargo build -p braid-run --release \
+            --no-default-features \
+            --features "bundle_files,with-rerun,tracing/release_max_level_debug"
+          cargo build -p braid --release
+          # Ensure the default config prints and simple.toml parses.
+          ./target/release/braid-default-config >/dev/null
+          ./target/release/braid-show-config braid/simple.toml >/dev/null
+
+      - name: Build braid-offline (braid-offline-retrack, compute-flydra1-compat)
+        run: cargo build -p braid-offline --release
+
+      - name: Build braid-process-video
+        run: cargo build -p braid-process-video --release
+
+      - name: Build flytrax-csv-to-braidz
+        run: cargo build -p flytrax-csv-to-braidz --release --features with_apriltags
+
+      - name: Build braidz-mcsc
+        run: cargo build -p braidz-mcsc --release --features with-rerun
+
+      - name: Build fmf
+        run: cargo build -p fmf-cli --release
+
+      - name: Build extra programs
+        run: |
+          cargo build -p gocal --release
+          cargo build -p mvg-util --release
+          cargo build -p braid-april-cal-cli --release --features with-rerun
+          cargo build -p braidz-export-rrd --release
+          cargo build -p rerun-braidz-viewer --release
+          cargo build -p braidz-cli --release
+          cargo build -p strand-convert --release
+          cargo build -p show-timestamps --release
+          cargo build -p flydra-feature-detector --release --example flydra-feature-detector-bench
+
+      - name: Collect binaries
+        run: |
+          mkdir -p build
+          for bin in \
+            strand-cam braid braid-run braid-show-config braid-default-config \
+            braid-offline-retrack compute-flydra1-compat braid-process-video \
+            flytrax-csv-to-braidz braidz-mcsc fmf gocal cal-to-xml \
+            align-calibration braid-april-cal-cli braidz-export-rrd \
+            rerun-braidz-viewer braidz-cli strand-convert show-timestamps; do
+            cp "target/release/$bin" build/
+          done
+          # The flydratrax GUI binary is renamed during packaging.
+          cp target/release/strand-cam-gui build/strand-cam-flydratrax
+          # The benchmark example.
+          cp target/release/examples/flydra-feature-detector-bench build/
+          # write-debian-changelog is consumed by the packaging Makefile.
+          cargo build -p write-debian-changelog --release
+          cp target/release/write-debian-changelog build/
+
+      - name: Show binary versions and shared library dependencies
+        run: |
+          ./build/strand-cam --version
+          ./build/braid-run --version
+          for bin in flytrax-csv-to-braidz strand-cam-flydratrax strand-cam braid \
+            braid-run cal-to-xml align-calibration braidz-mcsc braid-april-cal-cli \
+            braidz-export-rrd braid-process-video; do
+            echo "== $bin =="
+            ldd "build/$bin" || true
+          done
+
+      - name: Generate THIRD-PARTY-LICENSES
+        run: |
+          cargo install cargo-bundle-licenses --locked
+          _packaging/gen-strand-braid-third-party-licenses.sh "${{ github.workspace }}/build/licenses"
+          ls -lh build/licenses
+
+      - name: Download Basler Pylon C-ABI shim
+        run: |
+          curl --fail -L -o "build/${PYLON_CABI_SHIM}" "${PYLON_CABI_URL}"
+
+      - name: Build .deb
+        run: |
+          make -C _packaging
+          for F in _packaging/*.deb; do echo; echo "$F"; dpkg-deb -I "$F"; done
+
+      - name: Assemble release directory
+        id: assemble
+        run: |
+          VERSION="${{ github.ref_type == 'tag' && github.ref_name || github.sha }}"
+          OUTDIR="strand-braid-ubuntu-${{ matrix.ubuntu-version }}-${VERSION}"
+          mkdir -p "$OUTDIR"
+          cp -a _packaging/*.deb "$OUTDIR/"
+          cp _packaging/ubuntu-installer-zip-readme.txt "$OUTDIR/README.txt"
+          cp -a _packaging/strand-braid/licenses "$OUTDIR/"
+          ls -lh "$OUTDIR/"
+          dpkg --contents "$OUTDIR"/*.deb
+          # Zip the directory; the zip name records the Ubuntu version (the .deb
+          # name does not), matching the GitLab release-artifact convention.
+          zip -r "${OUTDIR}.zip" "$OUTDIR"
+          echo "outdir=$OUTDIR" >> "$GITHUB_OUTPUT"
+          echo "zip=${OUTDIR}.zip" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: strand-braid-ubuntu-${{ matrix.ubuntu-version }}
+          path: ${{ steps.assemble.outputs.outdir }}
+
+      # On tag pushes, publish the per-Ubuntu-version .zip to the GitHub Release.
+      - name: Publish to GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.assemble.outputs.zip }}
