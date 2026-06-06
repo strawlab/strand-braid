@@ -73,55 +73,54 @@ jobs:
           (cd strand-cam/yew_frontend && ./build.sh)
           (cd braid/braid-run/braid_frontend && ./build.sh)
 
-      - name: Build strand-cam
-        run: |
-          cargo build -p strand-cam --bin strand-cam --release \
-            --no-default-features \
-            --features "bundle_files checkercal fiducial flydra_feat_detect tracing/release_max_level_debug"
-
-      - name: Build strand-cam-flydratrax
-        working-directory: strand-cam/strand-cam-gui
+      # All packaged binaries are built in a single cargo invocation so that
+      # features are resolved once and every shared dependency (flydra2, the
+      # rerun stack, etc.) is compiled exactly once -- instead of being rebuilt
+      # for each binary as the feature set varies. The per-package feature flags
+      # below reproduce the feature sets of the individual GitLab CI jobs.
+      #
+      # strand-cam-flydratrax is built in a SEPARATE step (below): it is the
+      # strand-cam crate compiled with the `flydratrax` feature, and Cargo
+      # unifies features across a single build, so including it here would force
+      # `flydratrax` into the standalone `strand-cam` binary -- which is not
+      # behavior-neutral (it activates the online tracker / model server). The
+      # two variants therefore require two separate resolves.
+      #
+      # The `tracing/release_max_level_debug` feature used by the GitLab jobs is
+      # intentionally omitted: it only caps the compiled-in log level and is not
+      # straightforward to set across a multi-package build.
+      - name: Build packaged binaries (single unified pass)
         run: |
           cargo build --release \
-            --no-default-features \
-            --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/checkercal strand-cam/fiducial strand-cam/flydra_feat_detect tracing/release_max_level_debug"
-
-      - name: Build braid-run, braid
-        run: |
-          cargo build -p braid-run --release \
-            --no-default-features \
-            --features "bundle_files,with-rerun,tracing/release_max_level_debug"
-          cargo build -p braid --release
-          # Ensure the default config prints and simple.toml parses.
+            -p strand-cam \
+            -p braid \
+            -p braid-run \
+            -p braid-offline \
+            -p braid-process-video \
+            -p flytrax-csv-to-braidz \
+            -p braidz-mcsc \
+            -p fmf-cli \
+            -p gocal \
+            -p mvg-util \
+            -p braid-april-cal-cli \
+            -p braidz-export-rrd \
+            -p rerun-braidz-viewer \
+            -p braidz-cli \
+            -p strand-convert \
+            -p show-timestamps \
+            -p write-debian-changelog \
+            --features "strand-cam/checkercal,strand-cam/fiducial,braid-run/with-rerun,flytrax-csv-to-braidz/with_apriltags,braidz-mcsc/with-rerun,braid-april-cal-cli/with-rerun"
+          # The flydra-feature-detector benchmark is an example, not a bin, so it
+          # needs its own target-selecting invocation (shares the build cache).
+          cargo build --release -p flydra-feature-detector --example flydra-feature-detector-bench
+          # Sanity-check the braid config tooling, as the GitLab job does.
           ./target/release/braid-default-config >/dev/null
           ./target/release/braid-show-config braid/simple.toml >/dev/null
 
-      - name: Build braid-offline (braid-offline-retrack, compute-flydra1-compat)
-        run: cargo build -p braid-offline --release
-
-      - name: Build braid-process-video
-        run: cargo build -p braid-process-video --release
-
-      - name: Build flytrax-csv-to-braidz
-        run: cargo build -p flytrax-csv-to-braidz --release --features with_apriltags
-
-      - name: Build braidz-mcsc
-        run: cargo build -p braidz-mcsc --release --features with-rerun
-
-      - name: Build fmf
-        run: cargo build -p fmf-cli --release
-
-      - name: Build extra programs
+      - name: Build strand-cam-flydratrax (flydratrax-enabled strand-cam)
         run: |
-          cargo build -p gocal --release
-          cargo build -p mvg-util --release
-          cargo build -p braid-april-cal-cli --release --features with-rerun
-          cargo build -p braidz-export-rrd --release
-          cargo build -p rerun-braidz-viewer --release
-          cargo build -p braidz-cli --release
-          cargo build -p strand-convert --release
-          cargo build -p show-timestamps --release
-          cargo build -p flydra-feature-detector --release --example flydra-feature-detector-bench
+          cargo build --release -p strand-cam-gui --no-default-features \
+            --features "strand-cam/bundle_files,strand-cam/flydratrax,strand-cam/checkercal,strand-cam/fiducial,strand-cam/flydra_feat_detect"
 
       - name: Collect binaries
         run: |
@@ -131,16 +130,14 @@ jobs:
             braid-offline-retrack compute-flydra1-compat braid-process-video \
             flytrax-csv-to-braidz braidz-mcsc fmf gocal cal-to-xml \
             align-calibration braid-april-cal-cli braidz-export-rrd \
-            rerun-braidz-viewer braidz-cli strand-convert show-timestamps; do
+            rerun-braidz-viewer braidz-cli strand-convert show-timestamps \
+            write-debian-changelog; do
             cp "target/release/$bin" build/
           done
           # The flydratrax GUI binary is renamed during packaging.
           cp target/release/strand-cam-gui build/strand-cam-flydratrax
           # The benchmark example.
           cp target/release/examples/flydra-feature-detector-bench build/
-          # write-debian-changelog is consumed by the packaging Makefile.
-          cargo build -p write-debian-changelog --release
-          cp target/release/write-debian-changelog build/
 
       - name: Show binary versions and shared library dependencies
         run: |
