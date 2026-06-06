@@ -396,10 +396,8 @@ impl<F: na::RealField + Float> levenberg_marquardt_sparse::LeastSquaresProblem<F
         tracing::debug!("Step {}: set_params", self.optimizer_step);
 
         #[cfg(feature = "with-rerun")]
-        {
-            if let Some(rec) = &self.rerun.rec {
-                rec.set_time_sequence("optimizer step", self.optimizer_step);
-            }
+        if let Some(rec) = &self.rerun.rec {
+            rec.set_time_sequence("optimizer step", self.optimizer_step);
         };
 
         let num_cam_params = self.model_type.info().num_cam_params();
@@ -465,7 +463,7 @@ impl<F: na::RealField + Float> levenberg_marquardt_sparse::LeastSquaresProblem<F
                 let extrinsics = cam.extrinsics();
                 rec.log(
                     base_path.as_str(),
-                    &ba_rerun::extrinsics_f64(&extrinsics)
+                    &ba_rerun::extrinsics_f64(extrinsics)
                         .as_rerun_transform3d()
                         .into(),
                 )
@@ -477,13 +475,11 @@ impl<F: na::RealField + Float> levenberg_marquardt_sparse::LeastSquaresProblem<F
                 if i.skew().to_f64().unwrap().abs() > 1e-15 {
                     tracing::warn!("Camera has skew, but rerun cameras do not support skew");
                 }
-                if !i.distortion.is_linear() {
-                    if !self.rerun.did_show_rerun_warning {
-                        tracing::warn!(
-                            "Showing distorted 2D data in rerun but rerun cannot transform 3D data to distorted 2D coordinates. See https://github.com/rerun-io/rerun/issues/2499"
-                        );
-                        self.rerun.did_show_rerun_warning = true;
-                    }
+                if !i.distortion.is_linear() && !self.rerun.did_show_rerun_warning {
+                    tracing::warn!(
+                        "Showing distorted 2D data in rerun but rerun cannot transform 3D data to distorted 2D coordinates. See https://github.com/rerun-io/rerun/issues/2499"
+                    );
+                    self.rerun.did_show_rerun_warning = true;
                 }
                 let intrinsics_linear: cam_geom::IntrinsicParametersPerspective<_> =
                     cam_geom::PerspectiveParams {
