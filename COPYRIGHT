@@ -1,7 +1,6 @@
 Short version for non-lawyers:
 
-The Strand-Braid project is released under the Affero General Public License
-v1.0 only.
+The Strand-Braid project is dual-licensed under Apache 2.0 and MIT terms.
 
 Longer version:
 
@@ -11,9 +10,20 @@ copyright assignment is required to contribute to the Strand-Braid project.
 Some files include explicit copyright notices and/or license notices. For full
 authorship information, see the version control history.
 
-Except as otherwise noted (in individual files), Strand-Braid is
-licensed under the Affero General Public License
-v1.0 only <LICENSE.txt>.
+Except as otherwise noted (in individual files and crates), Strand-Braid is
+licensed under either of
+
+  * Apache License, Version 2.0 <LICENSE-APACHE> or
+    <http://www.apache.org/licenses/LICENSE-2.0>
+  * MIT license <LICENSE-MIT> or <http://opensource.org/licenses/MIT>
+
+at your option.
+
+A small number of crates and files are derived from (or wrap, or are rewritten
+from) third-party code and are licensed under different terms, as noted in
+their file headers (via an SPDX-License-Identifier line) and in the `license`
+field of their `Cargo.toml`. These include BSD-2-Clause and BSD-3-Clause
+licensed code.
 
 The Strand-Braid Project may include packages written by third parties. These
 packages carry their own copyright notices and license terms.

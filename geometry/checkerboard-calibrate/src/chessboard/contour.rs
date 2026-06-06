@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Suzuki–Abe border following — a port of OpenCV's `findContours`
 //! (`RETR_LIST`, `CHAIN_APPROX_NONE`).
 //!

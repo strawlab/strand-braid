@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 #[tracing::instrument]
 fn my_span(arg1: u8) {
     tracing::info!("From inside span: {}.", arg1);

@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
 use imops::*;
 use machine_vision_formats::pixel_format::Mono8;

@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Projective bundle adjustment for the MCSC pipeline.
 //!
 //! Equivalent to `MartinecPajdla/fill_mm_test/bundle_PX_proj.m` and

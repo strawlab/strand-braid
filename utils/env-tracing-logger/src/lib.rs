@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use time::{UtcOffset, format_description::well_known::Iso8601};
 use tracing_subscriber::{
     fmt::{self, time::OffsetTime},

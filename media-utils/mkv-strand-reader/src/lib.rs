@@ -1,4 +1,6 @@
-// Copyright 2022-2023 Andrew D. Straw.
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use mkv_parser_kit::{BoxData, EbmlElement, Tag, ebml_parse};
 
 const STRAND_MKV_FILENAME_TEMPLATE: &str = "movie%Y%m%d_%H%M%S.%f";

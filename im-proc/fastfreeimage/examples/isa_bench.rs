@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Benchmark of the per-frame full-image op sequence (DetectAbsDiff + use_cmp,
 //! mask skipped). Build with default flags for the sandybridge floor, or with
 //! RUSTFLAGS="-C target-cpu=native" to let `wide` use AVX2.

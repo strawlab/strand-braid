@@ -2,6 +2,7 @@
 name = "show-timestamps"
 version = "1.0.0-rc.2" # braid release synchronized
 edition = "2024"
+license = "MIT OR Apache-2.0"
 description = "display timestamps embedded in Strand Camera video files"
 
 [dependencies]

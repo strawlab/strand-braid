@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use async_change_tracker::ChangeTracker;
 use nalgebra as na;
 use std::sync::{Arc, RwLock};

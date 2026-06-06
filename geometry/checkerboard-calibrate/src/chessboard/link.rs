@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Linking quads into a board graph — stage 3 of `findChessboardCorners`.
 //!
 //! Adjacent chessboard squares touch at their corners, so the detected quads

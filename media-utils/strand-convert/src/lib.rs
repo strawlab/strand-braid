@@ -1,4 +1,6 @@
-// Copyright 2022-2023 Andrew D. Straw.
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Convert MKV videos saved by Strand Cam and Tiff Images saved by Micromanager
 //! from Photometrics cameras into MP4 videos of the format saved by Strand Cam.
 use std::{

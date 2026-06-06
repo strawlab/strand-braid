@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Pure-Rust reimplementations of the OpenCV calibration routines used by
 //! strand-braid. See the crate README for scope and validation strategy.
 

@@ -2,6 +2,7 @@
 name = "create-timelapse"
 version = "0.1.0"
 edition = "2024"
+license = "MIT OR Apache-2.0"
 description = "create timelapse video from mp4 h264 source without transcoding"
 
 [dependencies]

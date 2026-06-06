@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use ads_webasm::components::{MaybeCsvData, parse_csv};
 use braid_april_cal::*;
 use braid_apriltag_types::AprilTagCoords2D;

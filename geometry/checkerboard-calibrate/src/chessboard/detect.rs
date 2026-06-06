@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! End-to-end chessboard detection — wiring stages 1-4 together.
 //!
 //! Mirrors the structure of OpenCV's `findChessboardCorners` with the

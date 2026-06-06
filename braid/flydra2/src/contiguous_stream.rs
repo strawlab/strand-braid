@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Outputs a stream of contiguous elements, even when some missing from input.
 
 use std::pin::Pin;

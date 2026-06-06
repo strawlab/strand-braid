@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! web based quick .braidz viewer
 //!
 //! This web app can be locally installed and views files locally (without

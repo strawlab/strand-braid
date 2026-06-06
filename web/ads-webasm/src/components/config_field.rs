@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use serde::{Deserialize, Serialize};
 use web_sys::HtmlInputElement;
 use yew::{Callback, Component, Context, Html, InputEvent, Properties, TargetCast, classes, html};

@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 description = "firmware for Strawlab optogenetics LED control device"
 edition = "2024"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 cortex-m = { version = "0.7.6", features = ["critical-section-single-core"] }

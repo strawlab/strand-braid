@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Type definitions for [Strand Camera's](https://strawlab.org/strand-cam)
 //! state management and browser UI communication.
 //!

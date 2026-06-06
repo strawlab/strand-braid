@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Core types for the Braid tracking system.
 //!
 //! This crate provides the fundamental data structures and configuration types
@@ -8,13 +11,6 @@
 //!
 //! - `with-tokio-codec`: Enables CBOR packet codec for tokio-based applications
 //! - `start-listener`: Enables TCP listener utilities for HTTP servers
-
-// Copyright 2020-2023 Andrew D. Straw.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT
-// or http://opensource.org/licenses/MIT>, at your option. This file may not be
-// copied, modified, or distributed except according to those terms.
 
 #![warn(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]

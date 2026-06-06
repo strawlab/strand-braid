@@ -1,13 +1,9 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Default values for the [`ImPtDetectCfg`] type of the
 //! [`flydra-feature-detector-types`](https://crates.io/crates/flydra-feature-detector-types)
 //! crate.
-
-// Copyright 2020-2023 Andrew D. Straw.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT
-// or http://opensource.org/licenses/MIT>, at your option. This file may not be
-// copied, modified, or distributed except according to those terms.
 
 use flydra_feature_detector_types::{ContrastPolarity, ImPtDetectCfg};
 use strand_http_video_streaming_types::Shape;

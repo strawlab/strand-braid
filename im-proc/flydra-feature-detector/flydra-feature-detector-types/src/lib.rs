@@ -1,15 +1,11 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Configuration types for [Braid](https://strawlab.org/braid) and Flydra feature detection.
 //!
 //! This crate provides types for configuring 2D feature detection parameters as
 //! originally used in the Flydra tracking system. Now these types are used in
 //! Strand Camera and Braid.
-
-// Copyright 2020-2023 Andrew D. Straw.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT
-// or http://opensource.org/licenses/MIT>, at your option. This file may not be
-// copied, modified, or distributed except according to those terms.
 
 use serde::{Deserialize, Serialize};
 

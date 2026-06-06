@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: BSD-2-Clause
+
 const FNAME: &str = "movie-standard41h12.mkv";
 const URL_BASE: &str = "https://strawlab-cdn.com/assets";
 const SHA256SUM: &str = "ddd2932d74139cd6ab5500b40c5f0482d5036df2f766be3a5f28ae2345e23aed";

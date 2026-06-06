@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use yew::{Component, Context, Html, Properties, html};
 use yew_tincture::components::Button;
 

@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use strand_led_box_comms::{ChannelState, DeviceState, ToDevice};
 use yew::prelude::*;
 use yew_tincture::components::CheckboxLabel;

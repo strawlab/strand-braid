@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use wasm_bindgen::prelude::*;
 use web_sys::{DragEvent, Event, HtmlInputElement};
 use yew::{Callback, Component, Context, Html, Properties, TargetCast, html};

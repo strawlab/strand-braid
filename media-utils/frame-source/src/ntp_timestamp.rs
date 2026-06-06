@@ -1,4 +1,8 @@
-// Copyright 2021-2024 Scott Lamb <slamb@slamb.org>
+// Copyright (C) The Retina Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// This file originates from the Retina project by Scott Lamb
+// <slamb@slamb.org> (https://github.com/scottlamb/retina).
 
 use serde::{Deserialize, Serialize};
 

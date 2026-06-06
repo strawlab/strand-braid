@@ -2,6 +2,7 @@
 name = "strand-cam-offline-checkerboards"
 version = "0.1.0"
 edition = "2024"
+license = "MIT OR Apache-2.0"
 description = "Generate camera intrinsic camera calibration from directory full of images"
 
 [dependencies]

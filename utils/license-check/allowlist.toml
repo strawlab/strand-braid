@@ -1,0 +1,27 @@
+# Allowlist for the `license-check` tool.
+#
+# Every tracked `*.rs` file in the workspace must declare an
+# `SPDX-License-Identifier:` line in its header. By default the required
+# expression is "MIT OR Apache-2.0". The entries below exempt specific paths
+# from that default and instead require the given SPDX expression, because the
+# code originates from (or wraps / is rewritten from) third-party code under a
+# different license.
+#
+# `prefix` is matched against the repo-relative path as a literal string
+# prefix, so a trailing "/" matches a whole directory and a full filename
+# matches a single file.
+
+[[allow]]
+# Rust bindings to the AprilTag C library (itself BSD-2-Clause).
+prefix = "im-proc/ads-apriltag/"
+spdx = "BSD-2-Clause"
+
+[[allow]]
+# Based on the calib3d-rs crate / OpenCV calib3d (BSD-3-Clause).
+prefix = "geometry/checkerboard-calibrate/find-chessboard/"
+spdx = "BSD-3-Clause"
+
+[[allow]]
+# Rewritten from sdao/gammaray (BSD-2-Clause).
+prefix = "geometry/freemovr-calibration/src/exr.rs"
+spdx = "BSD-2-Clause"

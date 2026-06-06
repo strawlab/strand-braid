@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use machine_vision_formats::{ImageData, PixFmt, pixel_format};
 use strand_dynamic_frame::{DynamicFrame, DynamicFrameOwned};
 

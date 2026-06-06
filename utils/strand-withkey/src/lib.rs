@@ -1,13 +1,9 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Defines the WithKey trait for [Strand
 //! Camera](https://strawlab.org/strand-cam) and
 //! [Braid](https://strawlab.org/braid).
-
-// Copyright 2020-2023 Andrew D. Straw.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT
-// or http://opensource.org/licenses/MIT>, at your option. This file may not be
-// copied, modified, or distributed except according to those terms.
 
 #![warn(missing_docs)]
 

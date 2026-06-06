@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use strand_cam_bui_types::RecordingPath;
 use yew::{Callback, Component, Context, Html, Properties, classes, html};
 

@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Convert 2D .csv file saved by flytrax in strand-cam to .braidz format
 use std::{
     collections::BTreeMap,

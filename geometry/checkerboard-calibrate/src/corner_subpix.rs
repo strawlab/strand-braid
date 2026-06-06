@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Pure-Rust port of OpenCV's `cv::cornerSubPix`.
 //!
 //! Given approximate corner locations and a grayscale image, this iteratively

@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use test_log::test;
 
 use flytrax_csv_to_braidz::{RowFilter, parse_configs_and_run};

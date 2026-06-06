@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Ordering the board graph into a corner lattice — second half of stage 3.
 //!
 //! After [`super::link_quads`] builds the quad adjacency graph, the quads must

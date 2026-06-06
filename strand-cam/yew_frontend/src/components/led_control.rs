@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use ads_webasm::components::{EnumToggle, RangedValue};
 use strand_led_box_comms::{ChannelState, OnState};
 use yew::prelude::*;

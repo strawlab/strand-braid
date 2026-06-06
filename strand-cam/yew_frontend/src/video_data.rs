@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 #[derive(PartialEq)]
 pub struct VideoData {
     inner: Option<strand_http_video_streaming_types::ToClient>,

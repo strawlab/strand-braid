@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! detect features in images, maximally backwards compatible with Flydra
 use tracing::{debug, error, info, warn};
 

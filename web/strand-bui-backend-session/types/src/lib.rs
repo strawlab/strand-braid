@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Types for [Strand Camera](https://strawlab.org/strand-cam) BUI (Browser User
 //! Interface) backend session management.
 //!
@@ -5,13 +8,6 @@
 //! browser frontend and a Rust backend application through session-based
 //! messaging. It defines the protocol for bidirectional communication using
 //! JSON-serialized messages.
-
-// Copyright 2016-2025 Andrew D. Straw.
-//
-// Licensed under the Apache License, Version 2.0
-// <http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <http://opensource.org/licenses/MIT>, at your option. This file may not be
-// copied, modified, or distributed except according to those terms.
 
 #![warn(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]

@@ -3,6 +3,7 @@ name = "braid_frontend"
 version = "1.0.0-rc.2"                       # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+license = "MIT OR Apache-2.0"
 description = "Yew WASM frontend for the Braid multi-camera tracking web UI"
 
 [dependencies]

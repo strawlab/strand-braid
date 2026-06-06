@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! create mask from points using [ncollide2d]
 pub type Mask = ncollide2d::shape::Compound<f64>;
 

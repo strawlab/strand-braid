@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 #[test]
 fn test_read_32vert_polygon() {
     // this causes a panic in `obj` crate 0.9. See

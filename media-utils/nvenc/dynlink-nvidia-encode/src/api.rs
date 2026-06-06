@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use crate::ffi::*;
 use crate::load::SharedLibrary;
 use crate::{NvInt, NvencError};

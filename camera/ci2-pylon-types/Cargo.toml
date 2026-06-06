@@ -2,6 +2,7 @@
 name = "ci2-pylon-types"
 version = "0.1.0"
 edition = "2024"
+license = "MIT OR Apache-2.0"
 description = "Pylon-specific type definitions for the ci2 camera interface"
 
 [dependencies]

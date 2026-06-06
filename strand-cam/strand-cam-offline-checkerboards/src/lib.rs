@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use std::path::PathBuf;
 
 use camino::{Utf8Path, Utf8PathBuf};

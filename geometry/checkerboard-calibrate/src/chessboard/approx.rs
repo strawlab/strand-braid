@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Polygon approximation — a port of OpenCV's `approxPolyDP` (the Douglas–Peucker
 //! variant in `modules/imgproc/src/approx.cpp`).
 //!

@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Per-view extrinsics (rotation + translation) from a homography and known
 //! intrinsics.
 //!

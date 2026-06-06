@@ -2,6 +2,7 @@
 name = "gocal"
 version = "1.0.0-rc.2"                       # braid release synchronized
 edition = "2024"
+license = "MIT OR Apache-2.0"
 description = "CLI tool to run multi-camera self calibration. Emulates the MultiCamSelfCal gocal.m script."
 
 [dependencies]

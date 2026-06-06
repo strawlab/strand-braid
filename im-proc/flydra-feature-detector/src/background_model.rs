@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use crate::{BackgroundUpdateMode, Result, errors::Error, fastim_mod};
 
 use tracing::{debug, error};

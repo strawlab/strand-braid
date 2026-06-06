@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use eyre as anyhow;
 
 // This is lightly modified from the version in braid-process-video.

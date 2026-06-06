@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! I/O and parsing utilities for MCSC data files.
 //!
 //! Shared functions for reading the various MCSC input files:

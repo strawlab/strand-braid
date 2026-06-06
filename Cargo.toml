@@ -108,6 +108,7 @@ members = [
     "utils/csv-eof",
     "utils/download-verify",
     "utils/groupby",
+    "utils/license-check",
     "utils/env-tracing-logger",
     "utils/env-tracing-logger/env-tracing-logger-sample",
     "utils/strand-cam-enum-iter",

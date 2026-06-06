@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Projective reconstruction from a measurement matrix.
 //!
 //! Port of the Martinec-Pajdla `fill_mm` algorithm

@@ -3,6 +3,7 @@ name = "freemovr-calibration"
 version = "0.6.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+license = "MIT OR Apache-2.0"
 description = "create calibration for FreeMoVR system"
 
 [dependencies]

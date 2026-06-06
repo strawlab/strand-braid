@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! CLI program to create (or check) a repository overview in a top-level
 //! `README.md` in a repository containing a rust workspace.
 //!

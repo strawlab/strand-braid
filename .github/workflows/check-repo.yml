@@ -22,3 +22,11 @@ jobs:
       - name: Test that `cargo fmt` is happy
         run: |
           cargo fmt --check
+
+  check-license-headers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Test that every .rs file has an SPDX license header
+        run: |
+          cargo run -p license-check

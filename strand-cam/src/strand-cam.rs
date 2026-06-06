@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 // TODO: if camera not available, launch alternate UI indicating such and
 // waiting for it to become available?
 

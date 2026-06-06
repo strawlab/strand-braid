@@ -5,6 +5,7 @@ version = "1.0.0-rc.2"                                      # braid release sync
 authors = ["Andrew Straw <strawman@astraw.com>"]
 homepage = "https://strawlab.org/braid"
 edition = "2024"
+license = "MIT OR Apache-2.0"
 
 [build-dependencies]
 build-util.workspace = true

@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 // Design for RPi Pico:
 // Pins in use:
 //  PWM LED channel 1: gpio6

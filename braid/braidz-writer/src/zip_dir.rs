@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 // modified from https://github.com/mvdnes/zip-rs/blob/master/examples/write_dir.rs
 
 use std::io::{Seek, Write};

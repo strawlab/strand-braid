@@ -142,6 +142,7 @@
  - env-tracing-logger (utils/env-tracing-logger) - initialize a tracing subscriber configured from environment variables
  - env-tracing-logger-sample (utils/env-tracing-logger/env-tracing-logger-sample) - sample program demonstrating env-tracing-logger usage
  - groupby (utils/groupby) - group sorted iterators by key with lookahead buffering
+ - license-check (utils/license-check) - CLI program to check (or add) SPDX license headers on workspace .rs files
  - strand-cam-enum-iter (utils/strand-cam-enum-iter) - A utility crate to provide an EnumIter trait for iterating over enums in the Strand Camera ecosystem
  - strand-datetime-conversion (utils/strand-datetime-conversion) - Convert between chrono and f64 time. Used in Strand Camera and Braid.
  - strand-withkey (utils/strand-withkey) - defines the WithKey trait for Strand Camera

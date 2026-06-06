@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Bundle adjustment for multiple camera calibrations
 //!
 //! See the [BundleAdjuster] struct for more details.

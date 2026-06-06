@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Joint Levenberg-Marquardt refinement and the top-level `calibrate_camera`.
 //!
 //! Pipeline (planar calibration target, Zhang's method):

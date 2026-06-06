@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 #[test]
 fn integration_checkerboards() {
     use freemovr_calibration::pinhole_wizard_yaml_support::PinholeCalib;

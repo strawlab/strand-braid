@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use braid::braid_start;
 use braid_config_data::BraidConfig;
 use clap::Parser;

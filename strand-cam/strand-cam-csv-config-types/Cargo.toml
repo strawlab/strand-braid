@@ -3,6 +3,7 @@ name = "strand-cam-csv-config-types"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+license = "MIT OR Apache-2.0"
 description = "support YAML frontmatter in .csv files saved by Strand Camera"
 
 [dependencies]

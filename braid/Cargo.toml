@@ -4,6 +4,7 @@ description = "multi-camera realtime 3D tracker"
 version = "1.0.0-rc.2"                       # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2018"
+license = "MIT OR Apache-2.0"
 homepage = "https://strawlab.org/braid"
 default-run = "braid"
 

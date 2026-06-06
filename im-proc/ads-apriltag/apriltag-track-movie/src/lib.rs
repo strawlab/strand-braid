@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: BSD-2-Clause
+
 use std::{
     io::Write,
     path::Path,

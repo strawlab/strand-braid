@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use eyre::{self as anyhow};
 
 const URL_BASE: &str = "https://strawlab-cdn.com/assets/";

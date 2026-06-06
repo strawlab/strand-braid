@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Quad extraction — the part of OpenCV's `generateQuads` that turns a contour
 //! into a candidate chessboard square.
 //!

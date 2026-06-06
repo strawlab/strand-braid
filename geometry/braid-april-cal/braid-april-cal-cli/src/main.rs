@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use braid_mvg::DistortedPixel;
 use camino::Utf8PathBuf;
 use clap::Parser;

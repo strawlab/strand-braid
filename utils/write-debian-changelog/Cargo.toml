@@ -3,6 +3,7 @@ name = "write-debian-changelog"
 description = "simple and hacky CLI program to print a debian changelog"
 version = "1.0.0-rc.2"      # braid release synchronized
 edition = "2024"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
 chrono.workspace = true

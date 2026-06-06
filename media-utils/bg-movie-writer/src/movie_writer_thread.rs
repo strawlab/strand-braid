@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! This module contains [writer_thread_loop], the main loop for writing a movie
 //! in a background thread. Everything here runs in one thread, and
 //! [writer_thread_loop] should be called from a spawned thread.

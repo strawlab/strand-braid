@@ -1,4 +1,5 @@
-// Copyright 2025 Andrew D. Straw.
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
 
 use camino::Utf8PathBuf;
 use clap::{Parser, ValueEnum};

@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! This crate defines a trait, [AsyncCamera], whose [AsyncCamera::frames]
 //! method returns a [futures::Stream] for asynchronous usage.
 //!

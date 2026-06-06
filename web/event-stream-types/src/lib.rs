@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! types for http event streams
 use bytes::Bytes;
 use futures::StreamExt;

@@ -1,4 +1,6 @@
-// Copyright 2022-2026 Andrew D. Straw.
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use font_drawing::stamp_frame;
 use machine_vision_formats::{
     ImageMutStride, Stride,

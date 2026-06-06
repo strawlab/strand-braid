@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use std::sync::{Arc, RwLock};
 use strand_bui_backend_session::HttpSession;
 use tracing::{debug, error};

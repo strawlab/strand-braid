@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 /// A data structure for handling a queue of frames to be processed.
 ///
 /// Circular buffer with a leading index ("available") and

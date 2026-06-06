@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use nalgebra as na;
 use num_traits::Float;
 use opencv_ros_camera::RosOpenCvIntrinsics;

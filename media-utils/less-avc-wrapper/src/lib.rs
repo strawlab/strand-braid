@@ -1,4 +1,6 @@
-// Copyright 2022-2023 Andrew D. Straw.
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 #![deny(unsafe_code)]
 use std::io::Write;
 

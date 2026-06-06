@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use eframe::egui::{self, Color32, ColorImage, TextureHandle, TextureOptions};
 use machine_vision_formats::{ImageData, pixel_format::Mono8};
 

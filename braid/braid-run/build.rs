@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Embed the git hash and date so the binary can report its exact revision.
     build_util::git_hash(env!("CARGO_PKG_VERSION"))?;

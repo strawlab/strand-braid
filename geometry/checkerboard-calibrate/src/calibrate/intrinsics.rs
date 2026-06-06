@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Initial intrinsic-matrix estimate from per-view homographies.
 //!
 //! Mirrors the strategy of OpenCV's `cvInitIntrinsicParams2D`: fix the

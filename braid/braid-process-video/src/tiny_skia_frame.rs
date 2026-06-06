@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use eyre::{self as anyhow};
 
 use machine_vision_formats::{ImageBuffer, ImageBufferRef, ImageData, Stride, pixel_format::RGBA8};

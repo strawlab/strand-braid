@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use cam_geom::ExtrinsicParameters;
 use na::{Matrix3xX, Vector3};
 use nalgebra as na;

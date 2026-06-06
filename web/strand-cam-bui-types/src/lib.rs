@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Type definitions for the Strand Camera Browser User Interface (BUI) system.
 //!
 //! This crate provides core data structures used in the Strand Camera ecosystem

@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 /// Set the environment variables `GIT_HASH` AND `CARGO_PKG_VERSION` to include
 /// the current git revision.
 pub fn git_hash(orig_version: &str) -> Result<(), Box<dyn std::error::Error>> {

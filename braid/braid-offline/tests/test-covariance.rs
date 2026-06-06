@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 // See https://github.com/strawlab/strand-braid/issues/3. This tests for a
 // difficult case of covariance updating.
 const FNAME: &str = "fail-small.braidz";

@@ -2,6 +2,7 @@
 name = "braid-april-cal"
 version = "0.1.0"
 edition = "2024"
+license = "MIT OR Apache-2.0"
 description = "multi-camera calibration using AprilTag detections and the SQPnP algorithm"
 
 [dependencies]

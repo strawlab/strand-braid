@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use std::{cell::RefCell, rc::Rc};
 
 use crate::video_data::VideoData;

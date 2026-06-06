@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use flydra_feature_detector::{BackgroundUpdateMode, FlydraFeatureDetector, TimingInfo, UfmfState};
 
 const FNAME: &str = "movie20190115_221756.fmf";

@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: BSD-3-Clause
+
 use clap::Parser;
 use image::GenericImageView;
 

@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Native Rust port of MultiCamSelfCal (MCSC).
 //!
 //! This crate implements the core multi-camera self-calibration algorithm

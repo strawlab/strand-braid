@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 // The public functions are `#[inline]` because I have found with the benchmarks

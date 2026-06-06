@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use machine_vision_formats as formats;
 pub use strand_cam_types::{AcquisitionMode, AutoMode, TriggerMode, TriggerSelector};
 use strand_dynamic_frame::DynamicFrameOwned;

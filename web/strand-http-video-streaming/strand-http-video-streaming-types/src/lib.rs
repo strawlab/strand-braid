@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Type definitions for HTTP video streaming functionality in the Strand Camera ecosystem.
 //!
 //! This crate provides serializable data structures for streaming video frames over HTTP
@@ -10,13 +13,6 @@
 //! - Geometric shapes (circles, polygons) for region marking
 //! - Drawing styles and colors for canvas rendering
 //! - Serialization support via serde
-
-// Copyright 2020-2023 Andrew D. Straw.
-//
-// Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT
-// or http://opensource.org/licenses/MIT>, at your option. This file may not be
-// copied, modified, or distributed except according to those terms.
 
 use serde::{Deserialize, Serialize};
 use strand_bui_backend_session_types::ConnectionKey;

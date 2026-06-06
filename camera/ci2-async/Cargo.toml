@@ -3,6 +3,7 @@ name = "ci2-async"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+license = "MIT OR Apache-2.0"
 description = "asynchronous wrapper for the ci2 camera interface"
 
 [dependencies]

@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use mkv_parser_kit::{BoxData, EbmlElement, Tag, ebml_parse};
 
 #[derive(Debug, Clone)]

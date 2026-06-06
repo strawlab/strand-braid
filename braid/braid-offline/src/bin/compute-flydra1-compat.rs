@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 // Compute ML_estimates and ML_estimates_2d_idxs tables
 use clap::Parser;
 use csv_eof::EarlyEofOk;

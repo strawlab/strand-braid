@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Binarization primitives used by the chessboard detector, ported to match
 //! OpenCV's `equalizeHist` and `adaptiveThreshold(ADAPTIVE_THRESH_MEAN_C)`
 //! exactly.

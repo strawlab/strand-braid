@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use camino::{Utf8Path, Utf8PathBuf};
 use eyre::Result;
 use std::io::{Read, Seek};

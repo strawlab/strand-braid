@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! create camera calibration for Braid using only a view of a circle
 //!
 //! This allows using Braid to perform Kalman-filter based tracking in 3D from

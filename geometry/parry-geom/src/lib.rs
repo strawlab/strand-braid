@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 pub type Mask = parry2d_f64::shape::Compound;
 
 fn to_na(a: &delaunator::Point) -> parry2d_f64::math::Point<f64> {

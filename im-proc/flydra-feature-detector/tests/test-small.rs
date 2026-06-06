@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use chrono::DateTime;
 use flydra_feature_detector::{BackgroundUpdateMode, FlydraFeatureDetector, TimingInfo, UfmfState};
 use strand_dynamic_frame::DynamicFrame;

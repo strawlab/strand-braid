@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! RANSAC-based epipolar geometry validation.
 //!
 //! Port of the Octave files in `RansacM/` and

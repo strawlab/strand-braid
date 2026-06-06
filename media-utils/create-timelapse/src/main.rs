@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! create timelapse video from mp4 h264 source without transcoding
 
 use std::io::Read;

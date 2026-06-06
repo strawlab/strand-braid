@@ -2,6 +2,7 @@
 name = "ci2-vimba"
 version = "0.1.0"
 edition = "2024"
+license = "MIT OR Apache-2.0"
 description = "ci2 camera backend using the Allied Vision Vimba SDK"
 
 [dependencies]

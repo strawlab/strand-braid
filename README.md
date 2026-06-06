@@ -35,7 +35,7 @@ analysis.
 | Dev | Notes | [scratch/*.md](scratch/) | Technical investigations and brainstorming |
 | Dev | History | [CHANGELOG.md](CHANGELOG.md) | Versioning and change history |
 | Dev | Schema | [braid/braid-types/braidz-schema.md](braid/braid-types/braidz-schema.md) | `braidz` data format specification |
-| Dev | Legal | [LICENSE.txt](LICENSE.txt), [code_of_conduct.md](code_of_conduct.md) | Licensing and contribution guidelines |
+| Dev | Legal | [COPYRIGHT](COPYRIGHT), [LICENSE-APACHE](LICENSE-APACHE), [LICENSE-MIT](LICENSE-MIT), [code_of_conduct.md](code_of_conduct.md) | Licensing and contribution guidelines |
 
 
 ## Discussion
@@ -71,19 +71,21 @@ Please see [docs/developer-docs/building-for-development.md](docs/developer-docs
 
 ## License
 
-This software is developed by Prof. Dr. Andrew Straw at the University of
-Freiburg, Germany.
+Development of this software is led by Prof. Dr. Andrew Straw at the
+University of Freiburg, Germany.
 
-This open-source software is distributable under the terms of the Affero General
-Public License v1.0 only. See [COPYRIGHT](COPYRIGHT) and
-[LICENSE.txt](LICENSE.txt) for more details.
+Except where noted otherwise (in individual files and crates), this
+open-source software is dual licensed under either of
 
-## Future license plans
+ * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
+   http://www.apache.org/licenses/LICENSE-2.0)
+ * MIT license ([LICENSE-MIT](LICENSE-MIT) or
+   http://opensource.org/licenses/MIT)
 
-We have a goal to release many of the generally useful crates under licenses
-such as the MIT license, the Apache License (Version 2.0), and BSD-like
-licenses. Please get in touch if there are specific pieces of code where this
-would be helpful so we can judge interest and prioritize this.
+at your option. See [COPYRIGHT](COPYRIGHT) for details. A small number of
+crates and files are derived from third-party code and carry different
+licenses (for example BSD-2-Clause or BSD-3-Clause), as noted in their
+file headers and `Cargo.toml` `license` fields.
 
 ## Contributions
 
@@ -98,8 +100,7 @@ shall be dual licensed under the terms of the
  * MIT license ([LICENSE-MIT](LICENSE-MIT) or
    http://opensource.org/licenses/MIT)
 
-without any additional terms or conditions. (This helps us realize the future
-license plans as described above.)
+without any additional terms or conditions.
 
 ## Code of conduct
 

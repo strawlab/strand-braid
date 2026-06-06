@@ -3,6 +3,7 @@ name = "flytrax-csv-to-braidz"
 version = "1.0.0-rc.2"                       # braid release synchronized
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
+license = "MIT OR Apache-2.0"
 description = "convert .csv file saved by flytrax in strand-cam to .braidz format"
 
 [dependencies]

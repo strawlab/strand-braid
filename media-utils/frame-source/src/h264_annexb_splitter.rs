@@ -1,4 +1,6 @@
-// Copyright 2024 Andrew D. Straw.
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 use bytes::Buf;
 use std::io::Read;
 

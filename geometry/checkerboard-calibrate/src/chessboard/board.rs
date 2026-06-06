@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Board validation and corner extraction — stage 4 of `findChessboardCorners`.
 //!
 //! Given the lattice-assigned quad graph from stage 3, this checks that the

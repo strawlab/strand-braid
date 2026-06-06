@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: BSD-2-Clause
+
 use std::os::raw::c_char;
 
 use machine_vision_formats::pixel_format::Mono8;

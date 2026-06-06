@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 // TODO: store slices to memory allocated elsewhere rather than copying.
 struct MyNalFragmentHandler {
     nals: Vec<Vec<u8>>,
