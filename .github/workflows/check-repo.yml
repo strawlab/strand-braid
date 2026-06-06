@@ -30,3 +30,18 @@ jobs:
       - name: Test that every .rs file has an SPDX license header
         run: |
           cargo run -p license-check
+
+  check-cargo-compiles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust wasm target and trunk
+        run: |
+          rustup target add wasm32-unknown-unknown
+          curl --location --remote-name https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-musl.tar.gz
+          tar xzf trunk-x86_64-unknown-linux-musl.tar.gz
+          sudo mv trunk /usr/local/bin/
+          trunk --version
+      - name: Check that all crates compile
+        run: |
+          cargo check --workspace --all-targets

@@ -6,9 +6,9 @@ Run every step. CI runs the same checks; skipping them will fail CI.
 
 1. `cargo fmt` — format the code. (`cargo fmt --check` is the CI gate.)
 2. `cargo check --workspace` — must succeed.
-3. `cargo test --workspace --release` — all tests must pass.
-4. `cargo clippy --all-targets --workspace -- -D warnings` — no lints, no warnings.
-5. `cargo run -p workspace-docs -- --check` — must succeed.
+3. `cargo clippy --all-targets --workspace -- -D warnings` — no lints, no warnings.
+4. `cargo run -p workspace-docs -- --check` — must succeed.
+5. `cargo run -p license-check` — must succeed.
 
 ## Style and tooling
 

@@ -21,6 +21,9 @@ check_and_test_workspace:
     # This is basically what rust analyzer does.
     - cargo check --workspace --all-targets
 
+    # Ensure all files have license
+    - cargo run -p license-check
+
     # Run all tests.
     - cargo test --release --workspace --all-targets
 
