@@ -46,6 +46,18 @@ pub fn trunk_build(
     let trunk_target_dir: PathBuf = PathBuf::from(&out_dir).join("trunk-target");
     std::fs::create_dir_all(&trunk_target_dir)?;
 
+    // Serialize trunk invocations across the whole machine. Multiple frontend
+    // crates (e.g. braid-run and strand-cam) each run `trunk build` from their
+    // own build script, and cargo runs build scripts in parallel. On a cold
+    // cache (e.g. a fresh CI checkout) every trunk process downloads and
+    // extracts the shared wasm-bindgen / wasm-opt tools into the same cache
+    // directory (`~/.cache/trunk`) at the same time. Trunk does not lock that
+    // step, so one process reads a half-written archive and the build fails
+    // with "running wasm-opt -> Could not extract files -> unexpected end of
+    // file". Holding this lock for the duration of the build guarantees the
+    // tools are fully installed before any other trunk process touches them.
+    let _trunk_lock = TrunkBuildLock::acquire()?;
+
     // frontend_dist_dir is relative to the caller's working directory (i.e. the
     // crate root).  trunk writes its output into frontend_dir/dist.
     let frontend_path = PathBuf::from(frontend_dir);
@@ -140,4 +152,86 @@ fn has_trunk_0_21_x(version_output: &str) -> bool {
             .unwrap_or(token)
             .starts_with("0.21.")
     })
+}
+
+/// A machine-wide, cross-process advisory lock that serializes `trunk build`
+/// invocations.
+///
+/// It is implemented with a lock file created atomically via
+/// `create_new`. The lock is released when the guard is dropped (which removes
+/// the file). To recover from a build script that crashed while holding the
+/// lock, a lock file older than [`Self::STALE_AFTER`] is considered abandoned
+/// and is stolen.
+struct TrunkBuildLock {
+    path: std::path::PathBuf,
+}
+
+impl TrunkBuildLock {
+    /// A lock file older than this is treated as abandoned by a crashed
+    /// process. It is generous: it only needs to exceed the longest plausible
+    /// trunk build, never a normal wait.
+    const STALE_AFTER: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+    /// Give up rather than block a build forever if something is wrong.
+    const ACQUIRE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+    const POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
+
+    fn acquire() -> Result<Self, Box<dyn std::error::Error>> {
+        use std::io::ErrorKind;
+
+        // A fixed, well-known path so every trunk build script on this machine
+        // contends on the same lock.
+        let path = std::env::temp_dir().join("strand-braid-trunk-build.lock");
+        let start = std::time::Instant::now();
+
+        loop {
+            match std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)
+            {
+                Ok(_file) => return Ok(Self { path }),
+                Err(err) if err.kind() == ErrorKind::AlreadyExists => {
+                    // Someone else holds the lock. Steal it if it is stale,
+                    // otherwise wait and retry.
+                    if Self::is_stale(&path) {
+                        // Best effort: if the steal races with the holder
+                        // releasing it, we simply retry on the next iteration.
+                        let _ = std::fs::remove_file(&path);
+                        continue;
+                    }
+                    if start.elapsed() > Self::ACQUIRE_TIMEOUT {
+                        return Err(format!(
+                            "timed out after {:?} waiting for the trunk build lock at {}",
+                            Self::ACQUIRE_TIMEOUT,
+                            path.display()
+                        )
+                        .into());
+                    }
+                    std::thread::sleep(Self::POLL_INTERVAL);
+                }
+                Err(err) => {
+                    return Err(format!(
+                        "failed to create trunk build lock at {}: {err}",
+                        path.display()
+                    )
+                    .into());
+                }
+            }
+        }
+    }
+
+    fn is_stale(path: &std::path::Path) -> bool {
+        match std::fs::metadata(path).and_then(|meta| meta.modified()) {
+            Ok(modified) => modified.elapsed().unwrap_or_default() > Self::STALE_AFTER,
+            // If the file vanished between our open attempt and this check, it is
+            // no longer held; treat it as stealable so we retry immediately.
+            Err(_) => true,
+        }
+    }
+}
+
+impl Drop for TrunkBuildLock {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
 }
