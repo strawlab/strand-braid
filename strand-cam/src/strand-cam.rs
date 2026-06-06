@@ -37,6 +37,17 @@ use video_streaming::AnnotatedFrame;
 
 use std::{path::PathBuf, pin::Pin, result::Result as StdResult};
 
+/// Map [`ci2::Error::FeatureNotPresent`] to a fallback value, propagating any
+/// other error. Backends such as the webcam backend report controls they
+/// cannot provide this way; using a fallback lets the startup path degrade
+/// gracefully instead of aborting when a control is unavailable.
+fn feature_or<T>(result: ci2::Result<T>, fallback: T) -> ci2::Result<T> {
+    match result {
+        Err(ci2::Error::FeatureNotPresent()) => Ok(fallback),
+        other => other,
+    }
+}
+
 #[cfg(feature = "flydra_feat_detect")]
 use strand_cam_remote_control::CsvSaveConfig;
 use strand_cam_remote_control::{
@@ -1440,7 +1451,7 @@ where
             // of the cameras capabilities.
 
             // Save the value of whether the frame rate limiter is enabled.
-            let frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
+            let frame_rate_limit_enabled = feature_or(cam.acquisition_frame_rate_enable(), false)?;
             debug!("frame_rate_limit_enabled {}", frame_rate_limit_enabled);
 
             // Check if we can set the frame rate, first by setting a limit to be on.
@@ -1483,7 +1494,7 @@ where
         (frame_rate_limit_supported, frame_rate_limit_enabled)
     };
 
-    let settings_on_start = cam.node_map_save()?;
+    let settings_on_start = feature_or(cam.node_map_save(), String::new())?;
 
     let res_braid = match (&braid_info, &args.standalone_or_braid) {
         (Some(bi), StandaloneOrBraid::Braid(_)) => Ok(bi),
@@ -1775,19 +1786,21 @@ where
 
     let led_box_heartbeat_update_arc = Arc::new(RwLock::new(None));
 
+    let (gain_min, gain_max) = feature_or(cam.gain_range(), (0.0, 0.0))?;
     let gain_ranged = RangedValue {
         name: "gain".into(),
         unit: "dB".into(),
-        min: cam.gain_range()?.0,
-        max: cam.gain_range()?.1,
-        current: cam.gain()?,
+        min: gain_min,
+        max: gain_max,
+        current: feature_or(cam.gain(), 0.0)?,
     };
+    let (exposure_min, exposure_max) = feature_or(cam.exposure_time_range(), (0.0, 0.0))?;
     let exposure_ranged = RangedValue {
         name: "exposure time".into(),
         unit: "μsec".into(),
-        min: cam.exposure_time_range()?.0,
-        max: cam.exposure_time_range()?.1,
-        current: cam.exposure_time()?,
+        min: exposure_min,
+        max: exposure_max,
+        current: feature_or(cam.exposure_time(), 0.0)?,
     };
     let gain_auto = cam.gain_auto().ok();
     let exposure_auto = cam.exposure_auto().ok();
@@ -1856,8 +1869,8 @@ where
         frame_rate_limit_enabled = cam.acquisition_frame_rate_enable()?;
     }
 
-    let trigger_mode = cam.trigger_mode()?;
-    let trigger_selector = cam.trigger_selector()?;
+    let trigger_mode = feature_or(cam.trigger_mode(), ci2::TriggerMode::Off)?;
+    let trigger_selector = feature_or(cam.trigger_selector(), ci2::TriggerSelector::FrameStart)?;
     debug!("  got camera values");
 
     #[cfg(feature = "flydra_feat_detect")]

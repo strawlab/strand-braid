@@ -62,6 +62,7 @@
  - ci2-simple-demo (camera/ci2-simple-demo) - simple demonstration of the ci2 camera API
  - ci2-vimba (camera/ci2-vimba) - ci2 camera backend using the Allied Vision Vimba SDK
  - ci2-vimba-types (camera/ci2-vimba-types) - Vimba-specific type definitions for the ci2 camera interface
+ - ci2-webcam (camera/ci2-webcam) - ci2 camera backend for consumer webcams (UVC etc.), intended for development use
  - strand-cam-remote-control (camera/strand-cam-remote-control) - Types for Strand Camera remote control and configuration
  - strand-cam-types (camera/strand-cam-types) - Core types for camera control and configuration in the Strand Camera ecosystem
  - vimba (camera/vimba) - low-level Rust bindings for the Allied Vision Vimba SDK

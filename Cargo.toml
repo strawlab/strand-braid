@@ -31,6 +31,7 @@ members = [
     "camera/ci2-simple-demo",
     "camera/ci2-vimba",
     "camera/ci2-vimba-types",
+    "camera/ci2-webcam",
     "camera/strand-cam-remote-control",
     "camera/strand-cam-types",
     "camera/vimba",
@@ -212,6 +213,7 @@ nalgebra = { version = "0.34", features = ["serde-serialize"] }
 nalgebra-mvn = "0.16"
 ncollide2d = { package = "ncollide2d-updated", version = "0.37.1" }
 ncollide3d = { package = "ncollide3d-updated", version = "0.37.1" }
+nokhwa = { version = "0.10.9", default-features = false }
 num-iter = "0.1.43"
 num-traits = "0.2.19"
 obj = { version = "0.10", features = ["genmesh"] }
@@ -311,6 +313,7 @@ strand-cam-remote-control = { path = "camera/strand-cam-remote-control", version
 strand-cam-types = { path = "camera/strand-cam-types", version = "0.1.0" }
 ci2-vimba = { path = "camera/ci2-vimba" }
 ci2-vimba-types = { path = "camera/ci2-vimba-types" }
+ci2-webcam = { path = "camera/ci2-webcam" }
 csv-eof = { path = "utils/csv-eof" }
 download-verify = { path = "utils/download-verify" }
 dynlink-cuda = { path = "media-utils/nvenc/dynlink-cuda" }

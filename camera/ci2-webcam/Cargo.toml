@@ -1,0 +1,26 @@
+[package]
+name = "ci2-webcam"
+version = "0.1.0"
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "ci2 camera backend for consumer webcams (UVC etc.), intended for development use"
+
+[dependencies]
+tracing.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+machine-vision-formats.workspace = true
+image.workspace = true
+# `decoding` enables MJPEG decode (webcams commonly stream MJPEG).
+# `camera-sync-impl` provides `unsafe impl Send for Camera`, required because
+# `ci2-async` drives the camera from a dedicated worker thread.
+nokhwa = { workspace = true, features = [
+    "input-native",
+    "decoding",
+    "camera-sync-impl",
+] }
+
+ci2.workspace = true
+strand-dynamic-frame.workspace = true
