@@ -1289,7 +1289,7 @@ pub mod ripp {
             scalar_threshlt(head, threshold, value);
 
             for body_vec in body.iter_mut() {
-                let mask = wide::CmpLt::simd_lt(*body_vec, threshold_vec);
+                let mask = body_vec.simd_lt(threshold_vec);
                 *body_vec = mask.blend(value_vec, *body_vec);
             }
 
@@ -1327,7 +1327,7 @@ pub mod ripp {
             scalar_threshgt(head, threshold, value);
 
             for body_vec in body.iter_mut() {
-                let mask = wide::CmpGt::simd_gt(*body_vec, threshold_vec);
+                let mask = body_vec.simd_gt(threshold_vec);
                 *body_vec = mask.blend(value_vec, *body_vec);
             }
 

@@ -340,7 +340,6 @@ where
         scalar_cmp(head, thresh, a, b, op);
 
         for y in body.iter_mut() {
-            use wide::{CmpEq, CmpGe, CmpGt, CmpLe, CmpLt};
             let indicator = match op {
                 CmpOp::LessThan => y.simd_lt(thresh_vec),
                 CmpOp::LessEqual => y.simd_le(thresh_vec),
