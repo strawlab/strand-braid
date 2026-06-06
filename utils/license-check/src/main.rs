@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! CLI program to check (or add) SPDX license headers on the `.rs` files of a
 //! rust workspace.
 //!
