@@ -1,13 +1,19 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-#[cfg(feature = "backend_pylon")]
-extern crate ci2_pylon as backend;
-
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use tracing::{error, info};
 
 use ci2::{Camera, CameraModule};
+
+/// Which camera vendor backend to load at runtime.
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+enum CameraBackend {
+    /// Basler Pylon backend (`ci2-pylon`).
+    Pylon,
+    /// Allied Vision Vimba backend (`ci2-vimba`).
+    Vimba,
+}
 
 #[derive(Debug, Parser)]
 struct Record {
@@ -21,20 +27,28 @@ struct Record {
     camera_name: Option<String>,
 }
 
-/// camera utilities
-#[derive(Debug, Parser)]
-#[command(name = "ci2", author, version)]
+#[derive(Debug, Subcommand)]
 enum Command {
     /// record frames
-    #[structopt(name = "record")]
     Record(Record),
 
     /// list cameras
-    #[structopt(name = "list")]
     List,
 }
 
-fn list(mymod: &backend::WrappedModule) -> ci2::Result<()> {
+/// camera utilities
+#[derive(Debug, Parser)]
+#[command(name = "ci2", author, version)]
+struct Cli {
+    /// Which camera backend library to load.
+    #[arg(long, value_enum, default_value = "pylon", global = true)]
+    camera_backend: CameraBackend,
+
+    #[command(subcommand)]
+    command: Command,
+}
+
+fn list<M: CameraModule>(mymod: M) -> ci2::Result<()> {
     let infos = mymod.camera_infos()?;
     for info in infos.iter() {
         println!("{}", info.name());
@@ -42,7 +56,7 @@ fn list(mymod: &backend::WrappedModule) -> ci2::Result<()> {
     Ok(())
 }
 
-fn record(mut mymod: &backend::WrappedModule, recargs: Record) -> ci2::Result<()> {
+fn record<M: CameraModule>(mut mymod: M, recargs: Record) -> ci2::Result<()> {
     let name = if let Some(camera_name) = recargs.camera_name {
         camera_name
     } else {
@@ -81,6 +95,13 @@ fn record(mut mymod: &backend::WrappedModule, recargs: Record) -> ci2::Result<()
     Ok(())
 }
 
+fn dispatch<M: CameraModule>(mymod: M, command: Command) -> ci2::Result<()> {
+    match command {
+        Command::Record(recargs) => record(mymod, recargs),
+        Command::List => list(mymod),
+    }
+}
+
 fn main() -> anyhow::Result<()> {
     if std::env::var_os("RUST_LOG").is_none() {
         // TODO: Audit that the environment access only happens in single-threaded code.
@@ -88,14 +109,22 @@ fn main() -> anyhow::Result<()> {
     }
 
     env_logger::init();
-    let opt = Command::parse();
+    let cli = Cli::parse();
 
-    let mymod = backend::new_module()?;
-
-    match opt {
-        Command::Record(recargs) => record(&mymod, recargs)?,
-        Command::List => list(&mymod)?,
-    };
+    // Only the selected backend's module is constructed, and neither backend
+    // loads its vendor SDK until a camera is enumerated or opened.
+    match cli.camera_backend {
+        CameraBackend::Pylon => {
+            let module = ci2_pylon::new_module()?;
+            let _guard = ci2_pylon::make_singleton_guard(&&module)?;
+            dispatch(&module, cli.command)?;
+        }
+        CameraBackend::Vimba => {
+            let module = ci2_vimba::new_module()?;
+            let _guard = ci2_vimba::make_singleton_guard(&&module)?;
+            dispatch(&module, cli.command)?;
+        }
+    }
 
     Ok(())
 }

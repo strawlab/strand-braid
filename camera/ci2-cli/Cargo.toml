@@ -18,12 +18,7 @@ clap.workspace = true
 chrono.workspace = true
 anyhow.workspace = true
 
-ci2 = { path = "../ci2" }
+ci2.workspace = true
 
-ci2-pylon = { path = "../ci2-pylon", optional = true }
-
-[features]
-default = ["backend_pylon"]
-
-# Backend choice
-backend_pylon = ["ci2-pylon"]
+ci2-pylon.workspace = true
+ci2-vimba.workspace = true

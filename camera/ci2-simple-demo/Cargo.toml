@@ -8,18 +8,10 @@ description = "simple demonstration of the ci2 camera API"
 
 [dependencies]
 tracing.workspace = true
-machine-vision-formats.workspace = true
 anyhow.workspace = true
+clap.workspace = true
 
 ci2.workspace = true
 env_logger.workspace = true
-ci2-pylon = { workspace = true, optional = true }
-ci2-vimba = { workspace = true, optional = true }
-lazy_static.workspace = true
-
-[features]
-default = ["backend_pylon"]
-
-# Backend choice
-backend_pylon = ["ci2-pylon"]
-backend_vimba = ["ci2-vimba"]
+ci2-pylon.workspace = true
+ci2-vimba.workspace = true

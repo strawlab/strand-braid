@@ -1,26 +1,31 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-extern crate env_logger;
-
-extern crate ci2;
-#[cfg(feature = "backend_pylon")]
-extern crate ci2_pylon as backend;
-#[cfg(feature = "backend_vimba")]
-extern crate ci2_vimba as backend;
-extern crate machine_vision_formats as formats;
+use clap::Parser;
 
 use ci2::{Camera, CameraModule};
 
-lazy_static::lazy_static! {
-    static ref CAMLIB: backend::WrappedModule = backend::new_module().unwrap();
+/// Which camera vendor backend to load at runtime.
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+enum CameraBackend {
+    /// Basler Pylon backend (`ci2-pylon`).
+    Pylon,
+    /// Allied Vision Vimba backend (`ci2-vimba`).
+    Vimba,
 }
 
-fn main() -> anyhow::Result<()> {
-    env_logger::init();
+#[derive(Debug, Parser)]
+#[command(author, version)]
+struct Cli {
+    /// Which camera backend library to load.
+    #[arg(long, value_enum, default_value = "pylon")]
+    camera_backend: CameraBackend,
+}
 
-    let _guard = backend::make_singleton_guard(&&*CAMLIB)?;
-    let mut wrapped_mod: &backend::WrappedModule = &CAMLIB;
+fn run<M>(mut wrapped_mod: M) -> anyhow::Result<()>
+where
+    M: CameraModule,
+{
     let infos = wrapped_mod.camera_infos()?;
     if infos.is_empty() {
         anyhow::bail!("no cameras detected");
@@ -50,6 +55,29 @@ fn main() -> anyhow::Result<()> {
             }
         }
         cam.acquisition_stop()?;
+    }
+
+    Ok(())
+}
+
+fn main() -> anyhow::Result<()> {
+    env_logger::init();
+
+    let cli = Cli::parse();
+
+    // Only the selected backend's module is constructed, and neither backend
+    // loads its vendor SDK until a camera is enumerated or opened.
+    match cli.camera_backend {
+        CameraBackend::Pylon => {
+            let module = ci2_pylon::new_module()?;
+            let _guard = ci2_pylon::make_singleton_guard(&&module)?;
+            run(&module)?;
+        }
+        CameraBackend::Vimba => {
+            let module = ci2_vimba::new_module()?;
+            let _guard = ci2_vimba::make_singleton_guard(&&module)?;
+            run(&module)?;
+        }
     }
 
     Ok(())

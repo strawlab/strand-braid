@@ -11,22 +11,14 @@ tracing.workspace = true
 env_logger.workspace = true
 futures.workspace = true
 anyhow.workspace = true
-lazy_static.workspace = true
+clap.workspace = true
 
 machine-vision-formats.workspace = true
 ci2.workspace = true
 ci2-async.workspace = true
 
-pylon-shimload = { workspace = true, optional = true }
-ci2-pylon = { workspace = true, optional = true }
-ci2-pylon-types = { workspace = true, optional = true }
+ci2-pylon.workspace = true
+ci2-pylon-types.workspace = true
 
-ci2-vimba = { workspace = true, optional = true }
-ci2-vimba-types = { workspace = true, optional = true }
-
-[features]
-default = ["backend_pylon"]
-
-# Backend choice
-backend_pylon = ["dep:ci2-pylon", "dep:pylon-shimload", "dep:ci2-pylon-types"]
-backend_vimba = ["dep:ci2-vimba", "dep:ci2-vimba-types"]
+ci2-vimba.workspace = true
+ci2-vimba-types.workspace = true
