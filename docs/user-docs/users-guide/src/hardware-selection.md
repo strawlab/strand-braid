@@ -37,7 +37,8 @@ substantially more CPU.
 ## Camera requirements
 
 Basler cameras using the Pylon API and Allied Vision cameras using the Vimba X
-API are supported.
+API are supported. In addition, consumer webcams (UVC and similar) are
+supported as a development convenience (see [Webcams](#webcams) below).
 
 ### Basler cameras
 
@@ -57,3 +58,33 @@ Viewer can be used in principle. In practice, we have tested with the following
 cameras:
 
 * Allied Vision Alvium 1800 U-240m
+
+### Webcams
+
+Consumer webcams (UVC and similar) are supported through the `webcam` camera
+backend, which uses the operating system's native capture interface (V4L2 on
+Linux, AVFoundation on macOS, and Media Foundation on Windows). This backend is
+intended as a **development convenience**, so that Strand Camera can run without
+high-end machine-vision hardware.
+
+Webcams expose almost none of the controls that machine-vision cameras do.
+Hardware triggering, exposure time, gain, frame-rate limiting, and the generic
+GenICam feature accessors are **not** available; only device selection, frame
+capture, and a choice between `RGB8` (default) and `Mono8` pixel formats are
+supported. Because hardware triggering is unavailable, webcams are not suitable
+for synchronized multi-camera 3D tracking with Braid.
+
+Select the webcam backend explicitly (Pylon remains the default):
+
+```sh
+strand-cam --camera-backend webcam
+```
+
+A specific webcam can be chosen by its human-readable name (as printed at
+startup) or by its index. If `--camera-name` is omitted, the first enumerated
+webcam is used:
+
+```sh
+strand-cam --camera-backend webcam --camera-name "Integrated Camera"
+strand-cam --camera-backend webcam --camera-name 0
+```

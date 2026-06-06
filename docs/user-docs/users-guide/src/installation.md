@@ -93,6 +93,12 @@ access the cameras.
 Allied Vision cameras using the Vimba X library are supported in Strand Camera
 and Braid.
 
+Consumer webcams (UVC and similar) are also supported through the `webcam`
+camera backend, intended as a development convenience for running Strand Camera
+without machine-vision hardware. Select it with `strand-cam --camera-backend
+webcam`. See [Webcams](./hardware-selection.html#webcams) for capabilities and
+limitations.
+
 ### Trigger box
 
 Braid uses the [Straw Lab Triggerbox](https://github.com/strawlab/triggerbox)

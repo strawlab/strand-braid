@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! Camera frame-stream pump.
 //!
 //! Extracted from the monolithic `run()` function in `strand-cam.rs`. This

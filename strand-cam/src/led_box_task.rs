@@ -1,3 +1,6 @@
+// Copyright (C) The Strand-Braid Authors
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
 //! LED box serial-device communication.
 //!
 //! This was extracted verbatim from the monolithic `run()` function in
