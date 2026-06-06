@@ -115,6 +115,17 @@ check_generated_bundle_adj_code:
     - cd geometry/bundle-adj/codegen && ./regenerate.sh
     - git diff --exit-code
 
+# Verify the strand-braid THIRD-PARTY-LICENSES crate list is up to date: every
+# listed crate exists, and every binary shipped by strand-braid.install is
+# produced by a crate on the list. The third-party-licenses job below additionally
+# runs the generator itself (cargo bundle-licenses) on every pipeline.
+check_third_party_licenses:
+  dependencies: []
+  image: rust:1.93
+  script:
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y python3
+    - _packaging/check-strand-braid-third-party-licenses.sh
+
 test_crates_rust_stable:
   dependencies: []
   image: rust:1.93
@@ -163,6 +174,10 @@ led-box-ubuntu2004-debs:
     - mkdir -p $CI_PROJECT_DIR/focal-led-box-debs
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper
 
+    - cargo install cargo-bundle-licenses --locked
+    - $CI_PROJECT_DIR/_packaging/gen-third-party-licenses.sh $CI_PROJECT_DIR/led-box/led-box led-box/led-box
+    - mv $CI_PROJECT_DIR/led-box/led-box/THIRD-PARTY-LICENSES.led-box.yml $CI_PROJECT_DIR/led-box/led-box/THIRD-PARTY-LICENSES.yml
+
     - cd $CI_PROJECT_DIR/led-box/led-box
     - cp $CI_PROJECT_DIR/build/led-box ./
     - cp $CI_PROJECT_DIR/led-box-firmware-${CI_COMMIT_SHA}.bin ./led-box-firmware.bin
@@ -184,6 +199,10 @@ led-box-standalone-ubuntu2004-deb:
   script:
     - mkdir -p $CI_PROJECT_DIR/led-box-standalone-debs
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y dpkg-dev debhelper libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev cmake pkg-config libfontconfig-dev
+
+    - cargo install cargo-bundle-licenses --locked
+    - $CI_PROJECT_DIR/_packaging/gen-third-party-licenses.sh $CI_PROJECT_DIR/led-box/led-box-standalone led-box/led-box-standalone
+    - mv $CI_PROJECT_DIR/led-box/led-box-standalone/THIRD-PARTY-LICENSES.led-box-standalone.yml $CI_PROJECT_DIR/led-box/led-box-standalone/THIRD-PARTY-LICENSES.yml
 
     - cd $CI_PROJECT_DIR/led-box/led-box-standalone
     - cargo build --release
@@ -599,6 +618,8 @@ braid-webapps:
 
     - rustup target add wasm32-unknown-unknown
 
+    - cargo install cargo-bundle-licenses --locked
+
     - cd $CI_PROJECT_DIR/braidz/braidz-viewer
     - ./build.sh
 
@@ -680,6 +701,23 @@ led-box-firmware:
 
 # -------
 
+# Generate per-crate THIRD-PARTY-LICENSES.<crate>.yml files for every crate
+# whose binary ships in the strand-braid bundle. Output is placed in
+# build/licenses/ so the existing _packaging Makefile (which `mv`s build/*
+# into the debian source tree) picks them up automatically. Each
+# strand-braid-ubuntu-XXXX job below adds this job to its `needs:` list.
+third-party-licenses:
+  image: rust:1.93
+  dependencies: []
+  script:
+    - cargo install cargo-bundle-licenses --locked
+    - _packaging/gen-strand-braid-third-party-licenses.sh $CI_PROJECT_DIR/build/licenses
+    - ls -lh $CI_PROJECT_DIR/build/licenses
+  artifacts:
+    paths:
+      - build/
+    name: "strand-braid-third-party-licenses-${CI_COMMIT_SHA}"
+
 # build the final downloadable .deb
 strand-braid-ubuntu-2604:
   image: ubuntu:resolute
@@ -719,6 +757,7 @@ strand-braid-ubuntu-2604:
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2604-${CI_COMMIT_TAG}/
 
     - cp $CI_PROJECT_DIR/_packaging/ubuntu-installer-zip-readme.txt $CI_PROJECT_DIR/strand-braid-ubuntu-2604-${CI_COMMIT_TAG}/README.txt
+    - cp -a $CI_PROJECT_DIR/_packaging/strand-braid/licenses $CI_PROJECT_DIR/strand-braid-ubuntu-2604-${CI_COMMIT_TAG}/
     - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-2604-${CI_COMMIT_TAG}/
     - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2604-${CI_COMMIT_TAG}/*.deb
   needs:
@@ -731,6 +770,7 @@ strand-braid-ubuntu-2604:
     - strand-cam-binary
     - flytrax-csv-to-braidz-binary
     - strand-cam-flydratrax-binary
+    - third-party-licenses
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2604" in the
   # filename.
@@ -778,6 +818,7 @@ strand-braid-ubuntu-2404:
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/
 
     - cp $CI_PROJECT_DIR/_packaging/ubuntu-installer-zip-readme.txt $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/README.txt
+    - cp -a $CI_PROJECT_DIR/_packaging/strand-braid/licenses $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/
     - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/
     - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2404-${CI_COMMIT_TAG}/*.deb
   needs:
@@ -790,6 +831,7 @@ strand-braid-ubuntu-2404:
     - strand-cam-binary
     - flytrax-csv-to-braidz-binary
     - strand-cam-flydratrax-binary
+    - third-party-licenses
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2404" in the
   # filename.
@@ -837,6 +879,7 @@ strand-braid-ubuntu-2004:
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
 
     - cp $CI_PROJECT_DIR/_packaging/ubuntu-installer-zip-readme.txt $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/README.txt
+    - cp -a $CI_PROJECT_DIR/_packaging/strand-braid/licenses $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
     - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/
     - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2004-${CI_COMMIT_TAG}/*.deb
   needs:
@@ -849,6 +892,7 @@ strand-braid-ubuntu-2004:
     - strand-cam-binary
     - flytrax-csv-to-braidz-binary
     - strand-cam-flydratrax-binary
+    - third-party-licenses
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2004" in the
   # filename.
@@ -896,6 +940,7 @@ strand-braid-ubuntu-2204:
     - cp -a *.deb $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/
 
     - cp $CI_PROJECT_DIR/_packaging/ubuntu-installer-zip-readme.txt $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/README.txt
+    - cp -a $CI_PROJECT_DIR/_packaging/strand-braid/licenses $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/
     - ls -lh $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/
     - dpkg --contents $CI_PROJECT_DIR/strand-braid-ubuntu-2204-${CI_COMMIT_TAG}/*.deb
   needs:
@@ -908,6 +953,7 @@ strand-braid-ubuntu-2204:
     - strand-cam-binary
     - flytrax-csv-to-braidz-binary
     - strand-cam-flydratrax-binary
+    - third-party-licenses
   # For releases, we should upload the .zip to the github releases page, as the
   # zip (but not the deb) will include that this is for "ubuntu-2204" in the
   # filename.

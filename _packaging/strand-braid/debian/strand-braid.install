@@ -24,6 +24,7 @@ strand-cam-flydratrax.desktop usr/share/applications
 rerun-braidz-viewer.desktop usr/share/applications
 strand-braid.xml usr/share/mime/packages
 strand-convert usr/bin
+licenses/* usr/share/doc/strand-braid/licenses
 
 # # Commented out because we do not want to distribute this library:
 # libVimbaC.so usr/lib/strand-braid

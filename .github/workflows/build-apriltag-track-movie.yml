@@ -20,10 +20,18 @@ jobs:
       - name: Show shared libraries required
         run: |
           ldd target/release/apriltag-track-movie
+      - name: Generate THIRD-PARTY-LICENSES
+        working-directory: im-proc/ads-apriltag/apriltag-track-movie
+        run: |
+          cargo install cargo-bundle-licenses --locked
+          cargo bundle-licenses --format yaml --prefer MIT \
+            --output "$GITHUB_WORKSPACE/target/release/THIRD-PARTY-LICENSES.yml"
       - uses: actions/upload-artifact@v6
         with:
           name: apriltag-track-movie-${{ runner.os }}-${{ matrix.runs-on }}-${{ runner.arch }}
-          path: target/release/apriltag-track-movie
+          path: |
+            target/release/apriltag-track-movie
+            target/release/THIRD-PARTY-LICENSES.yml
 
   apriltag-track-movie-windows:
     runs-on: windows-latest
@@ -38,7 +46,15 @@ jobs:
           $env:APRILTAG_SYS_WINDOWS_PTHREAD_STATIC_LIB = "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows-static\lib\pthreadVC3.lib"
           cargo build -p apriltag-track-movie --release
         shell: pwsh
+      - name: Generate THIRD-PARTY-LICENSES
+        working-directory: im-proc/ads-apriltag/apriltag-track-movie
+        run: |
+          cargo install cargo-bundle-licenses --locked
+          cargo bundle-licenses --format yaml --prefer MIT --output "$env:GITHUB_WORKSPACE\target\release\THIRD-PARTY-LICENSES.yml"
+        shell: pwsh
       - uses: actions/upload-artifact@v6
         with:
           name: apriltag-track-movie-${{ runner.os }}-${{ runner.arch }}
-          path: target/release/apriltag-track-movie.exe
+          path: |
+            target/release/apriltag-track-movie.exe
+            target/release/THIRD-PARTY-LICENSES.yml

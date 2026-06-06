@@ -17,10 +17,16 @@ jobs:
       - name: Build FMF CLI app
         run: |
           cargo build --release
+      - name: Generate THIRD-PARTY-LICENSES
+        run: |
+          cargo install cargo-bundle-licenses --locked
+          cargo bundle-licenses --format yaml --prefer MIT --output "${{ github.workspace }}/target/release/THIRD-PARTY-LICENSES.yml"
       - uses: actions/upload-artifact@v6
         with:
           name: fmf-ubuntu
-          path: ${{ github.workspace }}/target/release/fmf
+          path: |
+            ${{ github.workspace }}/target/release/fmf
+            ${{ github.workspace }}/target/release/THIRD-PARTY-LICENSES.yml
 
   fmf-cli-app-windows:
     runs-on: windows-latest
@@ -32,10 +38,17 @@ jobs:
       - name: Build FMF CLI app
         run: |
           cargo build --release
+      - name: Generate THIRD-PARTY-LICENSES
+        run: |
+          cargo install cargo-bundle-licenses --locked
+          cargo bundle-licenses --format yaml --prefer MIT --output "${{ github.workspace }}/target/release/THIRD-PARTY-LICENSES.yml"
+        shell: pwsh
       - uses: actions/upload-artifact@v6
         with:
           name: fmf-windows
-          path: ${{ github.workspace }}/target/release/fmf.exe
+          path: |
+            ${{ github.workspace }}/target/release/fmf.exe
+            ${{ github.workspace }}/target/release/THIRD-PARTY-LICENSES.yml
 
   fmf-cli-app-macos:
     runs-on: macos-latest
@@ -47,7 +60,13 @@ jobs:
       - name: Build FMF CLI app
         run: |
           cargo build --release
+      - name: Generate THIRD-PARTY-LICENSES
+        run: |
+          cargo install cargo-bundle-licenses --locked
+          cargo bundle-licenses --format yaml --prefer MIT --output "${{ github.workspace }}/target/release/THIRD-PARTY-LICENSES.yml"
       - uses: actions/upload-artifact@v6
         with:
           name: fmf-mac
-          path: ${{ github.workspace }}/target/release/fmf
+          path: |
+            ${{ github.workspace }}/target/release/fmf
+            ${{ github.workspace }}/target/release/THIRD-PARTY-LICENSES.yml

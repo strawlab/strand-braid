@@ -23,7 +23,14 @@ jobs:
       - name: Build show-timestamps app
         run: |
           cargo build --release
+      - name: Generate THIRD-PARTY-LICENSES
+        run: |
+          cargo install cargo-bundle-licenses --locked
+          cargo bundle-licenses --format yaml --prefer MIT --output "$GITHUB_WORKSPACE/target/release/THIRD-PARTY-LICENSES.yml"
+        shell: bash
       - uses: actions/upload-artifact@v6
         with:
           name: show-timestamps-${{ matrix.runs-on }}
-          path: ${{ github.workspace }}/target/release/show-timestam*
+          path: |
+            ${{ github.workspace }}/target/release/show-timestam*
+            ${{ github.workspace }}/target/release/THIRD-PARTY-LICENSES.yml

@@ -1,2 +1,3 @@
 led-box-standalone usr/bin
 led-box-standalone.desktop usr/share/applications
+THIRD-PARTY-LICENSES.yml usr/share/doc/led-box-standalone
