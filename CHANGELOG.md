@@ -1,3 +1,15 @@
+## Unreleased
+
+### Added
+
+* Added a `webcam` camera backend for consumer webcams (UVC and similar), using
+  the operating system's native capture interface (V4L2, AVFoundation, or Media
+  Foundation). It is intended as a development convenience so that Strand Camera
+  can run without machine-vision hardware. Select it with `strand-cam
+  --camera-backend webcam`. Webcams do not support hardware triggering, exposure,
+  gain, or frame-rate limiting, so they are not suitable for synchronized
+  multi-camera 3D tracking with Braid.
+
 ## 1.0.0-rc.2 - 2026-04-26
 
 ### Added
