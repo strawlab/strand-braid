@@ -10,7 +10,7 @@ description = "export data in braidz files to rerun"
 eyre.workspace = true
 
 tracing.workspace = true
-re_sdk = { workspace = true, features = ["data_loaders"] }
+re_sdk = { workspace = true, features = ["importers"] }
 re_sdk_types.workspace = true
 
 image.workspace = true

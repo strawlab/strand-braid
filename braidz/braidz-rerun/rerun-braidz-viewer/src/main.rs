@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! a build of the rerun viewer which can directly visualize .braidz files
-use rerun::external::{anyhow, re_build_info, re_data_loader, re_log};
+use rerun::external::{anyhow, re_build_info, re_importer, re_log};
 
 fn main() -> anyhow::Result<std::process::ExitCode> {
     // Until https://github.com/rerun-io/rerun/issues/9240 is fixed
@@ -11,7 +11,7 @@ fn main() -> anyhow::Result<std::process::ExitCode> {
     let main_thread_token = rerun::MainThreadToken::i_promise_i_am_on_the_main_thread();
     re_log::setup_logging();
 
-    re_data_loader::register_custom_data_loader(braidz_rerun::BraidzLoader);
+    re_importer::register_custom_importer(braidz_rerun::BraidzLoader);
 
     let build_info = re_build_info::build_info!();
     rerun::run(

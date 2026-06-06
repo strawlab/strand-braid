@@ -16,7 +16,7 @@ use re_sdk_types::{
 use std::io::{Read, Seek};
 use strand_dynamic_frame::DynamicFrameOwned;
 
-use re_sdk::external::re_data_loader;
+use re_sdk::external::re_importer;
 
 use std::collections::BTreeMap;
 
@@ -571,21 +571,22 @@ fn test_argmin() {
     assert_eq!(argmin(&[]), None);
 }
 
-/// A custom [`re_data_loader::DataLoader`] that loads a .braidz file.
+/// A custom [`re_importer::Importer`] that loads a .braidz file.
 pub struct BraidzLoader;
 
-const NAME: &str = "strawlab.rerun.data_loaders.braidz";
-impl re_data_loader::DataLoader for BraidzLoader {
-    fn name(&self) -> re_data_loader::DataLoaderName {
+const NAME: &str = "strawlab.rerun.importers.braidz";
+impl re_importer::Importer for BraidzLoader {
+    fn name(&self) -> re_importer::ImporterName {
         NAME.into()
     }
 
-    fn load_from_path(
+    #[cfg(not(target_arch = "wasm32"))]
+    fn import_from_path(
         &self,
-        settings: &re_sdk::DataLoaderSettings,
+        settings: &re_importer::ImporterSettings,
         filepath: std::path::PathBuf,
-        tx: re_sdk::external::re_log::Sender<re_sdk::LoadedData>,
-    ) -> Result<(), re_sdk::DataLoaderError> {
+        tx: re_sdk::external::crossbeam::channel::Sender<re_importer::ImportedData>,
+    ) -> Result<(), re_importer::ImporterError> {
         self.ensure_path(&filepath)?;
 
         let archive =
@@ -596,13 +597,13 @@ impl re_data_loader::DataLoader for BraidzLoader {
         self.load_from_archive(archive, settings, tx)
     }
 
-    fn load_from_file_contents(
+    fn import_from_file_contents(
         &self,
-        settings: &re_sdk::DataLoaderSettings,
+        settings: &re_importer::ImporterSettings,
         filepath: std::path::PathBuf,
         contents: std::borrow::Cow<'_, [u8]>,
-        tx: re_sdk::external::re_log::Sender<re_sdk::LoadedData>,
-    ) -> Result<(), re_sdk::DataLoaderError> {
+        tx: re_sdk::external::crossbeam::channel::Sender<re_importer::ImportedData>,
+    ) -> Result<(), re_importer::ImporterError> {
         self.ensure_path(&filepath)?;
         let rdr = std::io::Cursor::new(contents);
         let display_name = format!("{}", filepath.display());
@@ -616,15 +617,15 @@ impl re_data_loader::DataLoader for BraidzLoader {
 }
 
 impl BraidzLoader {
-    fn ensure_path(&self, filepath: &std::path::Path) -> Result<(), re_sdk::DataLoaderError> {
+    fn ensure_path(&self, filepath: &std::path::Path) -> Result<(), re_importer::ImporterError> {
         if filepath.is_dir() {
-            return Err(re_sdk::DataLoaderError::Incompatible(
+            return Err(re_importer::ImporterError::Incompatible(
                 filepath.to_path_buf(),
             ));
         }
         let extension = filepath.extension();
         if extension.map(|x| x.to_str()) != Some(Some("braidz")) {
-            return Err(re_data_loader::DataLoaderError::Incompatible(
+            return Err(re_importer::ImporterError::Incompatible(
                 filepath.to_path_buf(),
             ));
         }
@@ -634,9 +635,9 @@ impl BraidzLoader {
     fn load_from_archive<R: Read + Seek>(
         &self,
         archive: braidz_parser::BraidzArchive<R>,
-        _settings: &re_sdk::DataLoaderSettings,
-        tx: re_sdk::external::re_log::Sender<re_sdk::LoadedData>,
-    ) -> Result<(), re_sdk::DataLoaderError> {
+        _settings: &re_importer::ImporterSettings,
+        tx: re_sdk::external::crossbeam::channel::Sender<re_importer::ImportedData>,
+    ) -> Result<(), re_importer::ImporterError> {
         // Should we do something with settings like get the store_id?
 
         // Initiate recording to memory store
@@ -649,7 +650,7 @@ impl BraidzLoader {
 
         // Send the messages in the memory store.
         for msg in memory_store.take().into_iter() {
-            let data = re_sdk::LoadedData::LogMsg(NAME.into(), msg);
+            let data = re_importer::ImportedData::LogMsg(NAME.into(), msg);
             if tx.send(data).is_err() {
                 break; // The other end has decided to hang up, not our problem.
             }
