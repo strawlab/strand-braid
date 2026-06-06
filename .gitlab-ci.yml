@@ -289,8 +289,7 @@ build-api-docs:
     - cd $CI_PROJECT_DIR
 
     # `--no-default-features` is required because the default features now
-    # include `bundle_files`, which conflicts with `serve_files`. `checkercal`
-    # is pure-Rust by default, so no OpenCV is needed.
+    # include `bundle_files`, which conflicts with `serve_files`.
     - cd $CI_PROJECT_DIR/strand-cam
     - NUM_JOBS=2 cargo doc --no-default-features --features serve_files,fiducial,checkercal
     - cd $CI_PROJECT_DIR
@@ -367,7 +366,6 @@ strand-cam-binary:
 
     - rustc --version
 
-    # `checkercal` is pure-Rust by default, so no OpenCV provisioning is needed.
     - >
       RUSTFLAGS="$RUSTFLAGS -C codegen-units=1"
       NUM_JOBS=2
@@ -419,12 +417,10 @@ strand-cam-flydratrax-binary:
     - export RUSTFLAGS="-D warnings"
     - rustc --version
 
-    # `checkercal` is pure-Rust by default, so no OpenCV provisioning is needed.
     - >
-      PKG_CONFIG_PATH=/opt/libvpx/libvpx-1.8.0/lib/pkgconfig
       RUSTFLAGS="$RUSTFLAGS -C codegen-units=1"
       NUM_JOBS=2
-      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/checkercal strand-cam/fiducial strand-cam/flydra_feat_detect tracing/release_max_level_debug" --release
+      cargo build --no-default-features --features "strand-cam/bundle_files strand-cam/flydratrax strand-cam/checkercal strand-cam/fiducial strand-cam/flydra_feat_detect tracing/release_max_level_debug" --release -p strand-cam-gui
 
     - ldd -v $CI_PROJECT_DIR/target/release/strand-cam-gui
     - $CI_PROJECT_DIR/target/release/strand-cam-gui --version
