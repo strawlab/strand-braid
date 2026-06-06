@@ -362,7 +362,7 @@ strand-cam-binary:
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
 
-    - export RUSTFLAGS="-D warnings"
+    - export RUSTFLAGS="-D warnings -C target-cpu=sandybridge"
 
     - rustc --version
 
@@ -393,7 +393,7 @@ flytrax-csv-to-braidz-binary:
     - export CARGO_HOME="$CI_PROJECT_DIR/.cargo-proj"
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - export PATH="$PATH:$CARGO_HOME/bin"
-    - export RUSTFLAGS="-D warnings"
+    - export RUSTFLAGS="-D warnings -C target-cpu=sandybridge"
 
     - cargo test -p flytrax-csv-to-braidz --release --features "with_apriltags"
     - cargo build -p flytrax-csv-to-braidz --release --features "with_apriltags"
@@ -414,7 +414,7 @@ strand-cam-flydratrax-binary:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
-    - export RUSTFLAGS="-D warnings"
+    - export RUSTFLAGS="-D warnings -C target-cpu=sandybridge"
     - rustc --version
 
     - >
@@ -444,7 +444,7 @@ braid-offline-static:
     - export CARGO_HOME="$CI_PROJECT_DIR/.cargo-proj"
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - export PATH="$PATH:$CARGO_HOME/bin"
-    - export RUSTFLAGS="-D warnings"
+    - export RUSTFLAGS="-D warnings -C target-cpu=sandybridge"
 
     - cd $CI_PROJECT_DIR
     - cargo build -p braid-offline --release
@@ -470,7 +470,7 @@ braid-process-video:
     - export CARGO_HOME="$CI_PROJECT_DIR/.cargo-proj"
     - curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
     - source $CARGO_HOME/env
-    - export RUSTFLAGS="-D warnings"
+    - export RUSTFLAGS="-D warnings -C target-cpu=sandybridge"
 
     - cargo build --release -p braid-process-video
     - ldd -v target/release/braid-process-video
@@ -508,7 +508,7 @@ extra-programs:
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
   script:
     - rustup default stable
-    - export RUSTFLAGS="-D warnings"
+    - export RUSTFLAGS="-D warnings -C target-cpu=sandybridge"
 
     - mkdir -p $CI_PROJECT_DIR/build
 
@@ -559,7 +559,7 @@ braidz-mcsc:
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
   script:
     - rustup default stable
-    - export RUSTFLAGS="-D warnings"
+    - export RUSTFLAGS="-D warnings -C target-cpu=sandybridge"
 
     - mkdir -p $CI_PROJECT_DIR/build
 
@@ -578,7 +578,7 @@ fmf-cli:
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
   script:
     - rustup default stable
-    - export RUSTFLAGS="-D warnings"
+    - export RUSTFLAGS="-D warnings -C target-cpu=sandybridge"
 
     - cd $CI_PROJECT_DIR/media-utils/fmf/fmf-cli
     - cargo build --release
@@ -621,7 +621,7 @@ braid-run-binary:
   variables:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
-    # - export RUSTFLAGS="-D warnings"
+    - export RUSTFLAGS="-C target-cpu=sandybridge"
 
     - mkdir -p $CI_PROJECT_DIR/build
 
@@ -653,7 +653,7 @@ led-box-linux:
     - _packaging/setup-ubuntu-apt-proxy.sh
     - apt-get update
     - DEBIAN_FRONTEND=noninteractive apt-get install -y libudev-dev
-    - export RUSTFLAGS="-D warnings"
+    - export RUSTFLAGS="-D warnings -C target-cpu=sandybridge"
 
     - cd $CI_PROJECT_DIR/led-box/led-box
     - NUM_JOBS=2 RUSTFLAGS="$RUSTFLAGS -C codegen-units=1" cargo build --release

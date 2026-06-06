@@ -1,20 +1,16 @@
 name: Build strand-braid Debian packages
 
-# Build a strand-braid .deb for each supported Ubuntu version. This is a port of
-# the `strand-braid-ubuntu-XXXX` jobs (and their `needs:` build jobs) from
-# `.gitlab-ci.yml` to GitHub Actions, so that release artifacts can be built and
-# published directly from GitHub.
+# Build a strand-braid .deb for each supported Ubuntu version, so that release
+# artifacts can be built and published directly from GitHub.
 #
-# Unlike GitLab CI -- which builds every binary once in a custom Ubuntu Focal
-# (20.04) image and then packages the same binaries into a .deb for each Ubuntu
-# release -- this workflow builds the binaries natively on each Ubuntu runner.
-# The matrix is therefore limited to the Ubuntu versions for which GitHub
-# provides hosted runners (currently 22.04 and 24.04); Ubuntu 20.04 runners have
-# been retired and 26.04 is not yet available.
+# The binaries are built natively on each Ubuntu runner. The matrix is therefore
+# limited to the Ubuntu versions for which GitHub provides hosted runners
+# (currently 22.04 and 24.04); Ubuntu 20.04 runners have been retired and 26.04
+# is not yet available.
 #
 # The proprietary camera SDKs (Basler Pylon, Allied Vision Vimba) are loaded at
 # runtime via dlopen, so they are not needed to build or package these binaries.
-# Only the small public Pylon C-ABI shim is downloaded, matching the GitLab jobs.
+# Only the small public Pylon C-ABI shim is downloaded.
 
 on:
   push:
@@ -51,8 +47,8 @@ jobs:
 
       # The Debian packaging infrastructure needs the .so files available so that
       # dpkg-shlibdeps can automatically determine package dependencies. The list
-      # is a superset of what is strictly required (mirrors the GitLab jobs plus
-      # the build dependencies from _packaging/setup-ubuntu-base.sh).
+      # is a superset of what is strictly required (it includes the build
+      # dependencies from _packaging/setup-ubuntu-base.sh).
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -71,8 +67,7 @@ jobs:
       # All packaged binaries are built in a single cargo invocation so that
       # features are resolved once and every shared dependency (flydra2, the
       # rerun stack, etc.) is compiled exactly once -- instead of being rebuilt
-      # for each binary as the feature set varies. The per-package feature flags
-      # below reproduce the feature sets of the individual GitLab CI jobs.
+      # for each binary as the feature set varies.
       #
       # strand-cam-flydratrax is built in a SEPARATE step (below): it is the
       # strand-cam crate compiled with the `flydratrax` feature, and Cargo
@@ -81,10 +76,15 @@ jobs:
       # behavior-neutral (it activates the online tracker / model server). The
       # two variants therefore require two separate resolves.
       #
-      # The `tracing/release_max_level_debug` feature used by the GitLab jobs is
-      # intentionally omitted: it only caps the compiled-in log level and is not
-      # straightforward to set across a multi-package build.
+      # The `tracing/release_max_level_debug` feature is intentionally omitted:
+      # it only caps the compiled-in log level and is not straightforward to set
+      # across a multi-package build.
       - name: Build packaged binaries (single unified pass)
+        # Deny warnings and pin the baseline ISA. `target-cpu=sandybridge` is
+        # also set in `.cargo/config.toml`, but a `RUSTFLAGS` env var overrides
+        # (does not merge with) that config entry, so it must be repeated here.
+        env:
+          RUSTFLAGS: "-D warnings -C target-cpu=sandybridge"
         run: |
           cargo build --release \
             -p strand-cam \
@@ -108,11 +108,13 @@ jobs:
           # The flydra-feature-detector benchmark is an example, not a bin, so it
           # needs its own target-selecting invocation (shares the build cache).
           cargo build --release -p flydra-feature-detector --example flydra-feature-detector-bench
-          # Sanity-check the braid config tooling, as the GitLab job does.
+          # Sanity-check the braid config tooling.
           ./target/release/braid-default-config >/dev/null
           ./target/release/braid-show-config braid/simple.toml >/dev/null
 
       - name: Build strand-cam-flydratrax (flydratrax-enabled strand-cam)
+        env:
+          RUSTFLAGS: "-D warnings -C target-cpu=sandybridge"
         run: |
           cargo build --release -p strand-cam-gui --no-default-features \
             --features "strand-cam/bundle_files,strand-cam/flydratrax,strand-cam/checkercal,strand-cam/fiducial,strand-cam/flydra_feat_detect"
@@ -172,7 +174,7 @@ jobs:
           ls -lh "$OUTDIR/"
           dpkg --contents "$OUTDIR"/*.deb
           # Zip the directory; the zip name records the Ubuntu version (the .deb
-          # name does not), matching the GitLab release-artifact convention.
+          # name does not).
           zip -r "${OUTDIR}.zip" "$OUTDIR"
           echo "outdir=$OUTDIR" >> "$GITHUB_OUTPUT"
           echo "zip=${OUTDIR}.zip" >> "$GITHUB_OUTPUT"
