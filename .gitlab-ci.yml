@@ -15,10 +15,6 @@ check_and_test_workspace:
     # Install prerequisites
     - apt-get -y update && DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg
 
-    # Build frontends for strand-cam and braid so the final step below also compiles.
-    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend && time ./build.sh
-    - cd $CI_PROJECT_DIR/braid/braid-run/braid_frontend && time ./build.sh
-
     # Do a cargo check on the whole workspace to make sure all crates compile
     # with default features.
     - cd $CI_PROJECT_DIR
@@ -371,8 +367,6 @@ strand-cam-binary:
 
     - rustc --version
 
-    - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR
-
     # `checkercal` is pure-Rust by default, so no OpenCV provisioning is needed.
     - >
       RUSTFLAGS="$RUSTFLAGS -C codegen-units=1"
@@ -424,8 +418,6 @@ strand-cam-flydratrax-binary:
     - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y llvm-dev libclang-dev clang
     - export RUSTFLAGS="-D warnings"
     - rustc --version
-
-    - cd strand-cam/yew_frontend && time ./build.sh && cd $CI_PROJECT_DIR/strand-cam/strand-cam-gui
 
     # `checkercal` is pure-Rust by default, so no OpenCV provisioning is needed.
     - >
@@ -634,10 +626,6 @@ braid-run-binary:
     GIT_SUBMODULE_STRATEGY: recursive
   script:
     # - export RUSTFLAGS="-D warnings"
-
-    # build mainbrain web frontend
-    - cd $CI_PROJECT_DIR/braid/braid-run/braid_frontend
-    - ./build.sh
 
     - mkdir -p $CI_PROJECT_DIR/build
 
@@ -967,14 +955,10 @@ build_simple:
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.5
   script:
     # Build strand-cam with simplest build configuration possible
-    - cd $CI_PROJECT_DIR/strand-cam/yew_frontend
-    - ./build.sh
     - cd $CI_PROJECT_DIR/strand-cam
     - cargo build --release --bin strand-cam
 
     # Build braid-run with simplest build configuration possible
-    - cd $CI_PROJECT_DIR/braid/braid-run/braid_frontend
-    - ./build.sh
     - cd $CI_PROJECT_DIR/braid/braid-run
     - cargo build --release
 

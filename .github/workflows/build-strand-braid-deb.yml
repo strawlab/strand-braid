@@ -68,11 +68,6 @@ jobs:
           sudo mv trunk /usr/local/bin/
           trunk --version
 
-      - name: Build web frontends
-        run: |
-          (cd strand-cam/yew_frontend && ./build.sh)
-          (cd braid/braid-run/braid_frontend && ./build.sh)
-
       # All packaged binaries are built in a single cargo invocation so that
       # features are resolved once and every shared dependency (flydra2, the
       # rerun stack, etc.) is compiled exactly once -- instead of being rebuilt
