@@ -12,5 +12,3 @@ categories = ["web-programming", "data-structures", "network-programming"]
 [dependencies]
 serde.workspace = true
 chrono.workspace = true
-
-strand-bui-backend-session-types.workspace = true

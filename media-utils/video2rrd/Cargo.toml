@@ -26,4 +26,3 @@ env-tracing-logger.workspace = true
 convert-image.workspace = true
 frame-source = { workspace = true, features = ["openh264"] }
 strand-dynamic-frame.workspace = true
-braid-types.workspace = true

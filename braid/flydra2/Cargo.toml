@@ -76,7 +76,6 @@ event-stream-types.workspace = true
 [dev-dependencies]
 tempfile.workspace = true
 approx.workspace = true
-download-verify.workspace = true
 
 [features]
 default = ["bundle_files"]

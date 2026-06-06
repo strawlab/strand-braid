@@ -7,7 +7,6 @@ description = "write .braidz data files for the Braid tracking system"
 
 [dependencies]
 walkdir = "2.5"
-libflate.workspace = true
 zip.workspace = true
 thiserror.workspace = true
 

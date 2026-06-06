@@ -11,7 +11,6 @@ thiserror.workspace = true
 hyper.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-futures.workspace = true
 bytes.workspace = true
 axum.workspace = true
 http-body-util.workspace = true

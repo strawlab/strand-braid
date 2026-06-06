@@ -12,6 +12,3 @@ csv.workspace = true
 chrono.workspace = true
 
 braid-types.workspace = true
-
-[dev-dependencies]
-clap.workspace = true

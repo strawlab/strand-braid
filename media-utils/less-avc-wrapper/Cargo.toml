@@ -12,7 +12,6 @@ strand-dynamic-frame.workspace = true
 y4m-writer.workspace = true
 
 machine-vision-formats.workspace = true
-chrono.workspace = true
 thiserror.workspace = true
 y4m.workspace = true
 
@@ -22,7 +21,6 @@ strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
 eyre.workspace = true
 tracing.workspace = true
 env_logger.workspace = true
-h264-reader.workspace = true
 rusttype.workspace = true
 ttf-firacode.workspace = true
 image.workspace = true

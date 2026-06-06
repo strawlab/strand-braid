@@ -7,8 +7,6 @@ license = "MIT OR Apache-2.0"
 description = "parse Wavefront OBJ 3D model files into triangle meshes"
 
 [dependencies]
-nalgebra.workspace = true
-ncollide3d = { workspace = true, features = ["default", "serde-serialize"] }
 textured-tri-mesh.workspace = true
 genmesh = "0.6"
 obj.workspace = true
