@@ -200,7 +200,8 @@ Software encoding via ffmpeg (e.g. <code>libx264</code>) is also possible but wi
 substantially more CPU.</p>
 <h2><a class="header" href="#camera-requirements" id="camera-requirements">Camera requirements</a></h2>
 <p>Basler cameras using the Pylon API and Allied Vision cameras using the Vimba X
-API are supported.</p>
+API are supported. In addition, consumer webcams (UVC and similar) are
+supported as a development convenience (see <a href="#webcams">Webcams</a> below).</p>
 <h3><a class="header" href="#basler-cameras" id="basler-cameras">Basler cameras</a></h3>
 <p>Due to the use of the Pylon API, any camera which can be used in the Pylon
 Viewer can be used in principle. In practice, we regularly test with the
@@ -218,6 +219,27 @@ cameras:</p>
 <ul>
 <li>Allied Vision Alvium 1800 U-240m</li>
 </ul>
+<h3><a class="header" href="#webcams" id="webcams">Webcams</a></h3>
+<p>Consumer webcams (UVC and similar) are supported through the <code>webcam</code> camera
+backend, which uses the operating system's native capture interface (V4L2 on
+Linux, AVFoundation on macOS, and Media Foundation on Windows). This backend is
+intended as a <strong>development convenience</strong>, so that Strand Camera can run without
+high-end machine-vision hardware.</p>
+<p>Webcams expose almost none of the controls that machine-vision cameras do.
+Hardware triggering, exposure time, gain, frame-rate limiting, and the generic
+GenICam feature accessors are <strong>not</strong> available; only device selection, frame
+capture, and a choice between <code>RGB8</code> (default) and <code>Mono8</code> pixel formats are
+supported. Because hardware triggering is unavailable, webcams are not suitable
+for synchronized multi-camera 3D tracking with Braid.</p>
+<p>Select the webcam backend explicitly (Pylon remains the default):</p>
+<pre><code class="language-sh">strand-cam --camera-backend webcam
+</code></pre>
+<p>A specific webcam can be chosen by its human-readable name (as printed at
+startup) or by its index. If <code>--camera-name</code> is omitted, the first enumerated
+webcam is used:</p>
+<pre><code class="language-sh">strand-cam --camera-backend webcam --camera-name &quot;Integrated Camera&quot;
+strand-cam --camera-backend webcam --camera-name 0
+</code></pre>
 
                     </main>
 

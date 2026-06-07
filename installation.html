@@ -187,12 +187,67 @@ Note: the source for the README.txt files included in the installler .zip are
 in _packaging/ubuntu-2404-installer-zip-readme.txt
 
 -->
+<h2><a class="header" href="#selecting-or-upgrading-the-pylon-version-basler-cameras" id="selecting-or-upgrading-the-pylon-version-basler-cameras">Selecting or upgrading the Pylon version (Basler cameras)</a></h2>
+<p>Strand Camera and Braid talk to Basler cameras through a small <em>shim</em> library
+(<code>libpylon-cabi</code>) that is loaded at runtime. The shim is what links against
+Basler's proprietary Pylon SDK; the Strand Camera and Braid programs themselves
+do not. This means you can change the Pylon version <strong>without reinstalling or
+rebuilding</strong> Strand Camera or Braid — you only swap the shim and the matching
+Pylon runtime.</p>
+<p>The <code>.deb</code> package bundles a default shim built against Pylon
+<code>7.3.0.27189</code>. The versioned shim is installed under <code>/usr/lib/strand-braid/</code>,
+with a <code>libpylon-cabi.so</code> symlink in <code>/usr/lib</code> so the dynamic loader finds it
+automatically — no environment variable or other configuration is needed. For
+most users this is all you need, and you can skip the rest of this section.</p>
+<h3><a class="header" href="#using-a-different-pylon-version" id="using-a-different-pylon-version">Using a different Pylon version</a></h3>
+<p>To run against a different Pylon version, you need two matching pieces:</p>
+<ol>
+<li><strong>The Pylon runtime</strong>, installed from Basler (for example into <code>/opt/pylon</code>).
+Install the Basler <code>.deb</code> for the version you want exactly as described under
+the Pylon prerequisite above, just with the version of your choice.</li>
+<li><strong>A shim built against that same Pylon version.</strong> Pre-compiled shims are
+published at
+<a href="https://strawlab.org/assets/libpylon-cabi/precompiled/">https://strawlab.org/assets/libpylon-cabi/precompiled/</a>, with names like
+<code>libpylon-cabi-v1-linux-x86_64-pylon_&lt;VERSION&gt;.so</code>. Download the one whose
+<code>&lt;VERSION&gt;</code> matches the Pylon runtime you installed. (The shim can also be
+built from source from the
+<a href="https://crates.io/crates/pylon-shimload"><code>pylon-shimload</code></a> project if a
+pre-built one is not available.)</li>
+</ol>
+<blockquote>
+<p><strong>The shim and the Pylon runtime must be a matched pair.</strong> A shim built for
+Pylon <code>X</code> requires the Pylon <code>X</code> runtime to be installed and discoverable at
+runtime; otherwise loading fails. Always install the two together.</p>
+</blockquote>
+<blockquote>
+<p><strong>The <code>v1</code> in the shim filename is the shim ABI generation</strong>, not the Pylon
+version. The Strand Camera / Braid release you have installed expects a
+specific shim ABI generation (currently <code>v1</code>). Use a shim with the matching
+ABI generation; a mismatch is reported with a clear error at startup.</p>
+</blockquote>
+<p>Once you have downloaded the shim, point <code>PYLON_CABI</code> at it. <code>pylon-shimload</code>
+checks <code>PYLON_CABI</code> before falling back to the bundled shim, so your value
+always takes precedence. The most direct way is to set it on the command line
+for a single run:</p>
+<pre><code class="language-ignore">PYLON_CABI=/path/to/libpylon-cabi-v1-linux-x86_64-pylon_&lt;VERSION&gt;.so strand-cam --camera-backend pylon
+</code></pre>
+<p>To make the change persistent for your shell, export it from your shell startup
+file (for example <code>~/.bashrc</code>):</p>
+<pre><code class="language-ignore">export PYLON_CABI=/path/to/libpylon-cabi-v1-linux-x86_64-pylon_&lt;VERSION&gt;.so
+</code></pre>
+<p><code>PYLON_CABI</code> is read from the process environment, so make sure it is set
+wherever the software is launched — including non-interactive contexts such as a
+<code>systemd</code> service, a <code>cron</code> job, or <code>sudo</code> without <code>-E</code>.</p>
 <h2><a class="header" href="#hardware-installation" id="hardware-installation">Hardware installation</a></h2>
 <h3><a class="header" href="#cameras" id="cameras">Cameras</a></h3>
 <p>Currently Basler cameras are best supported. We use Basler's Pylon library to
 access the cameras.</p>
 <p>Allied Vision cameras using the Vimba X library are supported in Strand Camera
 and Braid.</p>
+<p>Consumer webcams (UVC and similar) are also supported through the <code>webcam</code>
+camera backend, intended as a development convenience for running Strand Camera
+without machine-vision hardware. Select it with <code>strand-cam --camera-backend webcam</code>. See <a href="./hardware-selection.html#webcams">Webcams</a> for capabilities and
+limitations.</p>
 <h3><a class="header" href="#trigger-box" id="trigger-box">Trigger box</a></h3>
 <p>Braid uses the <a href="https://github.com/strawlab/triggerbox">Straw Lab Triggerbox</a>
 hardware to synchronize the cameras. Two hardware variants are supported: one
