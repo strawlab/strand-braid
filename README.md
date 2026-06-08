@@ -89,18 +89,12 @@ file headers and `Cargo.toml` `license` fields.
 
 ## Contributions
 
-Any kinds of contributions are welcome as a pull request.
+Contributions of any kind are welcome as a pull request.
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in this software by you, as defined in the Apache-2.0 license,
-shall be dual licensed under the terms of the
-
- * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
-   http://www.apache.org/licenses/LICENSE-2.0)
- * MIT license ([LICENSE-MIT](LICENSE-MIT) or
-   http://opensource.org/licenses/MIT)
-
-without any additional terms or conditions.
+shall be dual licensed under the terms described in the [License](#license)
+section above, without any additional terms or conditions.
 
 ## Code of conduct
 
