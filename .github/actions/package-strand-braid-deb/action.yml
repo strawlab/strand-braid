@@ -128,7 +128,16 @@ runs:
     - name: Build .deb
       shell: bash
       run: |
-        make -C _packaging
+        # Map the Ubuntu version label to its release codename for the
+        # debian/changelog Distribution field.
+        case "${{ inputs.ubuntu-version }}" in
+          2004) distribution=focal ;;
+          2204) distribution=jammy ;;
+          2404) distribution=noble ;;
+          2604) distribution=resolute ;;
+          *) echo "Unknown ubuntu-version '${{ inputs.ubuntu-version }}'" >&2; exit 1 ;;
+        esac
+        make -C _packaging DISTRIBUTION="$distribution"
         for F in _packaging/*.deb; do echo; echo "$F"; dpkg-deb -I "$F"; done
 
     - name: Assemble release directory
