@@ -133,9 +133,6 @@ exclude = [
     "led-box/led-box-firmware-pico",
 ]
 
-[profile.release]
-debug = true
-
 [workspace.dependencies]
 adskalman = "0.17"
 anyhow = "1.0.99"
