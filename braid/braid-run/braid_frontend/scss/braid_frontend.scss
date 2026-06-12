@@ -46,24 +46,29 @@ $footer-height: 2.5rem;
     margin-bottom: 0.25em;
 }
 
-.cam-preview-canvas {
-    width: 100%;
-    border: 1px solid currentColor;
-    box-sizing: border-box;
-}
-
-/* Grayed-out field with an "x" through it, shown when the preview is not
-live. */
-.cam-preview-placeholder,
-.cam-preview-status {
+/* Fixed-aspect frame holding the canvas, the not-live placeholder, or the
+status message, so the tile geometry never changes with the live toggle. */
+.cam-preview-frame {
     width: 100%;
     aspect-ratio: 4 / 3;
     border: 1px solid currentColor;
     box-sizing: border-box;
-    opacity: 0.4;
 }
 
+.cam-preview-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    /* Letterbox cameras whose images do not match the frame aspect. */
+    object-fit: contain;
+}
+
+/* Grayed-out field with an "x" through it, shown when the preview is not
+live. */
 .cam-preview-placeholder {
+    width: 100%;
+    height: 100%;
+    opacity: 0.4;
     background:
         linear-gradient(to top right,
             transparent calc(50% - 1px),
@@ -78,9 +83,12 @@ live. */
 }
 
 .cam-preview-status {
+    width: 100%;
+    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
+    opacity: 0.4;
 }
 
 .cam-preview-card-info {

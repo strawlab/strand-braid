@@ -495,7 +495,9 @@ impl Model {
                             <a href={cam_url}>{cci.name.as_str()}</a>
                             {live_toggle}
                         </div>
-                        {preview_area}
+                        <div class="cam-preview-frame">
+                            {preview_area}
+                        </div>
                         <div class="cam-preview-card-info">
                             <div>{state}</div>
                             <div>{stats}</div>
