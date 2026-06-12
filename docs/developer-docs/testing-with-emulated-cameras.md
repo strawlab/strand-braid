@@ -53,6 +53,22 @@ automatically spawns one `strand-cam` process per camera, looking for the
 PYLON_CAMEMU=3 braid-run braid/simple.toml
 ```
 
+## Using a consumer webcam
+
+Both Strand Camera and Braid can also use a consumer webcam, which requires
+no vendor SDK at all. For Strand Camera, pass `--camera-backend webcam`. For
+Braid, set the backend in the camera's configuration section:
+
+```toml
+[[cameras]]
+name = "Integrated Camera"
+start_backend = "webcam"
+```
+
+The camera `name` is the webcam's human-readable device name. To discover it,
+run `strand-cam --camera-backend webcam` and look at the
+`camera ... detected` log lines printed at startup.
+
 ## Smoke test
 
 `smoke-tests/braid-camemu.sh` runs an end-to-end smoke test using the above:
