@@ -961,6 +961,27 @@ build_simple:
     - cd $CI_PROJECT_DIR/braid/braid-run
     - cargo build --release
 
+# End-to-end smoke test: run the strand-cam and braid-run binaries built by
+# the artifact jobs above against cameras emulated by the Basler Pylon driver
+# (PYLON_CAMEMU), exercise the HTTP control API with the demo scripts from
+# docs/user-docs/scripts/, and verify in the logs that the commands took
+# effect. See docs/developer-docs/testing-with-emulated-cameras.md. This job
+# runs only on GitLab CI (not GitHub Actions) because the Pylon SDK is
+# downloaded from an internal server.
+smoke_test_camemu:
+  image: ubuntu:focal
+  needs:
+    - strand-cam-binary
+    - braid-run-binary
+  script:
+    - _packaging/setup-ubuntu-apt-proxy.sh
+    - apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y curl ca-certificates python3 python3-requests
+    # Install the Basler Pylon SDK, required at runtime for camera emulation.
+    - _packaging/install-pylon-linux.sh
+    # Download the Basler Pylon C-ABI shim, loaded by strand-cam at runtime.
+    - curl --fail -L -o /tmp/libpylon-cabi.so "https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so"
+    - STRAND_BRAID_TARGET_DIR=$CI_PROJECT_DIR/build PYLON_CABI=/tmp/libpylon-cabi.so smoke-tests/braid-camemu.sh
+
 test_user_guide:
   dependencies: []
   image: rust:1.93

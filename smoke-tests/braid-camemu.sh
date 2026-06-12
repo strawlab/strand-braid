@@ -48,7 +48,7 @@ trap cleanup EXIT
 fail() {
     echo "FAILED: $1" >&2
     echo "--- log tail ---" >&2
-    tail -20 "$2" >&2
+    tail -50 "$2" >&2
     exit 1
 }
 

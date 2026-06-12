@@ -80,3 +80,12 @@ The script exits 0 and prints `PASSED` on success. It requires `python3` with
 the `requests` library and `curl`. Ports can be overridden with
 `STRAND_CAM_PORT` and `BRAID_PORT` if the defaults (3477 and 44477) collide
 with something on your machine.
+
+## Continuous integration
+
+The GitLab CI pipeline runs this smoke test in the `smoke_test_camemu` job
+(see `.gitlab-ci.yml`), using the binaries built by the `strand-cam-binary`
+and `braid-run-binary` artifact jobs, the Pylon SDK installed by
+`_packaging/install-pylon-linux.sh`, and the precompiled shim downloaded from
+strawlab.org. The job does not exist on GitHub Actions because the Pylon SDK
+is downloaded from an internal server which is not reachable from there.
