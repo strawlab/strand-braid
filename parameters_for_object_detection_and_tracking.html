@@ -184,6 +184,39 @@ use at the start of the recording.</p>
 <a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_feature_detector_types/struct.ImPtDetectCfg.html">ImPtDetectCfg</a>
 section of the API.</p>
 <p>A more technical account of this procedure can be found in <a href="http://dx.doi.org/10.1098/rsif.2010.0230">Straw et al. (2011)</a>.</p>
+<h3><a class="header" href="#how-background-subtraction-works" id="how-background-subtraction-works">How background subtraction works</a></h3>
+<p>Object detection operates on luminance (monochrome, 8-bit) images. Images from
+color cameras are converted first: RGB pixels are converted to luma using the
+standard BT.601 weights (Y ≈ 0.3 R + 0.59 G + 0.11 B), and raw Bayer-format
+images are demosaiced to RGB and then converted to luma. Detection is
+therefore most sensitive to green contrast for color cameras.</p>
+<p>The background model maintains, per pixel, a running mean and a running mean
+of squared values (from which a per-pixel standard deviation is derived), both
+in 32-bit floating point. When Strand Camera starts, the model is initialized
+by averaging the first 20 frames; no features are detected during this brief
+startup period. This happens whether or not continuous background updating
+(<code>do_update_background_model</code>) is enabled. When updating is enabled, the model
+is updated every <code>bg_update_interval</code> frames by blending in the current frame
+with weight <code>alpha</code>.</p>
+<p>A pixel is detected as part of a feature when its difference from the
+background mean (with sign according to <code>polarity</code>) exceeds a threshold. With
+<code>use_cmp</code> enabled, the threshold is per-pixel and adaptive: <code>n_sigma</code> times
+the running standard deviation of that pixel, but never less than
+<code>diff_threshold</code>. With <code>use_cmp</code> disabled, the fixed <code>diff_threshold</code> is used
+everywhere.</p>
+<h3><a class="header" href="#background-model-controls-in-the-browser-ui" id="background-model-controls-in-the-browser-ui">Background model controls in the browser UI</a></h3>
+<p>The object detection panel in Strand Camera's browser interface has two
+buttons affecting the background model:</p>
+<ul>
+<li><strong>Take Current Image As Background</strong> — discards the current model and
+re-initializes it from the next 20 frames, exactly as at startup. Use this
+after changing the scene or lighting, especially when continuous updating is
+disabled.</li>
+<li><strong>Set background to mid-gray</strong> — sets the background mean to a uniform value
+of 127 with zero variance.</li>
+</ul>
+<p>Like everything in the browser interface, these buttons can also be triggered
+programmatically; see <a href="scripting-with-python.html">Scripting with Python</a>.</p>
 <!--
 ### Optimization
 
