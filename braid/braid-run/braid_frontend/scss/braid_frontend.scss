@@ -46,8 +46,9 @@ $footer-height: 2.5rem;
     margin-bottom: 0.25em;
 }
 
-/* The canvas sizes itself from the intrinsic dimensions of the streamed
-camera image, so its border always exactly bounds the camera view. */
+/* The canvas is sized from the streamed camera image (via an inline
+aspect-ratio style set from the drawn image's dimensions), so its border
+always exactly bounds the camera view. */
 .cam-preview-canvas {
     display: block;
     width: 100%;
