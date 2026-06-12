@@ -601,6 +601,7 @@ pub(crate) async fn do_run_forever(
         calibration_filename: cal_fname.map(|x| x.into_os_string().into_string().unwrap()),
         connected_cameras: Vec::new(),
         background_model_updating: Default::default(),
+        camera_image_dimensions: Default::default(),
         model_server_addr: None,
         flydra_app_name,
         all_expected_cameras_are_synced: false,

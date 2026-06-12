@@ -11,6 +11,35 @@ use strand_cam_bui_types::RecordingPath;
 
 use crate::mainbrain::*;
 
+/// Mirror the camera's image dimensions into the shared state shown in the
+/// browser UI, which uses them to size the camera preview.
+fn update_camera_image_dimensions(
+    app_state: &BraidAppState,
+    raw_cam_name: &RawCamName,
+    current_image_png: &braid_types::PngImageData,
+) {
+    let Some(dimensions) = current_image_png.dimensions() else {
+        warn!(
+            "could not determine image dimensions for camera \"{}\"",
+            raw_cam_name.as_str()
+        );
+        return;
+    };
+    let mut tracker = app_state.shared_store.write().unwrap();
+    if (*tracker)
+        .as_ref()
+        .camera_image_dimensions
+        .get(raw_cam_name)
+        != Some(&dimensions)
+    {
+        tracker.modify(|store| {
+            store
+                .camera_image_dimensions
+                .insert(raw_cam_name.clone(), dimensions);
+        });
+    }
+}
+
 fn start_saving_mp4s_all_cams(app_state: &BraidAppState, start_saving: bool) {
     let mut tracker = app_state.shared_store.write().unwrap();
     tracker.modify(|store| {
@@ -46,6 +75,12 @@ pub(crate) async fn callback_handler(
                     )
                     .map_err(|msg| (StatusCode::BAD_REQUEST, msg))?;
 
+                update_camera_image_dimensions(
+                    &app_state,
+                    &cam_info.raw_cam_name,
+                    &cam_info.current_image_png,
+                );
+
                 let mut current_cam_data = app_state.per_cam_data_arc.write().unwrap();
                 if current_cam_data
                     .insert(
@@ -66,6 +101,11 @@ pub(crate) async fn callback_handler(
                 debug!(
                     "got new image for camera \"{}\"",
                     image_info.raw_cam_name.as_str()
+                );
+                update_camera_image_dimensions(
+                    &app_state,
+                    &image_info.raw_cam_name,
+                    &image_info.inner.current_image_png,
                 );
                 let mut current_cam_data = app_state.per_cam_data_arc.write().unwrap();
                 current_cam_data

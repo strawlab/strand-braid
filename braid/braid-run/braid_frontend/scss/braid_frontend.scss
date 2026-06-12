@@ -47,7 +47,9 @@ $footer-height: 2.5rem;
 }
 
 /* Fixed-aspect frame holding the canvas, the not-live placeholder, or the
-status message, so the tile geometry never changes with the live toggle. */
+status message, so the tile geometry never changes with the live toggle. The
+aspect ratio here is only the fallback; once the camera's image dimensions
+are known, an inline style sets the true ratio. */
 .cam-preview-frame {
     width: 100%;
     aspect-ratio: 4 / 3;
