@@ -173,4 +173,56 @@ wait_for_log_line "clearing bg image to 127" "$BRAID_LOG" 2 \
     || fail "ClearBackground not seen by both detectors" "$BRAID_LOG"
 echo "Phase 2 OK"
 
+#
+# Phase 3: the background-model buttons of the Braid browser UI, which act on
+# all cameras via Braid's own callback endpoint. Disabling/enabling background
+# updating must round-trip: Braid sends the new per-camera configuration to
+# each camera, each camera reports its settings back, and the per-camera state
+# in Braid's event stream must reflect the change.
+#
+echo "=== Phase 3: braid UI background-model controls ==="
+python3 - "$BRAID_PORT" <<'PYEOF'
+import json, sys, time, urllib.parse
+import requests
+
+braid_url = "http://127.0.0.1:%s/" % sys.argv[1]
+session = requests.session()
+session.get(braid_url).raise_for_status()
+
+def post(payload):
+    r = session.post(urllib.parse.urljoin(braid_url, "callback"), json=payload)
+    r.raise_for_status()
+
+def get_bg_state():
+    r = session.get(urllib.parse.urljoin(braid_url, "braid-events"), stream=True,
+                    headers={"Accept": "text/event-stream"})
+    r.raise_for_status()
+    for chunk in r.iter_content(chunk_size=None, decode_unicode=True):
+        state = json.loads(chunk.strip().split("\n")[1][len("data: "):])
+        r.close()
+        return state["background_model_updating"]
+    raise RuntimeError("no event received from Braid")
+
+def wait_for_bg_state(expected):
+    deadline = time.time() + 30
+    while time.time() < deadline:
+        vals = list(get_bg_state().values())
+        if len(vals) == 2 and all(v == expected for v in vals):
+            return
+        time.sleep(0.5)
+    sys.exit("background updating did not become %s on both cameras" % expected)
+
+post("DoTakeNewBackgroundImage")
+post({"SetBackgroundUpdating": False})
+wait_for_bg_state(False)
+post({"SetBackgroundUpdating": True})
+wait_for_bg_state(True)
+PYEOF
+
+# The take-background command must have reached both detectors (2 from phase 2
+# plus 2 more now).
+wait_for_log_line "taking bg image" "$BRAID_LOG" 4 \
+    || fail "DoTakeNewBackgroundImage not seen by both detectors" "$BRAID_LOG"
+echo "Phase 3 OK"
+
 echo "PASSED"

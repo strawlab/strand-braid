@@ -65,6 +65,10 @@ PYLON_CAMEMU=3 braid-run braid/simple.toml
    synchronize, and runs `reset-background-braid-all-cams.py`, which
    discovers both cameras from Braid and commands each one, again verifying
    the effect in the logs.
+3. Finally it exercises the background-model controls of the Braid browser
+   UI (take new background, disable/enable background updating) via Braid's
+   own callback endpoint, verifying that the per-camera state reported in
+   Braid's event stream reflects the changes.
 
 ```sh
 # After building target/release/strand-cam and target/release/braid-run:

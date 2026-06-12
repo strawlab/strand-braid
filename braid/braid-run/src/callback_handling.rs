@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use axum::response::IntoResponse;
-use tracing::debug;
+use tracing::{debug, error, warn};
 
-use braid_types::{BraidHttpApiCallback, PerCamSaveData};
+use braid_types::{BraidHttpApiCallback, PerCamSaveData, RawCamName};
 use event_stream_types::TolerantJson;
 use http::StatusCode;
 use strand_cam_bui_types::RecordingPath;
@@ -81,11 +81,33 @@ pub(crate) async fn callback_handler(
                     .cam_settings_data = Some(cam_settings.inner);
             }
             UpdateFeatureDetectSettings(feature_detect_settings) => {
-                let mut current_cam_data = app_state.per_cam_data_arc.write().unwrap();
-                current_cam_data
-                    .get_mut(&feature_detect_settings.raw_cam_name)
-                    .unwrap()
-                    .feature_detect_settings = Some(feature_detect_settings.inner);
+                let raw_cam_name = feature_detect_settings.raw_cam_name.clone();
+                let do_update = feature_detect_settings
+                    .inner
+                    .current_feature_detect_settings
+                    .do_update_background_model;
+                {
+                    let mut current_cam_data = app_state.per_cam_data_arc.write().unwrap();
+                    current_cam_data
+                        .get_mut(&raw_cam_name)
+                        .unwrap()
+                        .feature_detect_settings = Some(feature_detect_settings.inner);
+                }
+                // Mirror the per-camera background updating state into the
+                // shared state shown in the browser UI.
+                let mut tracker = app_state.shared_store.write().unwrap();
+                if (*tracker)
+                    .as_ref()
+                    .background_model_updating
+                    .get(&raw_cam_name)
+                    != Some(&do_update)
+                {
+                    tracker.modify(|store| {
+                        store
+                            .background_model_updating
+                            .insert(raw_cam_name, do_update);
+                    });
+                }
             }
             DoRecordCsvTables(value) => {
                 debug!("got DoRecordCsvTables({})", value);
@@ -169,6 +191,70 @@ pub(crate) async fn callback_handler(
                     start_saving_mp4s_all_cams(&app_state, true);
                 } else {
                     debug!("Already saving, not initiating again.");
+                }
+            }
+            DoTakeNewBackgroundImage => {
+                debug!("got DoTakeNewBackgroundImage");
+                app_state
+                    .strand_cam_http_session_handler
+                    .take_new_background_all()
+                    .await
+                    .map_err(|_e| {
+                        (
+                            StatusCode::INTERNAL_SERVER_ERROR,
+                            "take_new_background_all failed",
+                        )
+                    })?;
+            }
+            SetBackgroundUpdating(value) => {
+                debug!("got SetBackgroundUpdating({value})");
+                // Build the updated per-camera configuration from the most
+                // recently received feature detection settings of each camera.
+                // (Collected first so no lock is held across `await`.)
+                let per_cam_cfgs: Vec<(RawCamName, String)> = {
+                    let current_cam_data = app_state.per_cam_data_arc.read().unwrap();
+                    current_cam_data
+                        .iter()
+                        .filter_map(|(cam_name, cam_data)| {
+                            match &cam_data.feature_detect_settings {
+                                Some(settings) => {
+                                    let mut cfg = settings.current_feature_detect_settings.clone();
+                                    cfg.do_update_background_model = value;
+                                    match serde_yaml::to_string(&cfg) {
+                                        Ok(yaml) => Some((cam_name.clone(), yaml)),
+                                        Err(e) => {
+                                            error!(
+                                                "serializing object detection config for \
+                                                \"{}\": {e}",
+                                                cam_name.as_str()
+                                            );
+                                            None
+                                        }
+                                    }
+                                }
+                                None => {
+                                    warn!(
+                                        "not setting background updating for camera \"{}\": \
+                                        no feature detection settings received yet",
+                                        cam_name.as_str()
+                                    );
+                                    None
+                                }
+                            }
+                        })
+                        .collect()
+                };
+                for (cam_name, cfg_yaml) in per_cam_cfgs {
+                    app_state
+                        .strand_cam_http_session_handler
+                        .send_obj_detection_config(&cam_name, cfg_yaml)
+                        .await
+                        .map_err(|_e| {
+                            (
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                                "send_obj_detection_config failed",
+                            )
+                        })?;
                 }
             }
         }

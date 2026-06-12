@@ -66,6 +66,12 @@ buttons affecting the background model:
 - **Set background to mid-gray** — sets the background mean to a uniform value
   of 127 with zero variance.
 
+When running Braid, the Braid browser interface has a "Background Model"
+section with buttons that act on all connected cameras at once: **Take New
+Background Image**, **Enable Background Updating**, and **Disable Background
+Updating**. The per-camera background updating state is shown in the camera
+list.
+
 Like everything in the browser interface, these buttons can also be triggered
 programmatically, including on all cameras of a Braid setup at once; see the
 background reset demos in [Scripting with

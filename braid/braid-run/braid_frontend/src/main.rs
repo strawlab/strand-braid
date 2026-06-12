@@ -11,9 +11,7 @@ use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
 use web_sys::{EventSource, MessageEvent};
 
-use braid_types::{
-    BraidHttpApiCallback, BraidHttpApiSharedState, BuiServerInfo, CamInfo, TriggerType,
-};
+use braid_types::{BraidHttpApiCallback, BraidHttpApiSharedState, BuiServerInfo, TriggerType};
 use strand_cam_bui_types::RecordingPath;
 
 use yew::{Component, Context, Event, Html, html};
@@ -46,6 +44,8 @@ enum Msg {
     SendMessageFetchState(FetchState),
     SetPostTriggerBufferSize(usize),
     PostTriggerMp4Recording,
+    DoTakeNewBackgroundImage,
+    SetBackgroundUpdating(bool),
     RenderView,
 }
 
@@ -181,6 +181,13 @@ impl Component for Model {
             Msg::PostTriggerMp4Recording => {
                 return self.send_to_all_cams(ctx, BraidHttpApiCallback::PostTriggerMp4Recording);
             }
+            Msg::DoTakeNewBackgroundImage => {
+                return self.send_to_all_cams(ctx, BraidHttpApiCallback::DoTakeNewBackgroundImage);
+            }
+            Msg::SetBackgroundUpdating(val) => {
+                return self
+                    .send_to_all_cams(ctx, BraidHttpApiCallback::SetBackgroundUpdating(val));
+            }
         }
         true
     }
@@ -223,6 +230,24 @@ impl Model {
         ctx.link()
             .send_message(Msg::SendMessageFetchState(FetchState::Fetching));
         false // Don't update DOM, do that when backend notifies us of new state.
+    }
+
+    fn view_background_model_options(&self, ctx: &Context<Self>) -> Html {
+        html! {
+            <div class="wrap-collapsible">
+                <CheckboxLabel label="Background Model" initially_checked=true />
+                <div>
+                    <p>{"Control the background model used for object detection. These
+                    buttons act on all connected cameras. The per-camera background
+                    updating state is shown in the camera list below."}</p>
+                </div>
+                <div>
+                    <Button title={"Take New Background Image"} onsignal={ctx.link().callback(|_| Msg::DoTakeNewBackgroundImage)}/>
+                    <Button title={"Enable Background Updating"} onsignal={ctx.link().callback(|_| Msg::SetBackgroundUpdating(true))}/>
+                    <Button title={"Disable Background Updating"} onsignal={ctx.link().callback(|_| Msg::SetBackgroundUpdating(false))}/>
+                </div>
+            </div>
+        }
     }
 
     fn view_post_trigger_options(&self, ctx: &Context<Self>) -> Html {
@@ -298,9 +323,10 @@ impl Model {
                     {fake_sync_warning}
                     <div>
                         {record_widget}
+                        { self.view_background_model_options(ctx) }
                         {view_clock_model(value)}
                         {view_calibration(&value.calibration_filename)}
-                        {view_cam_list(&value.connected_cameras)}
+                        {view_cam_list(value)}
                         {view_model_server_link(&value.model_server_addr)}
                     </div>
                 </div>
@@ -378,7 +404,8 @@ fn view_calibration(calibration_filename: &Option<String>) -> Html {
     }
 }
 
-fn view_cam_list(cams: &[CamInfo]) -> Html {
+fn view_cam_list(shared: &BraidHttpApiSharedState) -> Html {
+    let cams = &shared.connected_cameras;
     let n_cams_msg = if cams.len() == 1 {
         "1 camera:".to_string()
     } else {
@@ -399,6 +426,11 @@ fn view_cam_list(cams: &[CamInfo]) -> Html {
             };
             let state = format!("{:?}", cci.state);
             let stats = format!("{:?}", cci.recent_stats);
+            let bg_updating = match shared.background_model_updating.get(&cci.name) {
+                Some(true) => "background updating: on",
+                Some(false) => "background updating: off",
+                None => "background updating: unknown",
+            };
             html! {
                 <li>
                     <a href={cam_url}>{cci.name.as_str()}</a>
@@ -406,6 +438,8 @@ fn view_cam_list(cams: &[CamInfo]) -> Html {
                     {state}
                     {" "}
                     {stats}
+                    {" "}
+                    {bg_updating}
                 </li>
             }
         })
