@@ -6,16 +6,6 @@ runtime with the `--camera-backend pylon|vimba` argument (defaulting to pylon).
 Both vendor SDKs are loaded dynamically at runtime, so neither is required to
 build.
 
-With the (default) `bundle_files` feature, the browser frontend in
-`yew_frontend` is compiled by `trunk` and embedded into the executable
-automatically by `build.rs`; no separate frontend build step is needed. With
-the `serve_files` feature, the frontend is instead served from
-`yew_frontend/dist` at runtime (useful for frontend development), so build it
-first in that case:
-
-    cd yew_frontend
-    ./build.sh
-
 To check the build
 
     cargo check --bin strand-cam --features "serve_files checkercal fiducial flydra_feat_detect"
@@ -27,6 +17,12 @@ To build (debug)
 To build (release)
 
     cargo build --release --bin strand-cam --features "bundle_files checkercal fiducial flydra_feat_detect"
+
+Note: with the `bundle_files` feature, the browser frontend in `yew_frontend`
+is compiled by `trunk` and embedded into the executable automatically by
+`build.rs`. With `serve_files`, the frontend is instead served from
+`yew_frontend/dist` at runtime (useful for frontend development), so build it
+first in that case (`cd yew_frontend && ./build.sh`).
 
 Note, on Windows, due to [limitations on /clr compilation](https://msdn.microsoft.com/en-us/library/ffkc918h.aspx), the [Visual C++  Redistributable](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads) may need to be installed to run properly.
 
