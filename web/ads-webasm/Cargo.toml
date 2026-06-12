@@ -15,7 +15,9 @@ serde_yaml.workspace = true
 chrono.workspace = true
 csv = { workspace = true, optional = true }
 gloo-file = { workspace = true }
+gloo-timers = "0.3.0"
 libflate.workspace = true
+uuid = { workspace = true, default-features = false, features = ["js", "v4"] }
 
 yew-tincture.workspace = true
 
@@ -23,6 +25,8 @@ simple-obj-parse = { workspace = true, optional = true }
 textured-tri-mesh = { workspace = true, optional = true }
 strand-cam-enum-iter.workspace = true
 strand-cam-bui-types.workspace = true
+strand-bui-backend-session-types.workspace = true
+strand-http-video-streaming-types.workspace = true
 
 [dependencies.web-sys]
 workspace = true
@@ -37,6 +41,7 @@ features = [
     "EventSource",
     "HtmlCanvasElement",
     "HtmlImageElement",
+    "MouseEvent",
     "Window",
 ]
 

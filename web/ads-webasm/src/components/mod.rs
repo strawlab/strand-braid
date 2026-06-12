@@ -27,6 +27,9 @@ pub use self::vec_toggle::VecToggle;
 mod recording_path;
 pub use self::recording_path::RecordingPathWidget;
 
+mod video_field;
+pub use self::video_field::{ImData2, VideoField};
+
 #[cfg(feature = "obj")]
 pub mod obj_widget;
 

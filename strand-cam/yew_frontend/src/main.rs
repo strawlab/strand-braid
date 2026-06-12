@@ -46,10 +46,10 @@ use crate::components::AutoModeSelect;
 use ads_webasm::components::{ConfigField, RangedValue, RecordingPathWidget, ReloadButton, Toggle};
 use yew_tincture::components::Button;
 
-use components::{LedBoxControl, VideoField};
+use components::LedBoxControl;
 
-mod video_data;
-use video_data::VideoData;
+use ads_webasm::components::VideoField;
+use ads_webasm::video_data::VideoData;
 
 const LAST_DETECTED_VALUE_LABEL: &str = "Last detected value: ";
 
