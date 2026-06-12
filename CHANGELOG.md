@@ -2,6 +2,11 @@
 
 ### Added
 
+* The Braid browser UI can now show a live preview of each connected camera,
+  including detected points, without leaving the Braid UI. Each camera in the
+  camera list has a "Preview" section which streams the camera's live view
+  through Braid's existing camera proxy. The preview only consumes camera and
+  network resources while it is open.
 * Added a `webcam` camera backend for consumer webcams (UVC and similar), using
   the operating system's native capture interface (V4L2, AVFoundation, or Media
   Foundation). It is intended as a development convenience so that Strand Camera

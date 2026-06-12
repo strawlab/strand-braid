@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use std::{
+    collections::BTreeSet,
     error::Error,
     fmt::{self, Debug, Display, Formatter},
 };
@@ -19,6 +20,9 @@ use yew_tincture::components::{Button, CheckboxLabel, TypedInput, TypedInputStor
 
 use ads_webasm::components::{RecordingPathWidget, ReloadButton};
 
+mod cam_preview;
+use cam_preview::CamPreview;
+
 // -----------------------------------------------------------------------------
 
 // Model
@@ -31,6 +35,8 @@ struct Model {
     recording_path: Option<RecordingPath>,
     fake_mp4_recording_path: Option<RecordingPath>,
     post_trigger_buffer_size_local: TypedInputStorage<usize>,
+    /// Names of the cameras for which a live preview is currently shown.
+    preview_cams: BTreeSet<String>,
     _listeners: Vec<EventListener>,
 }
 
@@ -46,6 +52,7 @@ enum Msg {
     PostTriggerMp4Recording,
     DoTakeNewBackgroundImage,
     SetBackgroundUpdating(bool),
+    SetCamPreview(String, bool),
     RenderView,
 }
 
@@ -121,6 +128,7 @@ impl Component for Model {
             recording_path: None,
             fake_mp4_recording_path: None,
             post_trigger_buffer_size_local: TypedInputStorage::empty(),
+            preview_cams: BTreeSet::new(),
             _listeners,
         }
     }
@@ -187,6 +195,13 @@ impl Component for Model {
             Msg::SetBackgroundUpdating(val) => {
                 return self
                     .send_to_all_cams(ctx, BraidHttpApiCallback::SetBackgroundUpdating(val));
+            }
+            Msg::SetCamPreview(cam_name, show) => {
+                if show {
+                    self.preview_cams.insert(cam_name);
+                } else {
+                    self.preview_cams.remove(&cam_name);
+                }
             }
         }
         true
@@ -332,7 +347,7 @@ impl Model {
                         <div class="wrap-collapsible">
                             <CheckboxLabel label="Cameras" initially_checked=true />
                             <div>
-                                {view_cam_list(value)}
+                                {self.view_cam_list(ctx, value)}
                             </div>
                         </div>
                         <div class="wrap-collapsible">
@@ -419,55 +434,90 @@ fn view_calibration(calibration_filename: &Option<String>) -> Html {
     }
 }
 
-fn view_cam_list(shared: &BraidHttpApiSharedState) -> Html {
-    let cams = &shared.connected_cameras;
-    let n_cams_msg = if cams.len() == 1 {
-        "1 camera:".to_string()
-    } else {
-        format!("{} cameras:", cams.len())
-    };
-    let all_rendered: Vec<Html> = cams
-        .iter()
-        .map(|cci| {
-            let cam_url = match cci.strand_cam_http_server_info {
-                BuiServerInfo::NoServer => "/does-not-exist".to_string(),
-                BuiServerInfo::Server(_) => {
-                    format!(
-                        "/{}/{}/",
-                        braid_types::braid_http::CAM_PROXY_PATH,
-                        braid_types::braid_http::encode_cam_name(&cci.name)
-                    )
+impl Model {
+    fn view_cam_list(&self, ctx: &Context<Self>, shared: &BraidHttpApiSharedState) -> Html {
+        let cams = &shared.connected_cameras;
+        let n_cams_msg = if cams.len() == 1 {
+            "1 camera:".to_string()
+        } else {
+            format!("{} cameras:", cams.len())
+        };
+        let all_rendered: Vec<Html> = cams
+            .iter()
+            .map(|cci| {
+                let has_server =
+                    !matches!(cci.strand_cam_http_server_info, BuiServerInfo::NoServer);
+                let proxy_prefix = format!(
+                    "/{}/{}/",
+                    braid_types::braid_http::CAM_PROXY_PATH,
+                    braid_types::braid_http::encode_cam_name(&cci.name)
+                );
+                let cam_url = if has_server {
+                    proxy_prefix.clone()
+                } else {
+                    "/does-not-exist".to_string()
+                };
+                let state = format!("{:?}", cci.state);
+                let stats = format!("{:?}", cci.recent_stats);
+                let bg_updating = match shared.background_model_updating.get(&cci.name) {
+                    Some(true) => "background updating: on",
+                    Some(false) => "background updating: off",
+                    None => "background updating: unknown",
+                };
+                let preview = if has_server {
+                    let cam_name = cci.name.as_str().to_string();
+                    let preview_open = self.preview_cams.contains(&cam_name);
+                    let preview_body = if preview_open {
+                        html! {
+                            <CamPreview
+                                proxy_prefix={proxy_prefix.clone()}
+                                cam_name={cam_name.clone()}
+                            />
+                        }
+                    } else {
+                        html! {}
+                    };
+                    html! {
+                        <div class="wrap-collapsible">
+                            <CheckboxLabel
+                                label="Preview"
+                                initially_checked={preview_open}
+                                oncheck={ctx.link().callback(move |checked| {
+                                    Msg::SetCamPreview(cam_name.clone(), checked)
+                                })}
+                                />
+                            <div>
+                                {preview_body}
+                            </div>
+                        </div>
+                    }
+                } else {
+                    html! {}
+                };
+                html! {
+                    <li key={cci.name.as_str().to_string()}>
+                        <a href={cam_url}>{cci.name.as_str()}</a>
+                        {" "}
+                        {state}
+                        {" "}
+                        {stats}
+                        {" "}
+                        {bg_updating}
+                        {preview}
+                    </li>
                 }
-            };
-            let state = format!("{:?}", cci.state);
-            let stats = format!("{:?}", cci.recent_stats);
-            let bg_updating = match shared.background_model_updating.get(&cci.name) {
-                Some(true) => "background updating: on",
-                Some(false) => "background updating: off",
-                None => "background updating: unknown",
-            };
-            html! {
-                <li>
-                    <a href={cam_url}>{cci.name.as_str()}</a>
-                    {" "}
-                    {state}
-                    {" "}
-                    {stats}
-                    {" "}
-                    {bg_updating}
-                </li>
-            }
-        })
-        .collect();
-    html! {
-        <div>
+            })
+            .collect();
+        html! {
             <div>
-                {n_cams_msg}
-                <ul>
-                    {all_rendered}
-                </ul>
+                <div>
+                    {n_cams_msg}
+                    <ul>
+                        {all_rendered}
+                    </ul>
+                </div>
             </div>
-        </div>
+        }
     }
 }
 
