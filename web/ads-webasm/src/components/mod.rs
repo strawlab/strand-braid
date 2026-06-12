@@ -28,7 +28,7 @@ mod recording_path;
 pub use self::recording_path::RecordingPathWidget;
 
 mod video_field;
-pub use self::video_field::{ImData2, VideoField};
+pub use self::video_field::{ImData2, VideoField, draw_shapes};
 
 #[cfg(feature = "obj")]
 pub mod obj_widget;

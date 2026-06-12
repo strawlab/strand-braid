@@ -3,7 +3,6 @@
 @use '../../../../web/ads-webasm/scss/recording_path';
 @use '../../../../web/ads-webasm/scss/lds_ellipsis';
 @use '../../../../web/ads-webasm/scss/wrap_collapsible';
-@use '../../../../web/ads-webasm/scss/video_field';
 
 $footer-height: 2.5rem;
 
@@ -21,12 +20,72 @@ $footer-height: 2.5rem;
 );
 
 @include recording_path.recording_path($background-dark: solid 1px colors.$body-color-dark, $background-light: solid 1px colors.$body-color-light);
-@include video_field.video_field($border-dark: 1px solid colors.$body-color-dark, $border-light: 1px solid colors.$body-color-light);
 
 /* Space out the boxed sections. */
 .wrap-collapsible {
     margin-top: 0.75em;
     margin-bottom: 0.75em;
+}
+
+/* Dense grid of per-camera preview tiles. */
+.cam-preview-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75em;
+    margin-top: 0.5em;
+}
+
+.cam-preview-card {
+    width: 18rem;
+}
+
+.cam-preview-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.25em;
+}
+
+.cam-preview-canvas {
+    width: 100%;
+    border: 1px solid currentColor;
+    box-sizing: border-box;
+}
+
+/* Grayed-out field with an "x" through it, shown when the preview is not
+live. */
+.cam-preview-placeholder,
+.cam-preview-status {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border: 1px solid currentColor;
+    box-sizing: border-box;
+    opacity: 0.4;
+}
+
+.cam-preview-placeholder {
+    background:
+        linear-gradient(to top right,
+            transparent calc(50% - 1px),
+            currentColor calc(50% - 1px),
+            currentColor calc(50% + 1px),
+            transparent calc(50% + 1px)),
+        linear-gradient(to bottom right,
+            transparent calc(50% - 1px),
+            currentColor calc(50% - 1px),
+            currentColor calc(50% + 1px),
+            transparent calc(50% + 1px));
+}
+
+.cam-preview-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cam-preview-card-info {
+    font-size: 0.8em;
+    overflow-wrap: break-word;
 }
 
 #page-container {

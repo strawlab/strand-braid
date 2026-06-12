@@ -12,6 +12,7 @@ anyhow.workspace = true
 log.workspace = true
 wasm-logger.workspace = true
 gloo-events.workspace = true
+gloo-timers = "0.3.0"
 gloo-utils.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
@@ -34,9 +35,12 @@ ads-webasm.workspace = true
 [dependencies.web-sys]
 workspace = true
 features = [
+  "CanvasRenderingContext2d",
   "Event",
   "EventSource",
   "Headers",
+  "HtmlCanvasElement",
+  "HtmlImageElement",
   "HtmlInputElement",
   "MessageEvent",
   "Request",

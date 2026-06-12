@@ -1,41 +1,64 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Live preview of one camera, streamed through Braid's `cam-proxy`.
+//! Live preview tile of one camera, streamed through Braid's `cam-proxy`.
 //!
-//! This connects to the camera's Strand Camera HTTP server via the mainbrain
-//! reverse proxy, subscribes to its event stream (which carries the
-//! "firehose" video frames including tracked points), and displays the
-//! frames in a [`VideoField`]. It implements the same receiver-paced flow
-//! control as the Strand Camera UI: after a frame is rendered, a
-//! `FirehoseNotify` callback is posted so the server sends the next frame.
-
-use std::{cell::RefCell, rc::Rc};
+//! This connects to the camera's Strand Camera HTTP server through the
+//! mainbrain reverse proxy, subscribes to its event stream (which carries the
+//! "firehose" video frames including detected points), and draws the frames
+//! onto a compact canvas. It implements the same receiver-paced flow control
+//! as the Strand Camera UI: after a frame is rendered, a `FirehoseNotify`
+//! callback is posted so the server sends the next frame.
 
 use gloo_events::EventListener;
-use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt};
+use gloo_timers::callback::{Interval, Timeout};
+use wasm_bindgen::{JsCast, JsValue, UnwrapThrowExt, closure::Closure};
 use web_sys::{EventSource, MessageEvent};
-use yew::{Component, Context, Event, Html, Properties, html};
+use yew::{Component, Context, Event, Html, NodeRef, Properties, html};
 
-use ads_webasm::{components::VideoField, video_data::VideoData};
-use strand_cam_storetype::{CallbackType, StoreType};
-use strand_http_video_streaming_types::ToClient as FirehoseImageData;
+use strand_bui_backend_session_types::ConnectionKey;
+use strand_cam_storetype::CallbackType;
+use strand_http_video_streaming_types::{
+    CanvasDrawableShape, DrawableShape, StrokeStyle, ToClient as FirehoseImageData,
+};
+
+/// Maximum frame rate of the preview.
+///
+/// The preview always shows the most recent frame, so this limits resource
+/// usage without adding latency.
+const PREVIEW_FPS: f64 = 10.0;
+
+/// A frame which finished loading into the `<img>` element and can be drawn.
+#[derive(Clone, PartialEq)]
+pub(crate) struct LoadedFrame {
+    fno: u64,
+    ck: ConnectionKey,
+    shapes: Vec<CanvasDrawableShape>,
+}
 
 pub(crate) struct CamPreview {
     es: EventSource,
     _listeners: Vec<EventListener>,
-    conn_key: Option<String>,
-    server_state: Option<Box<StoreType>>,
-    video_data: Rc<RefCell<VideoData>>,
-    full_window: bool,
+    image: web_sys::HtmlImageElement,
+    /// Keeps the current `<img>` onload closure alive. Replaced every frame.
+    onload_closure: Option<Closure<dyn FnMut()>>,
+    canvas_ref: NodeRef,
+    green_stroke: StrokeStyle,
+    rendered_fno: Option<u64>,
+    /// Connection key of this event stream, as reported by the camera in the
+    /// most recent video frame message. Required to send `FirehoseNotify`.
+    last_ck: Option<ConnectionKey>,
+    last_frame_render: f64,
+    last_recv: f64,
+    timeout: Option<Timeout>,
+    _clock_handle: Interval,
 }
 
 pub(crate) enum Msg {
-    NewConnKey(String),
-    NewServerState(Box<StoreType>),
     NewImageFrame(FirehoseImageData),
-    RenderedImage(strand_bui_backend_session_types::ConnectionKey),
-    SetFullWindow(bool),
+    FrameLoaded(LoadedFrame),
+    NotifySender,
+    CheckForUpdate,
     EsError,
     Nop,
 }
@@ -46,8 +69,6 @@ pub(crate) struct Props {
     /// Camera HTTP server through the braid camera proxy, e.g.
     /// `/cam-proxy/<encoded-cam-name>/`.
     pub(crate) proxy_prefix: String,
-    /// Camera name, displayed as part of the title.
-    pub(crate) cam_name: String,
 }
 
 impl Component for CamPreview {
@@ -67,16 +88,6 @@ impl Component for CamPreview {
             })
             .unwrap_throw();
 
-        let key_callback = ctx.link().callback(Msg::NewConnKey);
-        let data_callback =
-            ctx.link()
-                .callback(|bufstr: String| match serde_json::from_str(&bufstr) {
-                    Ok(msg) => Msg::NewServerState(msg),
-                    Err(e) => {
-                        log::error!("error decoding camera state: {e}");
-                        Msg::Nop
-                    }
-                });
         let stream_callback = ctx.link().callback(|bufstr: String| {
             match serde_json::from_str::<FirehoseImageData>(&bufstr) {
                 Ok(image_result) => Msg::NewImageFrame(image_result),
@@ -88,24 +99,6 @@ impl Component for CamPreview {
         });
 
         let mut _listeners = Vec::new();
-        _listeners.push(EventListener::new(
-            &es,
-            strand_cam_storetype::CONN_KEY_EVENT_NAME,
-            move |event: &Event| {
-                let event = event.dyn_ref::<MessageEvent>().unwrap_throw();
-                let text = event.data().as_string().unwrap_throw();
-                key_callback.emit(text);
-            },
-        ));
-        _listeners.push(EventListener::new(
-            &es,
-            strand_cam_storetype::STRAND_CAM_EVENT_NAME,
-            move |event: &Event| {
-                let event = event.dyn_ref::<MessageEvent>().unwrap_throw();
-                let text = event.data().as_string().unwrap_throw();
-                data_callback.emit(text);
-            },
-        ));
         _listeners.push(EventListener::new(
             &es,
             strand_http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
@@ -122,13 +115,24 @@ impl Component for CamPreview {
             link.send_message(Msg::EsError);
         }));
 
+        let _clock_handle = {
+            let link = ctx.link().clone();
+            Interval::new(100, move || link.send_message(Msg::CheckForUpdate))
+        };
+
         Self {
             es,
             _listeners,
-            conn_key: None,
-            server_state: None,
-            video_data: Rc::new(RefCell::new(VideoData::new(None))),
-            full_window: false,
+            image: web_sys::HtmlImageElement::new().unwrap_throw(),
+            onload_closure: None,
+            canvas_ref: NodeRef::default(),
+            green_stroke: StrokeStyle::from_rgb(0x7F, 0xFF, 0x7F),
+            rendered_fno: None,
+            last_ck: None,
+            last_frame_render: 0.0,
+            last_recv: 0.0,
+            timeout: None,
+            _clock_handle,
         }
     }
 
@@ -140,31 +144,92 @@ impl Component for CamPreview {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::NewConnKey(conn_key) => {
-                self.conn_key = Some(conn_key);
-            }
-            Msg::NewServerState(server_state) => {
-                self.server_state = Some(server_state);
-            }
             Msg::NewImageFrame(in_msg) => {
-                *self.video_data.borrow_mut() = VideoData::new(Some(in_msg));
-            }
-            Msg::RenderedImage(ck) => {
-                // Tell the camera that we rendered this frame and are thus
-                // ready for the next one.
-                let url = format!("{}callback", ctx.props().proxy_prefix);
-                ctx.link().send_future(async move {
-                    let msg = CallbackType::FirehoseNotify(ck);
-                    let buf = serde_json::to_string(&msg).unwrap_throw();
-                    if let Err(e) = post_json(&url, buf).await {
-                        log::error!("failed sending firehose notification: {e:?}");
-                    }
-                    Msg::Nop
-                });
+                self.last_recv = js_sys::Date::now();
+
+                let mut draw_shapes = in_msg.annotations.clone();
+                if let Some(ref valid_display) = in_msg.valid_display {
+                    let line_width = 5.0;
+                    draw_shapes.push(DrawableShape::from_shape(
+                        valid_display,
+                        &self.green_stroke,
+                        line_width,
+                    ));
+                }
+                let loaded = LoadedFrame {
+                    fno: in_msg.fno,
+                    ck: in_msg.ck,
+                    shapes: draw_shapes.into_iter().map(|s| s.into()).collect(),
+                };
+                let callback = ctx
+                    .link()
+                    .callback(move |_| Msg::FrameLoaded(loaded.clone()));
+                let on_load_closure = Closure::wrap(Box::new(move || {
+                    callback.emit(()); // dummy arg for callback
+                }) as Box<dyn FnMut()>);
+
+                self.image.set_src(&in_msg.firehose_frame_data_url);
+                self.image
+                    .set_onload(Some(on_load_closure.as_ref().unchecked_ref()));
+                // Keep the new closure alive; drop the previous one, which the
+                // `<img>` element no longer references.
+                self.onload_closure = Some(on_load_closure);
                 return false;
             }
-            Msg::SetFullWindow(val) => {
-                self.full_window = val;
+            Msg::FrameLoaded(frame) => {
+                self.draw_frame_canvas(&frame);
+                let first_frame = self.rendered_fno.is_none();
+                self.rendered_fno = Some(frame.fno);
+                self.last_ck = Some(frame.ck);
+
+                // Wait before requesting a new frame to throttle the rate.
+                let wait_msecs = {
+                    let now = js_sys::Date::now(); // in milliseconds
+                    let desired_dt = 1.0 / PREVIEW_FPS * 1000.0; // convert to msec
+                    let desired_now = self.last_frame_render + desired_dt;
+                    let wait = desired_now - now;
+                    self.last_frame_render = now;
+                    wait.round() as i64
+                };
+                if wait_msecs > 0 {
+                    let link = ctx.link().clone();
+                    self.timeout = Some(Timeout::new(wait_msecs as u32, move || {
+                        link.send_message(Msg::NotifySender)
+                    }));
+                } else {
+                    self.timeout = None;
+                    ctx.link().send_message(Msg::NotifySender);
+                }
+
+                // The first frame switches the view from "connecting" to the
+                // canvas; subsequent draws need no DOM update.
+                return first_frame;
+            }
+            Msg::NotifySender => {
+                self.timeout = None;
+                if let Some(ck) = self.last_ck {
+                    let url = format!("{}callback", ctx.props().proxy_prefix);
+                    ctx.link().send_future(async move {
+                        let msg = CallbackType::FirehoseNotify(ck);
+                        let buf = serde_json::to_string(&msg).unwrap_throw();
+                        if let Err(e) = post_json(&url, buf).await {
+                            log::error!("failed sending firehose notification: {e:?}");
+                        }
+                        Msg::Nop
+                    });
+                }
+                return false;
+            }
+            Msg::CheckForUpdate => {
+                // If no frame arrived for too long (e.g. a notification was
+                // lost), request a new one.
+                let now = js_sys::Date::now(); // in milliseconds
+                let dur_msec = now - self.last_recv;
+                if dur_msec > (1.0 / PREVIEW_FPS * 1000.0) && self.last_ck.is_some() {
+                    self.last_recv = now; // Reset timeout to limit requests.
+                    ctx.link().send_message(Msg::NotifySender);
+                }
+                return false;
             }
             Msg::EsError => {}
             Msg::Nop => {
@@ -174,33 +239,56 @@ impl Component for CamPreview {
         true
     }
 
-    fn view(&self, ctx: &Context<Self>) -> Html {
-        if let (Some(conn_key), Some(shared)) = (self.conn_key.as_ref(), self.server_state.as_ref())
-        {
-            let title = format!("Live view - {}", ctx.props().cam_name);
-            html! {
-                <VideoField
-                    title={title}
-                    conn_key={conn_key.clone()}
-                    video_data={self.video_data.clone()}
-                    image_width={shared.image_width}
-                    image_height={shared.image_height}
-                    measured_fps={shared.measured_fps}
-                    full_window={self.full_window}
-                    on_rendered={ctx.link().callback(Msg::RenderedImage)}
-                    on_full_window={ctx.link().callback(Msg::SetFullWindow)}
-                />
-            }
+    fn view(&self, _ctx: &Context<Self>) -> Html {
+        let canvas_style = if self.rendered_fno.is_some() {
+            ""
+        } else {
+            "display: none;"
+        };
+        let status = if self.rendered_fno.is_some() {
+            html! {}
         } else if self.es.ready_state() == 2 {
             // 0: connecting, 1: open, 2: closed
             html! {
-                <p>{"Connection to camera closed."}</p>
+                <div class="cam-preview-status">{"Connection to camera closed."}</div>
             }
         } else {
             html! {
-                <p>{"Connecting to camera..."}</p>
+                <div class="cam-preview-status">{"Connecting to camera..."}</div>
             }
+        };
+        html! {
+            <>
+                <canvas
+                    ref={self.canvas_ref.clone()}
+                    class="cam-preview-canvas"
+                    style={canvas_style}
+                    />
+                {status}
+            </>
         }
+    }
+}
+
+impl CamPreview {
+    fn draw_frame_canvas(&self, frame: &LoadedFrame) {
+        let Some(canvas) = self.canvas_ref.cast::<web_sys::HtmlCanvasElement>() else {
+            return;
+        };
+        // Match the canvas resolution to the camera image.
+        let (w, h) = (self.image.natural_width(), self.image.natural_height());
+        if canvas.width() != w {
+            canvas.set_width(w);
+        }
+        if canvas.height() != h {
+            canvas.set_height(h);
+        }
+        let ctx = web_sys::CanvasRenderingContext2d::from(JsValue::from(
+            canvas.get_context("2d").unwrap_throw().unwrap_throw(),
+        ));
+        ctx.draw_image_with_html_image_element(&self.image, 0.0, 0.0)
+            .unwrap_throw();
+        ads_webasm::components::draw_shapes(&ctx, &frame.shapes);
     }
 }
 
