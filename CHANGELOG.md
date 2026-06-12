@@ -2,6 +2,12 @@
 
 ### Added
 
+* The browser UIs of Braid and of standalone Strand Camera have a "Quit"
+  button (with a confirmation dialog which warns when recording is active).
+  Braid's quit button gracefully stops the whole system: recording is stopped
+  and files are closed, all connected cameras quit, and then Braid itself
+  exits. When Strand Camera runs under Braid, its own quit button is hidden;
+  use Braid's.
 * The Braid browser UI can now show a live preview of each connected camera,
   including detected points, without leaving the Braid UI. The camera list is a
   dense grid of per-camera tiles, each with a "live" toggle. Live tiles stream

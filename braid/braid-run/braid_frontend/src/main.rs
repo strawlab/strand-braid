@@ -37,6 +37,8 @@ struct Model {
     post_trigger_buffer_size_local: TypedInputStorage<usize>,
     /// Names of the cameras for which a live preview is currently shown.
     preview_cams: BTreeSet<String>,
+    /// Whether the user has commanded Braid to quit.
+    user_quit: bool,
     _listeners: Vec<EventListener>,
 }
 
@@ -53,6 +55,7 @@ enum Msg {
     DoTakeNewBackgroundImage,
     SetBackgroundUpdating(bool),
     SetCamPreview(String, bool),
+    DoQuit,
     RenderView,
 }
 
@@ -129,6 +132,7 @@ impl Component for Model {
             fake_mp4_recording_path: None,
             post_trigger_buffer_size_local: TypedInputStorage::empty(),
             preview_cams: BTreeSet::new(),
+            user_quit: false,
             _listeners,
         }
     }
@@ -202,6 +206,29 @@ impl Component for Model {
                 } else {
                     self.preview_cams.remove(&cam_name);
                 }
+            }
+            Msg::DoQuit => {
+                let recording =
+                    self.recording_path.is_some() || self.fake_mp4_recording_path.is_some();
+                let msg = if recording {
+                    "Recording is in progress. Quitting will stop recording and \
+                    close the files. Quit Braid and all connected cameras?"
+                } else {
+                    "Quit Braid and all connected cameras?"
+                };
+                let confirmed = gloo_utils::window()
+                    .confirm_with_message(msg)
+                    .unwrap_or(false);
+                if !confirmed {
+                    return false;
+                }
+                self.user_quit = true;
+                ctx.link().send_future(async move {
+                    match post_callback(&BraidHttpApiCallback::DoQuit).await {
+                        Ok(()) => Msg::SendMessageFetchState(FetchState::Success),
+                        Err(err) => Msg::SendMessageFetchState(FetchState::Failed(err)),
+                    }
+                });
             }
         }
         true
@@ -359,6 +386,9 @@ impl Model {
                             </div>
                         </div>
                     </div>
+                    <div class="quit-section">
+                        <Button title={"Quit Braid"} onsignal={ctx.link().callback(|_| Msg::DoQuit)}/>
+                    </div>
                 </div>
             }
         } else {
@@ -371,6 +401,14 @@ impl Model {
     }
 
     fn disconnected_dialog(&self) -> Html {
+        if self.user_quit {
+            return html! {
+                <div class="modal-container">
+                    <h1> { "Braid has quit" } </h1>
+                    <p>{ "You may close this page." }</p>
+                </div>
+            };
+        }
         // 0: connecting, 1: open, 2: closed
         if self.es.ready_state() == 1 {
             html! {

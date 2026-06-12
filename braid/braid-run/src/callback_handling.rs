@@ -297,6 +297,16 @@ pub(crate) async fn callback_handler(
                         })?;
                 }
             }
+            DoQuit => {
+                debug!("got DoQuit");
+                // Initiate the graceful shutdown sequence: stop saving data
+                // and close files, command all cameras to quit, then exit.
+                app_state
+                    .shtdwn_q_tx
+                    .send(())
+                    .await
+                    .map_err(|_e| (StatusCode::INTERNAL_SERVER_ERROR, "shutdown send failed"))?;
+            }
         }
         Ok::<_, (StatusCode, &'static str)>(())
     };

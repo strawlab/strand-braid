@@ -70,3 +70,9 @@ body {
     margin-left: 10px;
     margin-right: 10px;
 }
+
+/* Keep the quit button visually separate from frequently-used controls. */
+.quit-section {
+    margin-top: 3em;
+    text-align: right;
+}

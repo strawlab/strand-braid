@@ -1092,6 +1092,11 @@ pub enum BraidHttpApiCallback {
     DoTakeNewBackgroundImage,
     /// Enable or disable continuous background model updating on all cameras.
     SetBackgroundUpdating(bool),
+    /// Quit Braid.
+    ///
+    /// This stops recording (closing all files), commands all connected
+    /// cameras to quit, and then exits.
+    DoQuit,
 }
 
 /// Wrapper for per-camera data.
