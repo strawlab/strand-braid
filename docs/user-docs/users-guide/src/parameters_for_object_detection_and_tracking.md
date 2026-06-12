@@ -22,6 +22,45 @@ section of the API.
 
 A more technical account of this procedure can be found in [Straw et al. (2011)](http://dx.doi.org/10.1098/rsif.2010.0230).
 
+### How background subtraction works
+
+Object detection operates on luminance (monochrome, 8-bit) images. Images from
+color cameras are converted first: RGB pixels are converted to luma using the
+standard BT.601 weights (Y ≈ 0.3 R + 0.59 G + 0.11 B), and raw Bayer-format
+images are demosaiced to RGB and then converted to luma. Detection is
+therefore most sensitive to green contrast for color cameras.
+
+The background model maintains, per pixel, a running mean and a running mean
+of squared values (from which a per-pixel standard deviation is derived), both
+in 32-bit floating point. When Strand Camera starts, the model is initialized
+by averaging the first 20 frames; no features are detected during this brief
+startup period. This happens whether or not continuous background updating
+(`do_update_background_model`) is enabled. When updating is enabled, the model
+is updated every `bg_update_interval` frames by blending in the current frame
+with weight `alpha`.
+
+A pixel is detected as part of a feature when its difference from the
+background mean (with sign according to `polarity`) exceeds a threshold. With
+`use_cmp` enabled, the threshold is per-pixel and adaptive: `n_sigma` times
+the running standard deviation of that pixel, but never less than
+`diff_threshold`. With `use_cmp` disabled, the fixed `diff_threshold` is used
+everywhere.
+
+### Background model controls in the browser UI
+
+The object detection panel in Strand Camera's browser interface has two
+buttons affecting the background model:
+
+- **Take Current Image As Background** — discards the current model and
+  re-initializes it from the next 20 frames, exactly as at startup. Use this
+  after changing the scene or lighting, especially when continuous updating is
+  disabled.
+- **Set background to mid-gray** — sets the background mean to a uniform value
+  of 127 with zero variance.
+
+Like everything in the browser interface, these buttons can also be triggered
+programmatically; see [Scripting with Python](scripting-with-python.md).
+
 <!--
 ### Optimization
 

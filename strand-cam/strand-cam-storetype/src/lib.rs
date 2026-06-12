@@ -444,14 +444,16 @@ pub enum CallbackType {
     /// Notification for firehose data streaming connections.
     FirehoseNotify(strand_bui_backend_session_types::ConnectionKey),
     // used only with image-tracker crate
-    /// Capture the current image as a background reference.
+    /// Re-initialize the background model from the currently incoming images.
     ///
     /// Used for background subtraction in object detection algorithms.
     TakeCurrentImageAsBackground,
     // used only with image-tracker crate
-    /// Clear the background reference with the specified alpha value.
+    /// Set the background model to a uniform image with the given pixel value.
     ///
-    /// The alpha parameter controls the mixing ratio for background updates.
+    /// The value is the gray level (0-255) assigned to every pixel of the
+    /// background mean; the model variance is set to zero. The browser UI's
+    /// "Set background to mid-gray" button sends 127.0.
     ClearBackground(f32),
     /// Commands to send to LED control devices.
     ToLedBox(ToLedBoxDevice),
