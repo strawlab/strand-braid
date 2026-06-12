@@ -73,6 +73,44 @@ first detected), `Update` (position estimate for a tracked object), and `Death`
 can extend it to handle `Birth` and `Death` events for applications that need
 to track object identity over time.
 
+## Demo: resetting the object detection background model using Python
+
+[`reset-background.py`](https://github.com/strawlab/strand-braid/blob/main/docs/user-docs/scripts/reset-background.py)
+presses the background model buttons of the [object detection
+UI](parameters_for_object_detection_and_tracking.md) programmatically. By
+default it acts like the **Take Current Image As Background** button,
+re-initializing the background model from the next ~20 incoming frames:
+
+```sh
+python reset-background.py --strand-cam-url http://127.0.0.1:3440/
+```
+
+With `--clear-to-value`, it instead acts like the **Set background to
+mid-gray** button, setting the background model to a uniform gray value:
+
+```sh
+python reset-background.py --strand-cam-url http://127.0.0.1:3440/ --clear-to-value 127
+```
+
+The underlying HTTP calls are simple: a POST to the `/callback` endpoint with
+the JSON body `"TakeCurrentImageAsBackground"` or `{"ClearBackground": 127.0}`.
+
+## Demo: resetting the background model on all cameras of a Braid setup
+
+[`reset-background-braid-all-cams.py`](https://github.com/strawlab/strand-braid/blob/main/docs/user-docs/scripts/reset-background-braid-all-cams.py)
+performs the same background reset on every camera connected to a running
+Braid instance. Run it like so:
+
+```sh
+python reset-background-braid-all-cams.py --braid-url http://127.0.0.1:8397/
+```
+
+Unlike MP4 recording, there is no single Braid command for this. Instead, the
+script asks Braid for the HTTP address of every connected camera (this is
+carried in the `connected_cameras` field of the Braid event stream) and then
+sends the command to each Strand Camera directly. The same pattern can be used
+to automate any other per-camera action across a whole Braid setup.
+
 ## Advanced: automating manual actions
 
 Any action available in the browser UI can be scripted. To discover the
