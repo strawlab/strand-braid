@@ -1,15 +1,20 @@
 ## Building
 
-To build the frontend
-
-    cd yew_frontend
-    ./build.sh
-
 This crate builds the single `strand-cam` executable, which supports both the
 Basler Pylon and Allied Vision Vimba camera backends. The backend is selected at
 runtime with the `--camera-backend pylon|vimba` argument (defaulting to pylon).
 Both vendor SDKs are loaded dynamically at runtime, so neither is required to
 build.
+
+With the (default) `bundle_files` feature, the browser frontend in
+`yew_frontend` is compiled by `trunk` and embedded into the executable
+automatically by `build.rs`; no separate frontend build step is needed. With
+the `serve_files` feature, the frontend is instead served from
+`yew_frontend/dist` at runtime (useful for frontend development), so build it
+first in that case:
+
+    cd yew_frontend
+    ./build.sh
 
 To check the build
 
