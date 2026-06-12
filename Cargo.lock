@@ -1781,6 +1781,7 @@ dependencies = [
  "braid-types",
  "console_error_panic_hook",
  "gloo-events 0.1.2",
+ "gloo-timers 0.3.0",
  "gloo-utils 0.1.7",
  "js-sys",
  "log",

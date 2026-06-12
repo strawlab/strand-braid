@@ -18,7 +18,7 @@ use strand_cam_bui_types::RecordingPath;
 use yew::{Component, Context, Event, Html, html};
 use yew_tincture::components::{Button, CheckboxLabel, TypedInput, TypedInputStorage};
 
-use ads_webasm::components::{RecordingPathWidget, ReloadButton};
+use ads_webasm::components::{RecordingPathWidget, ReloadButton, Toggle};
 
 mod cam_preview;
 use cam_preview::CamPreview;
@@ -464,57 +464,52 @@ impl Model {
                     Some(false) => "background updating: off",
                     None => "background updating: unknown",
                 };
-                let preview = if has_server {
-                    let cam_name = cci.name.as_str().to_string();
-                    let preview_open = self.preview_cams.contains(&cam_name);
-                    let preview_body = if preview_open {
-                        html! {
-                            <CamPreview
-                                proxy_prefix={proxy_prefix.clone()}
-                                cam_name={cam_name.clone()}
-                            />
-                        }
-                    } else {
-                        html! {}
-                    };
+                let cam_name = cci.name.as_str().to_string();
+                let is_live = has_server && self.preview_cams.contains(&cam_name);
+                let preview_area = if is_live {
                     html! {
-                        <div class="wrap-collapsible">
-                            <CheckboxLabel
-                                label="Preview"
-                                initially_checked={preview_open}
-                                oncheck={ctx.link().callback(move |checked| {
-                                    Msg::SetCamPreview(cam_name.clone(), checked)
-                                })}
-                                />
-                            <div>
-                                {preview_body}
-                            </div>
-                        </div>
+                        <CamPreview proxy_prefix={proxy_prefix.clone()} />
+                    }
+                } else {
+                    html! {
+                        <div class="cam-preview-placeholder" />
+                    }
+                };
+                let live_toggle = if has_server {
+                    let name = cam_name.clone();
+                    html! {
+                        <Toggle
+                            label="live"
+                            value={is_live}
+                            ontoggle={ctx.link().callback(move |checked| {
+                                Msg::SetCamPreview(name.clone(), checked)
+                            })}
+                            />
                     }
                 } else {
                     html! {}
                 };
                 html! {
-                    <li key={cci.name.as_str().to_string()}>
-                        <a href={cam_url}>{cci.name.as_str()}</a>
-                        {" "}
-                        {state}
-                        {" "}
-                        {stats}
-                        {" "}
-                        {bg_updating}
-                        {preview}
-                    </li>
+                    <div class="cam-preview-card" key={cam_name.clone()}>
+                        <div class="cam-preview-card-header">
+                            <a href={cam_url}>{cci.name.as_str()}</a>
+                            {live_toggle}
+                        </div>
+                        {preview_area}
+                        <div class="cam-preview-card-info">
+                            <div>{state}</div>
+                            <div>{stats}</div>
+                            <div>{bg_updating}</div>
+                        </div>
+                    </div>
                 }
             })
             .collect();
         html! {
             <div>
-                <div>
-                    {n_cams_msg}
-                    <ul>
-                        {all_rendered}
-                    </ul>
+                {n_cams_msg}
+                <div class="cam-preview-grid">
+                    {all_rendered}
                 </div>
             </div>
         }

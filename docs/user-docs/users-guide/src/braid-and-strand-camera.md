@@ -63,11 +63,12 @@ experiment begins.
 ## Viewing live camera images in Braid
 
 The Braid browser UI shows a live preview of each connected camera, including
-the points detected for tracking. In the **Cameras** section, expand the
-**Preview** section of a camera to start its preview; collapse it to stop. The
-preview streams images only while it is open, so leaving previews closed avoids
-unnecessary load on the camera computers. Clicking a camera's name still opens
-the full Strand Camera UI for that camera.
+the points detected for tracking. The **Cameras** section shows a tile for
+each camera with a **live** toggle. Switching a tile live streams the camera's
+images; switching it off shows a grayed-out placeholder instead. Images are
+streamed only while a tile is live, so leaving tiles off avoids unnecessary
+load on the camera computers. Clicking a camera's name opens the full Strand
+Camera UI for that camera.
 
 ## Getting started
 
