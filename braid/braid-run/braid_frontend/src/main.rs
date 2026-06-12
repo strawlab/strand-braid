@@ -321,13 +321,28 @@ impl Model {
             html! {
                 <div>
                     {fake_sync_warning}
-                    <div>
-                        {record_widget}
+                    <div class="wrapper">
+                        <div class="wrap-collapsible">
+                            <CheckboxLabel label="Recording" initially_checked=true />
+                            <div>
+                                {record_widget}
+                            </div>
+                        </div>
                         { self.view_background_model_options(ctx) }
-                        {view_clock_model(value)}
-                        {view_calibration(&value.calibration_filename)}
-                        {view_cam_list(value)}
-                        {view_model_server_link(&value.model_server_addr)}
+                        <div class="wrap-collapsible">
+                            <CheckboxLabel label="Cameras" initially_checked=true />
+                            <div>
+                                {view_cam_list(value)}
+                            </div>
+                        </div>
+                        <div class="wrap-collapsible">
+                            <CheckboxLabel label="Status" initially_checked=true />
+                            <div>
+                                {view_clock_model(value)}
+                                {view_calibration(&value.calibration_filename)}
+                                {view_model_server_link(&value.model_server_addr)}
+                            </div>
+                        </div>
                     </div>
                 </div>
             }
