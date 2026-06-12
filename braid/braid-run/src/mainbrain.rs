@@ -95,6 +95,8 @@ pub(crate) struct BraidAppState {
     pub(crate) cam_manager: flydra2::ConnectedCamerasManager,
     pub(crate) output_base_dirname: PathBuf,
     pub(crate) braidz_write_tx_weak: tokio::sync::mpsc::WeakSender<flydra2::SaveToDiskMsg>,
+    /// Sending `()` initiates the graceful shutdown sequence.
+    pub(crate) shtdwn_q_tx: tokio::sync::mpsc::Sender<()>,
 }
 
 async fn events_handler(
@@ -464,7 +466,7 @@ pub(crate) async fn do_run_forever(
     // Create `stream_cancel::Valve` for shutting everything down. Note this is
     // `Clone`, so we can (and should) shut down everything with it.
     let (quit_trigger, valve) = stream_cancel::Valve::new();
-    let (_shtdwn_q_tx, mut shtdwn_q_rx) = tokio::sync::mpsc::channel::<()>(5);
+    let (shtdwn_q_tx, mut shtdwn_q_rx) = tokio::sync::mpsc::channel::<()>(5);
 
     let recon = if let Some(ref cal_fname) = cal_fname {
         info!("using calibration: {}", cal_fname.display());
@@ -675,6 +677,7 @@ pub(crate) async fn do_run_forever(
         cam_manager: cam_manager.clone(),
         output_base_dirname,
         strand_cam_http_session_handler: strand_cam_http_session_handler.clone(),
+        shtdwn_q_tx,
     };
 
     // This future will send state updates to all connected event listeners.
