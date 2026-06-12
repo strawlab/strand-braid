@@ -3,6 +3,7 @@
 @use '../../../../web/ads-webasm/scss/recording_path';
 @use '../../../../web/ads-webasm/scss/lds_ellipsis';
 @use '../../../../web/ads-webasm/scss/wrap_collapsible';
+@use '../../../../web/ads-webasm/scss/video_field';
 
 $footer-height: 2.5rem;
 
@@ -20,6 +21,7 @@ $footer-height: 2.5rem;
 );
 
 @include recording_path.recording_path($background-dark: solid 1px colors.$body-color-dark, $background-light: solid 1px colors.$body-color-light);
+@include video_field.video_field($border-dark: 1px solid colors.$body-color-dark, $border-light: 1px solid colors.$body-color-light);
 
 /* Space out the boxed sections. */
 .wrap-collapsible {
