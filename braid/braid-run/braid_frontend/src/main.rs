@@ -465,6 +465,14 @@ impl Model {
                     None => "background updating: unknown",
                 };
                 let cam_name = cci.name.as_str().to_string();
+                // Size the preview frame to the camera's image aspect ratio
+                // (known as soon as braid receives an image from the camera)
+                // so that toggling "live" does not change the layout. Until
+                // then, the stylesheet's default aspect ratio applies.
+                let frame_style = shared
+                    .camera_image_dimensions
+                    .get(&cci.name)
+                    .map(|(w, h)| format!("aspect-ratio: {w} / {h};"));
                 let is_live = has_server && self.preview_cams.contains(&cam_name);
                 let preview_area = if is_live {
                     html! {
@@ -495,7 +503,7 @@ impl Model {
                             <a href={cam_url}>{cci.name.as_str()}</a>
                             {live_toggle}
                         </div>
-                        <div class="cam-preview-frame">
+                        <div class="cam-preview-frame" style={frame_style}>
                             {preview_area}
                         </div>
                         <div class="cam-preview-card-info">
