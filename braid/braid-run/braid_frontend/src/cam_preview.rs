@@ -69,6 +69,11 @@ pub(crate) struct Props {
     /// Camera HTTP server through the braid camera proxy, e.g.
     /// `/cam-proxy/<encoded-cam-name>/`.
     pub(crate) proxy_prefix: String,
+    /// Inline style setting the aspect ratio of the camera image, applied to
+    /// the status box shown before the first frame so that it occupies the
+    /// same space as the canvas will.
+    #[prop_or_default]
+    pub(crate) aspect_style: Option<String>,
 }
 
 impl Component for CamPreview {
@@ -239,7 +244,7 @@ impl Component for CamPreview {
         true
     }
 
-    fn view(&self, _ctx: &Context<Self>) -> Html {
+    fn view(&self, ctx: &Context<Self>) -> Html {
         let canvas_style = if self.rendered_fno.is_some() {
             ""
         } else {
@@ -250,11 +255,15 @@ impl Component for CamPreview {
         } else if self.es.ready_state() == 2 {
             // 0: connecting, 1: open, 2: closed
             html! {
-                <div class="cam-preview-status">{"Connection to camera closed."}</div>
+                <div class="cam-preview-status" style={ctx.props().aspect_style.clone()}>
+                    {"Connection to camera closed."}
+                </div>
             }
         } else {
             html! {
-                <div class="cam-preview-status">{"Connecting to camera..."}</div>
+                <div class="cam-preview-status" style={ctx.props().aspect_style.clone()}>
+                    {"Connecting to camera..."}
+                </div>
             }
         };
         html! {
