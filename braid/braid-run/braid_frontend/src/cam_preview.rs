@@ -45,6 +45,11 @@ pub(crate) struct CamPreview {
     canvas_ref: NodeRef,
     green_stroke: StrokeStyle,
     rendered_fno: Option<u64>,
+    /// Dimensions of the most recently drawn image, used to set the aspect
+    /// ratio of the canvas explicitly. (Relying on the layout engine to size
+    /// the canvas from its intrinsic dimensions is not robust across
+    /// browsers.)
+    image_dims: Option<(u32, u32)>,
     /// Connection key of this event stream, as reported by the camera in the
     /// most recent video frame message. Required to send `FirehoseNotify`.
     last_ck: Option<ConnectionKey>,
@@ -133,6 +138,7 @@ impl Component for CamPreview {
             canvas_ref: NodeRef::default(),
             green_stroke: StrokeStyle::from_rgb(0x7F, 0xFF, 0x7F),
             rendered_fno: None,
+            image_dims: None,
             last_ck: None,
             last_frame_render: 0.0,
             last_recv: 0.0,
@@ -182,9 +188,10 @@ impl Component for CamPreview {
                 return false;
             }
             Msg::FrameLoaded(frame) => {
-                self.draw_frame_canvas(&frame);
-                let first_frame = self.rendered_fno.is_none();
+                let dims = self.draw_frame_canvas(&frame);
+                let relayout = self.rendered_fno.is_none() || self.image_dims != dims;
                 self.rendered_fno = Some(frame.fno);
+                self.image_dims = dims;
                 self.last_ck = Some(frame.ck);
 
                 // Wait before requesting a new frame to throttle the rate.
@@ -207,8 +214,9 @@ impl Component for CamPreview {
                 }
 
                 // The first frame switches the view from "connecting" to the
-                // canvas; subsequent draws need no DOM update.
-                return first_frame;
+                // canvas (and a dimension change updates the canvas aspect
+                // ratio); subsequent draws need no DOM update.
+                return relayout;
             }
             Msg::NotifySender => {
                 self.timeout = None;
@@ -245,10 +253,14 @@ impl Component for CamPreview {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let canvas_style = if self.rendered_fno.is_some() {
-            ""
-        } else {
-            "display: none;"
+        // Set the canvas aspect ratio explicitly rather than relying on the
+        // layout engine to size the canvas from its intrinsic dimensions,
+        // which is not robust across browsers (it failed in some Safari
+        // versions). This uses the dimensions of the actually-drawn image,
+        // so it is correct even if the camera changes resolution.
+        let canvas_style = match (self.rendered_fno.is_some(), self.image_dims) {
+            (true, Some((w, h))) => format!("aspect-ratio: {w} / {h};"),
+            _ => "display: none;".to_string(),
         };
         let status = if self.rendered_fno.is_some() {
             html! {}
@@ -280,10 +292,11 @@ impl Component for CamPreview {
 }
 
 impl CamPreview {
-    fn draw_frame_canvas(&self, frame: &LoadedFrame) {
-        let Some(canvas) = self.canvas_ref.cast::<web_sys::HtmlCanvasElement>() else {
-            return;
-        };
+    /// Draw the loaded image and its annotations onto the canvas.
+    ///
+    /// Returns the image dimensions, or `None` if the canvas does not exist.
+    fn draw_frame_canvas(&self, frame: &LoadedFrame) -> Option<(u32, u32)> {
+        let canvas = self.canvas_ref.cast::<web_sys::HtmlCanvasElement>()?;
         // Match the canvas resolution to the camera image.
         let (w, h) = (self.image.natural_width(), self.image.natural_height());
         if canvas.width() != w {
@@ -298,6 +311,7 @@ impl CamPreview {
         ctx.draw_image_with_html_image_element(&self.image, 0.0, 0.0)
             .unwrap_throw();
         ads_webasm::components::draw_shapes(&ctx, &frame.shapes);
+        Some((w, h))
     }
 }
 
