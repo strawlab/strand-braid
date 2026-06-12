@@ -2,6 +2,7 @@
 @use '../../../../web/ads-webasm/scss/base';
 @use '../../../../web/ads-webasm/scss/recording_path';
 @use '../../../../web/ads-webasm/scss/lds_ellipsis';
+@use '../../../../web/ads-webasm/scss/wrap_collapsible';
 
 $footer-height: 2.5rem;
 
@@ -19,6 +20,12 @@ $footer-height: 2.5rem;
 );
 
 @include recording_path.recording_path($background-dark: solid 1px colors.$body-color-dark, $background-light: solid 1px colors.$body-color-light);
+
+/* Space out the boxed sections. */
+.wrap-collapsible {
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+}
 
 #page-container {
     position: relative;
