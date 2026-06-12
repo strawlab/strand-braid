@@ -46,31 +46,32 @@ $footer-height: 2.5rem;
     margin-bottom: 0.25em;
 }
 
-/* Fixed-aspect frame holding the canvas, the not-live placeholder, or the
-status message, so the tile geometry never changes with the live toggle. The
-aspect ratio here is only the fallback; once the camera's image dimensions
-are known, an inline style sets the true ratio. */
-.cam-preview-frame {
+/* The canvas sizes itself from the intrinsic dimensions of the streamed
+camera image, so its border always exactly bounds the camera view. */
+.cam-preview-canvas {
+    display: block;
     width: 100%;
-    aspect-ratio: 4 / 3;
+    height: auto;
     border: 1px solid currentColor;
     box-sizing: border-box;
 }
 
-.cam-preview-canvas {
-    display: block;
+/* The not-live placeholder and the pre-first-frame status box are sized with
+the camera's aspect ratio via an inline style so that they occupy the same
+space as the canvas. The aspect ratio here is only the fallback for before
+the camera's image dimensions are known. */
+.cam-preview-placeholder,
+.cam-preview-status {
     width: 100%;
-    height: 100%;
-    /* Letterbox cameras whose images do not match the frame aspect. */
-    object-fit: contain;
+    aspect-ratio: 4 / 3;
+    border: 1px solid currentColor;
+    box-sizing: border-box;
+    opacity: 0.4;
 }
 
 /* Grayed-out field with an "x" through it, shown when the preview is not
 live. */
 .cam-preview-placeholder {
-    width: 100%;
-    height: 100%;
-    opacity: 0.4;
     background:
         linear-gradient(to top right,
             transparent calc(50% - 1px),
@@ -85,12 +86,9 @@ live. */
 }
 
 .cam-preview-status {
-    width: 100%;
-    height: 100%;
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0.4;
 }
 
 .cam-preview-card-info {
