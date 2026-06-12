@@ -1,10 +1,11 @@
 ## Building
 
-This crate builds the single `strand-cam` executable, which supports both the
-Basler Pylon and Allied Vision Vimba camera backends. The backend is selected at
-runtime with the `--camera-backend pylon|vimba` argument (defaulting to pylon).
-Both vendor SDKs are loaded dynamically at runtime, so neither is required to
-build.
+This crate builds the single `strand-cam` executable, which supports the
+Basler Pylon and Allied Vision Vimba camera backends, plus a consumer webcam
+backend intended for development use. The backend is selected at runtime with
+the `--camera-backend pylon|vimba|webcam` argument (defaulting to pylon). The
+vendor SDKs are loaded dynamically at runtime, so neither is required to
+build, and the webcam backend needs no SDK at all.
 
 To check the build
 
