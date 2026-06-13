@@ -39,6 +39,24 @@ CSS custom properties defined in `_tokens.scss`. Components reference those
         background: var(--panel);
     }
 
+    /* Full-window message that completely covers the app behind it (e.g. the
+    "has quit" screen), rather than a floating box with the stale UI visible
+    around it. */
+    .fullscreen-message {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: var(--bg);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 2rem;
+        box-sizing: border-box;
+    }
+
     /* Buttons (yew-tincture renders them as `.btn` + `.btn-active`/
     `.btn-inactive`). A neutral surface by default; the accent fill marks the
     active state. */

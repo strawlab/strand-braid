@@ -403,7 +403,7 @@ impl Model {
     fn disconnected_dialog(&self) -> Html {
         if self.user_quit {
             return html! {
-                <div class="modal-container">
+                <div class="fullscreen-message">
                     <h1> { "Braid has quit" } </h1>
                     <p>{ "You may close this page." }</p>
                 </div>
