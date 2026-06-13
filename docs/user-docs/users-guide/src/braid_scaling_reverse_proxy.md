@@ -143,5 +143,12 @@ changes the transport, not the security model.
   event streams or previews will be delayed indefinitely: set
   `proxy_buffering off;`, `proxy_http_version 1.1;`, and forward to Braid over
   HTTP/1.1. Caddy needs none of this.
-- **Remote cameras are unaffected.** The connection limit is a browser-only
-  concern, so remote Strand Camera computers keep connecting directly to Braid.
+- **Remote cameras do not use the proxy, and should not.** The connection limit
+  is a browser-only concern — Strand Camera is a native client and is not subject
+  to it — so [remote cameras](braid_remote_cameras.md) keep connecting directly
+  to Braid. There is also nothing to gain: the high-rate tracking data travels
+  camera→Braid over **UDP**, which an HTTP proxy cannot carry, and the only HTTP
+  traffic between them is light control messages. Routing cameras through the
+  proxy would add a TLS certificate-trust and configuration burden on every
+  camera computer for no real benefit. The proxy and the cameras simply use
+  independent paths to Braid.
