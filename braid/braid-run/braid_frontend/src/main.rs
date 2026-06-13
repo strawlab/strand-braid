@@ -295,7 +295,7 @@ impl Model {
     fn view_post_trigger_options(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div class="wrap-collapsible">
-                <CheckboxLabel label="Post Triggering" initially_checked=true />
+                <CheckboxLabel label="Post Triggering" initially_checked=false />
                 <div>
                     <p>{"Acquire video into a large buffer. This enables 'going back in time' to trigger saving of images
                     that were acquired prior to the Post Trigger occurring."}</p>
@@ -370,13 +370,13 @@ impl Model {
                                 {record_widget}
                             </div>
                         </div>
-                        { self.view_background_model_options(ctx) }
                         <div class="wrap-collapsible">
                             <CheckboxLabel label="Cameras" initially_checked=true />
                             <div>
                                 {self.view_cam_list(ctx, value)}
                             </div>
                         </div>
+                        { self.view_background_model_options(ctx) }
                         <div class="wrap-collapsible">
                             <CheckboxLabel label="Status" initially_checked=true />
                             <div>
@@ -431,11 +431,17 @@ impl Model {
 fn view_clock_model(shared: &BraidHttpApiSharedState) -> Html {
     if shared.needs_clock_model {
         if let Some(ref cm) = shared.clock_model {
+            // Show a concise, rounded summary rather than the raw Debug dump
+            // of full-precision floats (gain ~1, a huge offset timestamp, etc.).
+            let drift_ppm = (cm.gain - 1.0) * 1e6;
             html! {
                 <div>
-                    <p>
-                        {format!("trigger device clock model: {:?}", cm)}
-                    </p>
+                    <p>{"Trigger device clock model: synchronized"}</p>
+                    <ul>
+                        <li>{format!("clock drift: {drift_ppm:+.1} ppm")}</li>
+                        <li>{format!("fit residual: {:.1e}", cm.residuals)}</li>
+                        <li>{format!("measurements: {}", cm.n_measurements)}</li>
+                    </ul>
                 </div>
             }
         } else {
