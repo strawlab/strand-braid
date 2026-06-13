@@ -27,8 +27,12 @@ pub fn git_hash(orig_version: &str) -> Result<(), Box<dyn std::error::Error>> {
 /// - Probes for `trunk` and returns a helpful error if it is missing.
 /// - Warns if the installed trunk is not the expected 0.21.x series.
 /// - Runs `trunk build --release --dist dist` inside `frontend_dir`, using a
-///   dedicated `trunk-target` subdirectory of `OUT_DIR` to avoid deadlocking
-///   the outer workspace cargo build.
+///   dedicated `trunk-target` subdirectory of `OUT_DIR` and forcing the nested
+///   cargo offline (`CARGO_NET_OFFLINE=true`) to avoid deadlocking the outer
+///   workspace cargo build on the target-dir and package-cache locks. This
+///   requires the wasm32 dependencies to already be in the cargo cache; on a
+///   cold cache, pre-fetch them once with
+///   `cargo fetch --target wasm32-unknown-unknown`.
 /// - Verifies each required asset is present in the dist directory.
 /// - Emits `cargo:rerun-if-changed` directives for the frontend sources,
 ///   `index.html`, `Trunk.toml`, `scss/`, and the calling `build.rs`.
@@ -92,6 +96,18 @@ pub fn trunk_build(
         .args(["build", "--release", "--dist", "dist"])
         .current_dir(&frontend_path)
         .env("CARGO_TARGET_DIR", &trunk_target_dir)
+        // Force trunk's nested wasm32 cargo invocation to run offline. The
+        // outer workspace cargo holds a shared lock on the global package
+        // cache (`~/.cargo/.package-cache-mutate`) for the whole build; if the
+        // nested cargo tried to *download* a crate it would need an exclusive
+        // lock on that same file and block forever, because the outer build is
+        // itself blocked waiting for this build script to finish — a deadlock.
+        // Running offline means the nested cargo never takes the exclusive
+        // lock: with a warm cache (CI with a restored cache, repeat local
+        // builds, air-gapped machines) it resolves everything locally and
+        // succeeds; on a cold cache it fails fast with a clear error instead
+        // of hanging (see the failure message below).
+        .env("CARGO_NET_OFFLINE", "true")
         // Prevent host-target rustflags (e.g. -C target-cpu=sandybridge) from
         // leaking into trunk's nested wasm32 cargo invocation, where they are
         // unrecognised and silently reset wasm target-features like
@@ -110,9 +126,16 @@ pub fn trunk_build(
     };
 
     if !status.success() {
-        return Err(
-            format!("trunk build failed in {frontend_dir} (exit status: {status}).").into(),
-        );
+        return Err(format!(
+            "trunk build failed in {frontend_dir} (exit status: {status}).\n\
+             The frontend is built by a nested cargo that runs offline (to avoid \
+             deadlocking the outer build on the cargo package-cache lock). If the \
+             failure above is about missing crates / being unable to download, your \
+             cargo cache does not yet contain the wasm32 dependencies. Pre-fetch them \
+             once with network access, then rebuild:\n    \
+             cargo fetch --target wasm32-unknown-unknown"
+        )
+        .into());
     }
 
     // Sanity-check that the assets the runtime code expects are actually present.
