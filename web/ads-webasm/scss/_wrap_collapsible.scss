@@ -2,22 +2,29 @@
 wrap-collapsible. */
 
 .wrap-collapsible {
-    border-radius: 7px;
+    border-radius: 8px;
     border: 1px solid var(--border);
+    background: var(--panel);
+    box-shadow: var(--shadow);
+    overflow: hidden;
 }
 
 .wrap-collapsible > label {
     cursor: pointer;
-    transition: all 0.25s ease-out;
-    border-radius: 7px;
+    transition: background 0.15s ease-out;
 
     display: block;
 
-    font-weight: bold;
-    font-size: 1.2rem;
+    font-weight: 700;
+    font-size: 1.05rem;
     text-align: left;
 
-    padding: 1rem;
+    background: var(--panel-muted);
+    padding: 0.7rem 1rem;
+}
+
+.wrap-collapsible > label:hover {
+    background: var(--border);
 }
 
 .wrap-collapsible > label::before {
@@ -26,7 +33,7 @@ wrap-collapsible. */
 
     border-top: 5px solid transparent;
     border-bottom: 5px solid transparent;
-    border-left: 5px solid currentColor;
+    border-left: 5px solid var(--accent);
 
     vertical-align: middle;
     margin-right: .7rem;
