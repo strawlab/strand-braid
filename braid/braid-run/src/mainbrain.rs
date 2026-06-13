@@ -1175,9 +1175,16 @@ impl LiveStatsAccum {
         self.n_points += n_points;
     }
     fn get_results_and_reset(&mut self) -> braid_types::RecentStats {
+        let elapsed = self.start.elapsed().as_secs_f64();
+        let fps = if elapsed > 0.0 {
+            self.n_frames as f64 / elapsed
+        } else {
+            0.0
+        };
         let recent = braid_types::RecentStats {
             total_frames_collected: 0,
             frames_collected: self.n_frames,
+            fps,
             points_detected: self.n_points,
         };
         self.start = std::time::Instant::now();

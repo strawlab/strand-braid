@@ -93,6 +93,23 @@ live. */
 .cam-preview-card-info {
     font-size: 0.8em;
     overflow-wrap: break-word;
+    margin-top: 0.4em;
+}
+
+/* Frame / fps readout, laid out like the Strand Camera status line. */
+.cam-preview-stat-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5em;
+}
+
+.cam-preview-stat-row:first-child {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.cam-preview-substat {
+    color: var(--muted);
 }
 
 /* Keep the quit button visually separate from frequently-used controls. */

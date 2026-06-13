@@ -501,8 +501,14 @@ impl Model {
                 } else {
                     "/does-not-exist".to_string()
                 };
-                let state = format!("{:?}", cci.state);
-                let stats = format!("{:?}", cci.recent_stats);
+                let sync_str = if cci.state.is_synchronized() {
+                    "synchronized"
+                } else {
+                    "not synchronized"
+                };
+                let total_frames = cci.recent_stats.total_frames_collected;
+                let points_detected = cci.recent_stats.points_detected;
+                let fps_str = format!("{:.1}", cci.recent_stats.fps);
                 let bg_updating = match shared.background_model_updating.get(&cci.name) {
                     Some(true) => "background updating: on",
                     Some(false) => "background updating: off",
@@ -554,9 +560,15 @@ impl Model {
                         </div>
                         {preview_area}
                         <div class="cam-preview-card-info">
-                            <div>{state}</div>
-                            <div>{stats}</div>
-                            <div>{bg_updating}</div>
+                            <div class="cam-preview-stat-row">
+                                <span>{format!("frame: {total_frames}")}</span>
+                                <span>{format!("{fps_str} fps")}</span>
+                            </div>
+                            <div class="cam-preview-stat-row cam-preview-substat">
+                                <span>{sync_str}</span>
+                                <span>{format!("points: {points_detected}")}</span>
+                            </div>
+                            <div class="cam-preview-substat">{bg_updating}</div>
                         </div>
                     </div>
                 }
