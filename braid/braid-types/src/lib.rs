@@ -654,12 +654,18 @@ pub struct BraidHttpApiSharedState {
 }
 
 /// Statistics for recent camera activity.
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub struct RecentStats {
     /// Total number of frames collected since start.
     pub total_frames_collected: usize,
     /// Number of frames collected in recent period.
     pub frames_collected: usize,
+    /// Measured frame rate (frames per second) over the recent period.
+    ///
+    /// Computed on the mainbrain from the exact elapsed time of the
+    /// measurement window, so it is stable regardless of how the shared state
+    /// is delivered to clients.
+    pub fps: f64,
     /// Number of points detected in recent period.
     pub points_detected: usize,
 }
