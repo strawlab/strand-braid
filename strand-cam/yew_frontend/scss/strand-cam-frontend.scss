@@ -19,19 +19,23 @@
     align-items: center;
 }
 
-/* Section divider: an inverted bar that is now mode-correct (previously it
-hard-coded the dark palette in both modes). */
+/* Section header bar (previously hard-coded the dark palette in both modes).
+A muted surface with an accent edge reads as a section divider without the
+heaviness of a fully inverted bar. */
 h2 {
-    padding: 5px;
-    background: var(--text);
-    color: var(--bg);
-    margin-top: 0.5em;
-    margin-bottom: 0.25em;
+    padding: 0.4em 0.6em;
+    background: var(--panel-muted);
+    color: var(--text);
+    border-left: 4px solid var(--accent);
+    border-radius: 4px;
+    font-size: 1.15rem;
+    margin-top: 0.75em;
+    margin-bottom: 0.4em;
 }
 
 h3 {
-    margin-top: 0.25em;
-    margin-bottom: 0.125em;
+    margin-top: 0.5em;
+    margin-bottom: 0.25em;
 }
 
 .cam-range-main {

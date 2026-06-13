@@ -30,18 +30,44 @@ CSS custom properties defined in `_tokens.scss`. Components reference those
         background-color: var(--panel-muted);
         color: var(--text);
         border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 5px 8px;
+        box-sizing: border-box;
     }
 
     .modal-container {
         background: var(--panel);
     }
 
+    /* Buttons (yew-tincture renders them as `.btn` + `.btn-active`/
+    `.btn-inactive`). A neutral surface by default; the accent fill marks the
+    active state. */
     .btn {
+        padding: 6px 12px;
+        margin: 2px;
+        box-sizing: border-box;
         border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--panel-muted);
+        color: var(--text);
+        font-weight: 600;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
 
-    .btn-active {
-        background: var(--panel-muted);
+    .btn:enabled {
+        cursor: pointer;
+    }
+
+    .btn:enabled:hover {
+        border-color: var(--accent);
+        color: var(--accent-strong);
+    }
+
+    .btn-active,
+    .btn-active:enabled:hover {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--on-accent);
     }
 
     button:disabled,
@@ -51,9 +77,17 @@ CSS custom properties defined in `_tokens.scss`. Components reference those
         cursor: not-allowed;
     }
 
+    /* Keyboard focus ring (mouse clicks don't trigger :focus-visible). */
+    .btn:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    label:focus-within {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+    }
+
     body {
-        font: 10px 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        line-height: 1.4em;
+        font: 14px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         margin: 0 auto;
     }
 
@@ -116,15 +150,30 @@ CSS custom properties defined in `_tokens.scss`. Components reference those
         line-height: 0.9em;
     }
 
-    .btn {
-        padding: 2px;
-        margin: 2px;
-        box-sizing: border-box;
-        border-radius: 3px;
+    /* Toggle (rendered as a `<label class="toggle-on|toggle-off">` wrapping a
+    hidden checkbox). Styled as a small pill so on/off reads at a glance. */
+    .toggle-on,
+    .toggle-off {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5em;
+        cursor: pointer;
+        padding: 5px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--panel-muted);
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
 
-    .btn:enabled {
-        cursor: pointer;
+    .toggle-on {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--on-accent);
+    }
+
+    .toggle-on input[type="checkbox"],
+    .toggle-off input[type="checkbox"] {
+        accent-color: var(--accent);
     }
 
 }

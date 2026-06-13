@@ -26,13 +26,20 @@ $footer-height: 2.5rem;
 
 .cam-preview-card {
     width: 18rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    padding: 0.6rem;
+    box-sizing: border-box;
 }
 
 .cam-preview-card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.25em;
+    margin-bottom: 0.4em;
+    font-weight: 600;
 }
 
 /* The canvas is sized from the streamed camera image (via an inline
@@ -42,7 +49,8 @@ always exactly bounds the camera view. */
     display: block;
     width: 100%;
     height: auto;
-    border: 1px solid currentColor;
+    border: 1px solid var(--border);
+    border-radius: 4px;
     box-sizing: border-box;
 }
 
@@ -54,7 +62,8 @@ the camera's image dimensions are known. */
 .cam-preview-status {
     width: 100%;
     aspect-ratio: 4 / 3;
-    border: 1px solid currentColor;
+    border: 1px solid var(--border);
+    border-radius: 4px;
     box-sizing: border-box;
     opacity: 0.4;
 }
@@ -106,6 +115,11 @@ live. */
     bottom: 0;
     width: 100%;
     height: $footer-height;
+    color: var(--muted);
+    font-size: 0.85em;
+    border-top: 1px solid var(--border);
+    padding-top: 0.5em;
+    box-sizing: border-box;
 }
 
 html,
