@@ -1,75 +1,54 @@
-@mixin base($body-color-dark: #adadad,
-    $body-background-dark: #000000,
-    $modal-background-dark: rgba(77, 77, 77, 1.0),
-    $text-background-dark: #5e5e5e,
-    $text-color-dark: #bababa,
-    $body-background-light: #ffffff,
-    $modal-background-light: rgba(178, 178, 178, 1.0),
-    $text-background-light: rgba(178, 178, 178, 1.0),
-    $text-color-light: #404040,
-    $body-color-light: #404040,
+@use 'tokens';
+
+/* The color arguments are retained for backward compatibility with existing
+call sites, but are no longer used: the color scheme now lives entirely in the
+CSS custom properties defined in `_tokens.scss`. Components reference those
+`var(--token)` values directly, so a single `@include base.base()` is enough. */
+@mixin base($body-color-dark: null,
+    $body-background-dark: null,
+    $modal-background-dark: null,
+    $text-background-dark: null,
+    $text-color-dark: null,
+    $body-background-light: null,
+    $modal-background-light: null,
+    $text-background-light: null,
+    $text-color-light: null,
+    $body-color-light: null,
 ) {
 
-    @media (prefers-color-scheme: dark) {
-        body {
-            background: $body-background-dark;
-            color: $body-color-dark;
-        }
-
-        a {
-            color: $body-color-dark;
-        }
-
-        input[type="text"],
-        textarea {
-            background-color: $text-background-dark;
-            color: $text-color-dark;
-            border: 0;
-        }
-
-        .modal-container {
-            background: $modal-background-dark;
-        }
-
-        .btn {
-            border: 1px solid $body-color-dark;
-        }
-
-        .btn-active {
-            background: $text-background-dark;
-        }
-
+    body {
+        background: var(--bg);
+        color: var(--text);
     }
 
-    @media (prefers-color-scheme: light) {
-        body {
-            background: $body-background-light;
-            color: $body-color-light;
-        }
+    a {
+        color: var(--accent-strong);
+    }
 
-        a {
-            color: $body-color-light;
-        }
+    input[type="text"],
+    textarea {
+        background-color: var(--panel-muted);
+        color: var(--text);
+        border: 1px solid var(--border);
+    }
 
-        input[type="text"],
-        textarea {
-            background-color: $text-background-light;
-            color: $text-color-light;
-            border: 0;
-        }
+    .modal-container {
+        background: var(--panel);
+    }
 
-        .modal-container {
-            background: $modal-background-light;
-        }
+    .btn {
+        border: 1px solid var(--border);
+    }
 
-        .btn {
-            border: 1px solid $body-color-light;
-        }
+    .btn-active {
+        background: var(--panel-muted);
+    }
 
-        .btn-active {
-            background: $text-background-light;
-        }
-
+    button:disabled,
+    button[disabled] {
+        color: var(--muted);
+        border: 1px solid var(--border);
+        cursor: not-allowed;
     }
 
     body {
@@ -123,8 +102,9 @@
         height: 400px;
         padding: 20px;
         box-sizing: border-box;
-        box-shadow: 0 2px 4px 0 rgba(223, 25, 25, 0.92),
-            0 25px 50px 0 rgba(0, 255, 255, 0.91);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: var(--shadow);
     }
 
     .infoCircle {
