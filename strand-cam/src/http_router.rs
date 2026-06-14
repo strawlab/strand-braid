@@ -20,24 +20,19 @@ use crate::{
     events_handler, handle_auth_error,
 };
 
-/// Build the axum router for the web UI, including the auth layer.
-pub(crate) fn build_http_router(
-    secret: Option<String>,
-    access_token: &AccessToken,
-    app_state: StrandCamAppState,
-) -> Result<axum::Router> {
-    #[cfg(feature = "bundle_files")]
-    let serve_dir = tower_serve_static::ServeDir::new(&crate::ASSETS_DIR);
-
-    #[cfg(feature = "serve_files")]
-    let serve_dir = tower_http::services::fs::ServeDir::new(
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("yew_frontend")
-            .join("dist"),
-    );
-
-    let persistent_secret_base64 = if let Some(secret) = &secret {
-        secret.clone()
+/// Load the persistent cookie/token secret, generating and saving a fresh one
+/// if none exists.
+///
+/// This secret signs both the session cookies and the self-expiring access
+/// tokens, so it must be loaded once and shared between [start_listener] (which
+/// mints the token) and [build_http_router] (which validates it). Keeping the
+/// secret stable across restarts is what lets already-issued browser cookies
+/// remain valid through an upgrade.
+///
+/// [start_listener]: braid_types::start_listener
+pub(crate) fn load_persistent_secret(secret_override: Option<String>) -> Result<cookie::Key> {
+    let persistent_secret_base64 = if let Some(secret) = secret_override {
+        secret
     } else {
         match String::load(&APP_INFO, COOKIE_SECRET_KEY) {
             Ok(secret_base64) => secret_base64,
@@ -52,24 +47,56 @@ pub(crate) fn build_http_router(
         }
     };
 
+    // The secret can forge any session cookie and mint any token, so ensure its
+    // on-disk file is owner-only.
+    braid_types::harden_prefs_file(&APP_INFO, COOKIE_SECRET_KEY);
+
     let persistent_secret =
         base64::engine::general_purpose::STANDARD.decode(persistent_secret_base64)?;
-    let persistent_secret = cookie::Key::try_from(persistent_secret.as_slice())?;
+    Ok(cookie::Key::try_from(persistent_secret.as_slice())?)
+}
 
-    // Setup our auth layer.
+/// Build the axum router for the web UI, including the auth layer.
+///
+/// `persistent_secret` must be the same key that minted the access token in
+/// [`braid_types::start_listener`]; the auth layer validates tokens by
+/// signature against it.
+pub(crate) fn build_http_router(
+    persistent_secret: cookie::Key,
+    trusted_networks: Vec<axum_token_auth::CidrBlock>,
+    access_token: &AccessToken,
+    app_state: StrandCamAppState,
+) -> Result<axum::Router> {
+    #[cfg(feature = "bundle_files")]
+    let serve_dir = tower_serve_static::ServeDir::new(&crate::ASSETS_DIR);
+
+    #[cfg(feature = "serve_files")]
+    let serve_dir = tower_http::services::fs::ServeDir::new(
+        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("yew_frontend")
+            .join("dist"),
+    );
+
+    // Setup our auth layer. With self-expiring signed tokens the auth layer no
+    // longer stores a token value: it accepts any unexpired token signed with
+    // `persistent_secret`. We only need to know whether a token is required.
     let token_config = match access_token {
-        AccessToken::PreSharedToken(value) => Some(axum_token_auth::TokenConfig {
-            name: "token".to_string(),
-            value: value.clone(),
-        }),
+        AccessToken::PreSharedToken(_) => Some(axum_token_auth::TokenConfig::new("token")),
         AccessToken::NoToken => None,
     };
-    let cfg = axum_token_auth::AuthConfig {
-        token_config,
-        persistent_secret,
-        cookie_name: "strand-cam-session",
-        cookie_expires: Some(std::time::Duration::from_secs(60 * 60 * 24 * 400)), // 400 days
-    };
+    // `AuthConfig` is `#[non_exhaustive]`, so build it via `new` and set fields.
+    let mut cfg = axum_token_auth::AuthConfig::new(persistent_secret);
+    cfg.token_config = token_config;
+    cfg.cookie_name = "strand-cam-session";
+    // Sessions slide forward on use and survive up to 400 days of absence,
+    // and the server enforces this expiry (it is embedded in the signed
+    // cookie). Existing cookies that predate this field carry no embedded
+    // expiry and are treated as non-expiring until renewed, so they stay
+    // valid across the upgrade.
+    cfg.session_expires = Some(std::time::Duration::from_secs(60 * 60 * 24 * 400)); // 400 days
+    // Clients on a trusted overlay network (e.g. Tailscale/WireGuard) are
+    // accepted without a token; the overlay has already authenticated them.
+    cfg.trusted_networks = trusted_networks;
 
     let auth_layer = cfg.into_layer();
     // Create axum router.

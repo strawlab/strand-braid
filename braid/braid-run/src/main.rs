@@ -155,7 +155,12 @@ async fn main() -> Result<()> {
         .collect();
 
     let address_string: String = cfg.mainbrain.http_api_server_addr.clone();
-    let (listener, mainbrain_server_info) = braid_types::start_listener(&address_string).await?;
+    // Load the persistent secret once: it both mints Braid's self-expiring
+    // access token in `start_listener` and validates it in the auth layer.
+    let persistent_secret =
+        mainbrain::load_persistent_secret(cfg.mainbrain.secret_base64.clone())?;
+    let (listener, mainbrain_server_info) =
+        braid_types::start_listener(&address_string, &persistent_secret).await?;
     let mainbrain_internal_addr = mainbrain_server_info.clone();
 
     let cfg_cameras = cfg.cameras;
@@ -179,8 +184,6 @@ async fn main() -> Result<()> {
 
     debug!("done launching cameras");
 
-    let secret_base64 = cfg.mainbrain.secret_base64.clone();
-
     // This runs the whole thing and "blocks". Now wait for everything to end.
     mainbrain::do_run_forever(
         show_tracking_params,
@@ -189,7 +192,7 @@ async fn main() -> Result<()> {
         camera_configs,
         trig_cfg,
         cfg.mainbrain,
-        secret_base64,
+        persistent_secret,
         all_expected_cameras,
         force_camera_sync_mode,
         software_limit_framerate.clone(),
