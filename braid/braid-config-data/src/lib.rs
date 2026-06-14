@@ -140,6 +140,12 @@ pub struct MainbrainConfig {
     pub save_empty_data2d: bool,
     /// Secret to use for signing HTTP cookies (base64 encoded)
     pub secret_base64: Option<String>,
+    /// Client networks (CIDR notation, e.g. `100.64.0.0/10` for Tailscale or a
+    /// WireGuard subnet) that are trusted to have already authenticated the
+    /// peer. Requests from these networks are accepted without an access token,
+    /// delegating authentication to the overlay network. Defaults to empty.
+    #[serde(default)]
+    pub trusted_networks: Vec<String>,
     /// Threshold duration before logging error (msec).
     ///
     /// If the image acquisition timestamp precedes the computed trigger
@@ -168,6 +174,7 @@ impl std::default::Default for MainbrainConfig {
             model_server_addr: default_model_server_addr(),
             save_empty_data2d: true,
             secret_base64: None,
+            trusted_networks: Vec::new(),
             acquisition_duration_allowed_imprecision_msec:
                 braid_types::DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC,
             write_buffer_size_num_messages: default_write_buffer_size_num_messages(),

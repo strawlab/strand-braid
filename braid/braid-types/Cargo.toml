@@ -22,6 +22,8 @@ percent-encoding = "2.3.2"
 tracing.workspace = true
 eyre = { workspace = true, optional = true }
 axum-token-auth = { workspace = true, optional = true }
+cookie = { workspace = true, optional = true }
+preferences-serde1 = { workspace = true, optional = true }
 tokio = { workspace = true, optional = true }
 
 strand-withkey.workspace = true
@@ -33,7 +35,7 @@ strand-bui-backend-session-types.workspace = true
 
 [features]
 with-tokio-codec = ["tokio-util", "bytes", "serde_cbor"]
-start-listener = ["eyre", "axum-token-auth", "tokio"]
+start-listener = ["eyre", "axum-token-auth", "cookie", "preferences-serde1", "tokio"]
 
 [dev-dependencies]
 eyre.workspace = true

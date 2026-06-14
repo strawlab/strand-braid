@@ -10,6 +10,7 @@
 - [Braid: 3D Calibration](./braid_calibration.md)
 - [Braid: Remote cameras](./braid_remote_cameras.md)
 - [Running Braid with many cameras (reverse proxy)](./braid_scaling_reverse_proxy.md)
+- [Remote access with Tailscale](./braid_tailscale_remote_access.md)
 - [Scripting with Python](./scripting-with-python.md)
 - [Processing saved videos](./processing-saved-videos.md)
 - [Fly Movie Format](./fmf_format.md)
