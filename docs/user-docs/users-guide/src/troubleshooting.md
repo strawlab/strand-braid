@@ -121,6 +121,26 @@ different computer.
 
 See [Remote Cameras for Braid](braid_remote_cameras.md) for the full setup guide.
 
+## Camera fails to open: "controlled by another application"
+
+If launching Strand Camera or Braid fails with an error mentioning that opening
+the camera failed and that *"The device is controlled by another application"*,
+the camera is already open in another program. The camera vendor SDKs (Basler
+Pylon, Allied Vision Vimba) allow only **one** application to open a given camera
+at a time.
+
+The most common causes are:
+
+- **Basler Pylon Viewer** (or the pylon IP Configurator) is open with the camera
+  selected. Close it fully — it is good practice to close vendor viewers before
+  starting Braid.
+- **A previous Braid or Strand Camera instance is still running.** A browser GUI
+  window can be closed while the program keeps running in its terminal. Find the
+  terminal still running the program and stop it (Ctrl+C), or otherwise ensure no
+  stale `strand-cam` / `braid-run` process is holding the camera.
+
+Once the other application has released the camera, start Braid again.
+
 ## Any other problem or question
 
 To help diagnose issues, it is helpful to increase logging verbosity by setting
