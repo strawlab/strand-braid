@@ -20,6 +20,10 @@
   --camera-backend webcam`. Webcams do not support hardware triggering, exposure,
   gain, or frame-rate limiting, so they are not suitable for synchronized
   multi-camera 3D tracking with Braid.
+* Running `braid` with no command (or `braid help`) now lists the available
+  `braid-<command>` subcommands discovered on the system, and an unknown command
+  (e.g. a typo) prints the same list instead of a low-level "No such file or
+  directory" error.
 
 ## 1.0.0-rc.2 - 2026-04-26
 
