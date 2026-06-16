@@ -59,6 +59,57 @@ pub fn requested_camera_backend() -> Result<Option<CameraBackend>> {
     Ok(None)
 }
 
+/// Peek at the process arguments to see whether `--list-cameras` was requested.
+///
+/// Like [requested_camera_backend], this is checked alongside the regular
+/// argument parser so that the merged binary can enumerate and print the
+/// cameras available for the selected backend and then exit, without launching
+/// the full application or opening its web UI.
+pub fn list_cameras_requested() -> bool {
+    std::env::args().any(|arg| arg == "--list-cameras")
+}
+
+/// Enumerate the cameras visible to `mymod` and print them to stdout.
+///
+/// The first column of each row is the camera's name, which is exactly the
+/// value to pass to `--camera-name` (and to use as a camera `name` in a Braid
+/// configuration file).
+fn list_cameras<M, C, G>(mymod: &ci2_async::ThreadedAsyncCameraModule<M, C, G>) -> Result<()>
+where
+    M: ci2::CameraModule<CameraType = C, Guard = G>,
+    C: ci2::Camera,
+    G: Send,
+{
+    use ci2::CameraModule;
+    // The async wrapper prefixes the backend name with "async-"; strip it so the
+    // user sees the same backend name they pass to `--camera-backend`.
+    let name = mymod.name();
+    let backend = name.strip_prefix("async-").unwrap_or(name);
+    let infos = mymod
+        .camera_infos()
+        .with_context(|| format!("enumerating cameras for the '{backend}' backend"))?;
+    if infos.is_empty() {
+        println!("No cameras found for the '{backend}' backend.");
+        return Ok(());
+    }
+    println!(
+        "Found {} camera(s) for the '{backend}' backend:",
+        infos.len()
+    );
+    println!();
+    println!("Use a camera name below with `--camera-name`, or as a `name` in a Braid config.");
+    println!();
+    for info in &infos {
+        println!(
+            "  {}  (model: {}, serial: {})",
+            info.name(),
+            info.model(),
+            info.serial()
+        );
+    }
+    Ok(())
+}
+
 /// Select the camera backend from the command line (defaulting to Pylon),
 /// construct the corresponding camera module, and run the Strand Camera
 /// application.
@@ -119,6 +170,12 @@ where
     }
 
     let args = parse_args(app_name).with_context(|| "parsing args".to_string())?;
+
+    // Handle `--list-cameras` after argument parsing (so `--help` and argument
+    // validation still work), but before launching the full application.
+    if list_cameras_requested() {
+        return list_cameras(&mymod).map(|()| mymod);
+    }
 
     run_strand_cam_app(mymod, args, app_name)
 }
@@ -206,6 +263,15 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
                     .help(
                         "Which camera backend library to load. Only meaningful for \
                         the merged Strand Camera binary that supports multiple backends.",
+                    ),
+            )
+            .arg(
+                Arg::new("list_cameras")
+                    .long("list-cameras")
+                    .action(clap::ArgAction::SetTrue)
+                    .help(
+                        "List the cameras available for the selected backend and exit, \
+                        without launching the application or opening a browser.",
                     ),
             )
             .arg(

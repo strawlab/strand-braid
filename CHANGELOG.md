@@ -24,6 +24,12 @@
   `braid-<command>` subcommands discovered on the system, and an unknown command
   (e.g. a typo) prints the same list instead of a low-level "No such file or
   directory" error.
+* Added `strand-cam --list-cameras`, which prints the cameras available for the
+  selected `--camera-backend` (their names, models, and serials) and exits
+  without launching the application or opening a browser. The printed name is
+  the value to use with `--camera-name` or as a camera `name` in a Braid
+  configuration file, so camera names can be discovered without launching a
+  camera per terminal.
 
 ## 1.0.0-rc.2 - 2026-04-26
 
