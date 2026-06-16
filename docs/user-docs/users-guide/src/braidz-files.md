@@ -69,7 +69,7 @@ braid-offline-retrack \
 ```
 
 `--tracking-params` accepts a TOML file containing
-[`TrackingParams`](https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.TrackingParams.html)
+[`TrackingParams`](https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.TrackingParams.html)
 fields. `--new-calibration` accepts a Braid XML calibration file. Both are
 optional and can be combined or used independently.
 
@@ -210,12 +210,12 @@ The most important tables in the `.braidz` file are `kalman_estimates`, with the
 
 The `data2d_distorted` table contains the raw (2D) camera detections and is
 typically quite large. See the documentation for the row type
-[Data2dDistortedRow](https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.Data2dDistortedRow.html).
+[Data2dDistortedRow](https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.Data2dDistortedRow.html).
 This file is important for carrying synchronization data between cameras. For
 example, when saving videos, the timing data carried by the
-[frame](https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.Data2dDistortedRow.html#structfield.frame)
+[frame](https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.Data2dDistortedRow.html#structfield.frame)
 and
-[block_id](https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.Data2dDistortedRow.html#structfield.block_id)
+[block_id](https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.Data2dDistortedRow.html#structfield.block_id)
 fields is important.
 
 #### `kalman_estimates` table
@@ -223,14 +223,14 @@ fields is important.
 The `kalman_estimates` tables contains the estimated state (positions and
 velocities) of each tracked object in addition to the estimated covariance. See
 the documentation for the row type
-[KalmanEstimatesRow](https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.KalmanEstimatesRow.html).
+[KalmanEstimatesRow](https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.KalmanEstimatesRow.html).
 
 #### `data_association` table
 
 The `data_association` table contains which camera detections contributed to
 estimating the state of which objects in the `kalman_estimates` table. See the
 documentation for the row type
-[DataAssocRow](https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.DataAssocRow.html).
+[DataAssocRow](https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.DataAssocRow.html).
 
 ### Chunked iteration of `kalman_estimates`
 
