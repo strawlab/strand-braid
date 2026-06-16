@@ -29,6 +29,18 @@ Here is a minimal configuration for a 3 camera Braid setup:
 {{#include ../../../../braid/simple.toml}}
 ```
 
+Each camera `name` is computed from its vendor and serial number (for example
+`Basler-22005677`). To discover the names of the connected cameras without
+launching a camera, run:
+
+```sh
+strand-cam --list-cameras
+```
+
+This prints the available cameras (name, model, and serial) for the selected
+`--camera-backend` (Basler Pylon by default) and exits. Use a printed name as
+the `name` of a `[[cameras]]` entry above, or with `strand-cam --camera-name`.
+
 ## Camera synchronization (the `[trigger]` table)
 
 For 3D tracking, all cameras must expose frames that were acquired at the same
