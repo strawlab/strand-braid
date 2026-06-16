@@ -93,7 +93,7 @@ individual cameras to a 3D model, and an Extended Kalman Filter, which updates
 the estimated position and velocity of the 3D model from the 2D features.
 
 The implementation details for the 3D tracking procedures can be found in the
-[TrackingParams](https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.TrackingParams.html)
+[TrackingParams](https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.TrackingParams.html)
 section of the API.
 
 <!--
