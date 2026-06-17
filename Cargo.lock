@@ -1721,6 +1721,7 @@ dependencies = [
  "braid-config-data",
  "braid-mvg",
  "braid-types",
+ "braidz-parser",
  "cam-geom",
  "clap",
  "eyre",
