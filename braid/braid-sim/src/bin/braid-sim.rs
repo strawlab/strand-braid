@@ -51,6 +51,13 @@ enum Command {
         /// is flagged as shortened.
         #[arg(long, default_value_t = 0.9)]
         span_frac: f64,
+        /// If given, also score the recording against the ground truth of this
+        /// `sim.toml` scenario (position error, coverage, fragmentation).
+        #[arg(long)]
+        sim_toml: Option<PathBuf>,
+        /// Association gate (meters) for ground-truth scoring.
+        #[arg(long, default_value_t = 0.05)]
+        gate_m: f64,
     },
 }
 
@@ -96,6 +103,8 @@ fn main() -> Result<()> {
             retrack_exe,
             retrack_out,
             span_frac,
+            sim_toml,
+            gate_m,
         } => {
             let retrack_exe = match retrack_exe {
                 Some(p) => p,
@@ -106,6 +115,17 @@ fn main() -> Result<()> {
                 p.set_extension("retrack.braidz");
                 p
             });
+
+            if let Some(sim_toml) = sim_toml.as_ref() {
+                let text = std::fs::read_to_string(sim_toml)?;
+                let scenario = Scenario::from_toml_str(&text)?;
+                // Search a generous frame offset: the recording's synchronized
+                // frame numbers are shifted from simulation time by the
+                // background warmup plus any sync-establishment offset.
+                let gt = braid_sim::truth::score_against_truth(&braidz, &scenario, gate_m, 200)?;
+                println!("{}", gt.report());
+                println!();
+            }
 
             let diff = braid_sim::score::differential(&retrack_exe, &braidz, &retrack_out)?;
             println!("{}", diff.report());
