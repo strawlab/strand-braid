@@ -2467,6 +2467,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "ci2-sim"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "braid-mvg",
+ "braid-sim",
+ "braid-types",
+ "chrono",
+ "ci2",
+ "eyre",
+ "flydra-feature-detector",
+ "flydra-mvg",
+ "flydra-pt-detect-cfg",
+ "machine-vision-formats",
+ "strand-dynamic-frame",
+ "tracing",
+]
+
+[[package]]
 name = "ci2-simple-async-demo"
 version = "0.1.0"
 dependencies = [
@@ -14483,6 +14502,7 @@ dependencies = [
  "ci2-async",
  "ci2-pylon",
  "ci2-pylon-types",
+ "ci2-sim",
  "ci2-vimba",
  "ci2-vimba-types",
  "ci2-webcam",
