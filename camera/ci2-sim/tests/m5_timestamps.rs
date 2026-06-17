@@ -35,7 +35,12 @@ fill = 0.5
 "#;
 
 fn device_timestamp(frame: &ci2::DynamicFrameWithInfo) -> u64 {
-    let any = ci2::AsAny::as_any(&**frame.backend_data.as_ref().expect("sim must emit backend_data"));
+    let any = ci2::AsAny::as_any(
+        &**frame
+            .backend_data
+            .as_ref()
+            .expect("sim must emit backend_data"),
+    );
     any.downcast_ref::<ci2_pylon_types::PylonExtra>()
         .expect("sim emits a PylonExtra hardware timestamp")
         .device_timestamp
