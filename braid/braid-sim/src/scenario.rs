@@ -176,6 +176,103 @@ impl TimingModel {
     }
 }
 
+/// Observation-model imperfections applied to the 2D detections (milestone M3 /
+/// plan §3.3). All default to zero, so the perfect-world baseline is unchanged.
+///
+/// Everything is sampled deterministically from the scenario `seed` plus the
+/// `(camera, frame, insect)` indices, so a `(config, seed)` reproduces a run
+/// exactly — the harness can print the seed on failure and replay it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct ObservationModel {
+    /// Standard deviation (pixels) of zero-mean Gaussian jitter added to each
+    /// projected detection. Models finite localization accuracy. Default 0.
+    #[serde(default)]
+    pub pixel_noise_px: f64,
+    /// Per-(camera, insect, frame) probability in `[0, 1]` that a real detection
+    /// is missed (dropped). Models occlusion / detector misses. Default 0.
+    #[serde(default)]
+    pub dropout_prob: f64,
+    /// Expected number of spurious "clutter" detections per camera per frame
+    /// (false positives, placed uniformly in the image). Stresses data
+    /// association. Modeled as a fixed count `floor(x)` plus a fractional part
+    /// included with probability `x - floor(x)`. Default 0.
+    #[serde(default)]
+    pub clutter_per_frame: f64,
+}
+
+impl ObservationModel {
+    /// Whether a real detection of `insect_id` on camera `cam_index` at frame
+    /// `fno` is dropped, given the scenario `seed`. Deterministic.
+    pub fn is_dropped(&self, seed: u64, cam_index: usize, fno: usize, insect_id: u32) -> bool {
+        if self.dropout_prob <= 0.0 {
+            return false;
+        }
+        let u = unit_hash(
+            seed ^ 0x44_4f_55_54, // "DOUT"
+            (cam_index as u64) << 32 | insect_id as u64,
+            fno as u64,
+        );
+        u < self.dropout_prob
+    }
+
+    /// The projected pixel `(x, y)` with deterministic Gaussian jitter applied.
+    /// Returns the input unchanged when `pixel_noise_px == 0`.
+    pub fn jitter_pixel(
+        &self,
+        seed: u64,
+        cam_index: usize,
+        fno: usize,
+        insect_id: u32,
+        x: f64,
+        y: f64,
+    ) -> (f64, f64) {
+        if self.pixel_noise_px <= 0.0 {
+            return (x, y);
+        }
+        let key = (cam_index as u64) << 32 | insect_id as u64;
+        // Two independent uniforms -> a 2D Gaussian via Box-Muller.
+        let u1 = unit_hash(seed ^ 0x4e_4f_49_53, key, fno as u64).max(1e-12); // "NOIS"
+        let u2 = unit_hash(seed ^ 0x4a_49_54_52, key, fno as u64); // "JITR"
+        let r = self.pixel_noise_px * (-2.0 * u1.ln()).sqrt();
+        let theta = 2.0 * std::f64::consts::PI * u2;
+        (x + r * theta.cos(), y + r * theta.sin())
+    }
+
+    /// Spurious clutter detections for camera `cam_index` at frame `fno`, placed
+    /// uniformly within a `width` x `height` image. Deterministic.
+    pub fn clutter(
+        &self,
+        seed: u64,
+        cam_index: usize,
+        fno: usize,
+        width: usize,
+        height: usize,
+    ) -> Vec<(f64, f64)> {
+        if self.clutter_per_frame <= 0.0 {
+            return Vec::new();
+        }
+        let whole = self.clutter_per_frame.floor() as usize;
+        let frac = self.clutter_per_frame - whole as f64;
+        let base = seed ^ 0x43_4c_54_52; // "CLTR"
+        let mut count = whole;
+        if frac > 0.0 {
+            let u = unit_hash(base, (cam_index as u64) << 40, fno as u64);
+            if u < frac {
+                count += 1;
+            }
+        }
+        (0..count)
+            .map(|i| {
+                let kx = (cam_index as u64) << 40 | (i as u64) << 1;
+                let ky = kx | 1;
+                let ux = unit_hash(base, kx, fno as u64);
+                let uy = unit_hash(base, ky, fno as u64);
+                (ux * width as f64, uy * height as f64)
+            })
+            .collect()
+    }
+}
+
 /// Deterministic pseudo-random value in `[0, 1)` from three integers
 /// (splitmix64-style mixing). Used for reproducible per-(camera, frame) jitter.
 fn unit_hash(a: u64, b: u64, c: u64) -> f64 {
@@ -216,6 +313,10 @@ pub struct Scenario {
     /// Per-camera frame-arrival timing perturbation (default: none).
     #[serde(default)]
     pub timing: TimingModel,
+    /// Observation-model imperfections: detection noise, dropout, clutter
+    /// (default: none).
+    #[serde(default)]
+    pub observation: ObservationModel,
     /// If set, the cameras' *host* timestamps advance at this rate (frames per
     /// second) instead of true wall-clock time, modeling a host clock that is
     /// **bunched** relative to the true frame cadence — as happens under load
@@ -298,5 +399,97 @@ mod tests {
             // Deterministic: same inputs -> same output.
             assert_eq!(d, t.extra_delay_sec(42, 1, fno));
         }
+    }
+
+    #[test]
+    fn observation_default_is_a_no_op() {
+        let o = ObservationModel::default();
+        for fno in 0..50 {
+            assert!(!o.is_dropped(7, 0, fno, 3));
+            assert_eq!(o.jitter_pixel(7, 0, fno, 3, 100.0, 50.0), (100.0, 50.0));
+            assert!(o.clutter(7, 0, fno, 640, 480).is_empty());
+        }
+    }
+
+    #[test]
+    fn observation_dropout_rate_and_determinism() {
+        let o = ObservationModel {
+            dropout_prob: 0.25,
+            ..Default::default()
+        };
+        let mut dropped = 0usize;
+        let n = 20_000usize;
+        for fno in 0..n {
+            let d = o.is_dropped(99, 1, fno, 0);
+            // Deterministic: same inputs -> same output.
+            assert_eq!(d, o.is_dropped(99, 1, fno, 0));
+            if d {
+                dropped += 1;
+            }
+        }
+        let frac = dropped as f64 / n as f64;
+        assert!((frac - 0.25).abs() < 0.02, "dropout fraction {frac}");
+    }
+
+    #[test]
+    fn observation_jitter_is_bounded_centered_and_deterministic() {
+        let sigma = 2.0;
+        let o = ObservationModel {
+            pixel_noise_px: sigma,
+            ..Default::default()
+        };
+        let (mut sx, mut sy) = (0.0f64, 0.0f64);
+        let n = 20_000usize;
+        for fno in 0..n {
+            let (x, y) = o.jitter_pixel(5, 2, fno, 0, 100.0, 200.0);
+            // Deterministic.
+            assert_eq!((x, y), o.jitter_pixel(5, 2, fno, 0, 100.0, 200.0));
+            // Box-Muller radius is unbounded in theory but practically small;
+            // anything beyond ~8 sigma over 20k draws would signal a bug.
+            let r = ((x - 100.0).powi(2) + (y - 200.0).powi(2)).sqrt();
+            assert!(r < 8.0 * sigma, "jitter radius {r} too large");
+            sx += x - 100.0;
+            sy += y - 200.0;
+        }
+        // Zero-mean: sample means are near 0 (a few hundredths of a pixel).
+        assert!(
+            (sx / n as f64).abs() < 0.1,
+            "mean x offset {}",
+            sx / n as f64
+        );
+        assert!(
+            (sy / n as f64).abs() < 0.1,
+            "mean y offset {}",
+            sy / n as f64
+        );
+    }
+
+    #[test]
+    fn observation_clutter_count_position_and_determinism() {
+        // Whole part: exactly 2 clutter blobs every frame, inside the image.
+        let o = ObservationModel {
+            clutter_per_frame: 2.0,
+            ..Default::default()
+        };
+        for fno in 0..100 {
+            let c = o.clutter(3, 0, fno, 640, 480);
+            assert_eq!(c.len(), 2);
+            assert_eq!(c, o.clutter(3, 0, fno, 640, 480)); // deterministic
+            for (x, y) in c {
+                assert!((0.0..640.0).contains(&x) && (0.0..480.0).contains(&y));
+            }
+        }
+
+        // Fractional part: ~0.5 expected -> roughly half the frames have one.
+        let o = ObservationModel {
+            clutter_per_frame: 0.5,
+            ..Default::default()
+        };
+        let n = 20_000usize;
+        let with_one = (0..n)
+            .filter(|&f| !o.clutter(3, 0, f, 640, 480).is_empty())
+            .count();
+        let frac = with_one as f64 / n as f64;
+        assert!((frac - 0.5).abs() < 0.02, "clutter-present fraction {frac}");
     }
 }

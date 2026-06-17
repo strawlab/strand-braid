@@ -187,8 +187,9 @@ impl WrappedCamera {
         let system = braid_sim::calibration::build_calibration(&scenario)
             .map_err(|e| ci2::Error::from(format!("building sim calibration: {e}")))?;
 
-        let cam_index = Scenario::camera_index(name)
-            .ok_or_else(|| ci2::Error::from(format!("cannot parse camera index from \"{name}\"")))?;
+        let cam_index = Scenario::camera_index(name).ok_or_else(|| {
+            ci2::Error::from(format!("cannot parse camera index from \"{name}\""))
+        })?;
         let info = SimCameraInfo {
             name: name.to_string(),
             serial: name.trim_start_matches("simcam").to_string(),
@@ -220,17 +221,21 @@ impl WrappedCamera {
         Duration::from_secs_f64(1.0 / self.fps)
     }
 
-    /// Pixel centers of all insects visible to this camera at frame `fno`.
-    /// Empty during the background-warmup phase.
+    /// Pixel centers of all insects visible to this camera at frame `fno`,
+    /// after applying the scenario's observation-model imperfections (detection
+    /// noise, dropout, clutter). Empty during the background-warmup phase.
     fn blobs_for_frame(&self, fno: usize) -> Vec<(f64, f64)> {
         if (fno as u32) < self.bg_warmup_frames {
             return Vec::new();
         }
         // Logical world time: t = 0 at the first post-warmup frame.
         let t = (fno as u32 - self.bg_warmup_frames) as f64 / self.fps;
-        self.world
+        let obs = &self.world.scenario().observation;
+        let mut blobs: Vec<(f64, f64)> = self
+            .world
             .state_at(t)
             .iter()
+            .filter(|insect| !obs.is_dropped(self.seed, self.cam_index, fno, insect.id))
             .filter_map(|insect| {
                 braid_sim::projection::project_pixel(
                     &self.system,
@@ -239,8 +244,18 @@ impl WrappedCamera {
                     self.image_height,
                     &insect.pos,
                 )
+                .map(|(x, y)| obs.jitter_pixel(self.seed, self.cam_index, fno, insect.id, x, y))
             })
-            .collect()
+            .collect();
+        // Spurious clutter detections (false positives).
+        blobs.extend(obs.clutter(
+            self.seed,
+            self.cam_index,
+            fno,
+            self.image_width,
+            self.image_height,
+        ));
+        blobs
     }
 }
 
@@ -417,8 +432,7 @@ impl ci2::Camera for WrappedCamera {
         // the frame content is unchanged.
         if let (Some(start), true) = (self.start, self.frame_rate_enabled) {
             let extra = self.timing.extra_delay_sec(self.seed, self.cam_index, fno);
-            let target =
-                start + self.frame_period() * fno as u32 + Duration::from_secs_f64(extra);
+            let target = start + self.frame_period() * fno as u32 + Duration::from_secs_f64(extra);
             let now = Instant::now();
             if target > now {
                 std::thread::sleep(target - now);
