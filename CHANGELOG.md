@@ -31,6 +31,16 @@
   configuration file, so camera names can be discovered without launching a
   camera per terminal.
 
+### Fixed
+
+* The Vimba (Allied Vision) backend now reports a clean error instead of
+  aborting the process when the Vimba SDK cannot be initialized (for example
+  when the SDK is not installed). When the failure is the common
+  `VmbErrorNoTL` ("no transport layer") caused by `GENICAM_GENTL64_PATH` not
+  pointing at the Vimba GenTL transport layers, the error includes a hint to
+  finish the Vimba SDK installation (run its `Install_GenTL_Path.sh`). The
+  installation docs now document this step.
+
 ## 1.0.0-rc.2 - 2026-04-26
 
 ### Added
