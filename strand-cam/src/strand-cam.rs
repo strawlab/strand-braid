@@ -1832,7 +1832,8 @@ where
     let persistent_secret = http_router::load_persistent_secret(args.secret.clone())?;
 
     let (listener, http_camserver_info) =
-        braid_types::start_listener(&strand_cam_bui_http_address_string, &persistent_secret).await?;
+        braid_types::start_listener(&strand_cam_bui_http_address_string, &persistent_secret)
+            .await?;
     let listen_addr = listener.local_addr()?;
 
     let mut transmit_msg_tx = None;
