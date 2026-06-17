@@ -29,6 +29,21 @@ runs:
     # The `tracing/release_max_level_debug` feature is intentionally omitted:
     # it only caps the compiled-in log level and is not straightforward to set
     # across a multi-package build.
+
+    # Populate the cargo cache with the wasm32 dependencies BEFORE the build.
+    # The strand-cam and braid-run build scripts invoke `trunk` to build their
+    # Yew/WASM frontends, and that nested wasm32 cargo runs offline
+    # (CARGO_NET_OFFLINE=true) to avoid deadlocking the outer build's package-
+    # cache lock (see build-util::trunk_build). Offline, it cannot download, so
+    # on CI's cold cache the frontend build would fail unless the wasm32
+    # dependencies are already present. The frontends are workspace members, so
+    # one fetch at the repo root downloads everything they need. (The host-target
+    # deps are fetched implicitly by the build below.)
+    - name: Pre-fetch wasm32 dependencies (for the offline trunk frontend build)
+      shell: bash
+      run: |
+        cargo fetch --target wasm32-unknown-unknown
+
     - name: Build packaged binaries (single unified pass)
       # Deny warnings and pin the baseline ISA. `target-cpu=sandybridge` is
       # also set in `.cargo/config.toml`, but a `RUSTFLAGS` env var overrides
