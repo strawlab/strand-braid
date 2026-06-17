@@ -203,6 +203,18 @@ pub struct Scenario {
     /// Per-camera frame-arrival timing perturbation (default: none).
     #[serde(default)]
     pub timing: TimingModel,
+    /// If set, the cameras report host timestamps as if frames were acquired at
+    /// this rate (frames per second), regardless of the true (paced) rate.
+    ///
+    /// This reproduces the bug where the live tracker's *measured* frame rate is
+    /// wrong: the online Kalman filter predicts with `dt = 1/fps`, so a wrong
+    /// reported rate corrupts every motion prediction, causing otherwise-good
+    /// observations to be rejected and tracks to be repeatedly killed and
+    /// re-born (fragmentation). Offline retracking recomputes the rate from the
+    /// same timestamps and is unaffected. `None` reports true wall-clock
+    /// timestamps. See `scratch/strand-braid-suboptimalities.md`.
+    #[serde(default)]
+    pub reported_fps: Option<f64>,
 }
 
 impl Scenario {

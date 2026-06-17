@@ -141,6 +141,10 @@ pub struct WrappedCamera {
     image_width: usize,
     image_height: usize,
     blob: BlobParams,
+    /// If set, report host timestamps as if frames arrived at this rate (instead
+    /// of wall-clock `now()`), to reproduce the wrong-measured-fps bug. The
+    /// reference instant for frame 0 is `start`.
+    reported_fps: Option<f64>,
     /// Number of insect-free frames rendered first so the background model
     /// settles before insects appear (see M0).
     bg_warmup_frames: u32,
@@ -154,6 +158,9 @@ pub struct WrappedCamera {
     frame_rate_enabled: bool,
     /// When acquisition started (for pacing); `None` until `acquisition_start`.
     start: Option<Instant>,
+    /// Wall-clock datetime captured at `acquisition_start`, used as the time of
+    /// frame 0 when `reported_fps` synthesizes timestamps.
+    start_datetime: Option<chrono::DateTime<chrono::Utc>>,
     /// Next frame number to emit.
     next_fno: usize,
 }
@@ -196,10 +203,12 @@ impl WrappedCamera {
             image_width: scenario.cameras.image_width,
             image_height: scenario.cameras.image_height,
             blob: scenario.blob.clone(),
+            reported_fps: scenario.reported_fps,
             bg_warmup_frames: scenario.bg_warmup_frames,
             fps: scenario.fps,
             frame_rate_enabled: true,
             start: None,
+            start_datetime: None,
             next_fno: 0,
             world: World::new(scenario),
             system,
@@ -389,6 +398,7 @@ impl ci2::Camera for WrappedCamera {
     fn acquisition_start(&mut self) -> ci2::Result<()> {
         self.next_fno = 0;
         self.start = Some(Instant::now());
+        self.start_datetime = Some(chrono::Utc::now());
         Ok(())
     }
     fn acquisition_stop(&mut self) -> ci2::Result<()> {
@@ -434,12 +444,19 @@ impl ci2::Camera for WrappedCamera {
         )
         .ok_or_else(|| ci2::Error::SingleFrameError("sim frame had invalid layout".into()))?;
 
+        // Report either the true wall-clock time, or — to reproduce the
+        // wrong-measured-fps bug — a synthetic timestamp as if frames arrived at
+        // `reported_fps`, regardless of the true pacing.
+        let datetime = match (self.reported_fps, self.start_datetime) {
+            (Some(rfps), Some(base)) if rfps > 0.0 => {
+                base + chrono::Duration::nanoseconds((fno as f64 / rfps * 1e9) as i64)
+            }
+            _ => chrono::Utc::now(),
+        };
+
         Ok(DynamicFrameWithInfo {
             image: std::sync::Arc::new(image),
-            host_timing: HostTimingInfo {
-                fno,
-                datetime: chrono::Utc::now(),
-            },
+            host_timing: HostTimingInfo { fno, datetime },
             backend_data: None,
         })
     }
