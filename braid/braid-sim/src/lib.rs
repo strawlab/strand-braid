@@ -21,6 +21,8 @@
 
 pub mod calibration;
 pub mod harness;
+#[cfg(feature = "inprocess")]
+pub mod inject;
 pub mod projection;
 pub mod render;
 pub mod scenario;
