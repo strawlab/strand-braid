@@ -1,0 +1,40 @@
+# Like example-sim.toml, but with observation-model imperfections enabled, for
+# the end-to-end "track under noise" smoke test (smoke-tests/braid-sim-imperfect.sh).
+# Detection noise, occasional dropout, and a little clutter all flow through the
+# real ci2-sim renderer, the feature detector, and data association; the
+# ground-truth oracle (braid-sim score --sim-toml) then checks that live tracking
+# still recovers the insect accurately.
+
+seed = 1
+fps = 100.0
+
+[arena]
+min = [-0.15, -0.15, 0.0]
+max = [0.15, 0.15, 0.30]
+
+[cameras]
+count = 5
+radius_m = 0.6
+height_m = 0.7
+focal_length_px = 900.0
+image_width = 640
+image_height = 512
+
+[blob]
+peak = 160
+sigma = 1.5
+background = 0
+
+[[insects]]
+id = 1
+
+[insects.motion]
+freq_hz = [0.11, 0.13, 0.07]
+phase = [0.0, 1.0, 2.0]
+fill = 0.7
+
+# The imperfections under test (deterministic; seeded from `seed`).
+[observation]
+pixel_noise_px = 0.4    # sub-pixel localization jitter on each detection
+dropout_prob = 0.02     # 2% chance a given camera misses the insect on a frame
+clutter_per_frame = 0.1 # ~1 spurious detection every 10 frames per camera
