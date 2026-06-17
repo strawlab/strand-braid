@@ -138,8 +138,14 @@ pub struct WrappedCamera {
     /// Number of insect-free frames rendered first so the background model
     /// settles before insects appear (see M0).
     bg_warmup_frames: u32,
-    /// Wall-clock interval between frames (paces acquisition to the scenario fps).
-    frame_period: Duration,
+    /// Frame rate, frames per second. Used both to evaluate the world at the
+    /// right logical time and to pace acquisition. Defaults to the scenario
+    /// `fps`; Braid overrides it via the software frame-rate-limit path (under
+    /// FakeSync it sends the scenario frame rate, so this is consistent).
+    fps: f64,
+    /// Whether acquisition is paced to `fps`. Braid's software frame-rate-limit
+    /// enables this; it is on by default.
+    frame_rate_enabled: bool,
     /// When acquisition started (for pacing); `None` until `acquisition_start`.
     start: Option<Instant>,
     /// Next frame number to emit.
@@ -168,7 +174,6 @@ impl WrappedCamera {
         let system = braid_sim::calibration::build_calibration(&scenario)
             .map_err(|e| ci2::Error::from(format!("building sim calibration: {e}")))?;
 
-        let frame_period = Duration::from_secs_f64(1.0 / scenario.fps);
         let info = SimCameraInfo {
             name: name.to_string(),
             serial: name.trim_start_matches("simcam").to_string(),
@@ -181,12 +186,18 @@ impl WrappedCamera {
             image_height: scenario.cameras.image_height,
             blob: scenario.blob.clone(),
             bg_warmup_frames: scenario.bg_warmup_frames,
-            frame_period,
+            fps: scenario.fps,
+            frame_rate_enabled: true,
             start: None,
             next_fno: 0,
             world: World::new(scenario),
             system,
         })
+    }
+
+    /// Wall-clock interval between frames.
+    fn frame_period(&self) -> Duration {
+        Duration::from_secs_f64(1.0 / self.fps)
     }
 
     /// Pixel centers of all insects visible to this camera at frame `fno`.
@@ -196,7 +207,7 @@ impl WrappedCamera {
             return Vec::new();
         }
         // Logical world time: t = 0 at the first post-warmup frame.
-        let t = (fno as u32 - self.bg_warmup_frames) as f64 * self.frame_period.as_secs_f64();
+        let t = (fno as u32 - self.bg_warmup_frames) as f64 / self.fps;
         self.world
             .state_at(t)
             .iter()
@@ -326,20 +337,28 @@ impl ci2::Camera for WrappedCamera {
         Err(ci2::Error::FeatureNotPresent())
     }
 
+    // Frame-rate control is supported: the sim camera paces its frames to this
+    // rate. Under FakeSync, Braid drives this via the software frame-rate-limit
+    // path, sending the scenario frame rate (consistent with the sim's own fps).
     fn acquisition_frame_rate_enable(&self) -> ci2::Result<bool> {
-        Err(ci2::Error::FeatureNotPresent())
+        Ok(self.frame_rate_enabled)
     }
-    fn set_acquisition_frame_rate_enable(&mut self, _value: bool) -> ci2::Result<()> {
-        Err(ci2::Error::FeatureNotPresent())
+    fn set_acquisition_frame_rate_enable(&mut self, value: bool) -> ci2::Result<()> {
+        self.frame_rate_enabled = value;
+        Ok(())
     }
     fn acquisition_frame_rate(&self) -> ci2::Result<f64> {
-        Err(ci2::Error::FeatureNotPresent())
+        Ok(self.fps)
     }
     fn acquisition_frame_rate_range(&self) -> ci2::Result<(f64, f64)> {
-        Err(ci2::Error::FeatureNotPresent())
+        Ok((1.0, 1000.0))
     }
-    fn set_acquisition_frame_rate(&mut self, _value: f64) -> ci2::Result<()> {
-        Err(ci2::Error::FeatureNotPresent())
+    fn set_acquisition_frame_rate(&mut self, value: f64) -> ci2::Result<()> {
+        if value <= 0.0 {
+            return Err(ci2::Error::from("frame rate must be positive"));
+        }
+        self.fps = value;
+        Ok(())
     }
 
     fn trigger_selector(&self) -> ci2::Result<TriggerSelector> {
@@ -370,11 +389,11 @@ impl ci2::Camera for WrappedCamera {
         let fno = self.next_fno;
         self.next_fno += 1;
 
-        // Pace to the scenario frame rate so the pipeline runs at a realistic
-        // rate (and so per-frame arrival timing is meaningful for later
-        // timing-injection milestones).
-        if let Some(start) = self.start {
-            let target = start + self.frame_period * fno as u32;
+        // Pace to the frame rate (when enabled) so the pipeline runs at a
+        // realistic rate (and so per-frame arrival timing is meaningful for
+        // later timing-injection milestones).
+        if let (Some(start), true) = (self.start, self.frame_rate_enabled) {
+            let target = start + self.frame_period() * fno as u32;
             let now = Instant::now();
             if target > now {
                 std::thread::sleep(target - now);
