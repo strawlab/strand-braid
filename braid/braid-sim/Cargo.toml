@@ -8,12 +8,19 @@ description = "Simulation harness for end-to-end testing of Braid 3D tracking: g
 [dependencies]
 flydra-mvg.workspace = true
 braid-mvg.workspace = true
+braid-config-data.workspace = true
+braid-types.workspace = true
 cam-geom.workspace = true
 opencv-ros-camera.workspace = true
 nalgebra.workspace = true
 serde = { workspace = true, features = ["std", "derive"] }
 toml.workspace = true
 eyre.workspace = true
+clap = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 approx.workspace = true
+
+[[bin]]
+name = "braid-sim"
+path = "src/bin/braid-sim.rs"

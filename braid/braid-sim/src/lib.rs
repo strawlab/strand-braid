@@ -20,6 +20,7 @@
 //!   field-of-view culling.
 
 pub mod calibration;
+pub mod harness;
 pub mod projection;
 pub mod render;
 pub mod scenario;
