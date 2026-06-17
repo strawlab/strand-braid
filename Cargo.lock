@@ -1723,12 +1723,17 @@ dependencies = [
  "braid-types",
  "braidz-parser",
  "cam-geom",
+ "chrono",
  "clap",
  "eyre",
  "flydra-mvg",
+ "flydra2",
  "nalgebra 0.34.2",
  "opencv-ros-camera",
  "serde",
+ "tempfile",
+ "tokio",
+ "tokio-stream",
  "toml 0.5.11",
 ]
 
