@@ -444,9 +444,11 @@ impl ci2::Camera for WrappedCamera {
         )
         .ok_or_else(|| ci2::Error::SingleFrameError("sim frame had invalid layout".into()))?;
 
-        // Report either the true wall-clock time, or — to reproduce the
-        // wrong-measured-fps bug — a synthetic timestamp as if frames arrived at
-        // `reported_fps`, regardless of the true pacing.
+        // Host grab time. Normally the true wall-clock now(); with `reported_fps`
+        // set, a synthetic time advancing at that rate, modeling a host clock
+        // that is *bunched* relative to the true frame cadence (as happens under
+        // load when the driver delivers buffered frames in bursts). The fps
+        // estimator must not be fooled by this when a hardware timestamp exists.
         let datetime = match (self.reported_fps, self.start_datetime) {
             (Some(rfps), Some(base)) if rfps > 0.0 => {
                 base + chrono::Duration::nanoseconds((fno as f64 / rfps * 1e9) as i64)
@@ -454,10 +456,21 @@ impl ci2::Camera for WrappedCamera {
             _ => chrono::Utc::now(),
         };
 
+        // Hardware (device) timestamp at the TRUE frame cadence, in nanoseconds.
+        // The sim emulates a camera that provides a reliable hardware clock; this
+        // is what a correct fps estimator should use, and it is unaffected by the
+        // `reported_fps` host-clock bunching above.
+        let device_timestamp = (fno as f64 / self.fps * 1e9) as u64;
+        let backend_data: Option<Box<dyn ci2::BackendData>> =
+            Some(Box::new(ci2_pylon_types::PylonExtra {
+                block_id: fno as u64,
+                device_timestamp,
+            }));
+
         Ok(DynamicFrameWithInfo {
             image: std::sync::Arc::new(image),
             host_timing: HostTimingInfo { fno, datetime },
-            backend_data: None,
+            backend_data,
         })
     }
 }
