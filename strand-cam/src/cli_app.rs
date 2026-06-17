@@ -466,7 +466,7 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
     let standalone_or_braid = if let Some(braid_url) = braid_url {
         for argname in &[
             "pixel_format",
-            "JWT_SECRET",
+            "strand_cam_cookie_secret",
             "camera_settings_filename",
             "http_server_addr",
         ] {
