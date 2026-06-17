@@ -1,0 +1,25 @@
+[package]
+name = "ci2-sim"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "ci2 camera backend that renders synthetic images of simulated insects for end-to-end Braid testing."
+
+[dependencies]
+tracing.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+machine-vision-formats.workspace = true
+
+ci2.workspace = true
+strand-dynamic-frame.workspace = true
+braid-sim.workspace = true
+flydra-mvg.workspace = true
+braid-mvg.workspace = true
+
+[dev-dependencies]
+# M2 verification feeds the rendered frames through the real feature detector.
+flydra-feature-detector.workspace = true
+flydra-pt-detect-cfg.workspace = true
+braid-types.workspace = true
+eyre.workspace = true

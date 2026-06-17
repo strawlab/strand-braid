@@ -24,6 +24,26 @@ fn in_image(x: f64, y: f64, width: usize, height: usize) -> bool {
     x >= 0.0 && y >= 0.0 && x < width as f64 && y < height as f64
 }
 
+/// Project a 3D point into a single named camera, returning the pixel `(x, y)`
+/// or `None` if the camera is unknown or the point lands outside a
+/// `width` x `height` image.
+pub fn project_pixel(
+    system: &FlydraMultiCameraSystem<f64>,
+    cam_name: &str,
+    width: usize,
+    height: usize,
+    pt: &PointWorldFrame<f64>,
+) -> Option<(f64, f64)> {
+    let cam = system.cam_by_name(cam_name)?;
+    let dp = cam.project_3d_to_distorted_pixel(pt);
+    let (x, y) = (dp.coords.x, dp.coords.y);
+    if in_image(x, y, width, height) {
+        Some((x, y))
+    } else {
+        None
+    }
+}
+
 /// Project a 3D point into every camera of `system`, culling points that land
 /// outside the image.
 ///
