@@ -12,6 +12,7 @@ members = [
     "braid/braid-process-video",
     "braid/flydra2",
     "braid/tracking",
+    "braid/braid-sim",
     "braidz/braidz-parser",
     "braidz/braidz-parser/braidz-chunked-iter",
     "braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter",
