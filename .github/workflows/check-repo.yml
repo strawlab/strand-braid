@@ -78,3 +78,10 @@ jobs:
             --no-default-features \
             --features "serve_files flydratrax fiducial" \
             --lib
+      # The braid-sim in-process detection injector drives the full flydra2
+      # tracker and so is behind the non-default `inprocess` feature. This runs
+      # the level-B injector tests (synthetic 2D detections -> 3D tracks scored
+      # against ground truth), which the default-feature run above skips.
+      - name: braid-sim in-process injector tests
+        run: |
+          cargo test --release -p braid-sim --features inprocess
