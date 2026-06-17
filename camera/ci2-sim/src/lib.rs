@@ -128,6 +128,12 @@ pub struct WrappedCamera {
     info: SimCameraInfo,
     /// This camera's name, used to project with its own calibration.
     cam_name: String,
+    /// This camera's index (the `k` in `simcam{k}`), for timing perturbation.
+    cam_index: usize,
+    /// Scenario RNG seed, for deterministic timing jitter.
+    seed: u64,
+    /// Per-camera frame-arrival timing perturbation (M5).
+    timing: braid_sim::scenario::TimingModel,
     /// The full multi-camera calibration (this camera projects with its entry).
     system: FlydraMultiCameraSystem<f64>,
     /// The deterministic ground-truth world.
@@ -174,6 +180,8 @@ impl WrappedCamera {
         let system = braid_sim::calibration::build_calibration(&scenario)
             .map_err(|e| ci2::Error::from(format!("building sim calibration: {e}")))?;
 
+        let cam_index = Scenario::camera_index(name)
+            .ok_or_else(|| ci2::Error::from(format!("cannot parse camera index from \"{name}\"")))?;
         let info = SimCameraInfo {
             name: name.to_string(),
             serial: name.trim_start_matches("simcam").to_string(),
@@ -182,6 +190,9 @@ impl WrappedCamera {
         Ok(Self {
             info,
             cam_name: name.to_string(),
+            cam_index,
+            seed: scenario.seed,
+            timing: scenario.timing.clone(),
             image_width: scenario.cameras.image_width,
             image_height: scenario.cameras.image_height,
             blob: scenario.blob.clone(),
@@ -390,10 +401,14 @@ impl ci2::Camera for WrappedCamera {
         self.next_fno += 1;
 
         // Pace to the frame rate (when enabled) so the pipeline runs at a
-        // realistic rate (and so per-frame arrival timing is meaningful for
-        // later timing-injection milestones).
+        // realistic rate. The optional per-camera timing perturbation (M5)
+        // delays delivery of this frame so its 2D detections reach the mainbrain
+        // late (and may be dropped from live bundling). Only delivery is delayed;
+        // the frame content is unchanged.
         if let (Some(start), true) = (self.start, self.frame_rate_enabled) {
-            let target = start + self.frame_period() * fno as u32;
+            let extra = self.timing.extra_delay_sec(self.seed, self.cam_index, fno);
+            let target =
+                start + self.frame_period() * fno as u32 + Duration::from_secs_f64(extra);
             let now = Instant::now();
             if target > now {
                 std::thread::sleep(target - now);

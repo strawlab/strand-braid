@@ -120,6 +120,65 @@ fn default_bg_warmup_frames() -> u32 {
     30
 }
 
+/// Per-camera frame-arrival timing perturbation (milestone M5).
+///
+/// The simulated cameras deliver each rendered frame late by this much, which
+/// causes their 2D detections to reach the mainbrain after it may have advanced
+/// past that frame. Late data is then silently dropped from the *live* 3D
+/// bundling (see `braid/flydra2/src/frame_bundler.rs`) while still being saved
+/// to disk, so retracking can recover it — the mechanism behind the
+/// "live trajectories shorter than retrack" bug.
+///
+/// The default is no perturbation, so the perfect-world baseline is unchanged.
+/// The frame *content* is unaffected: only delivery is delayed, so a frame still
+/// depicts the same world time on every camera.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct TimingModel {
+    /// Indices of the cameras whose frames are delivered late. Empty = none.
+    #[serde(default)]
+    pub lagging_cameras: Vec<usize>,
+    /// Constant extra delivery latency for lagging cameras, in seconds.
+    #[serde(default)]
+    pub extra_latency_sec: f64,
+    /// Maximum additional uniform-random per-frame latency for lagging cameras,
+    /// in seconds (drawn deterministically from the scenario seed, so runs are
+    /// reproducible).
+    #[serde(default)]
+    pub jitter_sec: f64,
+}
+
+impl TimingModel {
+    /// The extra delivery delay (seconds) for camera index `cam_index` at frame
+    /// `fno`, given the scenario `seed`. Deterministic.
+    pub fn extra_delay_sec(&self, seed: u64, cam_index: usize, fno: usize) -> f64 {
+        if !self.lagging_cameras.contains(&cam_index) {
+            return 0.0;
+        }
+        let jitter = if self.jitter_sec > 0.0 {
+            self.jitter_sec * unit_hash(seed, cam_index as u64, fno as u64)
+        } else {
+            0.0
+        };
+        self.extra_latency_sec + jitter
+    }
+}
+
+/// Deterministic pseudo-random value in `[0, 1)` from three integers
+/// (splitmix64-style mixing). Used for reproducible per-(camera, frame) jitter.
+fn unit_hash(a: u64, b: u64, c: u64) -> f64 {
+    let mut x = a
+        .wrapping_mul(0x9E37_79B9_7F4A_7C15)
+        .wrapping_add(b.wrapping_mul(0xD1B5_4A32_D192_ED03))
+        .wrapping_add(c.wrapping_mul(0xCA5A_8267_6BE1_1B27));
+    x ^= x >> 30;
+    x = x.wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    x ^= x >> 27;
+    x = x.wrapping_mul(0x94D0_49BB_1331_11EB);
+    x ^= x >> 31;
+    // Top 53 bits → f64 in [0, 1).
+    (x >> 11) as f64 / (1u64 << 53) as f64
+}
+
 /// A complete simulated scenario, deserialized from `sim.toml`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Scenario {
@@ -141,6 +200,9 @@ pub struct Scenario {
     /// settles before insects appear (see M0).
     #[serde(default = "default_bg_warmup_frames")]
     pub bg_warmup_frames: u32,
+    /// Per-camera frame-arrival timing perturbation (default: none).
+    #[serde(default)]
+    pub timing: TimingModel,
 }
 
 impl Scenario {
@@ -155,5 +217,60 @@ impl Scenario {
     /// encoding mismatches.
     pub fn camera_name(k: usize) -> String {
         format!("simcam{k}")
+    }
+
+    /// Parse the camera index `k` from a `simcam{k}` name.
+    pub fn camera_index(name: &str) -> Option<usize> {
+        name.strip_prefix("simcam").and_then(|s| s.parse().ok())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn camera_name_index_roundtrip() {
+        for k in 0..7 {
+            assert_eq!(Scenario::camera_index(&Scenario::camera_name(k)), Some(k));
+        }
+        assert_eq!(Scenario::camera_index("not-a-sim-cam"), None);
+    }
+
+    #[test]
+    fn timing_default_is_no_delay() {
+        let t = TimingModel::default();
+        for cam in 0..5 {
+            for fno in 0..100 {
+                assert_eq!(t.extra_delay_sec(1, cam, fno), 0.0);
+            }
+        }
+    }
+
+    #[test]
+    fn timing_lags_only_selected_cameras() {
+        let t = TimingModel {
+            lagging_cameras: vec![2, 4],
+            extra_latency_sec: 0.01,
+            jitter_sec: 0.0,
+        };
+        assert_eq!(t.extra_delay_sec(1, 0, 5), 0.0);
+        assert_eq!(t.extra_delay_sec(1, 2, 5), 0.01);
+        assert_eq!(t.extra_delay_sec(1, 4, 5), 0.01);
+    }
+
+    #[test]
+    fn timing_jitter_is_bounded_and_deterministic() {
+        let t = TimingModel {
+            lagging_cameras: vec![1],
+            extra_latency_sec: 0.0,
+            jitter_sec: 0.02,
+        };
+        for fno in 0..1000 {
+            let d = t.extra_delay_sec(42, 1, fno);
+            assert!((0.0..0.02).contains(&d), "jitter {d} out of range");
+            // Deterministic: same inputs -> same output.
+            assert_eq!(d, t.extra_delay_sec(42, 1, fno));
+        }
     }
 }
