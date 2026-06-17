@@ -2480,6 +2480,7 @@ dependencies = [
  "braid-types",
  "chrono",
  "ci2",
+ "ci2-pylon-types",
  "eyre",
  "flydra-feature-detector",
  "flydra-mvg",
