@@ -29,6 +29,16 @@ https://www.alliedvision.com/en/products/vimba-sdk/. Install like this:
 
 This will install the following file, among others: `/opt/VimbaX_2024-1/bin/libVmbC.so`.
 
+Then complete the Vimba installation by running its GenTL path installer, which
+sets up the GENICAM_GENTL64_PATH environment variable so the SDK can find its
+GenTL transport layers (the `.cti` files under `/opt/VimbaX_2024-1/cti/`):
+
+    sudo /opt/VimbaX_2024-1/cti/Install_GenTL_Path.sh
+
+Log out and back in (or open a new terminal) afterwards so the variable takes
+effect. If you skip this step, the Vimba backend fails to start with the error
+"VmbErrorNoTL" even though the library itself loaded successfully.
+
 ## Installation
 
 You should be able to install the .deb file by double clicking on it in a file

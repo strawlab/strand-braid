@@ -4,13 +4,11 @@
 use std::{
     convert::TryInto,
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, OnceLock,
         atomic::{AtomicBool, Ordering},
     },
 };
 use tracing::{error, warn};
-
-use lazy_static::lazy_static;
 
 use machine_vision_formats as formats;
 
@@ -37,10 +35,23 @@ struct CamHandle {
 unsafe impl Sync for CamHandle {}
 unsafe impl Send for CamHandle {}
 
-lazy_static! {
-    static ref VIMBA_LIB: vimba::VimbaLibrary = vimba::VimbaLibrary::new().unwrap();
-    static ref IS_DONE: AtomicBool = AtomicBool::new(false);
-    static ref SENDERS: Mutex<Vec<FrameSender>> = Mutex::new(Vec::new());
+/// The Vimba SDK shared library, loaded once by [new_module]. Loading the SDK
+/// can fail (e.g. it is not installed); that fallible step is handled in
+/// [new_module] so that the rest of the code can access the library infallibly
+/// via [vimba_lib].
+static VIMBA_LIB: OnceLock<vimba::VimbaLibrary> = OnceLock::new();
+static IS_DONE: AtomicBool = AtomicBool::new(false);
+static SENDERS: Mutex<Vec<FrameSender>> = Mutex::new(Vec::new());
+
+/// Access the Vimba library that [new_module] loaded.
+///
+/// Panics if called before a successful [new_module], which the code guarantees:
+/// a [WrappedModule] (the only entry point to this backend) can only be obtained
+/// from [new_module], which loads the library first.
+fn vimba_lib() -> &'static vimba::VimbaLibrary {
+    VIMBA_LIB
+        .get()
+        .expect("Vimba library accessed before new_module() loaded it")
 }
 
 /// convert vimba::Error to ci2::Error
@@ -145,7 +156,7 @@ fn callback_rust(
         // Enqueue frame again.
         let err_code = {
             unsafe {
-                VIMBA_LIB
+                vimba_lib()
                     .vimba_lib
                     .VmbCaptureFrameQueue(camera_handle, frame, Some(callback_c))
             }
@@ -226,8 +237,8 @@ pub struct WrappedModule {}
 
 impl WrappedModule {
     fn camera_infos(&self) -> ci2::Result<Vec<VimbaCameraInfo>> {
-        let n_cams = VIMBA_LIB.n_cameras().map_vimba_err()?;
-        let vimba_infos = VIMBA_LIB.camera_info(n_cams).map_vimba_err()?;
+        let n_cams = vimba_lib().n_cameras().map_vimba_err()?;
+        let vimba_infos = vimba_lib().camera_info(n_cams).map_vimba_err()?;
 
         let infos = vimba_infos
             .into_iter()
@@ -248,7 +259,71 @@ impl WrappedModule {
     }
 }
 
+/// Whether `dir` contains a Vimba GenTL transport layer (a `Vimba*.cti` file).
+fn dir_has_vimba_transport_layer(dir: &std::path::Path) -> bool {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    entries.flatten().any(|entry| {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        name.starts_with("Vimba") && name.ends_with(".cti")
+    })
+}
+
+/// A hint about `GENICAM_GENTL64_PATH` if no Vimba GenTL transport layer appears
+/// to be reachable through it.
+///
+/// The Vimba SDK locates its GenTL *transport layers* (`Vimba*.cti` files) via
+/// the `GENICAM_GENTL64_PATH` environment variable. If that variable is unset,
+/// or set but does not include a directory containing a Vimba transport layer
+/// (for example it only lists another vendor's GenTL producers), `VmbStartup`
+/// fails with `VmbErrorNoTL`. In that case this returns a hint to finish the
+/// Vimba SDK installation; otherwise it returns `None`.
+fn gentl_path_hint() -> Option<String> {
+    let has_vimba_tl = std::env::var_os("GENICAM_GENTL64_PATH")
+        .map(|paths| std::env::split_paths(&paths).any(|dir| dir_has_vimba_transport_layer(&dir)))
+        .unwrap_or(false);
+    if has_vimba_tl {
+        return None;
+    }
+
+    let installer = std::cfg_select! {
+        target_os = "linux" => "Complete the Vimba SDK installation by running its GenTL path \
+            installer (for example `sudo /opt/VimbaX_2024-1/cti/Install_GenTL_Path.sh`) and \
+            then starting a new login shell so that `/etc/profile.d/VimbaX_GenTL_Path_64bit.sh` \
+            sets the variable.",
+        _ => "Complete the Vimba SDK installation as described in Allied Vision's \
+            documentation so that this variable is set.",
+    };
+
+    Some(format!(
+        "The GENICAM_GENTL64_PATH environment variable does not point to a Vimba GenTL \
+         transport layer, which is the usual cause of VmbErrorNoTL. {installer}"
+    ))
+}
+
 pub fn new_module() -> ci2::Result<WrappedModule> {
+    // Load the Vimba SDK now, so that a missing or unloadable SDK is reported as
+    // a clean error here rather than panicking on first use deeper in the code.
+    // This is the single fallible initialization point; all later accesses go
+    // through the infallible [vimba_lib].
+    if VIMBA_LIB.get().is_none() {
+        let lib = vimba::VimbaLibrary::new().map_err(|e| {
+            let mut msg = format!(
+                "Could not initialize the Allied Vision Vimba SDK (is it installed?). \
+                 The underlying error was: {e:?}"
+            );
+            if let Some(hint) = gentl_path_hint() {
+                msg = format!("{msg}\n\nHint: {hint}");
+            }
+            ci2::Error::from(anyhow::anyhow!(msg))
+        })?;
+        // Ignore the error if another thread won the race: in that case `lib` is
+        // dropped here. `new_module` is effectively called once per process, so
+        // this does not happen in practice.
+        let _ = VIMBA_LIB.set(lib);
+    }
     Ok(WrappedModule {})
 }
 
@@ -259,8 +334,12 @@ pub struct VimbaTerminateGuard {
 impl Drop for VimbaTerminateGuard {
     fn drop(&mut self) {
         if !self.already_dropped {
-            unsafe {
-                VIMBA_LIB.shutdown();
+            // Only shut down if the library was actually loaded. Use `get()`
+            // (not the panicking `vimba_lib()`) so dropping never panics.
+            if let Some(lib) = VIMBA_LIB.get() {
+                unsafe {
+                    lib.shutdown();
+                }
             }
             self.already_dropped = true;
         }
@@ -276,10 +355,10 @@ pub fn make_singleton_guard(
 }
 
 impl<'a> ci2::CameraModule for &'a WrappedModule {
-    // The camera borrows from `VIMBA_LIB`, which is a `lazy_static` and thus
-    // effectively `'static`, so the camera type carries no borrow from the
-    // module reference. Pinning it to `'static` makes this backend's shape match
-    // the Pylon backend (no lifetime parameter on the camera type).
+    // The camera borrows from `VIMBA_LIB`, which is a `'static` `OnceLock`, so
+    // the camera type carries no borrow from the module reference. Pinning it to
+    // `'static` makes this backend's shape match the Pylon backend (no lifetime
+    // parameter on the camera type).
     type CameraType = WrappedCamera<'static>;
     type Guard = VimbaTerminateGuard;
 
@@ -299,7 +378,7 @@ impl<'a> ci2::CameraModule for &'a WrappedModule {
         Ok(infos)
     }
     fn camera(self: &mut &'a WrappedModule, name: &str) -> ci2::Result<Self::CameraType> {
-        let camera = vimba::Camera::open(name, vimba::access_mode::FULL, &VIMBA_LIB.vimba_lib)
+        let camera = vimba::Camera::open(name, vimba::access_mode::FULL, &vimba_lib().vimba_lib)
             .map_vimba_err()?;
 
         let vimba_infos = WrappedModule::camera_infos(self)?;
