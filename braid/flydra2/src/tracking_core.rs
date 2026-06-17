@@ -847,6 +847,18 @@ impl ModelCollection<CollectionFrameWithObservationLikes> {
                         // );
 
                         next_model.state.data_assoc_this_timestamp.push(assoc);
+                    } else if let Some((_best_idx, best_wantedness)) = best_col {
+                        // There was a candidate point for this model, but its
+                        // likelihood was below the acceptance threshold, so the
+                        // model gets no observation from this camera this frame
+                        // and must coast (predict-only), growing its covariance.
+                        tracing::debug!(
+                            target: "track_death",
+                            "REJECT obj_id={} likelihood={:.3e} <= min={:.3e} (observation not associated)",
+                            next_model.lmi.obj_id,
+                            best_wantedness,
+                            self.mcinner.params.accept_observation_min_likelihood,
+                        );
                     }
                 }
 
@@ -936,16 +948,19 @@ impl ModelCollection<CollectionFramePosteriors> {
 
         for model in orig_models.into_iter() {
             let covar_size = model.state.covariance_size();
-            // trace!(
-            //     "frame: {}, obj_id: {}, covar_size: {}, max_variance: {}",
-            //     unused.0.frame().0,
-            //     model.lmi.obj_id,
-            //     covar_size,
-            //     max_variance
-            // );
             if covar_size <= max_variance {
                 to_live.push(model);
             } else {
+                tracing::debug!(
+                    target: "track_death",
+                    "KILL obj_id={} frame={} covar_size={:.3e} > max_variance={:.3e} \
+                     (max_position_std={})",
+                    model.lmi.obj_id,
+                    model.state.posterior.tdpt.frame.0,
+                    covar_size,
+                    max_variance,
+                    self.mcinner.params.max_position_std_meters,
+                );
                 to_kill.push(model);
             }
         }
