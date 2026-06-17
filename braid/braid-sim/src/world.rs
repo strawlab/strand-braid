@@ -57,6 +57,15 @@ impl World {
                 for k in 0..3 {
                     let amp = half[k] * m.fill;
                     p[k] = center[k] + amp * (2.0 * PI * m.freq_hz[k] * t + m.phase[k]).sin();
+                    // Optional high-frequency maneuver overlay: small amplitude,
+                    // high frequency -> large acceleration the constant-velocity
+                    // tracker cannot predict. Per-axis phase offset so axes are
+                    // not synchronized.
+                    if m.maneuver_amp_m > 0.0 && m.maneuver_freq_hz > 0.0 {
+                        let ph = k as f64 * 2.0;
+                        p[k] += m.maneuver_amp_m
+                            * (2.0 * PI * m.maneuver_freq_hz * t + ph).sin();
+                    }
                 }
                 InsectState {
                     id: spec.id,

@@ -87,6 +87,17 @@ pub struct Lissajous {
     pub phase: [f64; 3],
     /// Fraction of the arena half-extent the motion spans (0..1).
     pub fill: f64,
+    /// Amplitude (meters) of an additional high-frequency "maneuver" overlay
+    /// per axis. Small amplitude at high [`Self::maneuver_freq_hz`] produces
+    /// large acceleration/jerk (sharp turns) without large displacement,
+    /// modeling a maneuvering target (e.g. a flying insect). A constant-velocity
+    /// EKF cannot predict this, so it produces nonzero innovations — needed to
+    /// exercise the over-confident-gate fragmentation bug. Default 0 (smooth).
+    #[serde(default)]
+    pub maneuver_amp_m: f64,
+    /// Frequency (Hz) of the maneuver overlay. Default 0.
+    #[serde(default)]
+    pub maneuver_freq_hz: f64,
 }
 
 impl Default for Lissajous {
@@ -95,6 +106,8 @@ impl Default for Lissajous {
             freq_hz: [0.11, 0.13, 0.07],
             phase: [0.0, 1.0, 2.0],
             fill: 0.7,
+            maneuver_amp_m: 0.0,
+            maneuver_freq_hz: 0.0,
         }
     }
 }
