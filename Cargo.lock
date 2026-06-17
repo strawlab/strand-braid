@@ -1714,6 +1714,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "braid-sim"
+version = "0.1.0"
+dependencies = [
+ "approx 0.5.1",
+ "braid-mvg",
+ "cam-geom",
+ "eyre",
+ "flydra-mvg",
+ "nalgebra 0.34.2",
+ "opencv-ros-camera",
+ "serde",
+ "toml 0.5.11",
+]
+
+[[package]]
 name = "braid-triggerbox"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
