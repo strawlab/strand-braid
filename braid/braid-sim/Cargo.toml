@@ -1,0 +1,19 @@
+[package]
+name = "braid-sim"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Simulation harness for end-to-end testing of Braid 3D tracking: ground-truth insect trajectories, synthetic calibrations, and projection to fake cameras."
+
+[dependencies]
+flydra-mvg.workspace = true
+braid-mvg.workspace = true
+cam-geom.workspace = true
+opencv-ros-camera.workspace = true
+nalgebra.workspace = true
+serde = { workspace = true, features = ["std", "derive"] }
+toml.workspace = true
+eyre.workspace = true
+
+[dev-dependencies]
+approx.workspace = true
