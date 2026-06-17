@@ -25,6 +25,7 @@ pub mod projection;
 pub mod render;
 pub mod scenario;
 pub mod score;
+pub mod truth;
 pub mod world;
 
 pub use scenario::Scenario;
