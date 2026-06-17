@@ -1718,8 +1718,11 @@ name = "braid-sim"
 version = "0.1.0"
 dependencies = [
  "approx 0.5.1",
+ "braid-config-data",
  "braid-mvg",
+ "braid-types",
  "cam-geom",
+ "clap",
  "eyre",
  "flydra-mvg",
  "nalgebra 0.34.2",
