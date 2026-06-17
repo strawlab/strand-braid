@@ -172,6 +172,9 @@ pub(crate) async fn frame_process_task<'a>(
     let mut csv_save_state = SavingState::NotSaving;
     let mut shared_store_arc: Option<Arc<RwLock<ChangeTracker<StoreType>>>> = None;
     let mut fps_calc = FpsCalc::new(100); // average 100 frames to get mean fps
+    // Whether we have already warned that no hardware timestamp is available for
+    // frame-rate estimation (warn once, not per frame).
+    let mut warned_no_hw_timestamp = false;
     #[cfg(feature = "flydratrax")]
     let mut kalman_tracking_config = strand_cam_storetype::KalmanTrackingConfig::default(); // this is replaced below
     #[cfg(feature = "flydratrax")]
@@ -648,7 +651,42 @@ pub(crate) async fn frame_process_task<'a>(
                     )
                 };
 
-                if let Some(new_fps) = fps_calc.update(&frame.host_timing) {
+                // Estimate the frame rate from the camera's hardware timestamp
+                // when available (in nanoseconds), falling back to the host grab
+                // time otherwise. The hardware timestamp reflects the true
+                // acquisition time and is immune to host-side buffering; the host
+                // clock can be bunched under load, reading several times too
+                // high. A too-high frame rate makes the tracker's dt=1/fps too
+                // small, shrinking the process noise and producing overconfident
+                // priors that reject real motion -- which can drop tracking and
+                // fragment trajectories.
+                let (fps_stamp_nanos, fps_source) = match device_timestamp {
+                    Some(device_ns) => {
+                        (device_ns as i128, crate::FpsTimestampSource::Hardware)
+                    }
+                    None => {
+                        if !warned_no_hw_timestamp {
+                            warned_no_hw_timestamp = true;
+                            tracing::warn!(
+                                "No hardware (camera device) timestamp available; estimating \
+                                 frame rate from the host clock. Under load the host may grab \
+                                 buffered frames in bursts, making the measured frame rate too \
+                                 high. A too-high frame rate gives the tracker an overconfident \
+                                 motion prior (dt=1/fps too small), which can reject real \
+                                 detections and drop/fragment tracking. Prefer a camera that \
+                                 provides hardware timestamps, or an external trigger."
+                            );
+                        }
+                        (
+                            frame.host_timing.datetime.timestamp_nanos_opt().unwrap_or(0) as i128,
+                            crate::FpsTimestampSource::HostClock,
+                        )
+                    }
+                };
+
+                if let Some(new_fps) =
+                    fps_calc.update(frame.host_timing.fno, fps_stamp_nanos, fps_source)
+                {
                     if let Some(ref mut store) = shared_store_arc {
                         let mut tracker = store.write().unwrap();
                         tracker.modify(|tracker| {

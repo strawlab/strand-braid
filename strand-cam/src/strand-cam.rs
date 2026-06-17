@@ -184,9 +184,28 @@ pub enum Tracker {
 }
 
 /// calculates a framerate every n frames
+/// Which timestamp source is used to estimate the frame rate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FpsTimestampSource {
+    /// The camera's hardware/device timestamp. Preferred: it reflects the true
+    /// acquisition time and is immune to host-side buffering, so the estimate is
+    /// correct even when frames are delivered to the host in bursts.
+    Hardware,
+    /// The host clock sampled when the frame was grabbed. Fallback used when the
+    /// camera provides no hardware timestamp. Under load the driver buffers
+    /// frames and the host grabs them in bursts, so this can read several times
+    /// too high.
+    HostClock,
+}
+
 pub struct FpsCalc {
-    prev: Option<(usize, chrono::DateTime<chrono::Utc>)>,
+    /// (frame number, timestamp in nanoseconds) of the last sample.
+    prev: Option<(usize, i128)>,
     frames_to_average: usize,
+    /// The source of the current running sample. Only differences within a
+    /// single source are meaningful (epochs differ between sources), so the
+    /// estimate is reset whenever the source changes.
+    source: Option<FpsTimestampSource>,
 }
 
 impl FpsCalc {
@@ -195,29 +214,108 @@ impl FpsCalc {
         Self {
             prev: None,
             frames_to_average,
+            source: None,
         }
     }
-    /// return a newly computed fps value whenever available.
-    pub fn update(&mut self, fi: &ci2::HostTimingInfo) -> Option<f64> {
-        let fno = fi.fno;
-        let stamp = fi.datetime;
+    /// Update with a frame number and a timestamp (nanoseconds) from `source`,
+    /// returning a newly computed fps whenever available.
+    ///
+    /// The timestamp epoch is irrelevant (only differences are used), but it
+    /// must be consistent within a source, so the running estimate restarts
+    /// whenever `source` changes.
+    pub fn update(
+        &mut self,
+        fno: usize,
+        stamp_nanos: i128,
+        source: FpsTimestampSource,
+    ) -> Option<f64> {
+        if self.source != Some(source) {
+            // Source changed (or first sample): restart the estimate.
+            self.source = Some(source);
+            self.prev = Some((fno, stamp_nanos));
+            return None;
+        }
         let mut reset_previous = true;
         let mut result = None;
-        if let Some((prev_frame, ref prev_stamp)) = self.prev {
+        if let Some((prev_frame, prev_stamp)) = self.prev {
             let n_frames = fno - prev_frame;
             if n_frames < self.frames_to_average {
                 reset_previous = false;
             } else {
-                let dur_nsec = stamp.signed_duration_since(*prev_stamp).num_nanoseconds();
-                if let Some(nsec) = dur_nsec {
-                    result = Some(n_frames as f64 / nsec as f64 * 1.0e9);
+                let dur_nsec = stamp_nanos - prev_stamp;
+                if dur_nsec > 0 {
+                    result = Some(n_frames as f64 / dur_nsec as f64 * 1.0e9);
                 }
             }
         }
         if reset_previous {
-            self.prev = Some((fno, stamp));
+            self.prev = Some((fno, stamp_nanos));
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod fps_calc_tests {
+    use super::{FpsCalc, FpsTimestampSource};
+
+    const NS_PER_S: i128 = 1_000_000_000;
+
+    /// With the camera hardware timestamp (true cadence), the estimated rate is
+    /// correct even when frames are delivered to the host in bursts. This is the
+    /// fix for the live-vs-retrack fragmentation bug.
+    #[test]
+    fn hardware_timestamp_is_robust_to_bursty_delivery() {
+        let mut fc = FpsCalc::new(100);
+        let true_fps = 30.0;
+        let dt_ns = (NS_PER_S as f64 / true_fps) as i128; // true inter-frame, ns
+        let mut measured = None;
+        for fno in 0..=100usize {
+            // Hardware timestamp advances at the true cadence regardless of when
+            // the host actually grabbed the frame.
+            let stamp = fno as i128 * dt_ns;
+            if let Some(fps) = fc.update(fno, stamp, FpsTimestampSource::Hardware) {
+                measured = Some(fps);
+            }
+        }
+        let fps = measured.expect("should produce an estimate after 100 frames");
+        assert!((fps - true_fps).abs() < 0.1, "hardware fps {fps} != {true_fps}");
+    }
+
+    /// Demonstrates the bug being fixed: with the host clock, a burst (e.g. the
+    /// driver delivering 100 buffered frames in ~1/3 of the true span) makes the
+    /// estimate read far too high.
+    #[test]
+    fn host_clock_overreads_under_bursty_delivery() {
+        let mut fc = FpsCalc::new(100);
+        let true_fps = 30.0;
+        // 100 frames truly span 100/30 s, but the host grabbed them bunched into
+        // 1/3 of that wall-clock time.
+        let bunched_span_ns = (100.0 / true_fps / 3.0 * NS_PER_S as f64) as i128;
+        let mut measured = None;
+        for fno in 0..=100usize {
+            let stamp = (fno as i128 * bunched_span_ns) / 100;
+            if let Some(fps) = fc.update(fno, stamp, FpsTimestampSource::HostClock) {
+                measured = Some(fps);
+            }
+        }
+        let fps = measured.unwrap();
+        assert!(fps > 80.0, "expected an inflated host-clock fps, got {fps}");
+    }
+
+    /// Changing the timestamp source restarts the estimate (epochs differ
+    /// between sources, so a cross-source delta would be meaningless).
+    #[test]
+    fn changing_source_resets_estimate() {
+        let mut fc = FpsCalc::new(2);
+        assert_eq!(fc.update(0, 0, FpsTimestampSource::Hardware), None);
+        // Switch source at frame 2: must not compute across the boundary.
+        assert_eq!(fc.update(2, 999_999, FpsTimestampSource::HostClock), None);
+        // Now consistent host-clock samples produce an estimate.
+        let dt = (NS_PER_S / 30) as i128;
+        assert_eq!(fc.update(2, 0, FpsTimestampSource::HostClock), None);
+        let fps = fc.update(4, 2 * dt, FpsTimestampSource::HostClock).unwrap();
+        assert!((fps - 30.0).abs() < 0.5, "fps {fps}");
     }
 }
 

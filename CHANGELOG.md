@@ -33,6 +33,16 @@
 
 ### Fixed
 
+* Frame-rate estimation now uses the camera's hardware (device) timestamp when
+  available, falling back to the host clock otherwise (with a one-time warning).
+  Previously the rate was always estimated from the host grab time, which under
+  load is bunched (the driver buffers frames and the host grabs them in bursts),
+  reading several times too high. A too-high frame rate makes the tracker's
+  `dt = 1/fps` too small, shrinking the process noise into an overconfident
+  motion prior that rejects real detections — which could drop live tracking and
+  fragment trajectories (observed live as hundreds of short tracks that
+  retracking recovered as a few long ones). Pylon and Vimba provide hardware
+  timestamps; webcams do not (the warning then applies).
 * The Vimba (Allied Vision) backend now reports a clean error instead of
   aborting the process when the Vimba SDK cannot be initialized (for example
   when the SDK is not installed). When the failure is the common
