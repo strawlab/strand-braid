@@ -1059,15 +1059,17 @@ dependencies = [
 
 [[package]]
 name = "axum-token-auth"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60af78d882283e39da3fa5edd7b0a8932a4207b694af838e04a094e5c98b104c"
+checksum = "8b54838336e38b85854e7faf2061dd34ba2d612814023482505ef38ee262c4e8"
 dependencies = [
  "axum",
+ "base64 0.22.1",
  "cookie",
  "futures-util",
+ "hmac",
  "http 1.4.1",
- "serde",
+ "sha2",
  "thiserror 2.0.18",
  "tower-cookies",
  "tower-layer",
@@ -1750,6 +1752,7 @@ dependencies = [
  "axum-token-auth",
  "bytes",
  "chrono",
+ "cookie",
  "csv",
  "eyre",
  "flydra-feature-detector-types",
@@ -1759,6 +1762,7 @@ dependencies = [
  "num-integer",
  "ordered-float 4.6.0",
  "percent-encoding",
+ "preferences-serde1",
  "serde",
  "serde_cbor",
  "static_assertions",
@@ -2486,7 +2490,6 @@ dependencies = [
  "chrono",
  "ci2",
  "ci2-vimba-types",
- "lazy_static",
  "machine-vision-formats",
  "strand-dynamic-frame",
  "tempfile",
