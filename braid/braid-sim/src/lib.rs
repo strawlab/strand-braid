@@ -21,6 +21,7 @@
 
 pub mod calibration;
 pub mod projection;
+pub mod render;
 pub mod scenario;
 pub mod world;
 

@@ -40,6 +40,7 @@ ci2-async.workspace = true
 ci2-pylon.workspace = true
 ci2-vimba.workspace = true
 ci2-webcam.workspace = true
+ci2-sim.workspace = true
 strand-cam-types.workspace = true
 strand-cam-remote-control.workspace = true
 machine-vision-formats.workspace = true
