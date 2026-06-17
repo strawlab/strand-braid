@@ -34,6 +34,33 @@ enum Command {
         #[arg(long, default_value = "127.0.0.1:0")]
         http_api_server_addr: String,
     },
+    /// Compare a live `.braidz` recording against an offline retrack of it, to
+    /// detect live trajectories that are shorter / more fragmented than what
+    /// retracking recovers.
+    Score {
+        /// The live `.braidz` recording to evaluate.
+        braidz: PathBuf,
+        /// Path to the `braid-offline-retrack` executable. Defaults to one next
+        /// to this binary.
+        #[arg(long)]
+        retrack_exe: Option<PathBuf>,
+        /// Where to write the retracked `.braidz` (default: alongside input).
+        #[arg(long)]
+        retrack_out: Option<PathBuf>,
+        /// Fraction of the retrack longest-span below which the live recording
+        /// is flagged as shortened.
+        #[arg(long, default_value_t = 0.9)]
+        span_frac: f64,
+    },
+}
+
+/// Find `braid-offline-retrack` next to the current executable.
+fn default_retrack_exe() -> eyre::Result<PathBuf> {
+    let exe = std::env::current_exe()?;
+    let dir = exe
+        .parent()
+        .ok_or_else(|| eyre::eyre!("current exe has no parent dir"))?;
+    Ok(dir.join("braid-offline-retrack"))
 }
 
 fn main() -> Result<()> {
@@ -63,6 +90,34 @@ fn main() -> Result<()> {
                 sim_toml.display(),
                 generated.config_path.display()
             );
+        }
+        Command::Score {
+            braidz,
+            retrack_exe,
+            retrack_out,
+            span_frac,
+        } => {
+            let retrack_exe = match retrack_exe {
+                Some(p) => p,
+                None => default_retrack_exe()?,
+            };
+            let retrack_out = retrack_out.unwrap_or_else(|| {
+                let mut p = braidz.clone();
+                p.set_extension("retrack.braidz");
+                p
+            });
+
+            let diff = braid_sim::score::differential(&retrack_exe, &braidz, &retrack_out)?;
+            println!("{}", diff.report());
+            println!();
+            if diff.live_is_shortened(span_frac) {
+                println!(
+                    "RESULT: live tracks are SHORTER / more fragmented than retrack \
+                     (bug reproduced)."
+                );
+            } else {
+                println!("RESULT: live and retrack agree (no shortening detected).");
+            }
         }
     }
     Ok(())
