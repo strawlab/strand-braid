@@ -10,6 +10,7 @@ flydra-mvg.workspace = true
 braid-mvg.workspace = true
 braid-config-data.workspace = true
 braid-types.workspace = true
+braidz-parser.workspace = true
 cam-geom.workspace = true
 opencv-ros-camera.workspace = true
 nalgebra.workspace = true

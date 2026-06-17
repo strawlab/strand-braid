@@ -24,6 +24,7 @@ pub mod harness;
 pub mod projection;
 pub mod render;
 pub mod scenario;
+pub mod score;
 pub mod world;
 
 pub use scenario::Scenario;
