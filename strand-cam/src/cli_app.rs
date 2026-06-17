@@ -472,7 +472,15 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
         ] {
             // These values are not relevant or are set via
             // [braid_types::RemoteCameraInfoResponse].
-            if matches.contains_id(argname) {
+            //
+            // Use `try_contains_id` rather than `contains_id`: the latter panics
+            // if `argname` is not a defined argument id, which silently breaks if
+            // an argument is ever renamed. `try_contains_id` surfaces that as an
+            // error instead.
+            if matches
+                .try_contains_id(argname)
+                .map_err(|e| eyre!("checking argument '{argname}': {e}"))?
+            {
                 eyre::bail!(
                     "'{argname}' cannot be set from the command line when calling \
                     strand-cam from braid.",
