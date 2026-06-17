@@ -16,6 +16,9 @@ strand-dynamic-frame.workspace = true
 braid-sim.workspace = true
 flydra-mvg.workspace = true
 braid-mvg.workspace = true
+# The sim emulates a hardware-timestamped camera by emitting a PylonExtra with a
+# device timestamp at the true frame cadence.
+ci2-pylon-types.workspace = true
 
 [dev-dependencies]
 # M2 verification feeds the rendered frames through the real feature detector.

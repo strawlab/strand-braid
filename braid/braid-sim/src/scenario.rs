@@ -216,15 +216,16 @@ pub struct Scenario {
     /// Per-camera frame-arrival timing perturbation (default: none).
     #[serde(default)]
     pub timing: TimingModel,
-    /// If set, the cameras report host timestamps as if frames were acquired at
-    /// this rate (frames per second), regardless of the true (paced) rate.
+    /// If set, the cameras' *host* timestamps advance at this rate (frames per
+    /// second) instead of true wall-clock time, modeling a host clock that is
+    /// **bunched** relative to the true frame cadence — as happens under load
+    /// when the camera driver delivers buffered frames in bursts.
     ///
-    /// This reproduces the bug where the live tracker's *measured* frame rate is
-    /// wrong: the online Kalman filter predicts with `dt = 1/fps`, so a wrong
-    /// reported rate corrupts every motion prediction, causing otherwise-good
-    /// observations to be rejected and tracks to be repeatedly killed and
-    /// re-born (fragmentation). Offline retracking recomputes the rate from the
-    /// same timestamps and is unaffected. `None` reports true wall-clock
+    /// The sim still emits a hardware (device) timestamp at the true cadence, so
+    /// this exercises the frame-rate-estimation fix: a fps estimator that uses
+    /// the host clock is fooled (reads `reported_fps`, corrupting the tracker's
+    /// `dt = 1/fps` and fragmenting trajectories), while one that uses the
+    /// hardware timestamp is correct. `None` reports true wall-clock host
     /// timestamps. See `scratch/strand-braid-suboptimalities.md`.
     #[serde(default)]
     pub reported_fps: Option<f64>,
