@@ -63,8 +63,7 @@ impl World {
                     // not synchronized.
                     if m.maneuver_amp_m > 0.0 && m.maneuver_freq_hz > 0.0 {
                         let ph = k as f64 * 2.0;
-                        p[k] += m.maneuver_amp_m
-                            * (2.0 * PI * m.maneuver_freq_hz * t + ph).sin();
+                        p[k] += m.maneuver_amp_m * (2.0 * PI * m.maneuver_freq_hz * t + ph).sin();
                     }
                 }
                 InsectState {
