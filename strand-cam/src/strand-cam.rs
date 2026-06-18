@@ -279,7 +279,10 @@ mod fps_calc_tests {
             }
         }
         let fps = measured.expect("should produce an estimate after 100 frames");
-        assert!((fps - true_fps).abs() < 0.1, "hardware fps {fps} != {true_fps}");
+        assert!(
+            (fps - true_fps).abs() < 0.1,
+            "hardware fps {fps} != {true_fps}"
+        );
     }
 
     /// Demonstrates the bug being fixed: with the host clock, a burst (e.g. the

@@ -30,19 +30,21 @@ runs:
     # it only caps the compiled-in log level and is not straightforward to set
     # across a multi-package build.
 
-    # Populate the cargo cache with the wasm32 dependencies BEFORE the build.
+    # Populate the cargo cache with the FULL dependency graph BEFORE the build.
     # The strand-cam and braid-run build scripts invoke `trunk` to build their
-    # Yew/WASM frontends, and that nested wasm32 cargo runs offline
+    # Yew/WASM frontends, and that nested cargo runs offline
     # (CARGO_NET_OFFLINE=true) to avoid deadlocking the outer build's package-
-    # cache lock (see build-util::trunk_build). Offline, it cannot download, so
-    # on CI's cold cache the frontend build would fail unless the wasm32
-    # dependencies are already present. The frontends are workspace members, so
-    # one fetch at the repo root downloads everything they need. (The host-target
-    # deps are fetched implicitly by the build below.)
-    - name: Pre-fetch wasm32 dependencies (for the offline trunk frontend build)
+    # cache lock (see build-util::trunk_build). Trunk first runs `cargo metadata`,
+    # which resolves the whole workspace graph for *every* platform -- including
+    # crates gated to other targets (e.g. the macOS-only accesskit_macos pulled in
+    # by the GUI stack). Offline, any package missing from the cache aborts that
+    # metadata call, so a wasm32-only fetch is not enough. Plain `cargo fetch`
+    # (no --target) downloads the entire graph for all targets, which is what the
+    # offline metadata resolve needs.
+    - name: Pre-fetch all dependencies (for the offline trunk frontend build)
       shell: bash
       run: |
-        cargo fetch --target wasm32-unknown-unknown
+        cargo fetch
 
     - name: Build packaged binaries (single unified pass)
       # Deny warnings and pin the baseline ISA. `target-cpu=sandybridge` is

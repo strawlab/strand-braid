@@ -85,8 +85,9 @@ fn run_one(bg: u8, peak: f64, sigma: f64) -> eyre::Result<Outcome> {
     // Phase 1: establish the background on insect-free frames (not scored).
     for _ in 0..N_BG_WARMUP {
         let buf = vec![bg; stride * H as usize];
-        let frame = DynamicFrame::from_buf(W, H, stride, buf, machine_vision_formats::PixFmt::Mono8)
-            .unwrap();
+        let frame =
+            DynamicFrame::from_buf(W, H, stride, buf, machine_vision_formats::PixFmt::Mono8)
+                .unwrap();
         let ts: DateTime<Utc> = base + TimeDelta::milliseconds(10 * fno as i64);
         ft.process_new_frame(&frame, UfmfState::Stopped, TimingInfo::minimal(fno, ts))?;
         fno += 1;
@@ -106,8 +107,9 @@ fn run_one(bg: u8, peak: f64, sigma: f64) -> eyre::Result<Outcome> {
     for i in 0..N_MOVE {
         let (cx, cy) = center_at(i);
         let buf = render_blob(bg, peak, sigma, cx, cy);
-        let frame = DynamicFrame::from_buf(W, H, stride, buf, machine_vision_formats::PixFmt::Mono8)
-            .unwrap();
+        let frame =
+            DynamicFrame::from_buf(W, H, stride, buf, machine_vision_formats::PixFmt::Mono8)
+                .unwrap();
         let ts: DateTime<Utc> = base + TimeDelta::milliseconds(10 * fno as i64);
         let pts = ft
             .process_new_frame(&frame, UfmfState::Stopped, TimingInfo::minimal(fno, ts))?
@@ -183,7 +185,14 @@ async fn m0_blob_detector_contract() -> eyre::Result<()> {
                     .unwrap_or_else(|| "none".to_string());
                 println!(
                     "{:>3} {:>5.0} {:>5.1} | {:>9} {:>10.1}% {:>6} {:>9.3} {:>8.1}",
-                    bg, peak, sigma, warmup, detect_rate * 100.0, o.multi_frames, loc_err, area
+                    bg,
+                    peak,
+                    sigma,
+                    warmup,
+                    detect_rate * 100.0,
+                    o.multi_frames,
+                    loc_err,
+                    area
                 );
 
                 // "Clean" = detects on essentially every eligible frame, exactly one
