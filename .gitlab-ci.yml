@@ -985,6 +985,14 @@ build_simple:
   dependencies: []
   image: gitlab.strawlab.org:4567/straw/rust-cam/focal-base:0.0.6
   script:
+    # Pre-fetch the full dependency graph so the strand-cam / braid-run build
+    # scripts' nested, offline trunk frontend build finds every package in the
+    # cargo cache -- its `cargo metadata` resolves the whole workspace for all
+    # platforms (see build-util::trunk_build; same rationale as in
+    # check_and_test_workspace).
+    - cd $CI_PROJECT_DIR
+    - cargo fetch
+
     # Build strand-cam with simplest build configuration possible
     - cd $CI_PROJECT_DIR/strand-cam
     - cargo build --release --bin strand-cam
