@@ -63,6 +63,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      # Some workspace tests shell out to ffmpeg (e.g. apriltag-track-movie's
+      # test_detect_tags decodes a movie fixture), and the GitHub-hosted runner
+      # image does not ship it. The GitLab workspace-test job installs it the same
+      # way.
+      - name: Install ffmpeg (needed by movie-decoding tests)
+        run: |
+          sudo apt-get update
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install -y ffmpeg
       - name: Install Rust wasm target and trunk
         # Needed because some crates (e.g. strand-cam with its default
         # `bundle_files` feature) build a wasm frontend as part of the build.
