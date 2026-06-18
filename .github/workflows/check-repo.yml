@@ -42,6 +42,19 @@ jobs:
           tar xzf trunk-x86_64-unknown-linux-musl.tar.gz
           sudo mv trunk /usr/local/bin/
           trunk --version
+      # Populate the cargo cache with the FULL dependency graph BEFORE the build.
+      # The strand-cam and braid-run build scripts invoke `trunk` to build their
+      # Yew/WASM frontends, and that nested cargo runs offline
+      # (CARGO_NET_OFFLINE=true) to avoid deadlocking the outer build's package-
+      # cache lock (see build-util::trunk_build). Trunk first runs `cargo
+      # metadata`, which resolves the whole workspace graph for *every* platform
+      # -- including crates gated to other targets (e.g. the macOS-only
+      # accesskit_macos pulled in by the GUI stack). Offline, any package missing
+      # from the cache aborts that metadata call, so a wasm32-only fetch is not
+      # enough. Plain `cargo fetch` downloads the entire graph for all targets.
+      - name: Pre-fetch all dependencies (for the offline trunk frontend build)
+        run: |
+          cargo fetch
       - name: Check that all crates compile
         run: |
           cargo check --workspace --all-targets
@@ -59,6 +72,14 @@ jobs:
           tar xzf trunk-x86_64-unknown-linux-musl.tar.gz
           sudo mv trunk /usr/local/bin/
           trunk --version
+      # See the matching note in the check-cargo-compiles job: the strand-cam and
+      # braid-run build scripts build their Yew/WASM frontends with a nested cargo
+      # that runs offline and first resolves the whole workspace graph via `cargo
+      # metadata`, so the entire dependency graph (all platforms) must already be
+      # in the cargo cache before any build that triggers those build scripts.
+      - name: Pre-fetch all dependencies (for the offline trunk frontend build)
+        run: |
+          cargo fetch
       # Run the whole workspace's tests with default features. This covers most
       # tests, including the simulation harness (braid-sim, ci2-sim), the
       # blob/detector contract (flydra-feature-detector), and the frame-rate

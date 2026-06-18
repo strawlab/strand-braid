@@ -12,6 +12,7 @@
  - braid-offline (braid/braid-offline) - offline Braid-based tracking
  - braid-process-video (braid/braid-process-video) - process videos within the Braid multi-camera framework
  - braid-run (braid/braid-run) - run Braid, the multi-camera realtime 3D tracker
+ - braid-sim (braid/braid-sim) - Simulation harness for end-to-end testing of Braid 3D tracking: ground-truth insect trajectories, synthetic calibrations, and projection to fake cameras.
  - braid-types (braid/braid-types) - core type definitions for the Braid multi-camera tracking system
  - braid_frontend (braid/braid-run/braid_frontend) - Yew WASM frontend for the Braid multi-camera tracking web UI
  - braidz-writer (braid/braidz-writer) - write .braidz data files for the Braid tracking system
@@ -58,6 +59,7 @@
  - ci2-cli (camera/ci2-cli) - command-line interface for ci2 camera backends
  - ci2-pylon (camera/ci2-pylon) - ci2 camera backend using the Basler Pylon SDK
  - ci2-pylon-types (camera/ci2-pylon-types) - Pylon-specific type definitions for the ci2 camera interface
+ - ci2-sim (camera/ci2-sim) - ci2 camera backend that renders synthetic images of simulated insects for end-to-end Braid testing.
  - ci2-simple-async-demo (camera/ci2-simple-async-demo) - simple demonstration of the ci2 asynchronous camera API
  - ci2-simple-demo (camera/ci2-simple-demo) - simple demonstration of the ci2 camera API
  - ci2-vimba (camera/ci2-vimba) - ci2 camera backend using the Allied Vision Vimba SDK

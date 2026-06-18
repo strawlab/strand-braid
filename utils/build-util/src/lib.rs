@@ -29,10 +29,11 @@ pub fn git_hash(orig_version: &str) -> Result<(), Box<dyn std::error::Error>> {
 /// - Runs `trunk build --release --dist dist` inside `frontend_dir`, using a
 ///   dedicated `trunk-target` subdirectory of `OUT_DIR` and forcing the nested
 ///   cargo offline (`CARGO_NET_OFFLINE=true`) to avoid deadlocking the outer
-///   workspace cargo build on the target-dir and package-cache locks. This
-///   requires the wasm32 dependencies to already be in the cargo cache; on a
-///   cold cache, pre-fetch them once with
-///   `cargo fetch --target wasm32-unknown-unknown`.
+///   workspace cargo build on the target-dir and package-cache locks. Trunk
+///   first runs `cargo metadata`, which resolves the whole workspace graph for
+///   every platform, so the entire dependency graph (not just the wasm32
+///   subset) must already be in the cargo cache; on a cold cache, pre-fetch it
+///   once with `cargo fetch`.
 /// - Verifies each required asset is present in the dist directory.
 /// - Emits `cargo:rerun-if-changed` directives for the frontend sources,
 ///   `index.html`, `Trunk.toml`, `scss/`, and the calling `build.rs`.
@@ -131,9 +132,11 @@ pub fn trunk_build(
              The frontend is built by a nested cargo that runs offline (to avoid \
              deadlocking the outer build on the cargo package-cache lock). If the \
              failure above is about missing crates / being unable to download, your \
-             cargo cache does not yet contain the wasm32 dependencies. Pre-fetch them \
-             once with network access, then rebuild:\n    \
-             cargo fetch --target wasm32-unknown-unknown"
+             cargo cache does not yet contain all dependencies. The nested `cargo \
+             metadata` resolves the whole workspace for every platform, so the full \
+             dependency graph must be cached. Pre-fetch it once with network access, \
+             then rebuild:\n    \
+             cargo fetch"
         )
         .into());
     }

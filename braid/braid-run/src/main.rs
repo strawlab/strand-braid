@@ -157,8 +157,7 @@ async fn main() -> Result<()> {
     let address_string: String = cfg.mainbrain.http_api_server_addr.clone();
     // Load the persistent secret once: it both mints Braid's self-expiring
     // access token in `start_listener` and validates it in the auth layer.
-    let persistent_secret =
-        mainbrain::load_persistent_secret(cfg.mainbrain.secret_base64.clone())?;
+    let persistent_secret = mainbrain::load_persistent_secret(cfg.mainbrain.secret_base64.clone())?;
     let (listener, mainbrain_server_info) =
         braid_types::start_listener(&address_string, &persistent_secret).await?;
     let mainbrain_internal_addr = mainbrain_server_info.clone();
