@@ -341,8 +341,17 @@ function createOrbitControls(THREE, cameraRef, domElement, initialTarget, sceneS
     let lastX = 0;
     let lastY = 0;
 
+    // THREE.Spherical assumes a Y-up world, but our cameras are Z-up (see
+    // makePerspectiveCamera). Rotate offsets into a Y-up frame before converting
+    // to/from spherical so horizontal drags orbit around the scene's up axis.
+    const yUp = new THREE.Vector3(0, 1, 0);
+    function upToYQuaternion() {
+        return new THREE.Quaternion().setFromUnitVectors(cameraRef.camera.up, yUp);
+    }
+
     function updateSphericalFromCamera() {
         offset.copy(cameraRef.camera.position).sub(target);
+        offset.applyQuaternion(upToYQuaternion());
         spherical.setFromVector3(offset);
         spherical.makeSafe();
     }
@@ -357,6 +366,24 @@ function createOrbitControls(THREE, cameraRef, domElement, initialTarget, sceneS
         const yAxis = new THREE.Vector3().setFromMatrixColumn(cameraRef.camera.matrix, 1);
         panOffset.addScaledVector(xAxis, -pixelDx * scale);
         panOffset.addScaledVector(yAxis, pixelDy * scale);
+    }
+
+    function orbit(pixelDx, pixelDy) {
+        if (cameraRef.camera.isOrthographicCamera) {
+            return;
+        }
+        rotateDelta.x -= (2 * Math.PI * pixelDx) / Math.max(domElement.clientWidth, 1);
+        rotateDelta.y -= (Math.PI * pixelDy) / Math.max(domElement.clientHeight, 1);
+    }
+
+    function applyZoom(deltaY) {
+        const zoom = Math.exp(deltaY * 0.001);
+        if (cameraRef.camera.isOrthographicCamera) {
+            cameraRef.camera.zoom = Math.max(0.05, Math.min(50, cameraRef.camera.zoom / zoom));
+            cameraRef.camera.updateProjectionMatrix();
+        } else {
+            spherical.radius = Math.max(sceneScale * 0.01, spherical.radius * zoom);
+        }
     }
 
     function onPointerDown(event) {
@@ -386,9 +413,8 @@ function createOrbitControls(THREE, cameraRef, domElement, initialTarget, sceneS
 
         if (state === "pan") {
             pan(dx, dy);
-        } else if (!cameraRef.camera.isOrthographicCamera) {
-            rotateDelta.x -= (2 * Math.PI * dx) / Math.max(domElement.clientWidth, 1);
-            rotateDelta.y -= (Math.PI * dy) / Math.max(domElement.clientHeight, 1);
+        } else {
+            orbit(dx, dy);
         }
         event.preventDefault();
     }
@@ -400,15 +426,49 @@ function createOrbitControls(THREE, cameraRef, domElement, initialTarget, sceneS
         state = "none";
     }
 
+    // Trackpad gestures and mouse wheels both arrive as `wheel` events. Once we
+    // have positive evidence of a trackpad we route plain two-finger drags to
+    // orbit/pan (Blender style) instead of zoom. Pinch-zoom always zooms.
+    let trackpadDetected = false;
+
     function onWheel(event) {
-        const zoom = Math.exp(event.deltaY * 0.001);
-        if (cameraRef.camera.isOrthographicCamera) {
-            cameraRef.camera.zoom = Math.max(0.05, Math.min(50, cameraRef.camera.zoom / zoom));
-            cameraRef.camera.updateProjectionMatrix();
-        } else {
-            spherical.radius = Math.max(sceneScale * 0.01, spherical.radius * zoom);
-        }
         event.preventDefault();
+
+        // Browsers report a trackpad pinch-zoom as a wheel event with ctrlKey
+        // set (even when Ctrl is not pressed). Treat it — and a real Ctrl+wheel
+        // — as zoom.
+        if (event.ctrlKey) {
+            trackpadDetected = true;
+            applyZoom(event.deltaY);
+            return;
+        }
+
+        // Line/page-mode wheel events only come from real mouse wheels.
+        if (event.deltaMode !== 0) {
+            applyZoom(event.deltaY);
+            return;
+        }
+
+        // A horizontal component or fractional deltas only occur on trackpads.
+        if (event.deltaX !== 0 || !Number.isInteger(event.deltaY)) {
+            trackpadDetected = true;
+        }
+
+        if (!trackpadDetected) {
+            // Looks like a classic mouse wheel: keep zoom-on-scroll.
+            applyZoom(event.deltaY);
+            return;
+        }
+
+        // Trackpad two-finger drag (Blender style): orbit, or pan with Shift.
+        // Negate so the view tracks the direction of finger motion.
+        const dx = -event.deltaX;
+        const dy = -event.deltaY;
+        if (event.shiftKey || cameraRef.camera.isOrthographicCamera) {
+            pan(dx, dy);
+        } else {
+            orbit(dx, dy);
+        }
     }
 
     domElement.addEventListener("contextmenu", (event) => event.preventDefault());
@@ -439,6 +499,7 @@ function createOrbitControls(THREE, cameraRef, domElement, initialTarget, sceneS
             } else {
                 target.add(panOffset);
                 offset.setFromSpherical(spherical);
+                offset.applyQuaternion(upToYQuaternion().invert());
                 cameraRef.camera.position.copy(target).add(offset);
             }
             cameraRef.camera.lookAt(target);
