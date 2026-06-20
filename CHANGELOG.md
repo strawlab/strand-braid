@@ -20,6 +20,26 @@
   --camera-backend webcam`. Webcams do not support hardware triggering, exposure,
   gain, or frame-rate limiting, so they are not suitable for synchronized
   multi-camera 3D tracking with Braid.
+* Running `braid` with no command (or `braid help`) now lists the available
+  `braid-<command>` subcommands discovered on the system, and an unknown command
+  (e.g. a typo) prints the same list instead of a low-level "No such file or
+  directory" error.
+* Added `strand-cam --list-cameras`, which prints the cameras available for the
+  selected `--camera-backend` (their names, models, and serials) and exits
+  without launching the application or opening a browser. The printed name is
+  the value to use with `--camera-name` or as a camera `name` in a Braid
+  configuration file, so camera names can be discovered without launching a
+  camera per terminal.
+
+### Fixed
+
+* The Vimba (Allied Vision) backend now reports a clean error instead of
+  aborting the process when the Vimba SDK cannot be initialized (for example
+  when the SDK is not installed). When the failure is the common
+  `VmbErrorNoTL` ("no transport layer") caused by `GENICAM_GENTL64_PATH` not
+  pointing at the Vimba GenTL transport layers, the error includes a hint to
+  finish the Vimba SDK installation (run its `Install_GenTL_Path.sh`). The
+  installation docs now document this step.
 
 ## 1.0.0-rc.2 - 2026-04-26
 

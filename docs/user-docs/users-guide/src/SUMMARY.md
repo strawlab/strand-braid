@@ -12,6 +12,7 @@
 - [Running Braid with many cameras (reverse proxy)](./braid_scaling_reverse_proxy.md)
 - [Remote access with Tailscale](./braid_tailscale_remote_access.md)
 - [Scripting with Python](./scripting-with-python.md)
+- [Offline retracking](./braid_offline_retracking.md)
 - [Processing saved videos](./processing-saved-videos.md)
 - [Fly Movie Format](./fmf_format.md)
 - [Troubleshooting](./troubleshooting.md)

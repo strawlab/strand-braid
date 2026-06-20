@@ -83,6 +83,41 @@ export PYLON_CABI=/path/to/libpylon-cabi-v1-linux-x86_64-pylon_<VERSION>.so
 wherever the software is launched — including non-interactive contexts such as a
 `systemd` service, a `cron` job, or `sudo` without `-E`.
 
+## Installing the Vimba SDK (Allied Vision cameras)
+
+To use Allied Vision cameras (the `--camera-backend vimba` backend), install
+Allied Vision's **Vimba X** SDK. Download `VimbaX_Setup-2024-1-Linux64.tar.gz`
+from the [Allied Vision website](https://www.alliedvision.com/en/products/vimba-sdk/)
+and follow Allied Vision's installation instructions.
+
+> **Important:** Follow the Vimba SDK's own installation steps to the end — in
+> particular, **run its GenTL path installer**. Extracting the archive alone is
+> not sufficient. After extracting to `/opt`, run:
+>
+> ```sh
+> sudo /opt/VimbaX_2024-1/cti/Install_GenTL_Path.sh
+> ```
+>
+> This installs `/etc/profile.d/VimbaX_GenTL_Path_64bit.sh`, which sets the
+> `GENICAM_GENTL64_PATH` environment variable so the SDK can find its GenTL
+> *transport layers* (the `.cti` files under `/opt/VimbaX_2024-1/cti/`). Then
+> **start a new login shell** (log out and back in, or open a new terminal) so
+> that variable is in effect.
+>
+> If `GENICAM_GENTL64_PATH` does not point to the Vimba transport layers, Strand
+> Camera fails to start the Vimba backend with the error `VmbErrorNoTL` ("no
+> transport layer"), even though the SDK library itself loaded successfully. If
+> you see that error, complete the Vimba installation as above. To set the
+> variable for just one shell without the installer, export it directly:
+>
+> ```sh
+> export GENICAM_GENTL64_PATH="/opt/VimbaX_2024-1/cti:$GENICAM_GENTL64_PATH"
+> ```
+>
+> (The SDK also ships `Set_GenTL_Path.sh` for this, but that script must be
+> sourced from within its own directory to work correctly, so the explicit
+> `export` above is more reliable. The installer is the persistent fix.)
+
 ## Hardware installation
 
 ### Cameras
