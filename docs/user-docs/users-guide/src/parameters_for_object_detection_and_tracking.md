@@ -46,6 +46,14 @@ the running standard deviation of that pixel, but never less than
 `diff_threshold`. With `use_cmp` disabled, the fixed `diff_threshold` is used
 everywhere.
 
+One subtlety when tuning `diff_threshold` live with `use_cmp` enabled: the
+per-pixel thresholds are stored with the `diff_threshold` floor already
+applied, and *lowering* `diff_threshold` cannot restore the values underneath
+the old floor. The lower floor takes full effect when the per-pixel thresholds
+are next recomputed — at the next background model update, or immediately
+after pressing one of the background reset buttons described below. (Raising
+`diff_threshold` takes effect immediately.)
+
 ### Background model controls in the browser UI
 
 The object detection panel in Strand Camera's browser interface has two
@@ -58,8 +66,16 @@ buttons affecting the background model:
 - **Set background to mid-gray** — sets the background mean to a uniform value
   of 127 with zero variance.
 
+When running Braid, the Braid browser interface has a "Background Model"
+section with buttons that act on all connected cameras at once: **Take New
+Background Image**, **Enable Background Updating**, and **Disable Background
+Updating**. The per-camera background updating state is shown in the camera
+list.
+
 Like everything in the browser interface, these buttons can also be triggered
-programmatically; see [Scripting with Python](scripting-with-python.md).
+programmatically, including on all cameras of a Braid setup at once; see the
+background reset demos in [Scripting with
+Python](scripting-with-python.md#demo-resetting-the-object-detection-background-model-using-python).
 
 <!--
 ### Optimization

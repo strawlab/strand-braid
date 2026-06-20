@@ -1686,6 +1686,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
+ "serde_yaml",
  "shellexpand",
  "strand-bui-backend-session",
  "strand-bui-backend-session-types",

@@ -116,13 +116,22 @@ impl StrandCamHttpSessionHandler {
         cam_name: &RawCamName,
         args: strand_cam_remote_control::CamArg,
     ) -> Result<(), MainbrainError> {
+        self.post_callback(cam_name, CallbackType::ToCamera(args))
+            .await
+    }
+
+    async fn post_callback(
+        &self,
+        cam_name: &RawCamName,
+        callback: CallbackType,
+    ) -> Result<(), MainbrainError> {
         let session = self.get_or_open_session(cam_name).await?;
 
         // Post to session
         match session {
             MaybeSession::Alive(mut session) => {
                 let body = axum::body::Body::new(http_body_util::Full::new(bytes::Bytes::from(
-                    serde_json::to_vec(&CallbackType::ToCamera(args)).unwrap(),
+                    serde_json::to_vec(&callback).unwrap(),
                 )));
 
                 let result = session.post("callback", body).await;
@@ -328,6 +337,35 @@ impl StrandCamHttpSessionHandler {
 
         let args = strand_cam_remote_control::CamArg::PostTrigger;
         self.post(&cam_name, args).await?;
+        Ok(())
+    }
+
+    pub(crate) async fn take_new_background_all(&self) -> MainbrainResult<()> {
+        let cam_names = self.cam_manager.all_raw_cam_names();
+        for cam_name in cam_names.iter() {
+            self.take_new_background(cam_name).await?;
+        }
+        Ok(())
+    }
+
+    pub(crate) async fn take_new_background(&self, cam_name: &RawCamName) -> MainbrainResult<()> {
+        debug!("for cam {}, taking new background image", cam_name.as_str());
+        self.post_callback(cam_name, CallbackType::TakeCurrentImageAsBackground)
+            .await?;
+        Ok(())
+    }
+
+    pub(crate) async fn send_obj_detection_config(
+        &self,
+        cam_name: &RawCamName,
+        cfg_yaml: String,
+    ) -> MainbrainResult<()> {
+        debug!(
+            "for cam {}, sending object detection config",
+            cam_name.as_str()
+        );
+        let args = strand_cam_remote_control::CamArg::SetObjDetectionConfig(cfg_yaml);
+        self.post(cam_name, args).await?;
         Ok(())
     }
 }

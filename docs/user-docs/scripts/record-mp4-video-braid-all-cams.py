@@ -33,7 +33,7 @@ class BraidProxy:
 
     def send(self, cmd_dict):
         r = self.session.post(
-            self.callback_url, json=cmd_dict}
+            self.callback_url, json=cmd_dict
         )
         r.raise_for_status()
 

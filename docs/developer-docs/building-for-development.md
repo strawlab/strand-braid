@@ -80,3 +80,9 @@ cd /path/to/strand-braid/braid/braid-run
 cargo build --release
 # By default, the executable will be put in /path/to/strand-braid/target/release/braid-run
 ```
+
+## Testing without camera hardware
+
+Once `strand-cam` and `braid-run` are built, they can be run and smoke tested
+without any camera hardware using emulated Basler Pylon cameras. See
+[testing-with-emulated-cameras.md](testing-with-emulated-cameras.md).

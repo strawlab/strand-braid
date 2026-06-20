@@ -114,7 +114,11 @@ pub struct ImPtDetectCfg {
     /// `use_cmp` true and false.)
     ///
     /// When `use_cmp` is true, this acts as a lower bound on the per-pixel
-    /// `n_sigma`-based threshold.
+    /// `n_sigma`-based threshold. Note that the per-pixel thresholds are
+    /// stored with this lower bound already applied, so *lowering* this value
+    /// at runtime only takes full effect when the per-pixel thresholds are
+    /// next recomputed: at the next background model update, or when the
+    /// background model is reset. (Raising it takes effect immediately.)
     pub diff_threshold: u8,
     /// If `use_cmp` is true, use n_sigma based difference.
     pub use_cmp: bool,

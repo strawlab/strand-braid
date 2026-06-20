@@ -591,6 +591,12 @@ pub struct BraidHttpApiSharedState {
     pub calibration_filename: Option<String>,
     /// List of connected camera information.
     pub connected_cameras: Vec<CamInfo>, // TODO: make this a BTreeMap?
+    /// Whether the feature detection background model is continuously
+    /// updating, per camera.
+    ///
+    /// Cameras whose feature detection settings have not (yet) been received
+    /// are absent from this map.
+    pub background_model_updating: std::collections::BTreeMap<RawCamName, bool>,
     /// Address of the model server.
     pub model_server_addr: Option<SocketAddr>,
     /// Name of the Flydra application.
@@ -1031,6 +1037,13 @@ pub enum BraidHttpApiCallback {
     SetPostTriggerBufferSize(usize),
     /// Initiate MKV recording using post trigger
     PostTriggerMp4Recording,
+    /// Take a new background image on all cameras.
+    ///
+    /// Each camera re-initializes the background model used for feature
+    /// detection from its currently incoming images.
+    DoTakeNewBackgroundImage,
+    /// Enable or disable continuous background model updating on all cameras.
+    SetBackgroundUpdating(bool),
 }
 
 /// Wrapper for per-camera data.
