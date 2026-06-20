@@ -3,9 +3,7 @@
 
 //! Simulation core for end-to-end testing of Braid's live 3D tracking.
 //!
-//! This crate is the shared core described in
-//! `scratch/2026-06-17_braid-live-3d-sim-test-plan.md` (milestone M1). It
-//! provides:
+//! This crate is the shared simulation core. It provides:
 //!
 //! - [`scenario::Scenario`]: a `sim.toml`-deserializable description of the
 //!   simulated world (arena, cameras, insects, blob rendering, frame rate).

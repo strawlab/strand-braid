@@ -1,16 +1,16 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Level-B detection injector (plan §3.4-B / §5): drive the real flydra2 3D
-//! tracker *in-process* with synthetic 2D detections.
+//! Detection injector: drive the real flydra2 3D tracker *in-process* with
+//! synthetic 2D detections.
 //!
 //! This is the fast, deterministic complement to the image-level `ci2-sim`
 //! path. It skips image rendering, the feature detector, UDP, and camera
 //! registration over the network: ground-truth 3D points are projected to 2D
-//! with the same calibration the tracker reconstructs with, the (optionally
-//! imperfect) detections are fed straight into [`flydra2::CoordProcessor`], and
-//! the resulting `.braid` recording is written to disk so the same
-//! [`crate::truth`] oracle can score it.
+//! with the perfect generation calibration, the (optionally imperfect)
+//! detections are fed straight into [`flydra2::CoordProcessor`] (which
+//! reconstructs with the tracking calibration), and the resulting `.braid`
+//! recording is written to disk so the [`crate::truth`] oracle can score it.
 //!
 //! Because there is no real-time async camera path and no nondeterministic
 //! detector, a `(scenario, seed)` reproduces the 3D-core behavior
@@ -50,9 +50,19 @@ use crate::world::World;
 /// `f / fps`, and the oracle needs no frame offset). The scenario's
 /// [`crate::scenario::ObservationModel`] is applied to the detections, so noise,
 /// dropout, and clutter all exercise the 3D core.
+///
+/// `tracker_fps` overrides the frame rate handed to the tracker (and thus the
+/// EKF `dt = 1 / tracker_fps`) *without* changing the cadence at which
+/// detections are produced — they are always injected at `scenario.fps`. Pass
+/// `None` to track at the true cadence (the normal case). Passing a value that
+/// disagrees with `scenario.fps` reproduces the live-vs-retrack fps-mismatch
+/// fragmentation mechanism in isolation: a too-high `tracker_fps` shrinks the
+/// process noise so a maneuvering target falls outside the acceptance gate, the
+/// track coasts, and covariance kill fragments it (see `tests/m7_fps_*`).
 pub async fn inject_and_track(
     scenario: &Scenario,
     num_frames: usize,
+    tracker_fps: Option<f64>,
     out_braid_dir: &Path,
 ) -> eyre::Result<std::path::PathBuf> {
     if out_braid_dir.extension().and_then(|e| e.to_str()) != Some("braid") {
@@ -62,9 +72,17 @@ pub async fn inject_and_track(
         );
     }
     let out_braidz = out_braid_dir.with_extension("braidz");
+    // `recon` is the perfect generation calibration the detections are projected
+    // with; `track_recon` is what the tracker reconstructs with (perturbed if the
+    // scenario asks for it). They are equal in the perfect-world baseline.
     let recon = crate::calibration::build_calibration(scenario)?;
+    let track_recon = crate::calibration::build_tracking_calibration(scenario)?;
     let world = World::new(scenario.clone());
+    // The cadence at which detections are produced (frame `f` depicts `f / fps`).
     let fps = scenario.fps;
+    // The frame rate the tracker uses for its EKF `dt`; defaults to the true
+    // cadence but can be deliberately mismatched to reproduce the fps bug.
+    let tracker_fps = tracker_fps.unwrap_or(fps);
     let count = scenario.cameras.count;
 
     let all_expected_cameras: BTreeSet<RawCamName> = (0..count)
@@ -75,7 +93,7 @@ pub async fn inject_and_track(
         .collect();
 
     let mut cam_manager = ConnectedCamerasManager::new(
-        &Some(recon.clone()),
+        &Some(track_recon.clone()),
         all_expected_cameras,
         Arc::new(AtomicBool::new(true)),
         Arc::new(AtomicBool::new(true)),
@@ -102,7 +120,7 @@ pub async fn inject_and_track(
                 braid_config_data::default_write_buffer_size_num_messages(),
         },
         cam_manager.clone(),
-        Some(recon.clone()),
+        Some(track_recon.clone()),
         BraidMetadataBuilder::saving_program_name("braid-sim-inject"),
     )?;
 
@@ -149,7 +167,7 @@ pub async fn inject_and_track(
 
                 let mut pixels: Vec<(f64, f64)> = states
                     .iter()
-                    .filter(|ins| !obs.is_dropped(scenario.seed, k, fno, ins.id))
+                    .filter(|ins| !obs.is_suppressed(scenario.seed, k, fno, ins.id))
                     .filter_map(|ins| {
                         crate::projection::project_pixel(
                             &recon,
@@ -211,7 +229,7 @@ pub async fn inject_and_track(
         Ok::<(), eyre::Report>(())
     };
 
-    let consume = coord_processor.consume_stream(frame_data_rx, Some(fps as f32));
+    let consume = coord_processor.consume_stream(frame_data_rx, Some(tracker_fps as f32));
     let (writer_jh, prod) = tokio::join!(consume, producer);
     prod?;
     writer_jh?.await??;

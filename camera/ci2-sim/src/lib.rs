@@ -7,8 +7,7 @@
 //! subtraction, feature detection, UDP transport, the mainbrain, the Kalman
 //! filter, data association, `.braidz` saving) run against a known ground truth
 //! with no camera hardware. It is the image-level injection path of the
-//! simulation test harness; see `braid/braid-sim` and
-//! `scratch/2026-06-17_braid-live-3d-sim-test-plan.md` (milestone M2).
+//! simulation test harness; see the `braid-sim` crate for the shared core.
 //!
 //! The scenario (a `sim.toml` parsed by [`braid_sim::Scenario`]) is provided via
 //! the `STRAND_CAM_SIM_SPEC` environment variable; the camera to render is
@@ -132,7 +131,7 @@ pub struct WrappedCamera {
     cam_index: usize,
     /// Scenario RNG seed, for deterministic timing jitter.
     seed: u64,
-    /// Per-camera frame-arrival timing perturbation (M5).
+    /// Per-camera frame-arrival timing perturbation.
     timing: braid_sim::scenario::TimingModel,
     /// The full multi-camera calibration (this camera projects with its entry).
     system: FlydraMultiCameraSystem<f64>,
@@ -146,7 +145,7 @@ pub struct WrappedCamera {
     /// reference instant for frame 0 is `start`.
     reported_fps: Option<f64>,
     /// Number of insect-free frames rendered first so the background model
-    /// settles before insects appear (see M0).
+    /// settles before insects appear.
     bg_warmup_frames: u32,
     /// Frame rate, frames per second. Used both to evaluate the world at the
     /// right logical time and to pace acquisition. Defaults to the scenario
@@ -235,7 +234,7 @@ impl WrappedCamera {
             .world
             .state_at(t)
             .iter()
-            .filter(|insect| !obs.is_dropped(self.seed, self.cam_index, fno, insect.id))
+            .filter(|insect| !obs.is_suppressed(self.seed, self.cam_index, fno, insect.id))
             .filter_map(|insect| {
                 braid_sim::projection::project_pixel(
                     &self.system,
@@ -426,7 +425,7 @@ impl ci2::Camera for WrappedCamera {
         self.next_fno += 1;
 
         // Pace to the frame rate (when enabled) so the pipeline runs at a
-        // realistic rate. The optional per-camera timing perturbation (M5)
+        // realistic rate. The optional per-camera timing perturbation
         // delays delivery of this frame so its 2D detections reach the mainbrain
         // late (and may be dropped from live bundling). Only delivery is delayed;
         // the frame content is unchanged.

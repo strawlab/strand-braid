@@ -1,10 +1,10 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! M2 verification: drive the `ci2-sim` backend and feed its rendered frames
-//! through the *real* `flydra-feature-detector`, confirming the simulated
-//! insect is detected at the location `braid-sim` projects it to — i.e. the M0
-//! blob->detector contract holds end-to-end through the sim camera.
+//! Drive the `ci2-sim` backend and feed its rendered frames through the *real*
+//! `flydra-feature-detector`, confirming the simulated insect is detected at the
+//! location `braid-sim` projects it to — i.e. the blob->detector contract holds
+//! end-to-end through the sim camera.
 
 use chrono::{DateTime, TimeDelta, Utc};
 use ci2::{Camera, CameraModule};

@@ -500,9 +500,8 @@ pub fn run_mcsc(input: McscInput, config: McscCfg) -> Result<McscResult> {
     // self-calibration, which can absorb residual modelling error
     // into K.  Closing that gap requires a non-linear refinement of
     // (R, t, X) with K held fixed (bundle adjustment / iterated PnP).
-    // See `scratch/MCSC-vs-PnP.md` for the rationale.  The downstream
-    // `braidz-mcsc` crate has a BA pass for this purpose (currently
-    // gated behind a TODO for unrelated reasons); when that is
+    // The downstream `braidz-mcsc` crate has a BA pass for this purpose
+    // (currently gated behind a TODO for unrelated reasons); when that is
     // unblocked, using it with `BAIntrinsicsSource::CheckerboardCal`
     // and `use_known_intrinsics = true` gives the full pipeline.
 

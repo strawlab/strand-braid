@@ -1,10 +1,9 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! M1 exit tests for the `braid-sim` core: the synthetic calibration is
-//! self-consistent (projection <-> triangulation), survives a flydra-XML
-//! round-trip, places the arena in view of multiple cameras, and the world
-//! model is deterministic.
+//! Tests for the `braid-sim` core: the synthetic calibration is self-consistent
+//! (projection <-> triangulation), survives a flydra-XML round-trip, places the
+//! arena in view of multiple cameras, and the world model is deterministic.
 
 use approx::assert_relative_eq;
 use braid_mvg::PointWorldFrame;
@@ -42,7 +41,7 @@ fn scenario_parses_and_camera_names_are_stable() {
     let s = demo_scenario();
     assert_eq!(s.cameras.count, 5);
     assert_eq!(Scenario::camera_name(0), "simcam0");
-    // The blob defaults match the M0 spike.
+    // The blob defaults are the detector-validated values.
     assert!(s.blob.peak >= 40);
 }
 

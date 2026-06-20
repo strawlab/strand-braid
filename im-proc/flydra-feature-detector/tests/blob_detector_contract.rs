@@ -1,8 +1,8 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! M0 spike for the live 3D simulation test harness
-//! (see `scratch/2026-06-17_braid-sim-bug1-shortened-trajectories-plan.md`).
+//! Blob -> detector contract test underpinning the `braid-sim` / `ci2-sim`
+//! synthetic-image simulation harness.
 //!
 //! De-risks the *blob -> detector contract*: will the real `flydra-feature-detector`
 //! (default absdiff config) reliably find a synthetic Gaussian blob rendered into a
@@ -213,7 +213,7 @@ async fn m0_blob_detector_contract() -> eyre::Result<()> {
     println!("{}", "-".repeat(72));
     if let Some((bg, peak, sigma, rate, err)) = best_clean {
         println!(
-            "M0 contract OK: best clean config bg={bg} peak={peak:.0} sigma={sigma:.1} \
+            "contract OK: best clean config bg={bg} peak={peak:.0} sigma={sigma:.1} \
              -> detect={:.1}% loc_err={err:.3}px",
             rate * 100.0
         );
@@ -221,7 +221,7 @@ async fn m0_blob_detector_contract() -> eyre::Result<()> {
 
     assert!(
         best_clean.is_some(),
-        "M0 FAILED: no (bg,peak,sigma) gave a clean single, well-localized detection. \
+        "FAILED: no (bg,peak,sigma) gave a clean single, well-localized detection. \
          See the table above; the blob->detector contract needs revisiting."
     );
     Ok(())

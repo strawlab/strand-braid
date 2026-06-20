@@ -54,7 +54,7 @@ pub struct CameraRig {
 }
 
 /// Parameters for rendering an insect as a Gaussian blob (used by the `ci2-sim`
-/// backend in M2). Defaults follow the M0 detector-contract spike.
+/// backend). Defaults are values the real detector reliably localizes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BlobParams {
     /// Peak intensity added above the background (gray levels). Must clear the
@@ -68,7 +68,7 @@ pub struct BlobParams {
 
 impl Default for BlobParams {
     fn default() -> Self {
-        // From the M0 spike: peak well above threshold, sigma ~1.5 localizes best.
+        // Peak well above the detector threshold; sigma ~1.5 localizes best.
         BlobParams {
             peak: 160,
             sigma: 1.5,
@@ -129,11 +129,11 @@ pub struct InsectSpec {
 }
 
 fn default_bg_warmup_frames() -> u32 {
-    // M0: establish the background on insect-free frames before insects enter.
+    // Establish the background on insect-free frames before insects enter.
     30
 }
 
-/// Per-camera frame-arrival timing perturbation (milestone M5).
+/// Per-camera frame-arrival timing perturbation.
 ///
 /// The simulated cameras deliver each rendered frame late by this much, which
 /// causes their 2D detections to reach the mainbrain after it may have advanced
@@ -176,8 +176,8 @@ impl TimingModel {
     }
 }
 
-/// Observation-model imperfections applied to the 2D detections (milestone M3 /
-/// plan §3.3). All default to zero, so the perfect-world baseline is unchanged.
+/// Observation-model imperfections applied to the 2D detections. All default to
+/// zero, so the perfect-world baseline is unchanged.
 ///
 /// Everything is sampled deterministically from the scenario `seed` plus the
 /// `(camera, frame, insect)` indices, so a `(config, seed)` reproduces a run
@@ -189,7 +189,8 @@ pub struct ObservationModel {
     #[serde(default)]
     pub pixel_noise_px: f64,
     /// Per-(camera, insect, frame) probability in `[0, 1]` that a real detection
-    /// is missed (dropped). Models occlusion / detector misses. Default 0.
+    /// is missed (dropped), i.i.d. per frame. Models sporadic detector misses;
+    /// for sustained misses use [`Self::occlusion`] instead. Default 0.
     #[serde(default)]
     pub dropout_prob: f64,
     /// Expected number of spurious "clutter" detections per camera per frame
@@ -198,6 +199,10 @@ pub struct ObservationModel {
     /// included with probability `x - floor(x)`. Default 0.
     #[serde(default)]
     pub clutter_per_frame: f64,
+    /// Temporally-correlated occlusion: hides an insect from a camera for whole
+    /// spans of frames (default: never). See [`OcclusionModel`].
+    #[serde(default)]
+    pub occlusion: OcclusionModel,
 }
 
 impl ObservationModel {
@@ -213,6 +218,15 @@ impl ObservationModel {
             fno as u64,
         );
         u < self.dropout_prob
+    }
+
+    /// Whether a real detection of `insect_id` on camera `cam_index` at frame
+    /// `fno` should be suppressed for *any* reason — an i.i.d. [`Self::is_dropped`]
+    /// miss or an [`OcclusionModel`] span. This is the single check both the
+    /// image backend and the in-process injector apply before emitting a point.
+    pub fn is_suppressed(&self, seed: u64, cam_index: usize, fno: usize, insect_id: u32) -> bool {
+        self.is_dropped(seed, cam_index, fno, insect_id)
+            || self.occlusion.is_occluded(seed, cam_index, fno, insect_id)
     }
 
     /// The projected pixel `(x, y)` with deterministic Gaussian jitter applied.
@@ -273,6 +287,125 @@ impl ObservationModel {
     }
 }
 
+/// Temporally-correlated occlusion: an insect is hidden from a camera for
+/// contiguous *spans* of frames — modeling it passing behind another insect or
+/// an arena feature.
+///
+/// This differs from [`ObservationModel::dropout_prob`], which drops detections
+/// i.i.d. per frame: independent single-frame misses rarely line up into a long
+/// gap, whereas occlusion suppresses a whole span at once. Those multi-frame,
+/// few-or-zero-observation stretches are what fragment *live* tracks: the live
+/// EKF kills a coasting track that retrack, seeing all data at once, bridges.
+///
+/// Time is tiled into blocks of `span_frames`; each (camera, insect, block) is
+/// independently occluded with probability `prob`. Adjacent occluded blocks
+/// merge, so spans are at least one block and occasionally longer. Default
+/// (`prob == 0` or `span_frames == 0`) is never occluded, preserving the
+/// perfect-world baseline.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct OcclusionModel {
+    /// Probability in `[0, 1]` that any given block hides the insect from a
+    /// camera. Default 0 (never occluded).
+    #[serde(default)]
+    pub prob: f64,
+    /// Block length in frames (the occlusion granularity / typical span).
+    /// Default 0 disables occlusion regardless of `prob`.
+    #[serde(default)]
+    pub span_frames: usize,
+}
+
+impl OcclusionModel {
+    /// Whether `insect_id` is occluded from camera `cam_index` at frame `fno`,
+    /// given the scenario `seed`. Deterministic and constant within a block, so
+    /// a `(config, seed)` reproduces the exact occluded spans.
+    pub fn is_occluded(&self, seed: u64, cam_index: usize, fno: usize, insect_id: u32) -> bool {
+        if self.prob <= 0.0 || self.span_frames == 0 {
+            return false;
+        }
+        let block = (fno / self.span_frames) as u64;
+        let u = unit_hash(
+            seed ^ 0x4f_43_43_4c, // "OCCL"
+            (cam_index as u64) << 32 | insect_id as u64,
+            block,
+        );
+        u < self.prob
+    }
+}
+
+/// Deterministic per-camera offsets applied to the *tracking* calibration by a
+/// [`CalibrationPerturbation`]. Each component is signed, uniform in
+/// `[-magnitude, +magnitude]`, and reproducible from `(seed, camera index)`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CameraCalibOffsets {
+    /// Offset added to the camera center, meters (per world axis).
+    pub d_position_m: [f64; 3],
+    /// Offset added to the per-camera look-at target, meters (per world axis);
+    /// rotates the camera slightly without moving it.
+    pub d_look_at_m: [f64; 3],
+    /// Offset added to the focal length, pixels.
+    pub d_focal_px: f64,
+    /// Offset added to the principal point x, pixels.
+    pub d_cx_px: f64,
+    /// Offset added to the principal point y, pixels.
+    pub d_cy_px: f64,
+}
+
+/// Calibration perturbation: the *generation* calibration (used to project
+/// ground truth into 2D — i.e. "what was imaged") stays perfect, while
+/// the *tracking* calibration (what Braid reconstructs with) is perturbed by
+/// these magnitudes. A nonzero perturbation makes triangulation slightly
+/// inconsistent with the detections, so reprojection error is realistic rather
+/// than zero — exercising robustness and reprojection-error-driven behavior.
+///
+/// All magnitudes default to zero (perfect == tracking, the clean baseline).
+/// Offsets are sampled deterministically from the scenario seed, so a
+/// `(config, seed)` reproduces the perturbed calibration exactly.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct CalibrationPerturbation {
+    /// Max per-axis camera *position* error (meters): moves each camera center.
+    #[serde(default)]
+    pub camera_position_m: f64,
+    /// Max per-axis look-at *target* error (meters): rotates each camera (a
+    /// pointing error) without moving its center.
+    #[serde(default)]
+    pub look_at_m: f64,
+    /// Max focal-length error (pixels).
+    #[serde(default)]
+    pub focal_length_px: f64,
+    /// Max per-axis principal-point error (pixels).
+    #[serde(default)]
+    pub principal_point_px: f64,
+}
+
+impl CalibrationPerturbation {
+    /// Whether this perturbation is a no-op (all magnitudes zero), so the
+    /// tracking calibration equals the perfect generation calibration.
+    pub fn is_identity(&self) -> bool {
+        self.camera_position_m == 0.0
+            && self.look_at_m == 0.0
+            && self.focal_length_px == 0.0
+            && self.principal_point_px == 0.0
+    }
+
+    /// The deterministic calibration offsets for camera `cam_index`, given the
+    /// scenario `seed`. Each component is uniform in `[-magnitude, +magnitude]`.
+    pub fn offsets(&self, seed: u64, cam_index: usize) -> CameraCalibOffsets {
+        // Signed uniform in [-mag, mag], keyed by a per-component salt + axis.
+        let signed = |salt: u64, axis: u64, mag: f64| {
+            mag * (2.0 * unit_hash(seed ^ salt, cam_index as u64, axis) - 1.0)
+        };
+        let pos = |axis| signed(0x43_50_4f_53, axis, self.camera_position_m); // "CPOS"
+        let look = |axis| signed(0x43_4c_4b_41, axis, self.look_at_m); // "CLKA"
+        CameraCalibOffsets {
+            d_position_m: [pos(0), pos(1), pos(2)],
+            d_look_at_m: [look(0), look(1), look(2)],
+            d_focal_px: signed(0x43_46_4f_43, 0, self.focal_length_px), // "CFOC"
+            d_cx_px: signed(0x43_50_50_58, 0, self.principal_point_px), // "CPPX"
+            d_cy_px: signed(0x43_50_50_58, 1, self.principal_point_px),
+        }
+    }
+}
+
 /// Deterministic pseudo-random value in `[0, 1)` from three integers
 /// (splitmix64-style mixing). Used for reproducible per-(camera, frame) jitter.
 fn unit_hash(a: u64, b: u64, c: u64) -> f64 {
@@ -292,7 +425,8 @@ fn unit_hash(a: u64, b: u64, c: u64) -> f64 {
 /// A complete simulated scenario, deserialized from `sim.toml`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Scenario {
-    /// RNG seed (reserved for stochastic motion/noise added in later milestones).
+    /// RNG seed driving all deterministic stochastic behavior (detection noise,
+    /// dropout, clutter, occlusion, timing jitter, calibration perturbation).
     #[serde(default)]
     pub seed: u64,
     /// Synchronized frame rate, frames per second.
@@ -307,7 +441,7 @@ pub struct Scenario {
     #[serde(default)]
     pub blob: BlobParams,
     /// Number of insect-free frames to render first so the background model
-    /// settles before insects appear (see M0).
+    /// settles before insects appear.
     #[serde(default = "default_bg_warmup_frames")]
     pub bg_warmup_frames: u32,
     /// Per-camera frame-arrival timing perturbation (default: none).
@@ -327,9 +461,14 @@ pub struct Scenario {
     /// the host clock is fooled (reads `reported_fps`, corrupting the tracker's
     /// `dt = 1/fps` and fragmenting trajectories), while one that uses the
     /// hardware timestamp is correct. `None` reports true wall-clock host
-    /// timestamps. See `scratch/strand-braid-suboptimalities.md`.
+    /// timestamps.
     #[serde(default)]
     pub reported_fps: Option<f64>,
+    /// Perturbation applied to the *tracking* calibration relative to the perfect
+    /// *generation* calibration (default: none — perfect == tracking). See
+    /// [`CalibrationPerturbation`].
+    #[serde(default)]
+    pub calibration_perturbation: CalibrationPerturbation,
 }
 
 impl Scenario {
@@ -362,6 +501,57 @@ mod tests {
             assert_eq!(Scenario::camera_index(&Scenario::camera_name(k)), Some(k));
         }
         assert_eq!(Scenario::camera_index("not-a-sim-cam"), None);
+    }
+
+    #[test]
+    fn imperfect_example_parses_with_occlusion() {
+        let s = Scenario::from_toml_str(include_str!("../example-sim-imperfect.toml")).unwrap();
+        // The occlusion knob is wired through deserialization and active.
+        assert!(s.observation.occlusion.prob > 0.0);
+        assert!(s.observation.occlusion.span_frames > 0);
+        // It actually occludes some (camera, frame) and `is_suppressed` reflects
+        // it, but it is mild enough that the insect is rarely hidden everywhere.
+        let occluded = (0..2000).any(|f| s.observation.is_suppressed(s.seed, 0, f, 1));
+        assert!(
+            occluded,
+            "expected the imperfect example to occlude sometimes"
+        );
+    }
+
+    #[test]
+    fn calibration_perturbation_default_is_identity() {
+        let p = CalibrationPerturbation::default();
+        assert!(p.is_identity());
+        let o = p.offsets(7, 2);
+        assert_eq!(o.d_position_m, [0.0; 3]);
+        assert_eq!(o.d_look_at_m, [0.0; 3]);
+        assert_eq!((o.d_focal_px, o.d_cx_px, o.d_cy_px), (0.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn calibration_perturbation_offsets_bounded_and_deterministic() {
+        let p = CalibrationPerturbation {
+            camera_position_m: 0.01,
+            look_at_m: 0.02,
+            focal_length_px: 5.0,
+            principal_point_px: 3.0,
+        };
+        assert!(!p.is_identity());
+        for cam in 0..8 {
+            let o = p.offsets(42, cam);
+            // Deterministic: same (seed, camera) -> identical offsets.
+            assert_eq!(o, p.offsets(42, cam));
+            for d in o.d_position_m {
+                assert!(d.abs() <= 0.01, "position offset {d} out of bound");
+            }
+            for d in o.d_look_at_m {
+                assert!(d.abs() <= 0.02, "look-at offset {d} out of bound");
+            }
+            assert!(o.d_focal_px.abs() <= 5.0);
+            assert!(o.d_cx_px.abs() <= 3.0 && o.d_cy_px.abs() <= 3.0);
+        }
+        // Different cameras get different offsets (not a constant shift).
+        assert_ne!(p.offsets(42, 0), p.offsets(42, 1));
     }
 
     #[test]
@@ -406,8 +596,68 @@ mod tests {
         let o = ObservationModel::default();
         for fno in 0..50 {
             assert!(!o.is_dropped(7, 0, fno, 3));
+            assert!(!o.is_suppressed(7, 0, fno, 3));
+            assert!(!o.occlusion.is_occluded(7, 0, fno, 3));
             assert_eq!(o.jitter_pixel(7, 0, fno, 3, 100.0, 50.0), (100.0, 50.0));
             assert!(o.clutter(7, 0, fno, 640, 480).is_empty());
+        }
+    }
+
+    #[test]
+    fn occlusion_default_and_disabled_never_occludes() {
+        // Default, prob-without-span, and span-without-prob all disable it.
+        for o in [
+            OcclusionModel::default(),
+            OcclusionModel {
+                prob: 0.5,
+                span_frames: 0,
+            },
+            OcclusionModel {
+                prob: 0.0,
+                span_frames: 30,
+            },
+        ] {
+            assert!((0..200).all(|fno| !o.is_occluded(1, 0, fno, 3)));
+        }
+    }
+
+    #[test]
+    fn occlusion_is_blockwise_constant_and_deterministic() {
+        let span = 25usize;
+        let o = OcclusionModel {
+            prob: 0.4,
+            span_frames: span,
+        };
+        // Constant within each block; deterministic across calls.
+        for block in 0..40usize {
+            let first = o.is_occluded(7, 2, block * span, 1);
+            for off in 0..span {
+                let fno = block * span + off;
+                assert_eq!(o.is_occluded(7, 2, fno, 1), first, "frame {fno} in block");
+            }
+        }
+    }
+
+    #[test]
+    fn occlusion_rate_matches_prob_and_creates_spans() {
+        let span = 20usize;
+        let o = OcclusionModel {
+            prob: 0.3,
+            span_frames: span,
+        };
+        // Long-run occluded fraction tracks `prob` (sampled per block).
+        let n = 40_000usize;
+        let occ = (0..n).filter(|&f| o.is_occluded(11, 1, f, 0)).count();
+        let frac = occ as f64 / n as f64;
+        assert!((frac - 0.3).abs() < 0.03, "occluded fraction {frac}");
+
+        // Whenever occluded, the whole enclosing block is occluded -> a span of
+        // at least `span` consecutive frames (never an isolated single frame).
+        for f in 0..2000usize {
+            if o.is_occluded(11, 1, f, 0) {
+                let block_start = (f / span) * span;
+                assert!((block_start..block_start + span).all(|g| o.is_occluded(11, 1, g, 0)));
+            }
         }
     }
 

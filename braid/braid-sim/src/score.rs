@@ -4,10 +4,10 @@
 //! Oracle for the simulation harness: summarize the 3D tracks in a `.braidz`,
 //! and compare a live recording against an offline retrack of the same file.
 //!
-//! The headline question (see the bug-1 plan) is whether *live* tracking
-//! produces shorter / more fragmented trajectories than *retracking* the same
-//! data. This module computes per-recording track statistics and the
-//! live-vs-retrack differential that answers it.
+//! The headline question is whether *live* tracking produces shorter / more
+//! fragmented trajectories than *retracking* the same data. This module computes
+//! per-recording track statistics and the live-vs-retrack differential that
+//! answers it.
 
 use std::collections::BTreeMap;
 use std::path::Path;

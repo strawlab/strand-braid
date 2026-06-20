@@ -1,9 +1,9 @@
 # Like example-sim.toml, but with observation-model imperfections enabled, for
 # the end-to-end "track under noise" smoke test (smoke-tests/braid-sim-imperfect.sh).
-# Detection noise, occasional dropout, and a little clutter all flow through the
-# real ci2-sim renderer, the feature detector, and data association; the
-# ground-truth oracle (braid-sim score --sim-toml) then checks that live tracking
-# still recovers the insect accurately.
+# Detection noise, occasional dropout, a little clutter, and brief per-camera
+# occlusion spans all flow through the real ci2-sim renderer, the feature
+# detector, and data association; the ground-truth oracle (braid-sim score
+# --sim-toml) then checks that live tracking still recovers the insect accurately.
 
 seed = 1
 fps = 100.0
@@ -38,3 +38,11 @@ fill = 0.7
 pixel_noise_px = 0.4    # sub-pixel localization jitter on each detection
 dropout_prob = 0.02     # 2% chance a given camera misses the insect on a frame
 clutter_per_frame = 0.1 # ~1 spurious detection every 10 frames per camera
+
+# Brief per-camera occlusion spans (an insect passing behind an arena feature).
+# Mild here so >=1 of the 5 cameras almost always sees the insect: with so many
+# views the tracker rides through, demonstrating the knob flows through the live
+# path without breaking recovery.
+[observation.occlusion]
+prob = 0.12         # 12% chance a given camera is blocked during a block
+span_frames = 8     # each block (occlusion span granularity) is 8 frames

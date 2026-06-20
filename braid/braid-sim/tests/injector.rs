@@ -1,9 +1,9 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Level-B detection injector test (plan §5): drive the real flydra2 tracker
-//! in-process with synthetic 2D detections and score the output against ground
-//! truth. Runs only with the non-default `inprocess` cargo feature.
+//! Detection-injector test: drive the real flydra2 tracker in-process with
+//! synthetic 2D detections and score the output against ground truth. Runs only
+//! with the non-default `inprocess` cargo feature.
 #![cfg(feature = "inprocess")]
 
 use braid_sim::Scenario;
@@ -45,6 +45,7 @@ fn scenario(observation: ObservationModel) -> Scenario {
         timing: TimingModel::default(),
         observation,
         reported_fps: None,
+        calibration_perturbation: Default::default(),
     }
 }
 
@@ -56,7 +57,7 @@ async fn perfect_detections_track_accurately() -> eyre::Result<()> {
     let tmp = tempfile::tempdir()?;
     let out = tmp.path().join("track.braid");
 
-    let braidz = braid_sim::inject::inject_and_track(&s, 300, &out).await?;
+    let braidz = braid_sim::inject::inject_and_track(&s, 300, None, &out).await?;
 
     // Score the written recording against ground truth.
     let score = braid_sim::truth::score_against_truth(&braidz, &s, 0.02, 5)?;
@@ -83,12 +84,13 @@ async fn injection_is_deterministic_with_imperfections() -> eyre::Result<()> {
         pixel_noise_px: 0.3,
         dropout_prob: 0.05,
         clutter_per_frame: 0.2,
+        ..Default::default()
     });
 
     let run = |dir: std::path::PathBuf| {
         let s = s.clone();
         async move {
-            let braidz = braid_sim::inject::inject_and_track(&s, 200, &dir).await?;
+            let braidz = braid_sim::inject::inject_and_track(&s, 200, None, &dir).await?;
             braid_sim::truth::score_against_truth(&braidz, &s, 0.02, 5)
         }
     };
