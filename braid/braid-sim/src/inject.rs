@@ -50,9 +50,19 @@ use crate::world::World;
 /// `f / fps`, and the oracle needs no frame offset). The scenario's
 /// [`crate::scenario::ObservationModel`] is applied to the detections, so noise,
 /// dropout, and clutter all exercise the 3D core.
+///
+/// `tracker_fps` overrides the frame rate handed to the tracker (and thus the
+/// EKF `dt = 1 / tracker_fps`) *without* changing the cadence at which
+/// detections are produced — they are always injected at `scenario.fps`. Pass
+/// `None` to track at the true cadence (the normal case). Passing a value that
+/// disagrees with `scenario.fps` reproduces the live-vs-retrack fps-mismatch
+/// fragmentation mechanism in isolation: a too-high `tracker_fps` shrinks the
+/// process noise so a maneuvering target falls outside the acceptance gate, the
+/// track coasts, and covariance kill fragments it (see `tests/m7_fps_*`).
 pub async fn inject_and_track(
     scenario: &Scenario,
     num_frames: usize,
+    tracker_fps: Option<f64>,
     out_braid_dir: &Path,
 ) -> eyre::Result<std::path::PathBuf> {
     if out_braid_dir.extension().and_then(|e| e.to_str()) != Some("braid") {
@@ -64,7 +74,11 @@ pub async fn inject_and_track(
     let out_braidz = out_braid_dir.with_extension("braidz");
     let recon = crate::calibration::build_calibration(scenario)?;
     let world = World::new(scenario.clone());
+    // The cadence at which detections are produced (frame `f` depicts `f / fps`).
     let fps = scenario.fps;
+    // The frame rate the tracker uses for its EKF `dt`; defaults to the true
+    // cadence but can be deliberately mismatched to reproduce the fps bug.
+    let tracker_fps = tracker_fps.unwrap_or(fps);
     let count = scenario.cameras.count;
 
     let all_expected_cameras: BTreeSet<RawCamName> = (0..count)
@@ -211,7 +225,7 @@ pub async fn inject_and_track(
         Ok::<(), eyre::Report>(())
     };
 
-    let consume = coord_processor.consume_stream(frame_data_rx, Some(fps as f32));
+    let consume = coord_processor.consume_stream(frame_data_rx, Some(tracker_fps as f32));
     let (writer_jh, prod) = tokio::join!(consume, producer);
     prod?;
     writer_jh?.await??;

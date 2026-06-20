@@ -56,7 +56,7 @@ async fn perfect_detections_track_accurately() -> eyre::Result<()> {
     let tmp = tempfile::tempdir()?;
     let out = tmp.path().join("track.braid");
 
-    let braidz = braid_sim::inject::inject_and_track(&s, 300, &out).await?;
+    let braidz = braid_sim::inject::inject_and_track(&s, 300, None, &out).await?;
 
     // Score the written recording against ground truth.
     let score = braid_sim::truth::score_against_truth(&braidz, &s, 0.02, 5)?;
@@ -88,7 +88,7 @@ async fn injection_is_deterministic_with_imperfections() -> eyre::Result<()> {
     let run = |dir: std::path::PathBuf| {
         let s = s.clone();
         async move {
-            let braidz = braid_sim::inject::inject_and_track(&s, 200, &dir).await?;
+            let braidz = braid_sim::inject::inject_and_track(&s, 200, None, &dir).await?;
             braid_sim::truth::score_against_truth(&braidz, &s, 0.02, 5)
         }
     };
