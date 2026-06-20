@@ -599,6 +599,10 @@ pub struct StrandCamArgs {
     pub standalone_or_braid: StandaloneOrBraid,
     /// base64 encoded secret. minimum 256 bits.
     pub secret: Option<String>,
+    /// Client networks (CIDR, e.g. `100.64.0.0/10`) trusted to have already
+    /// authenticated the peer (e.g. Tailscale/WireGuard). Requests from these
+    /// networks are accepted without an access token.
+    pub trusted_networks: Vec<String>,
     pub no_browser: bool,
     pub mp4_filename_template: String,
     pub fmf_filename_template: String,
@@ -638,6 +642,7 @@ impl Default for StrandCamArgs {
         Self {
             standalone_or_braid: Default::default(),
             secret: None,
+            trusted_networks: Vec::new(),
             no_browser: true,
             mp4_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.mp4".to_string(),
             fmf_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.fmf".to_string(),
@@ -1133,6 +1138,8 @@ async fn connect_to_braid(braid_args: &BraidArgs) -> Result<BraidInfo> {
         // We have the cookie from braid now, so store it to disk.
         let jar = jar.read().unwrap();
         Preferences::save(&*jar, &APP_INFO, BRAID_COOKIE_KEY)?;
+        // The jar holds live session cookies; keep its file owner-only.
+        braid_types::harden_prefs_file(&APP_INFO, BRAID_COOKIE_KEY);
         tracing::debug!("saved cookie store {BRAID_COOKIE_KEY}");
     }
 
@@ -1820,8 +1827,12 @@ where
 
     let current_cam_settings_extension = settings_file_ext.to_string();
 
+    // Load the persistent secret once: it both mints the self-expiring access
+    // token in `start_listener` and validates it in the auth layer below.
+    let persistent_secret = http_router::load_persistent_secret(args.secret.clone())?;
+
     let (listener, http_camserver_info) =
-        braid_types::start_listener(&strand_cam_bui_http_address_string).await?;
+        braid_types::start_listener(&strand_cam_bui_http_address_string, &persistent_secret).await?;
     let listen_addr = listener.local_addr()?;
 
     let mut transmit_msg_tx = None;
@@ -2127,8 +2138,10 @@ where
         }
     };
 
+    let trusted_networks = braid_types::parse_trusted_networks(&args.trusted_networks)?;
     let router = http_router::build_http_router(
-        args.secret.clone(),
+        persistent_secret,
+        trusted_networks,
         http_camserver_info.token(),
         app_state,
     )?;

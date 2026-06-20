@@ -696,10 +696,27 @@ pub fn is_loopback(url: &http::Uri) -> bool {
 
 // -----
 
-/// Start a TCP listener for HTTP server with appropriate token configuration.
+/// Duration for which a freshly minted access token remains valid.
+///
+/// A token is only needed for a client's very first request: a successful auth
+/// hands back a session cookie that carries the session from then on (browsers
+/// persist it, and Braid persists its per-camera cookie jar to disk). Keeping
+/// the token short-lived bounds the window in which a token leaked via a URL
+/// (terminal scrollback, log files, a photographed QR code) can be replayed.
+#[cfg(feature = "start-listener")]
+pub const ACCESS_TOKEN_TTL: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+
+/// Start a TCP listener for an HTTP server, minting an access token if the
+/// listen address is not loopback.
+///
+/// `persistent_secret` is the same cookie/MAC key used to build the server's
+/// auth layer. The minted token is a self-expiring value signed with that
+/// secret, so the auth layer accepts it without any token value being stored;
+/// see [ACCESS_TOKEN_TTL] for its lifetime.
 #[cfg(feature = "start-listener")]
 pub async fn start_listener(
     address_string: &str,
+    persistent_secret: &cookie::Key,
 ) -> eyre::Result<(tokio::net::TcpListener, BuiServerAddrInfo)> {
     let socket_addr = std::net::ToSocketAddrs::to_socket_addrs(&address_string)?
         .next()
@@ -707,20 +724,80 @@ pub async fn start_listener(
 
     let listener = tokio::net::TcpListener::bind(socket_addr).await?;
     let listener_local_addr = listener.local_addr()?;
-    let token_config = if !listener_local_addr.ip().is_loopback() {
-        Some(axum_token_auth::TokenConfig::new_token("token"))
+    let token = if !listener_local_addr.ip().is_loopback() {
+        // Mint a short-lived, self-expiring token signed with the persistent
+        // secret. The auth layer is configured with the same secret, so it
+        // validates this token by signature and expiry; nothing is stored.
+        let token_str = axum_token_auth::generate_token(persistent_secret, ACCESS_TOKEN_TTL);
+        strand_bui_backend_session_types::AccessToken::PreSharedToken(token_str)
     } else {
-        None
-    };
-    let token = match token_config {
-        None => strand_bui_backend_session_types::AccessToken::NoToken,
-        Some(cfg) => {
-            strand_bui_backend_session_types::AccessToken::PreSharedToken(cfg.value.clone())
-        }
+        strand_bui_backend_session_types::AccessToken::NoToken
     };
     let http_camserver_info = BuiServerAddrInfo::new(listener_local_addr, token);
 
     Ok((listener, http_camserver_info))
+}
+
+/// Parse a list of CIDR strings (e.g. `"100.64.0.0/10"`) into the network type
+/// expected by [`axum_token_auth::AuthConfig::trusted_networks`], returning a
+/// descriptive error for the first one that fails to parse.
+#[cfg(feature = "start-listener")]
+pub fn parse_trusted_networks(nets: &[String]) -> eyre::Result<Vec<axum_token_auth::CidrBlock>> {
+    nets.iter()
+        .map(|s| {
+            s.parse::<axum_token_auth::CidrBlock>()
+                .map_err(|e| eyre::eyre!("invalid trusted network CIDR {s:?}: {e}"))
+        })
+        .collect()
+}
+
+/// Restrict the on-disk `preferences_serde1` file backing `key` to owner-only
+/// access (Unix mode 0600), warning if it was previously reachable by other
+/// local users.
+///
+/// The cookie/token secret is effectively a master credential (it can forge any
+/// session and mint any token) and the persisted cookie jars hold live session
+/// cookies, so neither should be group- or world-readable. `preferences_serde1`
+/// creates the file with the process umask (typically 0644); this tightens it
+/// after the fact. No-op on non-Unix platforms, whose permission model differs.
+#[cfg(feature = "start-listener")]
+pub fn harden_prefs_file(app: &preferences_serde1::AppInfo, key: &str) {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+
+        // Mirror `preferences_serde1`'s path layout: <config>/<app>/<key>.prefs.json
+        let Some(mut path) = preferences_serde1::prefs_base_dir() else {
+            return;
+        };
+        path.push(app.name);
+        path.push(key);
+        let Some(mut name) = path.file_name().map(|n| n.to_os_string()) else {
+            return;
+        };
+        name.push(".prefs.json");
+        path.set_file_name(name);
+
+        let Ok(md) = std::fs::metadata(&path) else {
+            // No file on disk (e.g. secret supplied via override): nothing to do.
+            return;
+        };
+        let mode = md.permissions().mode() & 0o777;
+        if mode & 0o077 != 0 {
+            tracing::warn!(
+                "Restricting permissions on sensitive file {} from {mode:o} to 600 \
+                 (it was accessible to other local users).",
+                path.display(),
+            );
+        }
+        if let Err(e) = std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)) {
+            tracing::warn!("Could not restrict permissions on {}: {e}", path.display());
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (app, key);
+    }
 }
 
 // -----

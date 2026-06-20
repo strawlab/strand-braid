@@ -89,6 +89,11 @@ impl StrandCamHttpSessionHandler {
                 &crate::mainbrain::APP_INFO,
                 crate::mainbrain::STRAND_CAM_COOKIE_KEY,
             )?;
+            // The jar holds live session cookies; keep its file owner-only.
+            braid_types::harden_prefs_file(
+                &crate::mainbrain::APP_INFO,
+                crate::mainbrain::STRAND_CAM_COOKIE_KEY,
+            );
             tracing::debug!(
                 "saved cookie store {}",
                 crate::mainbrain::STRAND_CAM_COOKIE_KEY

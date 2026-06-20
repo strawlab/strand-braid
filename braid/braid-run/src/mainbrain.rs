@@ -265,14 +265,18 @@ async fn cam_proxy_handler(
     cam_proxy_handler_inner(app_state, session_key, raw_cam_name, cam_path, req).await
 }
 
-async fn launch_braid_http_backend(
-    secret_base64: Option<String>,
-    listener: tokio::net::TcpListener,
-    mainbrain_server_info: BuiServerAddrInfo,
-    app_state: BraidAppState,
-) -> Result<impl futures::Future<Output = Result<()>>> {
+/// Load the persistent cookie/token secret, generating and saving a fresh one
+/// if none exists.
+///
+/// This secret signs both the session cookies and the self-expiring access
+/// tokens, so it must be loaded once and shared between
+/// [`braid_types::start_listener`] (which mints Braid's token) and the auth
+/// layer that validates it. A stable secret across restarts is what keeps
+/// already-issued browser cookies — and Braid's persisted per-camera cookie
+/// jar — valid through an upgrade.
+pub(crate) fn load_persistent_secret(secret_override: Option<String>) -> Result<cookie::Key> {
     use base64::Engine;
-    let persistent_secret_base64 = if let Some(secret) = secret_base64 {
+    let persistent_secret_base64 = if let Some(secret) = secret_override {
         secret
     } else {
         match String::load(&APP_INFO, COOKIE_SECRET_KEY) {
@@ -288,25 +292,42 @@ async fn launch_braid_http_backend(
         }
     };
 
+    // The secret can forge any session cookie and mint any token, so ensure its
+    // on-disk file is owner-only.
+    braid_types::harden_prefs_file(&APP_INFO, COOKIE_SECRET_KEY);
+
     let persistent_secret =
         base64::engine::general_purpose::STANDARD.decode(persistent_secret_base64)?;
-    let persistent_secret = cookie::Key::try_from(persistent_secret.as_slice())?;
+    Ok(cookie::Key::try_from(persistent_secret.as_slice())?)
+}
 
-    // Setup our auth layer.
+async fn launch_braid_http_backend(
+    persistent_secret: cookie::Key,
+    trusted_networks: Vec<axum_token_auth::CidrBlock>,
+    listener: tokio::net::TcpListener,
+    mainbrain_server_info: BuiServerAddrInfo,
+    app_state: BraidAppState,
+) -> Result<impl futures::Future<Output = Result<()>>> {
+    // Setup our auth layer. With self-expiring signed tokens the auth layer no
+    // longer stores a token value: it accepts any unexpired token signed with
+    // `persistent_secret`. We only need to know whether a token is required.
     let token_config = match mainbrain_server_info.token() {
-        AccessToken::PreSharedToken(value) => Some(axum_token_auth::TokenConfig {
-            name: "token".to_string(),
-            value: value.clone(),
-        }),
+        AccessToken::PreSharedToken(_) => Some(axum_token_auth::TokenConfig::new("token")),
         AccessToken::NoToken => None,
     };
 
-    let cfg = axum_token_auth::AuthConfig {
-        token_config,
-        persistent_secret,
-        cookie_name: "braid-bui-session",
-        cookie_expires: Some(std::time::Duration::from_secs(60 * 60 * 24 * 400)), // 400 days
-    };
+    // `AuthConfig` is `#[non_exhaustive]`, so build it via `new` and set fields.
+    let mut cfg = axum_token_auth::AuthConfig::new(persistent_secret);
+    cfg.token_config = token_config;
+    cfg.cookie_name = "braid-bui-session";
+    // Sessions slide forward on use and survive up to 400 days of absence,
+    // enforced server-side via the signed cookie. Existing cookies that
+    // predate this field carry no embedded expiry and are treated as
+    // non-expiring until renewed, so they stay valid across the upgrade.
+    cfg.session_expires = Some(std::time::Duration::from_secs(60 * 60 * 24 * 400)); // 400 days
+    // Clients on a trusted overlay network (e.g. Tailscale/WireGuard) are
+    // accepted without a token; the overlay has already authenticated them.
+    cfg.trusted_networks = trusted_networks;
 
     #[cfg(feature = "bundle_files")]
     let serve_dir = tower_serve_static::ServeDir::new(&ASSETS_DIR);
@@ -362,9 +383,14 @@ async fn launch_braid_http_backend(
     let http_serve_future = {
         use futures::TryFutureExt;
         use std::future::IntoFuture;
-        axum::serve(listener, router)
-            .into_future()
-            .map_err(eyre::Report::from)
+        // `into_make_service_with_connect_info` exposes the peer address to the
+        // auth layer so it can recognize clients on a trusted overlay network.
+        axum::serve(
+            listener,
+            router.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .into_future()
+        .map_err(eyre::Report::from)
     };
 
     // Display where we are listening.
@@ -432,7 +458,7 @@ pub(crate) async fn do_run_forever(
     camera_configs: BTreeMap<RawCamName, braid_types::BraidCameraConfig>,
     trigger_cfg: TriggerType,
     mainbrain_config: braid_config_data::MainbrainConfig,
-    secret_base64: Option<String>,
+    persistent_secret: cookie::Key,
     all_expected_cameras: std::collections::BTreeSet<RawCamName>,
     force_camera_sync_mode: bool,
     software_limit_framerate: braid_types::StartSoftwareFrameRateLimit,
@@ -689,9 +715,15 @@ pub(crate) async fn do_run_forever(
         }
     };
 
-    let http_serve_future =
-        launch_braid_http_backend(secret_base64, listener, mainbrain_server_info, app_state)
-            .await?;
+    let trusted_networks = braid_types::parse_trusted_networks(&mainbrain_config.trusted_networks)?;
+    let http_serve_future = launch_braid_http_backend(
+        persistent_secret,
+        trusted_networks,
+        listener,
+        mainbrain_server_info,
+        app_state,
+    )
+    .await?;
 
     let signal_triggerbox_connected = Arc::new(AtomicBool::new(false));
 

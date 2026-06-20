@@ -240,6 +240,18 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
                         .action(ArgAction::Set),
                 )
                 .arg(
+                    clap::Arg::new("trusted_network")
+                        .help(
+                            "A client network (CIDR, e.g. 100.64.0.0/10) trusted to have already \
+                             authenticated the peer (e.g. Tailscale/WireGuard). Clients from it \
+                             need no access token. May be given multiple times.",
+                        )
+                        .long("trusted-network")
+                        .env("STRAND_CAM_TRUSTED_NETWORKS")
+                        .value_delimiter(',')
+                        .action(ArgAction::Append),
+                )
+                .arg(
                     Arg::new("force_camera_sync_mode")
                         .long("force_camera_sync_mode")
                         .action(clap::ArgAction::Count)
@@ -294,6 +306,11 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
         .get_one::<String>("strand_cam_cookie_secret")
         .cloned()
         .clone();
+
+    let trusted_networks: Vec<String> = matches
+        .get_many::<String>("trusted_network")
+        .map(|vals| vals.cloned().collect())
+        .unwrap_or_default();
 
     let mp4_filename_template = matches
         .get_one::<String>("mp4_filename_template")
@@ -455,6 +472,7 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
     Ok(StrandCamArgs {
         standalone_or_braid,
         secret,
+        trusted_networks,
         no_browser,
         mp4_filename_template,
         fmf_filename_template,
