@@ -435,7 +435,7 @@ fn add_3d_traj_dom_elements(ctx: &Context<Model>, fd: &ValidBraidzFile) -> Html 
             <div class="panel-heading">
                 <h2>{"3D Trajectories"}</h2>
                 <p>{format!(
-                    "Blender-style navigation: middle-drag orbit, Shift+middle-drag pan, wheel zoom. Trackpad fallback: Alt+left-drag orbit, Shift+Alt+left-drag pan.",
+                    "Blender-style navigation. Trackpad: two-finger drag orbits, Shift+two-finger drag pans, pinch zooms. Mouse: middle-drag orbit, Shift+middle-drag pan, wheel zoom (Alt+left-drag also orbits, Shift+Alt+left-drag pans).",
                 )}</p>
             </div>
             if let Some(note) = note {
