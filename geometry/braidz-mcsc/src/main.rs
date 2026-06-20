@@ -2,7 +2,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use bundle_adj::CameraModelType;
-use camino::{Utf8Path, Utf8PathBuf};
+#[cfg(all(feature = "with-octave", test))]
+use camino::Utf8Path;
+use camino::Utf8PathBuf;
 use clap::Parser;
 use eyre::{self, Context, Result};
 use flydra_mvg::flydra_xml_support::{FlydraDistortionModel, SingleCameraCalibration};
@@ -18,8 +20,7 @@ use mcsc_native::McscCfg;
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "with-octave")]
-#[cfg(test)]
+#[cfg(all(feature = "with-octave", test))]
 pub(crate) mod with_octave;
 
 #[derive(Parser, Default)]
@@ -176,9 +177,9 @@ fn main() -> Result<()> {
     }
     env_tracing_logger::init();
     let opt = Cli::parse();
-    let (xml_out_name, _mcsc_result, dist) = braidz_mcsc(opt)?;
+    let (out_name, _mcsc_result, dist) = braidz_mcsc(opt)?;
     println!(
-        "Unaligned calibration XML (mean reprojection distance: {dist:.2} pixels) saved to {xml_out_name}",
+        "Unaligned calibration (mean reprojection distance: {dist:.2} pixels) saved to {out_name}",
     );
     Ok(())
 }
@@ -697,17 +698,23 @@ pub(crate) fn braidz_mcsc(
         (mcsc_system, mcsc_result.mean_reproj_distance)
     };
 
-    let xml_out_name = Utf8PathBuf::from(format!("{}-unaligned.xml", input_base_name));
-    if std::fs::exists(&xml_out_name)? {
-        // Remove existing file for test re-runs
-        std::fs::remove_file(&xml_out_name)?;
+    let out_base = Utf8PathBuf::from(format!("{}-unaligned", input_base_name));
+    // Remove existing files for test re-runs.
+    for ext in ["xml", "toml"] {
+        let p = out_base.with_extension(ext);
+        if std::fs::exists(&p)? {
+            std::fs::remove_file(&p)?;
+        }
     }
-    let mut out_fd = DeleteUnfinished::new(&xml_out_name)
-        .with_context(|| format!("While creating XML calibration output file {xml_out_name}"))?;
-    multi_cam_system.to_flydra_xml(out_fd.inner())?;
-    out_fd.close()?;
+    // Prefer the native parametric format; MCSC calibrations with the legacy
+    // "dual-copy" intrinsics are written as flydra XML (with a loud warning).
+    let written = multi_cam_system
+        .to_calibration_file(&out_base)
+        .with_context(|| format!("While writing calibration output for {out_base}"))?;
+    let out_name = Utf8PathBuf::from_path_buf(written)
+        .map_err(|p| eyre::eyre!("non-UTF8 calibration output path: {}", p.display()))?;
 
-    Ok((xml_out_name, multi_cam_system, final_mean_repoj_distance))
+    Ok((out_name, multi_cam_system, final_mean_repoj_distance))
 }
 
 fn print_reproj_and_params(
@@ -799,12 +806,14 @@ fn ba_mean_reproj_distance(
 }
 
 /// Delete any unfinished file unless close() is called.
+#[cfg(all(feature = "with-octave", test))]
 pub(crate) struct DeleteUnfinished {
     inner: std::fs::File,
     path: Utf8PathBuf,
     do_remove_file: bool,
 }
 
+#[cfg(all(feature = "with-octave", test))]
 impl Drop for DeleteUnfinished {
     fn drop(&mut self) {
         if self.do_remove_file {
@@ -814,6 +823,7 @@ impl Drop for DeleteUnfinished {
     }
 }
 
+#[cfg(all(feature = "with-octave", test))]
 impl DeleteUnfinished {
     pub(crate) fn new<P: AsRef<Utf8Path>>(p: P) -> Result<Self> {
         let path = Utf8PathBuf::from(p.as_ref());

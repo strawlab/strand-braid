@@ -54,8 +54,13 @@ pub const EXPERIMENT_INFO_CSV_FNAME: &str = "experiment_info.csv";
 pub const TEXTLOG_CSV_FNAME: &str = "textlog.csv";
 
 // Other files
-/// XML filename for camera calibration data.
+/// XML filename for camera calibration data (legacy flydra format).
 pub const CALIBRATION_XML_FNAME: &str = "calibration.xml";
+/// TOML filename for camera calibration data (native parametric format).
+///
+/// When present, this is the preferred calibration file; readers fall back to
+/// [`CALIBRATION_XML_FNAME`] when it is absent.
+pub const CALIBRATION_TOML_FNAME: &str = "calibration.toml";
 /// YAML filename for Braid metadata.
 pub const BRAID_METADATA_YML_FNAME: &str = "braid_metadata.yml";
 /// Markdown filename for README documentation.

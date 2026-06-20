@@ -86,6 +86,7 @@ pub async fn create_message_handler(
             }
             SendType::EndOfFrame(_fno) => {}
             SendType::CalibrationFlydraXml(_cal_xml) => {}
+            SendType::CalibrationNativeToml(_cal_toml) => {}
         }
 
         {

@@ -35,23 +35,29 @@ async fn events_handler(
     };
     let (tx, body) = app_state.event_broadcaster.new_connection(key);
 
-    // If we have a calibration, extract it.
-    let cal_data = {
-        // scope for read lock on app_state.current_calibration
+    // If we have a calibration, extract it. Both the flydra XML and (when
+    // available) the native parametric TOML are replayed to the new client.
+    let cal_messages = {
+        let mut msgs = Vec::new();
         let current_calibration = app_state.current_calibration.read().unwrap();
         if let Some((cal_data, tdpt)) = &*current_calibration {
-            let data = (
+            msgs.push((
                 SendType::CalibrationFlydraXml(cal_data.clone()),
                 tdpt.clone(),
-            );
-            Some(data)
-        } else {
-            None
+            ));
         }
+        let current_calibration_toml = app_state.current_calibration_toml.read().unwrap();
+        if let Some((cal_data, tdpt)) = &*current_calibration_toml {
+            msgs.push((
+                SendType::CalibrationNativeToml(cal_data.clone()),
+                tdpt.clone(),
+            ));
+        }
+        msgs
     };
 
-    // If we extracted a calibration above, send it already now.
-    if let Some(cal_data) = cal_data {
+    // If we extracted any calibration above, send it already now.
+    for cal_data in cal_messages {
         let cal_body = get_body(&cal_data);
         tx.send(Frame::data(cal_body.into())).await.unwrap();
     }
@@ -61,7 +67,11 @@ async fn events_handler(
 
 #[derive(Clone)]
 struct ModelServerAppState {
+    /// Latest flydra XML calibration, replayed to newly-connected clients.
     current_calibration: Arc<RwLock<Option<(String, TimeDataPassthrough)>>>,
+    /// Latest native parametric TOML calibration (if representable), replayed to
+    /// newly-connected clients.
+    current_calibration_toml: Arc<RwLock<Option<(String, TimeDataPassthrough)>>>,
     event_broadcaster: EventBroadcaster<usize>,
     next_connection_id: Arc<RwLock<usize>>,
 }
@@ -70,6 +80,7 @@ impl Default for ModelServerAppState {
     fn default() -> Self {
         Self {
             current_calibration: Arc::new(RwLock::new(None)),
+            current_calibration_toml: Arc::new(RwLock::new(None)),
             event_broadcaster: Default::default(),
             next_connection_id: Arc::new(RwLock::new(0)),
         }
@@ -136,6 +147,12 @@ pub enum SendType {
     EndOfFrame(SyncFno),
     /// the multicamera calibration serialized into a flydra xml file
     CalibrationFlydraXml(String),
+    /// the multicamera calibration serialized into the native parametric TOML
+    /// format. Only sent when the calibration is representable in that format;
+    /// otherwise only [`SendType::CalibrationFlydraXml`] is sent. This is always
+    /// accompanied by a [`SendType::CalibrationFlydraXml`] message carrying the
+    /// same calibration, so consumers may use whichever they prefer.
+    CalibrationNativeToml(String),
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -232,10 +249,18 @@ pub async fn new_model_server(
             let opt_new_data = data_rx.recv().await;
             match &opt_new_data {
                 Some(data) => {
-                    if let (SendType::CalibrationFlydraXml(calib), tdpt) = &data {
-                        let mut current_calibration =
-                            app_state.current_calibration.write().unwrap();
-                        *current_calibration = Some((calib.clone(), tdpt.clone()));
+                    match &data {
+                        (SendType::CalibrationFlydraXml(calib), tdpt) => {
+                            let mut current_calibration =
+                                app_state.current_calibration.write().unwrap();
+                            *current_calibration = Some((calib.clone(), tdpt.clone()));
+                        }
+                        (SendType::CalibrationNativeToml(calib), tdpt) => {
+                            let mut current_calibration_toml =
+                                app_state.current_calibration_toml.write().unwrap();
+                            *current_calibration_toml = Some((calib.clone(), tdpt.clone()));
+                        }
+                        _ => {}
                     }
                     send_msg(data, &app_state).await?;
 
@@ -318,6 +343,10 @@ pub async fn new_model_server(
                                 .unwrap();
                             }
                             (SendType::EndOfFrame(_x), _tdpt) => {}
+                            // The native TOML calibration is always accompanied
+                            // by the flydra XML one (handled above), which is
+                            // what we log to rerun, so nothing to do here.
+                            (SendType::CalibrationNativeToml(_), _tdpt) => {}
                         }
                     }
                 }
@@ -378,7 +407,7 @@ fn get_body(data: &(SendType, TimeDataPassthrough)) -> String {
     // Send updates after each observation for lowest-possible latency.
     let data = ToListener {
         // Braid pose API
-        v: 3, // <- Bump when ToListener or SendType definition changes ZP4q
+        v: 4, // <- Bump when ToListener or SendType definition changes ZP4q
         msg: msg.clone(),
         latency,
         synced_frame: tdpt.synced_frame(),

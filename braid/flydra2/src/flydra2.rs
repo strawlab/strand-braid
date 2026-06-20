@@ -891,12 +891,27 @@ impl CoordProcessor {
                 frame: SyncFno(0),
                 timestamp: None,
             };
-            // send calibration here
+            // Send the calibration. Always send the legacy flydra XML so that
+            // existing consumers keep working. Additionally send the native
+            // parametric TOML when the calibration is representable in it;
+            // otherwise warn loudly that the legacy "dual-copy" intrinsics will
+            // not be supported in the future.
             let mut flydra_xml_new: Vec<u8> = Vec::new();
             recon
                 .to_flydra_xml(&mut flydra_xml_new)
                 .expect("to_flydra_xml");
             let flydra_xml_str = std::str::from_utf8(&flydra_xml_new).unwrap();
+
+            let native_toml_str = if recon.is_native_representable() {
+                let mut buf: Vec<u8> = Vec::new();
+                recon
+                    .write_native_toml(&mut buf)
+                    .expect("write_native_toml");
+                Some(String::from_utf8(buf).unwrap())
+            } else {
+                recon.warn_dual_copy_intrinsics();
+                None
+            };
 
             for ms in self.model_servers.iter() {
                 ms.send((
@@ -905,6 +920,14 @@ impl CoordProcessor {
                 ))
                 .await
                 .expect("send calibration");
+                if let Some(native_toml_str) = &native_toml_str {
+                    ms.send((
+                        SendType::CalibrationNativeToml(native_toml_str.clone()),
+                        dummy_time.clone(),
+                    ))
+                    .await
+                    .expect("send calibration");
+                }
             }
         }
 

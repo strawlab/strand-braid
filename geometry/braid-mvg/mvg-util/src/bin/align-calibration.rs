@@ -60,7 +60,7 @@ fn main() -> Result<()> {
     let opt = Opt::parse();
     let output_aligned_cal = align_cal(opt)?;
     println!(
-        "Saved aligned XML calibration: {}",
+        "Saved aligned calibration: {}",
         output_aligned_cal.display()
     );
     Ok(())
@@ -147,15 +147,19 @@ fn align_cal(opt: Opt) -> Result<PathBuf> {
     let system = unaligned_calibration.system().align(s, rot, t)?;
     let aligned = FlydraMultiCameraSystem::from_system(system, unaligned_calibration.water());
 
-    let mut out_fd = std::fs::File::create_new(&output_aligned_cal).with_context(|| {
-        format!(
-            "While creating output file {}",
-            output_aligned_cal.display()
-        )
-    })?;
-    aligned.to_flydra_xml(&mut out_fd)?;
+    // Prefer the native parametric format; falls back to flydra XML (with a
+    // loud warning) for calibrations that cannot be represented natively. The
+    // extension of the written file reflects the format actually used.
+    let written = aligned
+        .to_calibration_file(&output_aligned_cal)
+        .with_context(|| {
+            format!(
+                "While writing aligned calibration to {}",
+                output_aligned_cal.display()
+            )
+        })?;
 
-    Ok(output_aligned_cal)
+    Ok(written)
 }
 
 fn bcast(m: &OMatrix<f64, U3, U1>, n: usize) -> OMatrix<f64, U3, Dyn> {

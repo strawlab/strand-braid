@@ -28,6 +28,8 @@ mod fermats_least_time;
 
 pub mod flydra_xml_support;
 
+pub mod native;
+
 use crate::flydra_xml_support::{FlydraDistortionModel, SingleCameraCalibration};
 
 const AIR_REFRACTION: f64 = 1.0003;
@@ -864,6 +866,12 @@ where
         FlydraMultiCameraSystem::from_flydra_reconstructor(&recon)
     }
 
+    /// Write this calibration as flydra XML.
+    ///
+    /// This is the legacy format which stores each camera's intrinsics twice (a
+    /// 3×4 projection matrix and a separate distortion model) and reconciles the
+    /// two with a rectification matrix. Prefer [`Self::to_calibration_file`],
+    /// which writes the native parametric format when possible.
     pub fn to_flydra_xml<W: Write>(&self, mut writer: W) -> Result<()> {
         let recon = self.to_flydra_reconstructor()?;
         let buf = flydra_xml_support::serialize_recon(&recon).map_err(|_e| MvgError::Io {
@@ -871,6 +879,38 @@ where
         })?;
         writer.write_all(buf.as_bytes())?;
         Ok(())
+    }
+
+    /// Write this calibration to a file, preferring the native parametric format.
+    ///
+    /// The output format and extension are chosen automatically:
+    ///
+    /// - If every camera is representable in the native parametric format (i.e.
+    ///   has an identity rectification matrix), the calibration is written as
+    ///   native TOML to `path` with a `.toml` extension.
+    /// - Otherwise (the legacy "dual-copy" intrinsics case, e.g. from MCSC), a
+    ///   loud [`tracing::warn!`] is emitted explaining the problem and how to fix
+    ///   it, and the calibration is written as flydra XML to `path` with a
+    ///   `.xml` extension.
+    ///
+    /// Returns the path actually written (with the format-appropriate extension).
+    pub fn to_calibration_file<P: AsRef<std::path::Path>>(
+        &self,
+        path: P,
+    ) -> Result<std::path::PathBuf> {
+        let path = path.as_ref();
+        if self.is_native_representable() {
+            let out_path = path.with_extension("toml");
+            let fd = std::fs::File::create(&out_path)?;
+            self.write_native_toml(fd)?;
+            Ok(out_path)
+        } else {
+            self.warn_dual_copy_intrinsics();
+            let out_path = path.with_extension("xml");
+            let fd = std::fs::File::create(&out_path)?;
+            self.to_flydra_xml(fd)?;
+            Ok(out_path)
+        }
     }
 
     /// Read a calibration from a path.
@@ -892,6 +932,9 @@ where
             // Assume any .json or .pymvg file is a pymvg file.
             let system = braid_mvg::MultiCameraSystem::from_pymvg_json(cal_file)?;
             Ok(Self::from_system(system, None))
+        } else if cal_fname.extension() == Some(std::ffi::OsStr::new("toml")) {
+            // Assume any .toml file is a native parametric calibration.
+            Self::from_native_toml(cal_file)
         } else {
             // Otherwise, assume it is a flydra xml file.
             Ok(Self::from_flydra_xml(cal_file)?)

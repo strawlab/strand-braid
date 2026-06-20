@@ -226,13 +226,12 @@ where
     assert_eq!(recon.len(), 1);
 
     // -------------------------------------------------
-    let cal_path = braid_csv_dest_dir.join(braid_types::CALIBRATION_XML_FNAME);
-
-    // let cam_name: String = recon.cams().keys().next().unwrap().clone();
-
-    let fd = std::fs::File::create(&cal_path)?;
-    // save calibration.xml file
-    recon.to_flydra_xml(fd)?;
+    // Always write legacy flydra XML for backward compatibility, and
+    // additionally the native parametric TOML when representable (preferred on
+    // read).
+    let xml_path = braid_csv_dest_dir.join(braid_types::CALIBRATION_XML_FNAME);
+    let toml_path = braid_csv_dest_dir.join(braid_types::CALIBRATION_TOML_FNAME);
+    recon.write_calibration_files(xml_path.as_ref(), toml_path.as_ref())?;
 
     // -------------------------------------------------
     // save cam_info.csv

@@ -237,7 +237,27 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
             return Err(Error::MissingMetadata {});
         };
 
-        let calibration_info = {
+        // Prefer the native parametric TOML calibration; fall back to the legacy
+        // flydra XML when it is absent. The TOML reader is fully consumed here so
+        // its borrow of `self.archive` ends before the XML fallback opens it.
+        let toml_system = match self.archive.open(braid_types::CALIBRATION_TOML_FNAME) {
+            Ok(rdr) => Some(flydra_mvg::FlydraMultiCameraSystem::<f64>::from_native_toml(rdr)?),
+            Err(zip_or_dir::Error::FileNotFound) => None,
+            Err(e) => {
+                return Err(Error::FileError {
+                    source: Box::new(e),
+                    filename: braid_types::CALIBRATION_TOML_FNAME.into(),
+                    what: "opening calibration file",
+                });
+            }
+        };
+
+        let calibration_info = if let Some(system) = toml_system {
+            Some(CalibrationInfo {
+                water: system.water(),
+                cameras: system.to_system(),
+            })
+        } else {
             match self.archive.open(braid_types::CALIBRATION_XML_FNAME) {
                 Ok(rdr) => {
                     let recon: flydra_mvg::flydra_xml_support::FlydraReconstructor<f64> =

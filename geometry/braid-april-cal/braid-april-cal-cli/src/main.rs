@@ -119,6 +119,16 @@ impl LineBuf {
         result.extend_from_slice(b"-->\n");
         Ok(result)
     }
+    /// Render the accumulated lines as TOML `#` comment lines.
+    fn toml_comment_buf(self) -> Vec<u8> {
+        let mut result: Vec<u8> = Vec::new();
+        for line in self.buf.into_iter() {
+            result.extend_from_slice(b"# ");
+            result.extend(line.into_bytes());
+            result.push(b'\n');
+        }
+        result
+    }
     fn push(&mut self, line: String) {
         println!("{}", line);
         self.buf.push(line);
@@ -645,14 +655,41 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         ba_system
     };
 
-    let mut xml_buf: Vec<u8> = lines.xml_comment_buf()?;
-    multi_cam_system
-        .to_flydra_xml(&mut xml_buf)
-        .expect("to_flydra_xml");
-
-    let mut fd = std::fs::File::create_new(&output_xml)
-        .with_context(|| format!("While creating output xml file \"{output_xml}\""))?;
-    fd.write_all(&xml_buf)?;
+    // Prefer the native parametric calibration format, preserving the
+    // human-readable report as leading comments. Calibrations that cannot be
+    // represented natively (legacy "dual-copy" intrinsics) fall back to flydra
+    // XML with a loud warning.
+    let output_path = if multi_cam_system.is_native_representable() {
+        let mut buf = lines.toml_comment_buf();
+        multi_cam_system
+            .write_native_toml(&mut buf)
+            .expect("write_native_toml");
+        let out = output_xml.with_extension("toml");
+        let mut fd = std::fs::File::create_new(&out)
+            .with_context(|| format!("While creating output calibration file \"{out}\""))?;
+        fd.write_all(&buf)?;
+        out
+    } else {
+        tracing::warn!(
+            "Calibration for {:?} uses the legacy \"dual-copy\" intrinsics \
+             representation and cannot be written in the native parametric \
+             format; writing flydra XML instead. Writing such calibrations will \
+             NOT be supported in the future. Regenerate the calibration so that \
+             each camera's linear intrinsics match its distortion-model \
+             intrinsics (so the rectification matrix is the identity).",
+            multi_cam_system.non_representable_cameras(),
+        );
+        let mut buf = lines.xml_comment_buf()?;
+        multi_cam_system
+            .to_flydra_xml(&mut buf)
+            .expect("to_flydra_xml");
+        let out = output_xml.with_extension("xml");
+        let mut fd = std::fs::File::create_new(&out)
+            .with_context(|| format!("While creating output calibration file \"{out}\""))?;
+        fd.write_all(&buf)?;
+        out
+    };
+    println!("Saved calibration: {output_path}");
     Ok(())
 }
 

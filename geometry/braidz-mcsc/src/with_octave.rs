@@ -354,6 +354,9 @@ pub(crate) fn braidz_mcsc_octave_raw(
         flydra_mvg::FlydraMultiCameraSystem::new(cams, None)
     };
 
+    // MCSC (octave) calibrations use the legacy "dual-copy" intrinsics and
+    // cannot be represented in the native parametric format, so they are written
+    // as flydra XML.
     mcsc_system.to_flydra_xml(out_fd.inner())?;
     out_fd.close()?;
 

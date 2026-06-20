@@ -209,10 +209,14 @@ impl WritingState {
 
         // write calibration
         if let Some(recon) = recon {
-            let mut cal_path = output_dirname.clone();
-            cal_path.push(braid_types::CALIBRATION_XML_FNAME);
-            let fd = std::fs::File::create(&cal_path)?;
-            recon.to_flydra_xml(fd)?;
+            // Always write legacy flydra XML for backward compatibility, and
+            // additionally the native parametric TOML when representable
+            // (preferred on read).
+            let mut xml_path = output_dirname.clone();
+            xml_path.push(braid_types::CALIBRATION_XML_FNAME);
+            let mut toml_path = output_dirname.clone();
+            toml_path.push(braid_types::CALIBRATION_TOML_FNAME);
+            recon.write_calibration_files(&xml_path, &toml_path)?;
         }
 
         // open textlog and write initial message

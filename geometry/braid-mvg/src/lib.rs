@@ -286,6 +286,14 @@ pub use crate::camera::{Camera, rq_decomposition};
 mod multi_cam_system;
 pub use crate::multi_cam_system::MultiCameraSystem;
 
+/// Native parametric calibration format for single cameras.
+///
+/// Stores intrinsics fully broken down (`fx, fy, cx, cy, skew` plus an explicit
+/// distortion model) rather than as projection matrices, avoiding the
+/// "dual-copy" intrinsics problem of the flydra XML format.
+pub mod native_cal;
+pub use crate::native_cal::{NativeCameraCalibration, NativeExtrinsics, NativeIntrinsics};
+
 /// A 2D pixel coordinate in the distorted image space.
 ///
 /// This represents pixel coordinates as they appear in the raw camera image,

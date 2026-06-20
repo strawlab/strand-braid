@@ -14,6 +14,7 @@ nalgebra.workspace = true
 parry3d-f64.workspace = true
 serde.workspace = true
 serde-xml-rs.workspace = true
+toml.workspace = true
 cam-geom.workspace = true
 opencv-ros-camera.workspace = true
 xml.workspace = true
