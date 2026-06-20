@@ -661,9 +661,7 @@ pub(crate) async fn frame_process_task<'a>(
                 // priors that reject real motion -- which can drop tracking and
                 // fragment trajectories.
                 let (fps_stamp_nanos, fps_source) = match device_timestamp {
-                    Some(device_ns) => {
-                        (device_ns as i128, crate::FpsTimestampSource::Hardware)
-                    }
+                    Some(device_ns) => (device_ns as i128, crate::FpsTimestampSource::Hardware),
                     None => {
                         if !warned_no_hw_timestamp {
                             warned_no_hw_timestamp = true;
@@ -678,7 +676,11 @@ pub(crate) async fn frame_process_task<'a>(
                             );
                         }
                         (
-                            frame.host_timing.datetime.timestamp_nanos_opt().unwrap_or(0) as i128,
+                            frame
+                                .host_timing
+                                .datetime
+                                .timestamp_nanos_opt()
+                                .unwrap_or(0) as i128,
                             crate::FpsTimestampSource::HostClock,
                         )
                     }
