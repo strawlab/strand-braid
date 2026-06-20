@@ -157,7 +157,17 @@ impl Component for Model {
         true
     }
 
-    fn rendered(&mut self, ctx: &Context<Self>, _first_render: bool) {
+    fn rendered(&mut self, ctx: &Context<Self>, first_render: bool) {
+        if first_render {
+            // The app is mounted, so remove the static loading splash shown
+            // while the WASM bundle was downloading and initializing.
+            if let Some(splash) = web_sys::window()
+                .and_then(|w| w.document())
+                .and_then(|d| d.get_element_by_id("loading-splash"))
+            {
+                splash.remove();
+            }
+        }
         if self.render_after_next_paint {
             self.render_after_next_paint = false;
             ctx.link().send_message(Msg::RenderAll);
@@ -267,9 +277,11 @@ impl Component for Model {
                         {the_3d_part}
                         {stats_part}
                     </main>
-                    <footer id="footer">{format!("Viewer date: {} (revision {})",
-                                        env!("GIT_DATE"),
-                                        env!("GIT_HASH"))}
+                    <footer id="footer">
+                        <span>{format!("Viewer date: {} (revision {})",
+                                            env!("GIT_DATE"),
+                                            env!("GIT_HASH"))}</span>
+                        <a href="THIRD-PARTY-LICENSES.yml">{"Third-party licenses (YAML)"}</a>
                     </footer>
                 </div>
             </div>
