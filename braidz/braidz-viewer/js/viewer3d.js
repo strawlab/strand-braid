@@ -101,17 +101,38 @@ function makeLabelSprite(THREE, text, color) {
     const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
     const sprite = new THREE.Sprite(material);
     sprite.userData.aspect = canvas.width / canvas.height;
+    // On-screen height in CSS pixels; the per-frame rescale (updateLabelScales)
+    // keeps the label this size regardless of camera distance/zoom.
+    sprite.userData.pixelHeight = canvas.height;
     return sprite;
+}
+
+// Rescale billboard labels so each occupies a fixed number of screen pixels,
+// rather than scaling with distance like a world-space object.
+function updateLabelScales(camera, labels, viewportHeightPx) {
+    if (!labels || labels.length === 0 || viewportHeightPx <= 0) {
+        return;
+    }
+    labels.forEach((label) => {
+        let worldPerPixel;
+        if (camera.isOrthographicCamera) {
+            worldPerPixel = ((camera.top - camera.bottom) / camera.zoom) / viewportHeightPx;
+        } else {
+            const distance = camera.position.distanceTo(label.position);
+            worldPerPixel = (2 * distance * Math.tan((camera.fov * Math.PI / 180) / 2)) / viewportHeightPx;
+        }
+        const worldHeight = label.userData.pixelHeight * worldPerPixel;
+        label.scale.set(worldHeight * label.userData.aspect, worldHeight, 1);
+    });
 }
 
 // Draw camera frustums in the style of rerun's 3D view: a rectangle at the
 // image plane connected back to the camera center, plus an "up" triangle.
-function drawCameras(THREE, scene, cameras, maxExtent) {
+function drawCameras(THREE, scene, cameras, maxExtent, labels) {
     if (!cameras || cameras.length === 0) {
         return;
     }
     const z = maxExtent * 0.16;
-    const labelScale = maxExtent * 0.12;
 
     cameras.forEach((cam, index) => {
         if (!Number.isFinite(cam.fx) || !Number.isFinite(cam.fy) || cam.fx === 0 || cam.fy === 0) {
@@ -144,8 +165,8 @@ function drawCameras(THREE, scene, cameras, maxExtent) {
         if (cam.name) {
             const label = makeLabelSprite(THREE, cam.name, color);
             label.position.copy(apex);
-            label.scale.set(labelScale * label.userData.aspect, labelScale, 1);
             scene.add(label);
+            labels.push(label);
         }
     });
 }
@@ -195,7 +216,8 @@ export function renderTrajectories3d(containerId, trajectories, cameras, bounds)
     axes.position.copy(center);
     scene.add(axes);
 
-    drawCameras(THREE, scene, cameras, maxExtent);
+    const labels = [];
+    drawCameras(THREE, scene, cameras, maxExtent, labels);
 
     trajectories.forEach((traj, index) => {
         const count = Math.min(traj.x.length, traj.y.length, traj.z.length);
@@ -228,6 +250,7 @@ export function renderTrajectories3d(containerId, trajectories, cameras, bounds)
 
     function animate() {
         controls.update();
+        updateLabelScales(cameraRef.camera, labels, renderer.domElement.clientHeight || initialHeight);
         renderer.render(scene, cameraRef.camera);
         viewer.animationId = requestAnimationFrame(animate);
     }
