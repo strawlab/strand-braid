@@ -12,8 +12,10 @@
 #   smoke-tests/braid-sim.sh
 #
 # Environment variables:
-#   STRAND_BRAID_TARGET_DIR  directory with braid-run, strand-cam, braid-sim
-#                            (default: <repo>/target/debug)
+#   STRAND_BRAID_TARGET_DIR  directory with braid-run, strand-cam, braid-sim.
+#                            When unset (the default), the script builds these
+#                            with `cargo build` and uses <repo>/target/debug.
+#                            When set, the binaries there are used as-is.
 #   BRAID_PORT               control-API port for the braid phase (44478)
 #   RECORD_SECONDS           how long to record (default: 8)
 
@@ -61,6 +63,12 @@ wait_for_log_line() {
     return 1
 }
 
+# Build the binaries, unless the caller points us at a prebuilt directory
+# (e.g. CI, which sets STRAND_BRAID_TARGET_DIR to its artifact directory).
+if [ -z "${STRAND_BRAID_TARGET_DIR:-}" ]; then
+    echo "=== Building braid-run, strand-cam, braid-sim (cargo build) ==="
+    ( cd "$REPO_DIR" && cargo build -p braid-run -p strand-cam -p braid-sim )
+fi
 for exe in braid-run strand-cam braid-sim; do
     if [ ! -x "$TARGET_DIR/$exe" ]; then
         echo "ERROR: $TARGET_DIR/$exe not found. Build it first or set" >&2
@@ -69,10 +77,17 @@ for exe in braid-run strand-cam braid-sim; do
         exit 1
     fi
 done
-python3 -c "import requests" || {
-    echo "ERROR: the python 'requests' library is required." >&2
+command -v uv >/dev/null 2>&1 || {
+    echo "ERROR: 'uv' is required to run the Python helpers with a pinned" >&2
+    echo "Python version and dependencies. Install it from" >&2
+    echo "https://docs.astral.sh/uv/getting-started/installation/" >&2
     exit 1
 }
+
+# Run a Python helper through uv. RUST_LOG is cleared because uv is itself a Rust
+# program and would otherwise emit its own logs at the verbose level we set below
+# for the braid binaries.
+uv_run() { env -u RUST_LOG uv run --no-project "$@"; }
 
 export DISABLE_VERSION_CHECK=1
 export RUST_LOG="${RUST_LOG:-info}"
@@ -97,7 +112,11 @@ wait_for_log_line "All expected cameras synchronized" "$BRAID_LOG" \
 echo "cameras synchronized"
 
 echo "=== Recording a .braidz for ${RECORD_SECONDS}s via the HTTP control API ==="
-python3 - "$BRAID_PORT" "$RECORD_SECONDS" <<'PYEOF'
+uv_run - "$BRAID_PORT" "$RECORD_SECONDS" <<'PYEOF'
+# /// script
+# requires-python = ">=3.9"
+# dependencies = ["requests"]
+# ///
 import sys, time, urllib.parse
 import requests
 

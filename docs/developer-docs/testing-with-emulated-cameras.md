@@ -96,8 +96,10 @@ STRAND_BRAID_TARGET_DIR=target/release \
     smoke-tests/braid-camemu.sh
 ```
 
-The script exits 0 and prints `PASSED` on success. It requires `python3` with
-the `requests` library and `curl`. Ports can be overridden with
+The script exits 0 and prints `PASSED` on success. It requires
+[`uv`](https://docs.astral.sh/uv/getting-started/installation/) (which runs the
+Python helpers with a pinned Python version and the `requests` dependency) and
+`curl`. Ports can be overridden with
 `STRAND_CAM_PORT` and `BRAID_PORT` if the defaults (3477 and 44477) collide
 with something on your machine.
 

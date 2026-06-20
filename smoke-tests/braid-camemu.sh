@@ -14,8 +14,11 @@
 #   smoke-tests/braid-camemu.sh
 #
 # Environment variables:
-#   STRAND_BRAID_TARGET_DIR  directory with strand-cam and braid-run binaries
-#                            (default: <repo>/target/release)
+#   STRAND_BRAID_TARGET_DIR  directory with strand-cam and braid-run binaries.
+#                            When unset (the default), the script builds these
+#                            with `cargo build --release` and uses
+#                            <repo>/target/release. When set, the binaries there
+#                            are used as-is.
 #   PYLON_CABI               path to the libpylon-cabi shim library, if it is
 #                            not installed in a standard location
 #   STRAND_CAM_PORT          port for the standalone strand-cam phase (3477)
@@ -78,6 +81,12 @@ wait_for_log_line() {
     return 1
 }
 
+# Build the binaries, unless the caller points us at a prebuilt directory
+# (e.g. CI, which sets STRAND_BRAID_TARGET_DIR to its artifact directory).
+if [ -z "${STRAND_BRAID_TARGET_DIR:-}" ]; then
+    echo "=== Building strand-cam, braid-run --release (cargo build) ==="
+    ( cd "$REPO_DIR" && cargo build --release -p strand-cam -p braid-run )
+fi
 for exe in strand-cam braid-run; do
     if [ ! -x "$TARGET_DIR/$exe" ]; then
         echo "ERROR: $TARGET_DIR/$exe not found. Build it first (see" >&2
@@ -86,10 +95,17 @@ for exe in strand-cam braid-run; do
         exit 1
     fi
 done
-python3 -c "import requests" || {
-    echo "ERROR: the python 'requests' library is required." >&2
+command -v uv >/dev/null 2>&1 || {
+    echo "ERROR: 'uv' is required to run the Python helpers with a pinned" >&2
+    echo "Python version and dependencies. Install it from" >&2
+    echo "https://docs.astral.sh/uv/getting-started/installation/" >&2
     exit 1
 }
+
+# Run a Python helper through uv. RUST_LOG is cleared because uv is itself a Rust
+# program and would otherwise emit its own logs at the verbose level we set below
+# for strand-cam/braid.
+uv_run() { env -u RUST_LOG uv run --no-project "$@"; }
 
 # Always pass --camera-name: on machines with real cameras attached, the
 # emulated cameras are enumerated alongside the real ones, and we must never
@@ -118,9 +134,9 @@ PIDS+=($!)
 wait_for_url "http://127.0.0.1:$STRAND_CAM_PORT/" \
     || fail "strand-cam HTTP server did not come up" "$SCAM_LOG"
 
-python3 "$SCRIPTS_DIR/reset-background.py" \
+uv_run --with requests "$SCRIPTS_DIR/reset-background.py" \
     --strand-cam-url "http://127.0.0.1:$STRAND_CAM_PORT/"
-python3 "$SCRIPTS_DIR/reset-background.py" \
+uv_run --with requests "$SCRIPTS_DIR/reset-background.py" \
     --strand-cam-url "http://127.0.0.1:$STRAND_CAM_PORT/" --clear-to-value 127
 
 wait_for_log_line "taking bg image" "$SCAM_LOG" 1 \
@@ -161,9 +177,9 @@ wait_for_url "http://127.0.0.1:$BRAID_PORT/" \
 wait_for_log_line "All expected cameras synchronized" "$BRAID_LOG" 1 \
     || fail "cameras did not synchronize" "$BRAID_LOG"
 
-python3 "$SCRIPTS_DIR/reset-background-braid-all-cams.py" \
+uv_run --with requests "$SCRIPTS_DIR/reset-background-braid-all-cams.py" \
     --braid-url "http://127.0.0.1:$BRAID_PORT/"
-python3 "$SCRIPTS_DIR/reset-background-braid-all-cams.py" \
+uv_run --with requests "$SCRIPTS_DIR/reset-background-braid-all-cams.py" \
     --braid-url "http://127.0.0.1:$BRAID_PORT/" --clear-to-value 127
 
 # Each command must have reached the feature detector of both cameras.
@@ -181,7 +197,11 @@ echo "Phase 2 OK"
 # in Braid's event stream must reflect the change.
 #
 echo "=== Phase 3: braid UI background-model controls ==="
-python3 - "$BRAID_PORT" <<'PYEOF'
+uv_run - "$BRAID_PORT" <<'PYEOF'
+# /// script
+# requires-python = ">=3.9"
+# dependencies = ["requests"]
+# ///
 import json, sys, time, urllib.parse
 import requests
 

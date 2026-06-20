@@ -21,8 +21,10 @@
 #
 # Usage: smoke-tests/flydratrax-fps-fragmentation.sh
 #
-# Env: STRAND_BRAID_TARGET_DIR (default <repo>/target/debug)
-#      The strand-cam binary must be built with the `flydratrax` feature.
+# Env: STRAND_BRAID_TARGET_DIR -- when unset (the default), the script builds
+#      the binaries with `cargo build` (strand-cam with the `flydratrax`
+#      feature) into <repo>/target/debug; when set, the binaries there are used
+#      as-is and strand-cam must have been built with `flydratrax`.
 
 set -o errexit
 set -o nounset
@@ -43,10 +45,21 @@ cleanup() {
 trap cleanup EXIT
 fail() { echo "FAILED: $1" >&2; exit 1; }
 
+# Build the binaries, unless the caller points us at a prebuilt directory.
+# strand-cam needs the (non-default) flydratrax feature.
+if [ -z "${STRAND_BRAID_TARGET_DIR:-}" ]; then
+    echo "=== Building strand-cam (flydratrax), braid-sim, braid-offline, braidz-cli (cargo build) ==="
+    ( cd "$REPO_DIR" && cargo build -p strand-cam --features flydratrax )
+    ( cd "$REPO_DIR" && cargo build -p braid-sim -p braid-offline -p braidz-cli )
+fi
 for exe in strand-cam braid-sim braid-offline-retrack braidz-cli; do
     [ -x "$TARGET_DIR/$exe" ] || fail "$TARGET_DIR/$exe not found (build it; strand-cam needs the flydratrax feature)"
 done
-python3 -c "import requests" || fail "python 'requests' is required"
+command -v uv >/dev/null 2>&1 || fail "'uv' is required (https://docs.astral.sh/uv/getting-started/installation/)"
+
+# Run a Python helper through uv. RUST_LOG is cleared because uv is itself a Rust
+# program and would otherwise emit its own logs at the verbose level we set below.
+uv_run() { env -u RUST_LOG uv run --no-project "$@"; }
 
 # A maneuvering insect at a true 30 fps. The small, fast 'maneuver' overlay gives
 # high acceleration (sharp turns) that a constant-velocity filter cannot predict.
@@ -88,7 +101,11 @@ PIDS+=($!)
 
 for i in $(seq 1 60); do curl -fsS "http://127.0.0.1:$PORT/" >/dev/null 2>&1 && break; sleep 0.5; done
 
-python3 - "$PORT" <<'PY'
+uv_run - "$PORT" <<'PY'
+# /// script
+# requires-python = ">=3.9"
+# dependencies = ["requests"]
+# ///
 import sys, time, urllib.parse, requests
 u = "http://127.0.0.1:%s/" % sys.argv[1]
 s = requests.session(); s.get(u).raise_for_status()
