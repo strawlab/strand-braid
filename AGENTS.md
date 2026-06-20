@@ -10,6 +10,13 @@ Run every step. CI runs the same checks; skipping them will fail CI.
 4. `cargo run -p workspace-docs -- --check` — must succeed.
 5. `cargo run -p license-check` — must succeed.
 
+## Version control
+
+- Every commit made by a model should have the model name in the commit summary
+  and full message.
+- Check if the checkout is setup to use `jj` by checking the output of `jj status`.
+  If so, prefer `jj` commands over `git`.
+
 ## Style and tooling
 
 - Follow `rustfmt` defaults; do not add `rustfmt.toml` overrides without
