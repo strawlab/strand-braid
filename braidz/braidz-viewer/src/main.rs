@@ -331,9 +331,17 @@ fn update_3d_view(model: &mut Model) {
     }
 
     let trajectories = trajectories_to_js(k);
+    let cameras = match &fd.archive.calibration_info {
+        Some(ci) => cameras_to_js(ci),
+        None => js_sys::Array::new(),
+    };
     let bounds = bounds_to_js(k.xlim, k.ylim, k.zlim);
-    if let Err(e) = render_trajectories_3d(TRAJECTORY_3D_VIEW, &trajectories.into(), &bounds.into())
-    {
+    if let Err(e) = render_trajectories_3d(
+        TRAJECTORY_3D_VIEW,
+        &trajectories.into(),
+        &cameras.into(),
+        &bounds.into(),
+    ) {
         let msg = js_error_message("3D trajectory rendering failed", &e);
         log_1(&msg.clone().into());
         model.render_error = Some(msg);
@@ -698,6 +706,50 @@ fn trajectories_to_js(k: &braidz_parser::KalmanEstimatesInfo) -> js_sys::Array {
     trajectories
 }
 
+fn cameras_to_js(cal: &braidz_types::CalibrationInfo) -> js_sys::Array {
+    let cameras = js_sys::Array::new();
+    for (name, cam) in cal.cameras.cams_by_name().iter() {
+        let extr = cam.extrinsics();
+        let cc = extr.camcenter();
+        let right = extr.right().into_inner();
+        let up = extr.up().into_inner();
+        let forward = extr.forward().into_inner();
+        // Linear projection matrix; top-left holds the pinhole intrinsics.
+        let p = &cam.intrinsics().p;
+
+        let obj = js_sys::Object::new();
+        let set = |key: &str, value: JsValue| {
+            js_sys::Reflect::set(&obj, &key.into(), &value).unwrap_throw();
+        };
+        set("name", JsValue::from_str(name));
+        set(
+            "center",
+            array_from_f64([cc[0], cc[1], cc[2]].into_iter()).into(),
+        );
+        set(
+            "right",
+            array_from_f64([right[0], right[1], right[2]].into_iter()).into(),
+        );
+        // Camera +Y points down in image space; store the down axis directly.
+        set(
+            "down",
+            array_from_f64([-up[0], -up[1], -up[2]].into_iter()).into(),
+        );
+        set(
+            "forward",
+            array_from_f64([forward[0], forward[1], forward[2]].into_iter()).into(),
+        );
+        set("fx", JsValue::from_f64(p[(0, 0)]));
+        set("fy", JsValue::from_f64(p[(1, 1)]));
+        set("cx", JsValue::from_f64(p[(0, 2)]));
+        set("cy", JsValue::from_f64(p[(1, 2)]));
+        set("width", JsValue::from_f64(cam.width() as f64));
+        set("height", JsValue::from_f64(cam.height() as f64));
+        cameras.push(&obj);
+    }
+    cameras
+}
+
 // -----------------------------------------------------------------------------
 
 #[wasm_bindgen(module = "/js/launch_queue_support.js")]
@@ -729,6 +781,7 @@ extern "C" {
     fn render_trajectories_3d(
         container_id: &str,
         trajectories: &JsValue,
+        cameras: &JsValue,
         bounds: &JsValue,
     ) -> Result<(), JsValue>;
 }
