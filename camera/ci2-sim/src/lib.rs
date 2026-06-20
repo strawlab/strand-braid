@@ -235,7 +235,7 @@ impl WrappedCamera {
             .world
             .state_at(t)
             .iter()
-            .filter(|insect| !obs.is_dropped(self.seed, self.cam_index, fno, insect.id))
+            .filter(|insect| !obs.is_suppressed(self.seed, self.cam_index, fno, insect.id))
             .filter_map(|insect| {
                 braid_sim::projection::project_pixel(
                     &self.system,

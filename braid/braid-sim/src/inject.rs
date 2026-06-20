@@ -163,7 +163,7 @@ pub async fn inject_and_track(
 
                 let mut pixels: Vec<(f64, f64)> = states
                     .iter()
-                    .filter(|ins| !obs.is_dropped(scenario.seed, k, fno, ins.id))
+                    .filter(|ins| !obs.is_suppressed(scenario.seed, k, fno, ins.id))
                     .filter_map(|ins| {
                         crate::projection::project_pixel(
                             &recon,

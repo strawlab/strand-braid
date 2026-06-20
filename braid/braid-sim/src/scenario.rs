@@ -189,7 +189,8 @@ pub struct ObservationModel {
     #[serde(default)]
     pub pixel_noise_px: f64,
     /// Per-(camera, insect, frame) probability in `[0, 1]` that a real detection
-    /// is missed (dropped). Models occlusion / detector misses. Default 0.
+    /// is missed (dropped), i.i.d. per frame. Models sporadic detector misses;
+    /// for sustained misses use [`Self::occlusion`] instead. Default 0.
     #[serde(default)]
     pub dropout_prob: f64,
     /// Expected number of spurious "clutter" detections per camera per frame
@@ -198,6 +199,10 @@ pub struct ObservationModel {
     /// included with probability `x - floor(x)`. Default 0.
     #[serde(default)]
     pub clutter_per_frame: f64,
+    /// Temporally-correlated occlusion: hides an insect from a camera for whole
+    /// spans of frames (default: never). See [`OcclusionModel`].
+    #[serde(default)]
+    pub occlusion: OcclusionModel,
 }
 
 impl ObservationModel {
@@ -213,6 +218,15 @@ impl ObservationModel {
             fno as u64,
         );
         u < self.dropout_prob
+    }
+
+    /// Whether a real detection of `insect_id` on camera `cam_index` at frame
+    /// `fno` should be suppressed for *any* reason — an i.i.d. [`Self::is_dropped`]
+    /// miss or an [`OcclusionModel`] span. This is the single check both the
+    /// image backend and the in-process injector apply before emitting a point.
+    pub fn is_suppressed(&self, seed: u64, cam_index: usize, fno: usize, insect_id: u32) -> bool {
+        self.is_dropped(seed, cam_index, fno, insect_id)
+            || self.occlusion.is_occluded(seed, cam_index, fno, insect_id)
     }
 
     /// The projected pixel `(x, y)` with deterministic Gaussian jitter applied.
@@ -270,6 +284,52 @@ impl ObservationModel {
                 (ux * width as f64, uy * height as f64)
             })
             .collect()
+    }
+}
+
+/// Temporally-correlated occlusion (plan §3.3): an insect is hidden from a
+/// camera for contiguous *spans* of frames — modeling it passing behind another
+/// insect or an arena feature.
+///
+/// This differs from [`ObservationModel::dropout_prob`], which drops detections
+/// i.i.d. per frame: independent single-frame misses rarely line up into a long
+/// gap, whereas occlusion suppresses a whole span at once. Those multi-frame,
+/// few-or-zero-observation stretches are what fragment *live* tracks (the live
+/// EKF kills a coasting track that retrack, seeing all data at once, bridges) —
+/// the mechanism flagged in the M6 shortened-trajectory investigation.
+///
+/// Time is tiled into blocks of `span_frames`; each (camera, insect, block) is
+/// independently occluded with probability `prob`. Adjacent occluded blocks
+/// merge, so spans are at least one block and occasionally longer. Default
+/// (`prob == 0` or `span_frames == 0`) is never occluded, preserving the
+/// perfect-world baseline.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct OcclusionModel {
+    /// Probability in `[0, 1]` that any given block hides the insect from a
+    /// camera. Default 0 (never occluded).
+    #[serde(default)]
+    pub prob: f64,
+    /// Block length in frames (the occlusion granularity / typical span).
+    /// Default 0 disables occlusion regardless of `prob`.
+    #[serde(default)]
+    pub span_frames: usize,
+}
+
+impl OcclusionModel {
+    /// Whether `insect_id` is occluded from camera `cam_index` at frame `fno`,
+    /// given the scenario `seed`. Deterministic and constant within a block, so
+    /// a `(config, seed)` reproduces the exact occluded spans.
+    pub fn is_occluded(&self, seed: u64, cam_index: usize, fno: usize, insect_id: u32) -> bool {
+        if self.prob <= 0.0 || self.span_frames == 0 {
+            return false;
+        }
+        let block = (fno / self.span_frames) as u64;
+        let u = unit_hash(
+            seed ^ 0x4f_43_43_4c, // "OCCL"
+            (cam_index as u64) << 32 | insect_id as u64,
+            block,
+        );
+        u < self.prob
     }
 }
 
@@ -365,6 +425,21 @@ mod tests {
     }
 
     #[test]
+    fn imperfect_example_parses_with_occlusion() {
+        let s = Scenario::from_toml_str(include_str!("../example-sim-imperfect.toml")).unwrap();
+        // The occlusion knob is wired through deserialization and active.
+        assert!(s.observation.occlusion.prob > 0.0);
+        assert!(s.observation.occlusion.span_frames > 0);
+        // It actually occludes some (camera, frame) and `is_suppressed` reflects
+        // it, but it is mild enough that the insect is rarely hidden everywhere.
+        let occluded = (0..2000).any(|f| s.observation.is_suppressed(s.seed, 0, f, 1));
+        assert!(
+            occluded,
+            "expected the imperfect example to occlude sometimes"
+        );
+    }
+
+    #[test]
     fn timing_default_is_no_delay() {
         let t = TimingModel::default();
         for cam in 0..5 {
@@ -406,8 +481,68 @@ mod tests {
         let o = ObservationModel::default();
         for fno in 0..50 {
             assert!(!o.is_dropped(7, 0, fno, 3));
+            assert!(!o.is_suppressed(7, 0, fno, 3));
+            assert!(!o.occlusion.is_occluded(7, 0, fno, 3));
             assert_eq!(o.jitter_pixel(7, 0, fno, 3, 100.0, 50.0), (100.0, 50.0));
             assert!(o.clutter(7, 0, fno, 640, 480).is_empty());
+        }
+    }
+
+    #[test]
+    fn occlusion_default_and_disabled_never_occludes() {
+        // Default, prob-without-span, and span-without-prob all disable it.
+        for o in [
+            OcclusionModel::default(),
+            OcclusionModel {
+                prob: 0.5,
+                span_frames: 0,
+            },
+            OcclusionModel {
+                prob: 0.0,
+                span_frames: 30,
+            },
+        ] {
+            assert!((0..200).all(|fno| !o.is_occluded(1, 0, fno, 3)));
+        }
+    }
+
+    #[test]
+    fn occlusion_is_blockwise_constant_and_deterministic() {
+        let span = 25usize;
+        let o = OcclusionModel {
+            prob: 0.4,
+            span_frames: span,
+        };
+        // Constant within each block; deterministic across calls.
+        for block in 0..40usize {
+            let first = o.is_occluded(7, 2, block * span, 1);
+            for off in 0..span {
+                let fno = block * span + off;
+                assert_eq!(o.is_occluded(7, 2, fno, 1), first, "frame {fno} in block");
+            }
+        }
+    }
+
+    #[test]
+    fn occlusion_rate_matches_prob_and_creates_spans() {
+        let span = 20usize;
+        let o = OcclusionModel {
+            prob: 0.3,
+            span_frames: span,
+        };
+        // Long-run occluded fraction tracks `prob` (sampled per block).
+        let n = 40_000usize;
+        let occ = (0..n).filter(|&f| o.is_occluded(11, 1, f, 0)).count();
+        let frac = occ as f64 / n as f64;
+        assert!((frac - 0.3).abs() < 0.03, "occluded fraction {frac}");
+
+        // Whenever occluded, the whole enclosing block is occluded -> a span of
+        // at least `span` consecutive frames (never an isolated single frame).
+        for f in 0..2000usize {
+            if o.is_occluded(11, 1, f, 0) {
+                let block_start = (f / span) * span;
+                assert!((block_start..block_start + span).all(|g| o.is_occluded(11, 1, g, 0)));
+            }
         }
     }
 

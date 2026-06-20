@@ -83,6 +83,7 @@ async fn injection_is_deterministic_with_imperfections() -> eyre::Result<()> {
         pixel_noise_px: 0.3,
         dropout_prob: 0.05,
         clutter_per_frame: 0.2,
+        ..Default::default()
     });
 
     let run = |dir: std::path::PathBuf| {
