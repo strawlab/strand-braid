@@ -562,7 +562,9 @@ fn copy_dir<R: Read + Seek>(
             fd.read_to_end(&mut buf).unwrap();
 
             let mut options = zip::write::SimpleFileOptions::default();
-            if buf.len() >= 0xFFFFFFFF {
+            // Cast to u64 so the comparison is meaningful on 32-bit targets
+            // (e.g. wasm32) where `usize::MAX` is itself 0xFFFFFFFF.
+            if buf.len() as u64 >= 0xFFFFFFFF {
                 println!("setting large file to true");
                 options = options.large_file(true);
             }
