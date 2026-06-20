@@ -87,7 +87,7 @@ impl WritingState {
         let fps = cfg.fps;
         let per_cam_data = cfg.per_cam_data;
 
-        // Any changes to what is saved should update BraidMetadataSchemaTag.
+        // Backward-incompatible changes to what is saved require a BRAID_SCHEMA bump (see its definition).
 
         // create output dir
         std::fs::create_dir_all(&output_dirname)?;

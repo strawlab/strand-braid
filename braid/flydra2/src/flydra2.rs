@@ -162,7 +162,7 @@ where
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ExperimentInfoRow {
-    // changes to this struct should update BraidMetadataSchemaTag
+    // backward-incompatible changes here require a BRAID_SCHEMA bump (see its definition)
     pub uuid: String,
 }
 

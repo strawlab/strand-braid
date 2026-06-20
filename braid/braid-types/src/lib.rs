@@ -32,8 +32,14 @@ pub const DEFAULT_MODEL_SERVER_ADDR: &str = "0.0.0.0:8397";
 
 // These are the filenames saved during recording. --------------------
 //
-// Any changes to these names, including additions and removes, should update
-// BraidMetadataSchemaTag.
+// BraidMetadataSchemaTag (BRAID_SCHEMA) is versioned like semver: it is bumped
+// only on a backward-incompatible change to the on-disk format -- one that
+// would prevent an existing reader from correctly parsing a newly written file.
+// Examples that REQUIRE a bump: removing or renaming a file, removing a CSV
+// column or struct field, or changing the type or meaning of an existing one.
+// Purely additive changes -- a new file, a new optional CSV column, or a new
+// `#[serde(default)]` struct field -- are backward compatible and do NOT bump
+// the schema, since old readers continue to work unchanged.
 /// Version number for the Braid metadata schema.
 pub const BRAID_SCHEMA: u16 = 3; // BraidMetadataSchemaTag
 
@@ -101,7 +107,7 @@ pub const TRIGGERBOX_SYNC_SECONDS: u64 = 3;
 // --------------------------------------------------------------------
 
 /// Camera information record for CSV output.
-// Changes to this struct should update BraidMetadataSchemaTag.
+// Backward-incompatible changes here require a BRAID_SCHEMA bump (see its definition).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CamInfoRow {
     /// The index of the camera. This changes from invocation to invocation of Braid.
@@ -115,7 +121,7 @@ pub struct CamInfoRow {
 }
 
 /// Kalman filter state estimate record for CSV output.
-// Changes to this struct should update BraidMetadataSchemaTag.
+// Backward-incompatible changes here require a BRAID_SCHEMA bump (see its definition).
 #[expect(
     non_snake_case,
     reason = "fields with covariance are named after the standard Kalman filter covariance matrix notation."
@@ -173,7 +179,7 @@ impl WithKey<SyncFno> for KalmanEstimatesRow {
 /// Data association record linking 2D detections to 3D tracks.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct DataAssocRow {
-    // changes to this struct should update BraidMetadataSchemaTag
+    // backward-incompatible changes here require a BRAID_SCHEMA bump (see its definition)
     /// Object ID being tracked.
     pub obj_id: u32,
     /// Synchronized frame number.
@@ -833,7 +839,7 @@ pub fn harden_prefs_file(app: &preferences_serde1::AppInfo, key: &str) {
 /// Text log message record for CSV output.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TextlogRow {
-    // changes to this struct should update BraidMetadataSchemaTag
+    // backward-incompatible changes here require a BRAID_SCHEMA bump (see its definition)
     /// Timestamp from the main brain system.
     pub mainbrain_timestamp: f64,
     /// Camera identifier.
@@ -1297,7 +1303,7 @@ pub enum FlydraTypesError {
 /// Trigger clock information record for CSV output.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TriggerClockInfoRow {
-    // changes to this should update BraidMetadataSchemaTag
+    // backward-incompatible changes here require a BRAID_SCHEMA bump (see its definition)
     #[serde(with = "crate::timestamp_f64")]
     /// Timestamp when recording started.
     pub start_timestamp: FlydraFloatTimestampLocal<HostClock>,
@@ -1404,7 +1410,7 @@ impl Default for TriggerType {
 /// these cannot be relied upon in `.braidz` files to be monotonic.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Data2dDistortedRow {
-    // changes to this should update BraidMetadataSchemaTag
+    // backward-incompatible changes here require a BRAID_SCHEMA bump (see its definition)
     // should be kept in sync with Data2dDistortedRowF32
     /// The number of the camera.
     pub camn: CamNum,
@@ -1463,7 +1469,7 @@ pub struct Data2dDistortedRow {
 // module `flydra_core.data_descriptions.Info2D`.
 #[derive(Debug, Serialize)]
 pub struct Data2dDistortedRowF32 {
-    // changes to this should update BraidMetadataSchemaTag
+    // backward-incompatible changes here require a BRAID_SCHEMA bump (see its definition)
     /// The number of the camera.
     pub camn: CamNum,
     /// The synchronized frame number.

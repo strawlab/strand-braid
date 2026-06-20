@@ -126,6 +126,10 @@ A Jupyter Notebook to create all of these plots can be found in `braid-plotting.
 A `.braidz` file is actually a ZIP file with specific contents. It can be
 helpful to know about these specifics when problems arise.
 
+For the on-disk schema versioning policy and history of changes across schema
+versions, see
+[`braidz-schema-versioning.md`](https://github.com/strawlab/strand-braid/blob/main/braid/braid-types/braidz-schema-versioning.md).
+
 ### Showing the contents of a `.braidz` file
 
 You can show the filenames inside a .braidz file with

@@ -10,7 +10,7 @@ use braid_types::{CamNum, TrackingParams};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BraidMetadata {
-    // changes to this struct should update BraidMetadataSchemaTag
+    // backward-incompatible changes here require a BRAID_SCHEMA bump (see its definition)
     pub schema: u16, // BraidMetadataSchemaTag
     pub git_revision: String,
     pub original_recording_time: Option<chrono::DateTime<chrono::Local>>,
