@@ -1,0 +1,59 @@
+# Example multi-insect simulation scenario for the Braid live 3D test harness
+# (braid-sim). Like `example-sim.toml`, this is the single source of truth for a
+# run: the harness derives the camera calibration XML and the Braid config from
+# it. The only difference is that two insects are tracked simultaneously.
+
+# RNG seed driving all deterministic stochastic behavior (noise, dropout,
+# clutter, occlusion, timing jitter, calibration perturbation).
+seed = 11
+# Synchronized frame rate (frames per second).
+fps = 100.0
+
+# Tracking volume (axis-aligned bounding box, meters). ~0.30 m cube.
+[arena]
+min = [-0.15, -0.15, 0.0]
+max = [0.15, 0.15, 0.30]
+
+# Synthetic cameras: an evenly-spaced horizontal ring looking at the arena
+# center, ideal pinhole (no distortion).
+[cameras]
+count = 5
+radius_m = 0.6
+height_m = 0.7
+focal_length_px = 900.0
+image_width = 640
+image_height = 512
+
+# Insect-as-blob rendering (used by the ci2-sim backend; defaults are values the
+# real feature detector reliably localizes).
+[blob]
+peak = 160
+sigma = 1.5
+background = 0
+
+# Two insects on distinct, bounded Lissajous paths, both present for the whole
+# run. Distinct frequencies and phases trace different curves through the shared
+# arena so they stay separable for data association.
+[[insects]]
+id = 1
+
+[insects.motion]
+freq_hz = [0.11, 0.13, 0.07]
+phase = [0.0, 1.0, 2.0]
+fill = 0.6
+
+[[insects]]
+id = 2
+
+[insects.motion]
+freq_hz = [0.07, 0.09, 0.12]
+phase = [3.1, 4.2, 0.5]
+fill = 0.6
+
+# Observation-model imperfections (all default to 0 = a perfect-world baseline).
+# Everything is sampled deterministically from `seed`, so a run reproduces
+# exactly. Uncomment to stress detection accuracy and data association.
+# [observation]
+# pixel_noise_px = 0.5     # zero-mean Gaussian jitter (px) on each detection
+# dropout_prob = 0.02      # per (camera, insect, frame) chance of a missed detection
+# clutter_per_frame = 0.1  # expected spurious false detections per camera per frame

@@ -519,6 +519,22 @@ mod tests {
     }
 
     #[test]
+    fn multi_example_parses_with_two_insects() {
+        let s = Scenario::from_toml_str(include_str!("../example-sim-multi.toml")).unwrap();
+        assert_eq!(s.insects.len(), 2);
+        // Distinct ids, both present from the start (None exit = forever).
+        let ids: Vec<u32> = s.insects.iter().map(|i| i.id).collect();
+        assert_eq!(ids, vec![1, 2]);
+        for ins in &s.insects {
+            assert_eq!(ins.enter_t, 0.0);
+            assert!(ins.exit_t.is_none());
+        }
+        // The world reports both insects present simultaneously.
+        let world = crate::world::World::new(s.clone());
+        assert_eq!(world.state_at(1.0).len(), 2);
+    }
+
+    #[test]
     fn calibration_perturbation_default_is_identity() {
         let p = CalibrationPerturbation::default();
         assert!(p.is_identity());
