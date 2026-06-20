@@ -1059,15 +1059,17 @@ dependencies = [
 
 [[package]]
 name = "axum-token-auth"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60af78d882283e39da3fa5edd7b0a8932a4207b694af838e04a094e5c98b104c"
+checksum = "8b54838336e38b85854e7faf2061dd34ba2d612814023482505ef38ee262c4e8"
 dependencies = [
  "axum",
+ "base64 0.22.1",
  "cookie",
  "futures-util",
+ "hmac",
  "http 1.4.1",
- "serde",
+ "sha2",
  "thiserror 2.0.18",
  "tower-cookies",
  "tower-layer",
@@ -1712,6 +1714,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "braid-sim"
+version = "0.1.0"
+dependencies = [
+ "approx 0.5.1",
+ "braid-config-data",
+ "braid-mvg",
+ "braid-types",
+ "braidz-parser",
+ "cam-geom",
+ "chrono",
+ "clap",
+ "eyre",
+ "flydra-mvg",
+ "flydra2",
+ "nalgebra 0.34.2",
+ "opencv-ros-camera",
+ "serde",
+ "tempfile",
+ "tokio",
+ "tokio-stream",
+ "toml 0.5.11",
+]
+
+[[package]]
 name = "braid-triggerbox"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1750,6 +1776,7 @@ dependencies = [
  "axum-token-auth",
  "bytes",
  "chrono",
+ "cookie",
  "csv",
  "eyre",
  "flydra-feature-detector-types",
@@ -1759,6 +1786,7 @@ dependencies = [
  "num-integer",
  "ordered-float 4.6.0",
  "percent-encoding",
+ "preferences-serde1",
  "serde",
  "serde_cbor",
  "static_assertions",
@@ -2448,6 +2476,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ci2-sim"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "braid-mvg",
+ "braid-sim",
+ "braid-types",
+ "chrono",
+ "ci2",
+ "ci2-pylon-types",
+ "eyre",
+ "flydra-feature-detector",
+ "flydra-mvg",
+ "flydra-pt-detect-cfg",
+ "machine-vision-formats",
+ "strand-dynamic-frame",
+ "tracing",
+]
+
+[[package]]
 name = "ci2-simple-async-demo"
 version = "0.1.0"
 dependencies = [
@@ -2486,7 +2534,6 @@ dependencies = [
  "chrono",
  "ci2",
  "ci2-vimba-types",
- "lazy_static",
  "machine-vision-formats",
  "strand-dynamic-frame",
  "tempfile",
@@ -14465,6 +14512,7 @@ dependencies = [
  "ci2-async",
  "ci2-pylon",
  "ci2-pylon-types",
+ "ci2-sim",
  "ci2-vimba",
  "ci2-vimba-types",
  "ci2-webcam",

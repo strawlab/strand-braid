@@ -20,6 +20,10 @@ pub enum CameraBackend {
     Vimba,
     /// Consumer webcam backend (`ci2-webcam`), intended for development use.
     Webcam,
+    /// Simulation backend (`ci2-sim`), which renders synthetic images of
+    /// simulated insects for end-to-end testing. The scenario is given by the
+    /// `STRAND_CAM_SIM_SPEC` environment variable.
+    Sim,
 }
 
 impl CameraBackend {
@@ -29,8 +33,9 @@ impl CameraBackend {
             "pylon" => Ok(CameraBackend::Pylon),
             "vimba" => Ok(CameraBackend::Vimba),
             "webcam" => Ok(CameraBackend::Webcam),
+            "sim" => Ok(CameraBackend::Sim),
             other => Err(eyre!(
-                "unknown camera backend '{other}', expected 'pylon', 'vimba', or 'webcam'"
+                "unknown camera backend '{other}', expected 'pylon', 'vimba', 'webcam', or 'sim'"
             )),
         }
     }
@@ -140,6 +145,13 @@ pub fn cli_main_dispatch(app_name: &'static str) -> Result<()> {
             let module: &'static ci2_webcam::WrappedModule =
                 Box::leak(Box::new(ci2_webcam::new_module()?));
             let guard = ci2_webcam::make_singleton_guard(&module)?;
+            let mymod = ci2_async::into_threaded_async(module, &guard);
+            cli_main(mymod, app_name)?;
+        }
+        CameraBackend::Sim => {
+            let module: &'static ci2_sim::WrappedModule =
+                Box::leak(Box::new(ci2_sim::new_module()?));
+            let guard = ci2_sim::make_singleton_guard(&module)?;
             let mymod = ci2_async::into_threaded_async(module, &guard);
             cli_main(mymod, app_name)?;
         }
@@ -259,7 +271,7 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
             .arg(
                 Arg::new("camera_backend")
                     .long("camera-backend")
-                    .value_parser(["pylon", "vimba", "webcam"])
+                    .value_parser(["pylon", "vimba", "webcam", "sim"])
                     .help(
                         "Which camera backend library to load. Only meaningful for \
                         the merged Strand Camera binary that supports multiple backends.",
@@ -454,13 +466,21 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
     let standalone_or_braid = if let Some(braid_url) = braid_url {
         for argname in &[
             "pixel_format",
-            "JWT_SECRET",
+            "strand_cam_cookie_secret",
             "camera_settings_filename",
             "http_server_addr",
         ] {
             // These values are not relevant or are set via
             // [braid_types::RemoteCameraInfoResponse].
-            if matches.contains_id(argname) {
+            //
+            // Use `try_contains_id` rather than `contains_id`: the latter panics
+            // if `argname` is not a defined argument id, which silently breaks if
+            // an argument is ever renamed. `try_contains_id` surfaces that as an
+            // error instead.
+            if matches
+                .try_contains_id(argname)
+                .map_err(|e| eyre!("checking argument '{argname}': {e}"))?
+            {
                 eyre::bail!(
                     "'{argname}' cannot be set from the command line when calling \
                     strand-cam from braid.",

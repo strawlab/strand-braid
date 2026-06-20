@@ -130,7 +130,21 @@ where
                         return Poll::Ready(Some(previous));
                     }
                     Ordering::Less => {
-                        // Drop `new_item` because it has higher latency.
+                        // Drop `new_item` because it arrived too late: the
+                        // current frame has already advanced past it, so this
+                        // data cannot be included in the live 3D reconstruction.
+                        // It remains on disk, so offline retracking can still use
+                        // it. This drop is otherwise invisible; logging it (at
+                        // debug level, opt-in via RUST_LOG) makes the
+                        // live-vs-retrack data loss observable when diagnosing
+                        // unexpectedly short live trajectories.
+                        tracing::debug!(
+                            "dropping late camera data: cam {} frame {} arrived {} frame(s) \
+                             after the current frame and was excluded from live tracking",
+                            new_item.frame_data.cam_name.as_str(),
+                            new_item.frame_data.synced_frame.0,
+                            -dt,
+                        );
                     }
                 }
             }

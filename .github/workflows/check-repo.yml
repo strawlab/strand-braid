@@ -45,3 +45,36 @@ jobs:
       - name: Check that all crates compile
         run: |
           cargo check --workspace --all-targets
+
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Rust wasm target and trunk
+        # Needed because some crates (e.g. strand-cam with its default
+        # `bundle_files` feature) build a wasm frontend as part of the build.
+        run: |
+          rustup target add wasm32-unknown-unknown
+          curl --location --remote-name https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-musl.tar.gz
+          tar xzf trunk-x86_64-unknown-linux-musl.tar.gz
+          sudo mv trunk /usr/local/bin/
+          trunk --version
+      # Run the whole workspace's tests with default features. This covers most
+      # tests, including the simulation harness (braid-sim, ci2-sim), the
+      # blob/detector contract (flydra-feature-detector), and the frame-rate
+      # "bunching" unit tests in strand-cam (whose default features include
+      # `flydra_feat_detect`): that estimating fps from a bursty host clock
+      # over-reads -- the cause of the live-vs-retrack track fragmentation bug --
+      # while a hardware timestamp stays correct.
+      - name: Workspace tests (default features)
+        run: |
+          cargo test --release --workspace
+      # Layer on tests that need non-default cargo features and so are not built
+      # by the default-feature run above. `flydratrax` (single-camera tracking)
+      # is not a default feature, so build and test strand-cam with it enabled.
+      - name: strand-cam flydratrax-feature tests
+        run: |
+          cargo test --release -p strand-cam \
+            --no-default-features \
+            --features "serve_files flydratrax fiducial" \
+            --lib

@@ -12,6 +12,7 @@ members = [
     "braid/braid-process-video",
     "braid/flydra2",
     "braid/tracking",
+    "braid/braid-sim",
     "braidz/braidz-parser",
     "braidz/braidz-parser/braidz-chunked-iter",
     "braidz/braidz-parser/braidz-chunked-iter/pybraidz-chunked-iter",
@@ -32,6 +33,7 @@ members = [
     "camera/ci2-vimba",
     "camera/ci2-vimba-types",
     "camera/ci2-webcam",
+    "camera/ci2-sim",
     "camera/strand-cam-remote-control",
     "camera/strand-cam-types",
     "camera/vimba",
@@ -293,6 +295,7 @@ braid-config-data = { path = "braid/braid-config-data" }
 braid-http-session = { path = "web/braid-http-session" }
 braid-offline = { path = "braid/braid-offline" }
 braid-mvg = { path = "geometry/braid-mvg", version = "0.1.0" }
+braid-sim = { path = "braid/braid-sim" }
 braid-types = { path = "braid/braid-types", default-features = false }
 braidz-parser = { path = "braidz/braidz-parser" }
 braidz-rerun = { path = "braidz/braidz-rerun" }
@@ -311,6 +314,7 @@ strand-cam-types = { path = "camera/strand-cam-types", version = "0.1.0" }
 ci2-vimba = { path = "camera/ci2-vimba" }
 ci2-vimba-types = { path = "camera/ci2-vimba-types" }
 ci2-webcam = { path = "camera/ci2-webcam" }
+ci2-sim = { path = "camera/ci2-sim" }
 csv-eof = { path = "utils/csv-eof" }
 download-verify = { path = "utils/download-verify" }
 dynlink-cuda = { path = "media-utils/nvenc/dynlink-cuda" }

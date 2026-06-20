@@ -436,6 +436,14 @@ pub enum StartCameraBackend {
     /// Intended for development use. The camera `name` to use in the
     /// configuration is the human-readable device name of the webcam.
     Webcam,
+    /// Start a simulated camera locally using the `strand-cam` program with the
+    /// `--camera-backend sim` argument.
+    ///
+    /// Used for end-to-end testing with no hardware: the camera renders
+    /// synthetic images of simulated insects. The scenario is given by the
+    /// `STRAND_CAM_SIM_SPEC` environment variable, and the camera `name` is one
+    /// of the simulated camera names (e.g. `simcam0`).
+    Sim,
 }
 
 impl StartCameraBackend {
@@ -447,9 +455,10 @@ impl StartCameraBackend {
     pub fn strand_cam_exe_name(&self) -> Option<&str> {
         match self {
             StartCameraBackend::Remote => None,
-            StartCameraBackend::Pylon | StartCameraBackend::Vimba | StartCameraBackend::Webcam => {
-                Some("strand-cam")
-            }
+            StartCameraBackend::Pylon
+            | StartCameraBackend::Vimba
+            | StartCameraBackend::Webcam
+            | StartCameraBackend::Sim => Some("strand-cam"),
         }
     }
 
@@ -462,6 +471,7 @@ impl StartCameraBackend {
             StartCameraBackend::Pylon => Some("pylon"),
             StartCameraBackend::Vimba => Some("vimba"),
             StartCameraBackend::Webcam => Some("webcam"),
+            StartCameraBackend::Sim => Some("sim"),
         }
     }
 }
