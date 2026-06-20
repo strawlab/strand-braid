@@ -72,7 +72,11 @@ pub async fn inject_and_track(
         );
     }
     let out_braidz = out_braid_dir.with_extension("braidz");
+    // `recon` is the perfect generation calibration the detections are projected
+    // with; `track_recon` is what the tracker reconstructs with (perturbed if the
+    // scenario asks for it). They are equal in the perfect-world baseline.
     let recon = crate::calibration::build_calibration(scenario)?;
+    let track_recon = crate::calibration::build_tracking_calibration(scenario)?;
     let world = World::new(scenario.clone());
     // The cadence at which detections are produced (frame `f` depicts `f / fps`).
     let fps = scenario.fps;
@@ -89,7 +93,7 @@ pub async fn inject_and_track(
         .collect();
 
     let mut cam_manager = ConnectedCamerasManager::new(
-        &Some(recon.clone()),
+        &Some(track_recon.clone()),
         all_expected_cameras,
         Arc::new(AtomicBool::new(true)),
         Arc::new(AtomicBool::new(true)),
@@ -116,7 +120,7 @@ pub async fn inject_and_track(
                 braid_config_data::default_write_buffer_size_num_messages(),
         },
         cam_manager.clone(),
-        Some(recon.clone()),
+        Some(track_recon.clone()),
         BraidMetadataBuilder::saving_program_name("braid-sim-inject"),
     )?;
 

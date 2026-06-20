@@ -326,6 +326,7 @@ mod tests {
             timing: TimingModel::default(),
             observation: ObservationModel::default(),
             reported_fps: None,
+            calibration_perturbation: Default::default(),
         }
     }
 

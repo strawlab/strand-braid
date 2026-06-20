@@ -71,6 +71,7 @@ fn maneuvering_scenario() -> Scenario {
         timing: TimingModel::default(),
         observation: ObservationModel::default(),
         reported_fps: None,
+        calibration_perturbation: Default::default(),
     }
 }
 

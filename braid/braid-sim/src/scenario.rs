@@ -333,6 +333,80 @@ impl OcclusionModel {
     }
 }
 
+/// Deterministic per-camera offsets applied to the *tracking* calibration by a
+/// [`CalibrationPerturbation`]. Each component is signed, uniform in
+/// `[-magnitude, +magnitude]`, and reproducible from `(seed, camera index)`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CameraCalibOffsets {
+    /// Offset added to the camera center, meters (per world axis).
+    pub d_position_m: [f64; 3],
+    /// Offset added to the per-camera look-at target, meters (per world axis);
+    /// rotates the camera slightly without moving it.
+    pub d_look_at_m: [f64; 3],
+    /// Offset added to the focal length, pixels.
+    pub d_focal_px: f64,
+    /// Offset added to the principal point x, pixels.
+    pub d_cx_px: f64,
+    /// Offset added to the principal point y, pixels.
+    pub d_cy_px: f64,
+}
+
+/// Calibration perturbation (plan §3.2): the *generation* calibration (used to
+/// project ground truth into 2D — i.e. "what was imaged") stays perfect, while
+/// the *tracking* calibration (what Braid reconstructs with) is perturbed by
+/// these magnitudes. A nonzero perturbation makes triangulation slightly
+/// inconsistent with the detections, so reprojection error is realistic rather
+/// than zero — exercising robustness and reprojection-error-driven behavior.
+///
+/// All magnitudes default to zero (perfect == tracking, the clean baseline).
+/// Offsets are sampled deterministically from the scenario seed, so a
+/// `(config, seed)` reproduces the perturbed calibration exactly.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct CalibrationPerturbation {
+    /// Max per-axis camera *position* error (meters): moves each camera center.
+    #[serde(default)]
+    pub camera_position_m: f64,
+    /// Max per-axis look-at *target* error (meters): rotates each camera (a
+    /// pointing error) without moving its center.
+    #[serde(default)]
+    pub look_at_m: f64,
+    /// Max focal-length error (pixels).
+    #[serde(default)]
+    pub focal_length_px: f64,
+    /// Max per-axis principal-point error (pixels).
+    #[serde(default)]
+    pub principal_point_px: f64,
+}
+
+impl CalibrationPerturbation {
+    /// Whether this perturbation is a no-op (all magnitudes zero), so the
+    /// tracking calibration equals the perfect generation calibration.
+    pub fn is_identity(&self) -> bool {
+        self.camera_position_m == 0.0
+            && self.look_at_m == 0.0
+            && self.focal_length_px == 0.0
+            && self.principal_point_px == 0.0
+    }
+
+    /// The deterministic calibration offsets for camera `cam_index`, given the
+    /// scenario `seed`. Each component is uniform in `[-magnitude, +magnitude]`.
+    pub fn offsets(&self, seed: u64, cam_index: usize) -> CameraCalibOffsets {
+        // Signed uniform in [-mag, mag], keyed by a per-component salt + axis.
+        let signed = |salt: u64, axis: u64, mag: f64| {
+            mag * (2.0 * unit_hash(seed ^ salt, cam_index as u64, axis) - 1.0)
+        };
+        let pos = |axis| signed(0x43_50_4f_53, axis, self.camera_position_m); // "CPOS"
+        let look = |axis| signed(0x43_4c_4b_41, axis, self.look_at_m); // "CLKA"
+        CameraCalibOffsets {
+            d_position_m: [pos(0), pos(1), pos(2)],
+            d_look_at_m: [look(0), look(1), look(2)],
+            d_focal_px: signed(0x43_46_4f_43, 0, self.focal_length_px), // "CFOC"
+            d_cx_px: signed(0x43_50_50_58, 0, self.principal_point_px), // "CPPX"
+            d_cy_px: signed(0x43_50_50_58, 1, self.principal_point_px),
+        }
+    }
+}
+
 /// Deterministic pseudo-random value in `[0, 1)` from three integers
 /// (splitmix64-style mixing). Used for reproducible per-(camera, frame) jitter.
 fn unit_hash(a: u64, b: u64, c: u64) -> f64 {
@@ -390,6 +464,11 @@ pub struct Scenario {
     /// timestamps. See `scratch/strand-braid-suboptimalities.md`.
     #[serde(default)]
     pub reported_fps: Option<f64>,
+    /// Perturbation applied to the *tracking* calibration relative to the perfect
+    /// *generation* calibration (default: none — perfect == tracking). See
+    /// [`CalibrationPerturbation`].
+    #[serde(default)]
+    pub calibration_perturbation: CalibrationPerturbation,
 }
 
 impl Scenario {
@@ -437,6 +516,42 @@ mod tests {
             occluded,
             "expected the imperfect example to occlude sometimes"
         );
+    }
+
+    #[test]
+    fn calibration_perturbation_default_is_identity() {
+        let p = CalibrationPerturbation::default();
+        assert!(p.is_identity());
+        let o = p.offsets(7, 2);
+        assert_eq!(o.d_position_m, [0.0; 3]);
+        assert_eq!(o.d_look_at_m, [0.0; 3]);
+        assert_eq!((o.d_focal_px, o.d_cx_px, o.d_cy_px), (0.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn calibration_perturbation_offsets_bounded_and_deterministic() {
+        let p = CalibrationPerturbation {
+            camera_position_m: 0.01,
+            look_at_m: 0.02,
+            focal_length_px: 5.0,
+            principal_point_px: 3.0,
+        };
+        assert!(!p.is_identity());
+        for cam in 0..8 {
+            let o = p.offsets(42, cam);
+            // Deterministic: same (seed, camera) -> identical offsets.
+            assert_eq!(o, p.offsets(42, cam));
+            for d in o.d_position_m {
+                assert!(d.abs() <= 0.01, "position offset {d} out of bound");
+            }
+            for d in o.d_look_at_m {
+                assert!(d.abs() <= 0.02, "look-at offset {d} out of bound");
+            }
+            assert!(o.d_focal_px.abs() <= 5.0);
+            assert!(o.d_cx_px.abs() <= 3.0 && o.d_cy_px.abs() <= 3.0);
+        }
+        // Different cameras get different offsets (not a constant shift).
+        assert_ne!(p.offsets(42, 0), p.offsets(42, 1));
     }
 
     #[test]

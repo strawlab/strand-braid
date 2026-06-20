@@ -11,7 +11,7 @@ use braid_config_data::{BraidConfig, MainbrainConfig};
 use braid_types::{BraidCameraConfig, FakeSyncConfig, StartCameraBackend, TriggerType};
 
 use crate::Scenario;
-use crate::calibration::{build_calibration, to_flydra_xml_string};
+use crate::calibration::{build_tracking_calibration, to_flydra_xml_string};
 
 /// Paths to the artifacts generated for a run.
 #[derive(Debug, Clone)]
@@ -77,8 +77,12 @@ pub fn generate_run(
 ) -> eyre::Result<GeneratedRun> {
     std::fs::create_dir_all(out_dir)?;
 
+    // Braid reconstructs with the *tracking* calibration (the perfect generation
+    // calibration with any scenario perturbation applied); the sim cameras still
+    // project ground truth with the perfect one, so a perturbation shows up as
+    // realistic reprojection error.
     let calibration_path = out_dir.join("calibration.xml");
-    let system = build_calibration(scenario)?;
+    let system = build_tracking_calibration(scenario)?;
     std::fs::write(&calibration_path, to_flydra_xml_string(&system)?)?;
 
     let braidz_output_dir = out_dir.join("braid-data");

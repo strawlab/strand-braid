@@ -45,6 +45,7 @@ fn scenario(observation: ObservationModel) -> Scenario {
         timing: TimingModel::default(),
         observation,
         reported_fps: None,
+        calibration_perturbation: Default::default(),
     }
 }
 
