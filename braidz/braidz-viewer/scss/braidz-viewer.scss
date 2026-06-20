@@ -330,10 +330,25 @@ button[disabled] {
 }
 
 
+#loading-splash {
+    align-items: center;
+    color: var(--muted);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    inset: 0;
+    justify-content: center;
+    position: fixed;
+}
+
 #footer {
+    align-items: baseline;
     bottom: 0;
     color: var(--muted);
+    display: flex;
+    flex-wrap: wrap;
     font-size: 0.8rem;
+    gap: 4px 10px;
     height: $footer-height;
     left: 0;
     padding: 0 24px 14px;
