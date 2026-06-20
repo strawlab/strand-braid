@@ -1,16 +1,16 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Level-B detection injector (plan §3.4-B / §5): drive the real flydra2 3D
-//! tracker *in-process* with synthetic 2D detections.
+//! Detection injector: drive the real flydra2 3D tracker *in-process* with
+//! synthetic 2D detections.
 //!
 //! This is the fast, deterministic complement to the image-level `ci2-sim`
 //! path. It skips image rendering, the feature detector, UDP, and camera
 //! registration over the network: ground-truth 3D points are projected to 2D
-//! with the same calibration the tracker reconstructs with, the (optionally
-//! imperfect) detections are fed straight into [`flydra2::CoordProcessor`], and
-//! the resulting `.braid` recording is written to disk so the same
-//! [`crate::truth`] oracle can score it.
+//! with the perfect generation calibration, the (optionally imperfect)
+//! detections are fed straight into [`flydra2::CoordProcessor`] (which
+//! reconstructs with the tracking calibration), and the resulting `.braid`
+//! recording is written to disk so the [`crate::truth`] oracle can score it.
 //!
 //! Because there is no real-time async camera path and no nondeterministic
 //! detector, a `(scenario, seed)` reproduces the 3D-core behavior

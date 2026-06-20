@@ -1,9 +1,9 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Level-B detection injector test (plan §5): drive the real flydra2 tracker
-//! in-process with synthetic 2D detections and score the output against ground
-//! truth. Runs only with the non-default `inprocess` cargo feature.
+//! Detection-injector test: drive the real flydra2 tracker in-process with
+//! synthetic 2D detections and score the output against ground truth. Runs only
+//! with the non-default `inprocess` cargo feature.
 #![cfg(feature = "inprocess")]
 
 use braid_sim::Scenario;

@@ -1,24 +1,24 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! M7 regression test: lock the live-vs-retrack fps-mismatch fragmentation
+//! Regression test: lock the live-vs-retrack fps-mismatch fragmentation
 //! mechanism as a deterministic, in-process `cargo test`.
 //!
-//! Background (see `scratch/2026-06-17_braid-sim-bug1-shortened-trajectories-plan.md`
-//! and `smoke-tests/flydratrax-fps-fragmentation.sh`): a real flydratrax
-//! recording produced hundreds of short live trajectories that collapsed to a
-//! few on retracking with the same parameters. The root cause was a wrong
-//! effective frame rate: the Kalman `dt = 1 / fps` did not match the true frame
-//! spacing. With a too-high fps the process noise is too small, the filter
-//! becomes over-confident, the real per-frame motion of a *maneuvering* target
-//! falls outside the acceptance gate, observations are rejected, the track
-//! coasts, covariance kill fires, and the track re-births with a new `obj_id` —
-//! fragmenting one continuous insect into many tracks. The fix estimates the
-//! live frame rate from the hardware timestamp; the two `flydratrax-fps-*` smoke
-//! tests exercise the full live process.
+//! Background (see `smoke-tests/flydratrax-fps-fragmentation.sh` for the
+//! full-process version): a real flydratrax recording produced hundreds of
+//! short live trajectories that collapsed to a few on retracking with the same
+//! parameters. The root cause was a wrong effective frame rate: the Kalman
+//! `dt = 1 / fps` did not match the true frame spacing. With a too-high fps the
+//! process noise is too small, the filter becomes over-confident, the real
+//! per-frame motion of a *maneuvering* target falls outside the acceptance gate,
+//! observations are rejected, the track coasts, covariance kill fires, and the
+//! track re-births with a new `obj_id` — fragmenting one continuous insect into
+//! many tracks. The fix estimates the live frame rate from the hardware
+//! timestamp; the two `flydratrax-fps-*` smoke tests exercise the full live
+//! process.
 //!
 //! This test reproduces the *mechanism* in isolation, without the live process,
-//! detector, UDP, or retrack: the Level-B injector feeds the same perfect
+//! detector, UDP, or retrack: the in-process injector feeds the same perfect
 //! detections (a maneuvering insect imaged at a true 30 fps) into the real
 //! flydra2 tracker twice — once at the matched fps (continuous track, the
 //! control) and once at a mismatched, too-high fps (fragmented). The assertion

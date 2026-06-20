@@ -1,8 +1,8 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Calibration-perturbation knob (plan §3.2), validated end-to-end through the
-//! in-process flydra2 tracker: the detections are projected with the *perfect*
+//! Calibration-perturbation knob, validated end-to-end through the in-process
+//! flydra2 tracker: the detections are projected with the *perfect*
 //! generation calibration, but the tracker reconstructs with a *perturbed* one.
 //! A nonzero perturbation must raise the reconstruction error against ground
 //! truth (realistic reprojection error) while tracking still largely succeeds.

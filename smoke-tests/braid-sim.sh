@@ -8,8 +8,6 @@
 # records a .braidz over the HTTP control API, stops Braid, and verifies a
 # .braidz file containing 3D tracking data was produced.
 #
-# See scratch/2026-06-17_braid-live-3d-sim-test-plan.md (milestone M3b).
-#
 # Usage:
 #   smoke-tests/braid-sim.sh
 #

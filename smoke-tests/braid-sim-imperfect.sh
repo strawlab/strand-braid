@@ -1,18 +1,16 @@
 #!/bin/bash
 #
 # End-to-end test that Braid still tracks accurately under observation-model
-# imperfections, scored against ground truth (Phase 2 oracle + Phase 3 knobs).
+# imperfections, scored against the known ground truth.
 #
 # Generates a calibration + Braid config from an imperfect sim.toml scenario
-# (detection noise, dropout, clutter -- see example-sim-imperfect.toml),
+# (detection noise, dropout, clutter, occlusion -- see example-sim-imperfect.toml),
 # launches a real braid-run with the synthetic-image `sim` cameras, records a
 # .braidz, then scores the recording against the known ground truth with
 # `braid-sim score --sim-toml`. The imperfections flow through the real
 # ci2-sim renderer, the feature detector, and data association; the oracle
 # asserts that live tracking still recovers the insect with high coverage and
 # low position error and without fragmenting into many tracks.
-#
-# See scratch/2026-06-17_braid-live-3d-sim-test-plan.md (Phases 2-3).
 #
 # Usage:
 #   smoke-tests/braid-sim-imperfect.sh

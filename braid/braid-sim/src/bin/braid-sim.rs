@@ -3,9 +3,9 @@
 
 //! Driver for the Braid live 3D simulation test harness.
 //!
-//! `generate` writes the calibration XML and Braid config TOML for a scenario.
-//! (Launching `braid-run` and scoring the result are added in later
-//! milestones.)
+//! `generate` writes the calibration XML and Braid config TOML for a scenario;
+//! `score` reads a live `.braidz`, retracks it, and reports the live-vs-retrack
+//! track differential (and, optionally, ground-truth accuracy).
 
 use std::path::PathBuf;
 

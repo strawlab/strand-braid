@@ -54,7 +54,7 @@ pub struct CameraRig {
 }
 
 /// Parameters for rendering an insect as a Gaussian blob (used by the `ci2-sim`
-/// backend in M2). Defaults follow the M0 detector-contract spike.
+/// backend). Defaults are values the real detector reliably localizes.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BlobParams {
     /// Peak intensity added above the background (gray levels). Must clear the
@@ -68,7 +68,7 @@ pub struct BlobParams {
 
 impl Default for BlobParams {
     fn default() -> Self {
-        // From the M0 spike: peak well above threshold, sigma ~1.5 localizes best.
+        // Peak well above the detector threshold; sigma ~1.5 localizes best.
         BlobParams {
             peak: 160,
             sigma: 1.5,
@@ -129,11 +129,11 @@ pub struct InsectSpec {
 }
 
 fn default_bg_warmup_frames() -> u32 {
-    // M0: establish the background on insect-free frames before insects enter.
+    // Establish the background on insect-free frames before insects enter.
     30
 }
 
-/// Per-camera frame-arrival timing perturbation (milestone M5).
+/// Per-camera frame-arrival timing perturbation.
 ///
 /// The simulated cameras deliver each rendered frame late by this much, which
 /// causes their 2D detections to reach the mainbrain after it may have advanced
@@ -176,8 +176,8 @@ impl TimingModel {
     }
 }
 
-/// Observation-model imperfections applied to the 2D detections (milestone M3 /
-/// plan §3.3). All default to zero, so the perfect-world baseline is unchanged.
+/// Observation-model imperfections applied to the 2D detections. All default to
+/// zero, so the perfect-world baseline is unchanged.
 ///
 /// Everything is sampled deterministically from the scenario `seed` plus the
 /// `(camera, frame, insect)` indices, so a `(config, seed)` reproduces a run
@@ -287,16 +287,15 @@ impl ObservationModel {
     }
 }
 
-/// Temporally-correlated occlusion (plan §3.3): an insect is hidden from a
-/// camera for contiguous *spans* of frames — modeling it passing behind another
-/// insect or an arena feature.
+/// Temporally-correlated occlusion: an insect is hidden from a camera for
+/// contiguous *spans* of frames — modeling it passing behind another insect or
+/// an arena feature.
 ///
 /// This differs from [`ObservationModel::dropout_prob`], which drops detections
 /// i.i.d. per frame: independent single-frame misses rarely line up into a long
 /// gap, whereas occlusion suppresses a whole span at once. Those multi-frame,
-/// few-or-zero-observation stretches are what fragment *live* tracks (the live
-/// EKF kills a coasting track that retrack, seeing all data at once, bridges) —
-/// the mechanism flagged in the M6 shortened-trajectory investigation.
+/// few-or-zero-observation stretches are what fragment *live* tracks: the live
+/// EKF kills a coasting track that retrack, seeing all data at once, bridges.
 ///
 /// Time is tiled into blocks of `span_frames`; each (camera, insect, block) is
 /// independently occluded with probability `prob`. Adjacent occluded blocks
@@ -351,8 +350,8 @@ pub struct CameraCalibOffsets {
     pub d_cy_px: f64,
 }
 
-/// Calibration perturbation (plan §3.2): the *generation* calibration (used to
-/// project ground truth into 2D — i.e. "what was imaged") stays perfect, while
+/// Calibration perturbation: the *generation* calibration (used to project
+/// ground truth into 2D — i.e. "what was imaged") stays perfect, while
 /// the *tracking* calibration (what Braid reconstructs with) is perturbed by
 /// these magnitudes. A nonzero perturbation makes triangulation slightly
 /// inconsistent with the detections, so reprojection error is realistic rather
@@ -426,7 +425,8 @@ fn unit_hash(a: u64, b: u64, c: u64) -> f64 {
 /// A complete simulated scenario, deserialized from `sim.toml`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Scenario {
-    /// RNG seed (reserved for stochastic motion/noise added in later milestones).
+    /// RNG seed driving all deterministic stochastic behavior (detection noise,
+    /// dropout, clutter, occlusion, timing jitter, calibration perturbation).
     #[serde(default)]
     pub seed: u64,
     /// Synchronized frame rate, frames per second.
@@ -441,7 +441,7 @@ pub struct Scenario {
     #[serde(default)]
     pub blob: BlobParams,
     /// Number of insect-free frames to render first so the background model
-    /// settles before insects appear (see M0).
+    /// settles before insects appear.
     #[serde(default = "default_bg_warmup_frames")]
     pub bg_warmup_frames: u32,
     /// Per-camera frame-arrival timing perturbation (default: none).
@@ -461,7 +461,7 @@ pub struct Scenario {
     /// the host clock is fooled (reads `reported_fps`, corrupting the tracker's
     /// `dt = 1/fps` and fragmenting trajectories), while one that uses the
     /// hardware timestamp is correct. `None` reports true wall-clock host
-    /// timestamps. See `scratch/strand-braid-suboptimalities.md`.
+    /// timestamps.
     #[serde(default)]
     pub reported_fps: Option<f64>,
     /// Perturbation applied to the *tracking* calibration relative to the perfect

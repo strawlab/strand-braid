@@ -1,8 +1,8 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Render insects as Gaussian blobs into a Mono8 image, matching what the M0
-//! detector-contract spike validated.
+//! Render insects as Gaussian blobs into a Mono8 image that the real
+//! flydra-feature-detector reliably localizes.
 
 /// Render a `width` x `height` Mono8 image: a flat `background` with an additive
 /// Gaussian blob (peak `peak`, standard deviation `sigma` pixels) at each

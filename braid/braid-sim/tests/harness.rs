@@ -1,8 +1,8 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! M3a: the generated Braid config + calibration are valid and consistent with
-//! the scenario.
+//! The generated Braid config + calibration are valid and consistent with the
+//! scenario.
 
 use braid_sim::Scenario;
 use braid_sim::harness::{braid_config_to_toml, build_braid_config, generate_run};

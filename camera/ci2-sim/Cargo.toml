@@ -21,7 +21,7 @@ braid-mvg.workspace = true
 ci2-pylon-types.workspace = true
 
 [dev-dependencies]
-# M2 verification feeds the rendered frames through the real feature detector.
+# The pipeline test feeds the rendered frames through the real feature detector.
 flydra-feature-detector.workspace = true
 flydra-pt-detect-cfg.workspace = true
 braid-types.workspace = true

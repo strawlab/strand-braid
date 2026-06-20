@@ -2,7 +2,8 @@
 # This is the single source of truth for a run: the harness derives the camera
 # calibration XML and the Braid config from it.
 
-# RNG seed (reserved for stochastic motion / noise in later milestones).
+# RNG seed driving all deterministic stochastic behavior (noise, dropout,
+# clutter, occlusion, timing jitter, calibration perturbation).
 seed = 1
 # Synchronized frame rate (frames per second).
 fps = 100.0
@@ -22,8 +23,8 @@ focal_length_px = 900.0
 image_width = 640
 image_height = 512
 
-# Insect-as-blob rendering (used by the ci2-sim backend; defaults from the M0
-# detector-contract spike).
+# Insect-as-blob rendering (used by the ci2-sim backend; defaults are values the
+# real feature detector reliably localizes).
 [blob]
 peak = 160
 sigma = 1.5

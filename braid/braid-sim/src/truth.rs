@@ -1,7 +1,7 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Ground-truth oracle for the simulation harness (plan §4, milestone M-oracle).
+//! Ground-truth oracle for the simulation harness.
 //!
 //! Unlike [`crate::score`], which compares a live recording against an offline
 //! retrack of *itself*, this module scores a `.braidz` against the **known
