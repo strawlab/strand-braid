@@ -46,10 +46,10 @@ use crate::components::AutoModeSelect;
 use ads_webasm::components::{ConfigField, RangedValue, RecordingPathWidget, ReloadButton, Toggle};
 use yew_tincture::components::Button;
 
-use components::{LedBoxControl, VideoField};
+use components::LedBoxControl;
 
-mod video_data;
-use video_data::VideoData;
+use ads_webasm::components::VideoField;
+use ads_webasm::video_data::VideoData;
 
 const LAST_DETECTED_VALUE_LABEL: &str = "Last detected value: ";
 
@@ -129,6 +129,7 @@ enum Msg {
     SendMessageFetchState(FetchState),
     RenderView,
     SetVideoFieldFullWindow(bool),
+    DoQuit,
 }
 
 // -----------------------------------------------------------------------------
@@ -164,6 +165,8 @@ impl From<JsValue> for FetchError {
 struct Model {
     video_field_full_window: bool,
     conn_key: String,
+    /// Whether the user has commanded Strand Camera to quit.
+    user_quit: bool,
 
     video_data: Rc<RefCell<VideoData>>,
 
@@ -267,6 +270,7 @@ impl Component for Model {
         Self {
             video_field_full_window: false,
             conn_key: "".to_string(), // placeholder
+            user_quit: false,
             video_data: Rc::new(RefCell::new(VideoData::new(None))),
             server_state: None,
             json_decode_err: None,
@@ -293,6 +297,32 @@ impl Component for Model {
             Msg::RenderView => {}
             Msg::SetVideoFieldFullWindow(val) => {
                 self.video_field_full_window = val;
+            }
+            Msg::DoQuit => {
+                let recording = self.server_state.as_ref().is_some_and(|shared| {
+                    shared.is_recording_mp4.is_some()
+                        || shared.is_recording_fmf.is_some()
+                        || shared.is_recording_ufmf.is_some()
+                        || shared.is_saving_im_pt_detect_csv.is_some()
+                        || shared
+                            .apriltag_state
+                            .as_ref()
+                            .is_some_and(|st| st.is_recording_csv.is_some())
+                });
+                let msg = if recording {
+                    "Recording is in progress. Quitting will stop recording and \
+                    close the files. Quit Strand Camera?"
+                } else {
+                    "Quit Strand Camera?"
+                };
+                let confirmed = gloo_utils::window()
+                    .confirm_with_message(msg)
+                    .unwrap_or(false);
+                if !confirmed {
+                    return false;
+                }
+                self.user_quit = true;
+                self.send_cam_message(CamArg::DoQuit, ctx);
             }
             Msg::SendMessageFetchState(_fetch_state) => {
                 return false;
@@ -594,6 +624,7 @@ impl Component for Model {
                     { self.view_fmf_recording_options(ctx) }
                     { self.view_kalman_tracking(ctx) }
                 </div>
+                { self.view_quit(ctx) }
                 <footer id="footer">
                 {format!(
                     "Strand Camera version: {} (revision {})",
@@ -679,6 +710,14 @@ impl Model {
     }
 
     fn disconnected_dialog(&self) -> Html {
+        if self.user_quit {
+            return html! {
+                <div class="fullscreen-message">
+                    <h1> { "Strand Camera has quit" } </h1>
+                    <p>{ "You may close this page." }</p>
+                </div>
+            };
+        }
         // 0: connecting, 1: open, 2: closed
         if self.es.ready_state() == 1 {
             html! {
@@ -695,6 +734,23 @@ impl Model {
                 </div>
             }
         }
+    }
+
+    fn view_quit(&self, ctx: &Context<Self>) -> Html {
+        // When running under Braid, quitting a single camera would leave the
+        // Braid system in a degraded state, so the quit button is only shown
+        // when running standalone. (Braid's own UI has a quit button which
+        // stops the whole system, including all cameras.)
+        if let Some(ref shared) = self.server_state
+            && !shared.is_braid
+        {
+            return html! {
+                <div class="quit-section">
+                    <Button title={"Quit Strand Camera"} onsignal={ctx.link().callback(|_| Msg::DoQuit)}/>
+                </div>
+            };
+        }
+        html! {}
     }
 
     fn frame_processing_error_dialog(&self, ctx: &Context<Self>) -> Html {

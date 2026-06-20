@@ -536,12 +536,46 @@ impl PngImageData {
     pub fn as_slice(&self) -> &[u8] {
         self.data.as_slice()
     }
+
+    /// Get the image dimensions as (width, height) in pixels.
+    ///
+    /// Returns `None` if the data is not valid PNG data.
+    pub fn dimensions(&self) -> Option<(u32, u32)> {
+        // The PNG format starts with an 8 byte signature followed by the IHDR
+        // chunk, which the specification requires to be first. A chunk starts
+        // with a 4 byte length and 4 byte type, after which the IHDR data
+        // begins with the big-endian u32 width and height.
+        const SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+        let data = self.data.as_slice();
+        if data.len() < 24 || data[0..8] != SIGNATURE || &data[12..16] != b"IHDR" {
+            return None;
+        }
+        let width = u32::from_be_bytes(data[16..20].try_into().unwrap());
+        let height = u32::from_be_bytes(data[20..24].try_into().unwrap());
+        Some((width, height))
+    }
 }
 
 impl std::fmt::Debug for PngImageData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "PngImageData{{..}}",)
     }
+}
+
+#[test]
+fn test_png_dimensions() {
+    // Minimal PNG header: signature, IHDR chunk length and type, width 640,
+    // height 480.
+    let mut data = vec![0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+    data.extend_from_slice(&13u32.to_be_bytes());
+    data.extend_from_slice(b"IHDR");
+    data.extend_from_slice(&640u32.to_be_bytes());
+    data.extend_from_slice(&480u32.to_be_bytes());
+    let png = PngImageData::from(data);
+    assert_eq!(png.dimensions(), Some((640, 480)));
+
+    assert_eq!(PngImageData::from(vec![0u8; 24]).dimensions(), None);
+    assert_eq!(PngImageData::from(vec![]).dimensions(), None);
 }
 
 /// Camera settings update message.
@@ -606,6 +640,11 @@ pub struct BraidHttpApiSharedState {
     /// Cameras whose feature detection settings have not (yet) been received
     /// are absent from this map.
     pub background_model_updating: std::collections::BTreeMap<RawCamName, bool>,
+    /// Image dimensions as (width, height) in pixels, per camera.
+    ///
+    /// Cameras whose image has not (yet) been received are absent from this
+    /// map.
+    pub camera_image_dimensions: std::collections::BTreeMap<RawCamName, (u32, u32)>,
     /// Address of the model server.
     pub model_server_addr: Option<SocketAddr>,
     /// Name of the Flydra application.
@@ -615,12 +654,18 @@ pub struct BraidHttpApiSharedState {
 }
 
 /// Statistics for recent camera activity.
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 pub struct RecentStats {
     /// Total number of frames collected since start.
     pub total_frames_collected: usize,
     /// Number of frames collected in recent period.
     pub frames_collected: usize,
+    /// Measured frame rate (frames per second) over the recent period.
+    ///
+    /// Computed on the mainbrain from the exact elapsed time of the
+    /// measurement window, so it is stable regardless of how the shared state
+    /// is delivered to clients.
+    pub fps: f64,
     /// Number of points detected in recent period.
     pub points_detected: usize,
 }
@@ -1053,6 +1098,11 @@ pub enum BraidHttpApiCallback {
     DoTakeNewBackgroundImage,
     /// Enable or disable continuous background model updating on all cameras.
     SetBackgroundUpdating(bool),
+    /// Quit Braid.
+    ///
+    /// This stops recording (closing all files), commands all connected
+    /// cameras to quit, and then exits.
+    DoQuit,
 }
 
 /// Wrapper for per-camera data.

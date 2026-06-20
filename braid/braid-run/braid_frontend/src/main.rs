@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use std::{
+    collections::BTreeSet,
     error::Error,
     fmt::{self, Debug, Display, Formatter},
 };
@@ -17,7 +18,10 @@ use strand_cam_bui_types::RecordingPath;
 use yew::{Component, Context, Event, Html, html};
 use yew_tincture::components::{Button, CheckboxLabel, TypedInput, TypedInputStorage};
 
-use ads_webasm::components::{RecordingPathWidget, ReloadButton};
+use ads_webasm::components::{RecordingPathWidget, ReloadButton, Toggle};
+
+mod cam_preview;
+use cam_preview::CamPreview;
 
 // -----------------------------------------------------------------------------
 
@@ -31,6 +35,10 @@ struct Model {
     recording_path: Option<RecordingPath>,
     fake_mp4_recording_path: Option<RecordingPath>,
     post_trigger_buffer_size_local: TypedInputStorage<usize>,
+    /// Names of the cameras for which a live preview is currently shown.
+    preview_cams: BTreeSet<String>,
+    /// Whether the user has commanded Braid to quit.
+    user_quit: bool,
     _listeners: Vec<EventListener>,
 }
 
@@ -46,6 +54,8 @@ enum Msg {
     PostTriggerMp4Recording,
     DoTakeNewBackgroundImage,
     SetBackgroundUpdating(bool),
+    SetCamPreview(String, bool),
+    DoQuit,
     RenderView,
 }
 
@@ -121,6 +131,8 @@ impl Component for Model {
             recording_path: None,
             fake_mp4_recording_path: None,
             post_trigger_buffer_size_local: TypedInputStorage::empty(),
+            preview_cams: BTreeSet::new(),
+            user_quit: false,
             _listeners,
         }
     }
@@ -188,6 +200,36 @@ impl Component for Model {
                 return self
                     .send_to_all_cams(ctx, BraidHttpApiCallback::SetBackgroundUpdating(val));
             }
+            Msg::SetCamPreview(cam_name, show) => {
+                if show {
+                    self.preview_cams.insert(cam_name);
+                } else {
+                    self.preview_cams.remove(&cam_name);
+                }
+            }
+            Msg::DoQuit => {
+                let recording =
+                    self.recording_path.is_some() || self.fake_mp4_recording_path.is_some();
+                let msg = if recording {
+                    "Recording is in progress. Quitting will stop recording and \
+                    close the files. Quit Braid and all connected cameras?"
+                } else {
+                    "Quit Braid and all connected cameras?"
+                };
+                let confirmed = gloo_utils::window()
+                    .confirm_with_message(msg)
+                    .unwrap_or(false);
+                if !confirmed {
+                    return false;
+                }
+                self.user_quit = true;
+                ctx.link().send_future(async move {
+                    match post_callback(&BraidHttpApiCallback::DoQuit).await {
+                        Ok(()) => Msg::SendMessageFetchState(FetchState::Success),
+                        Err(err) => Msg::SendMessageFetchState(FetchState::Failed(err)),
+                    }
+                });
+            }
         }
         true
     }
@@ -253,7 +295,7 @@ impl Model {
     fn view_post_trigger_options(&self, ctx: &Context<Self>) -> Html {
         html! {
             <div class="wrap-collapsible">
-                <CheckboxLabel label="Post Triggering" initially_checked=true />
+                <CheckboxLabel label="Post Triggering" initially_checked=false />
                 <div>
                     <p>{"Acquire video into a large buffer. This enables 'going back in time' to trigger saving of images
                     that were acquired prior to the Post Trigger occurring."}</p>
@@ -321,13 +363,31 @@ impl Model {
             html! {
                 <div>
                     {fake_sync_warning}
-                    <div>
-                        {record_widget}
+                    <div class="wrapper">
+                        <div class="wrap-collapsible">
+                            <CheckboxLabel label="Recording" initially_checked=true />
+                            <div>
+                                {record_widget}
+                            </div>
+                        </div>
+                        <div class="wrap-collapsible">
+                            <CheckboxLabel label="Cameras" initially_checked=true />
+                            <div>
+                                {self.view_cam_list(ctx, value)}
+                            </div>
+                        </div>
                         { self.view_background_model_options(ctx) }
-                        {view_clock_model(value)}
-                        {view_calibration(&value.calibration_filename)}
-                        {view_cam_list(value)}
-                        {view_model_server_link(&value.model_server_addr)}
+                        <div class="wrap-collapsible">
+                            <CheckboxLabel label="Status" initially_checked=true />
+                            <div>
+                                {view_clock_model(value)}
+                                {view_calibration(&value.calibration_filename)}
+                                {view_model_server_link(&value.model_server_addr)}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="quit-section">
+                        <Button title={"Quit Braid"} onsignal={ctx.link().callback(|_| Msg::DoQuit)}/>
                     </div>
                 </div>
             }
@@ -341,6 +401,14 @@ impl Model {
     }
 
     fn disconnected_dialog(&self) -> Html {
+        if self.user_quit {
+            return html! {
+                <div class="fullscreen-message">
+                    <h1> { "Braid has quit" } </h1>
+                    <p>{ "You may close this page." }</p>
+                </div>
+            };
+        }
         // 0: connecting, 1: open, 2: closed
         if self.es.ready_state() == 1 {
             html! {
@@ -363,11 +431,17 @@ impl Model {
 fn view_clock_model(shared: &BraidHttpApiSharedState) -> Html {
     if shared.needs_clock_model {
         if let Some(ref cm) = shared.clock_model {
+            // Show a concise, rounded summary rather than the raw Debug dump
+            // of full-precision floats (gain ~1, a huge offset timestamp, etc.).
+            let drift_ppm = (cm.gain - 1.0) * 1e6;
             html! {
                 <div>
-                    <p>
-                        {format!("trigger device clock model: {:?}", cm)}
-                    </p>
+                    <p>{"Trigger device clock model: synchronized"}</p>
+                    <ul>
+                        <li>{format!("clock drift: {drift_ppm:+.1} ppm")}</li>
+                        <li>{format!("fit residual: {:.1e}", cm.residuals)}</li>
+                        <li>{format!("measurements: {}", cm.n_measurements)}</li>
+                    </ul>
                 </div>
             }
         } else {
@@ -404,55 +478,110 @@ fn view_calibration(calibration_filename: &Option<String>) -> Html {
     }
 }
 
-fn view_cam_list(shared: &BraidHttpApiSharedState) -> Html {
-    let cams = &shared.connected_cameras;
-    let n_cams_msg = if cams.len() == 1 {
-        "1 camera:".to_string()
-    } else {
-        format!("{} cameras:", cams.len())
-    };
-    let all_rendered: Vec<Html> = cams
-        .iter()
-        .map(|cci| {
-            let cam_url = match cci.strand_cam_http_server_info {
-                BuiServerInfo::NoServer => "/does-not-exist".to_string(),
-                BuiServerInfo::Server(_) => {
-                    format!(
-                        "/{}/{}/",
-                        braid_types::braid_http::CAM_PROXY_PATH,
-                        braid_types::braid_http::encode_cam_name(&cci.name)
-                    )
+impl Model {
+    fn view_cam_list(&self, ctx: &Context<Self>, shared: &BraidHttpApiSharedState) -> Html {
+        let cams = &shared.connected_cameras;
+        let n_cams_msg = if cams.len() == 1 {
+            "1 camera:".to_string()
+        } else {
+            format!("{} cameras:", cams.len())
+        };
+        let all_rendered: Vec<Html> = cams
+            .iter()
+            .map(|cci| {
+                let has_server =
+                    !matches!(cci.strand_cam_http_server_info, BuiServerInfo::NoServer);
+                let proxy_prefix = format!(
+                    "/{}/{}/",
+                    braid_types::braid_http::CAM_PROXY_PATH,
+                    braid_types::braid_http::encode_cam_name(&cci.name)
+                );
+                let cam_url = if has_server {
+                    proxy_prefix.clone()
+                } else {
+                    "/does-not-exist".to_string()
+                };
+                let sync_str = if cci.state.is_synchronized() {
+                    "synchronized"
+                } else {
+                    "not synchronized"
+                };
+                let total_frames = cci.recent_stats.total_frames_collected;
+                let points_detected = cci.recent_stats.points_detected;
+                let fps_str = format!("{:.1}", cci.recent_stats.fps);
+                let bg_updating = match shared.background_model_updating.get(&cci.name) {
+                    Some(true) => "background updating: on",
+                    Some(false) => "background updating: off",
+                    None => "background updating: unknown",
+                };
+                let cam_name = cci.name.as_str().to_string();
+                // The live canvas sizes itself from the streamed image, so
+                // size the not-live placeholder (and the "connecting" status
+                // box) with the camera's image aspect ratio — known as soon
+                // as braid receives an image from the camera — so that
+                // toggling "live" does not change the layout. Until known,
+                // the stylesheet's default aspect ratio applies.
+                let aspect_style = shared
+                    .camera_image_dimensions
+                    .get(&cci.name)
+                    .map(|(w, h)| format!("aspect-ratio: {w} / {h};"));
+                let is_live = has_server && self.preview_cams.contains(&cam_name);
+                let preview_area = if is_live {
+                    html! {
+                        <CamPreview
+                            proxy_prefix={proxy_prefix.clone()}
+                            aspect_style={aspect_style.clone()}
+                        />
+                    }
+                } else {
+                    html! {
+                        <div class="cam-preview-placeholder" style={aspect_style.clone()} />
+                    }
+                };
+                let live_toggle = if has_server {
+                    let name = cam_name.clone();
+                    html! {
+                        <Toggle
+                            label="live"
+                            value={is_live}
+                            ontoggle={ctx.link().callback(move |checked| {
+                                Msg::SetCamPreview(name.clone(), checked)
+                            })}
+                            />
+                    }
+                } else {
+                    html! {}
+                };
+                html! {
+                    <div class="cam-preview-card" key={cam_name.clone()}>
+                        <div class="cam-preview-card-header">
+                            <a href={cam_url}>{cci.name.as_str()}</a>
+                            {live_toggle}
+                        </div>
+                        {preview_area}
+                        <div class="cam-preview-card-info">
+                            <div class="cam-preview-stat-row">
+                                <span>{format!("frame: {total_frames}")}</span>
+                                <span>{format!("{fps_str} fps")}</span>
+                            </div>
+                            <div class="cam-preview-stat-row cam-preview-substat">
+                                <span>{sync_str}</span>
+                                <span>{format!("points: {points_detected}")}</span>
+                            </div>
+                            <div class="cam-preview-substat">{bg_updating}</div>
+                        </div>
+                    </div>
                 }
-            };
-            let state = format!("{:?}", cci.state);
-            let stats = format!("{:?}", cci.recent_stats);
-            let bg_updating = match shared.background_model_updating.get(&cci.name) {
-                Some(true) => "background updating: on",
-                Some(false) => "background updating: off",
-                None => "background updating: unknown",
-            };
-            html! {
-                <li>
-                    <a href={cam_url}>{cci.name.as_str()}</a>
-                    {" "}
-                    {state}
-                    {" "}
-                    {stats}
-                    {" "}
-                    {bg_updating}
-                </li>
-            }
-        })
-        .collect();
-    html! {
-        <div>
+            })
+            .collect();
+        html! {
             <div>
                 {n_cams_msg}
-                <ul>
+                <div class="cam-preview-grid">
                     {all_rendered}
-                </ul>
+                </div>
             </div>
-        </div>
+        }
     }
 }
 

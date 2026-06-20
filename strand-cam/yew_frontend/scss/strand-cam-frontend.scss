@@ -1,29 +1,16 @@
 @use '../../../web/ads-webasm/scss/base';
-@use '../../../web/ads-webasm/scss/colors';
 @use '../../../web/ads-webasm/scss/recording_path';
 @use '../../../web/ads-webasm/scss/lds_ellipsis';
-@use 'video_field';
+@use '../../../web/ads-webasm/scss/video_field';
 @use '../../../web/ads-webasm/scss/config_field';
 @use '../../../web/ads-webasm/scss/ranged_value';
 @use '../../../web/ads-webasm/scss/wrap_collapsible';
 
-@include base.base(
-    $body-color-dark: colors.$body-color-dark,
-    $body-background-dark: colors.$body-background-dark,
-    $modal-background-dark: colors.$modal-background-dark,
-    $text-background-dark: colors.$text-background-dark,
-    $text-color-dark: colors.$text-color-dark,
-
-    $body-color-light: colors.$body-color-light,
-    $body-background-light: colors.$body-background-light,
-    $modal-background-light: colors.$modal-background-light,
-    $text-background-light: colors.$text-background-light,
-    $text-color-light: colors.$text-color-light,
-    );
-
-@include recording_path.recording_path($background-dark: solid 1px colors.$body-color-dark, $background-light: solid 1px colors.$body-color-light);
-@include config_field.config_field($background-dark: colors.$modal-background-dark, $background-light: colors.$modal-background-light);
-@include video_field.video_field($border-dark: 1px solid  colors.$body-color-dark, $border-light: 1px solid  colors.$body-color-light);
+/* The color scheme lives in the shared tokens (see ads-webasm `_tokens.scss`). */
+@include base.base();
+@include recording_path.recording_path();
+@include config_field.config_field();
+@include video_field.video_field();
 
 .reset-background-btn {
     display: flex;
@@ -32,17 +19,23 @@
     align-items: center;
 }
 
+/* Section header bar (previously hard-coded the dark palette in both modes).
+A muted surface with an accent edge reads as a section divider without the
+heaviness of a fully inverted bar. */
 h2 {
-    padding: 5px;
-    background:  colors.$body-color-dark;
-    color:  colors.$body-background-dark;
-    margin-top: 0.5em;
-    margin-bottom: 0.25em;
+    padding: 0.4em 0.6em;
+    background: var(--panel-muted);
+    color: var(--text);
+    border-left: 4px solid var(--accent);
+    border-radius: 4px;
+    font-size: 1.15rem;
+    margin-top: 0.75em;
+    margin-bottom: 0.4em;
 }
 
 h3 {
-    margin-top: 0.25em;
-    margin-bottom: 0.125em;
+    margin-top: 0.5em;
+    margin-bottom: 0.25em;
 }
 
 .cam-range-main {
@@ -69,4 +62,10 @@ body {
     display: inline-block;
     margin-left: 10px;
     margin-right: 10px;
+}
+
+/* Keep the quit button visually separate from frequently-used controls. */
+.quit-section {
+    margin-top: 3em;
+    text-align: right;
 }

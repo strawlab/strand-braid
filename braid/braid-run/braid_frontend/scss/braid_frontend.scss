@@ -1,24 +1,122 @@
-@use '../../../../web/ads-webasm/scss/colors';
 @use '../../../../web/ads-webasm/scss/base';
 @use '../../../../web/ads-webasm/scss/recording_path';
 @use '../../../../web/ads-webasm/scss/lds_ellipsis';
+@use '../../../../web/ads-webasm/scss/wrap_collapsible';
 
 $footer-height: 2.5rem;
 
-@include base.base($body-color-dark: colors.$body-color-dark,
-    $body-background-dark: colors.$body-background-dark,
-    $modal-background-dark: colors.$modal-background-dark,
-    $text-background-dark: colors.$text-background-dark,
-    $text-color-dark: colors.$text-color-dark,
+/* The color scheme lives in the shared tokens (see ads-webasm `_tokens.scss`). */
+@include base.base();
 
-    $body-color-light: colors.$body-color-light,
-    $body-background-light: colors.$body-background-light,
-    $modal-background-light: colors.$modal-background-light,
-    $text-background-light: colors.$text-background-light,
-    $text-color-light: colors.$text-color-light,
-);
+@include recording_path.recording_path();
 
-@include recording_path.recording_path($background-dark: solid 1px colors.$body-color-dark, $background-light: solid 1px colors.$body-color-light);
+/* Space out the boxed sections. */
+.wrap-collapsible {
+    margin-top: 0.75em;
+    margin-bottom: 0.75em;
+}
+
+/* Dense grid of per-camera preview tiles. */
+.cam-preview-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75em;
+    margin-top: 0.5em;
+}
+
+.cam-preview-card {
+    width: 18rem;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    padding: 0.6rem;
+    box-sizing: border-box;
+}
+
+.cam-preview-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.4em;
+    font-weight: 600;
+}
+
+/* The canvas is sized from the streamed camera image (via an inline
+aspect-ratio style set from the drawn image's dimensions), so its border
+always exactly bounds the camera view. */
+.cam-preview-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+/* The not-live placeholder and the pre-first-frame status box are sized with
+the camera's aspect ratio via an inline style so that they occupy the same
+space as the canvas. The aspect ratio here is only the fallback for before
+the camera's image dimensions are known. */
+.cam-preview-placeholder,
+.cam-preview-status {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-sizing: border-box;
+    opacity: 0.4;
+}
+
+/* Grayed-out field with an "x" through it, shown when the preview is not
+live. */
+.cam-preview-placeholder {
+    background:
+        linear-gradient(to top right,
+            transparent calc(50% - 1px),
+            currentColor calc(50% - 1px),
+            currentColor calc(50% + 1px),
+            transparent calc(50% + 1px)),
+        linear-gradient(to bottom right,
+            transparent calc(50% - 1px),
+            currentColor calc(50% - 1px),
+            currentColor calc(50% + 1px),
+            transparent calc(50% + 1px));
+}
+
+.cam-preview-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cam-preview-card-info {
+    font-size: 0.8em;
+    overflow-wrap: break-word;
+    margin-top: 0.4em;
+}
+
+/* Frame / fps readout, laid out like the Strand Camera status line. */
+.cam-preview-stat-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.5em;
+}
+
+.cam-preview-stat-row:first-child {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.cam-preview-substat {
+    color: var(--muted);
+}
+
+/* Keep the quit button visually separate from frequently-used controls. */
+.quit-section {
+    margin-top: 3em;
+    text-align: right;
+}
 
 #page-container {
     position: relative;
@@ -34,29 +132,15 @@ $footer-height: 2.5rem;
     bottom: 0;
     width: 100%;
     height: $footer-height;
+    color: var(--muted);
+    font-size: 0.85em;
+    border-top: 1px solid var(--border);
+    padding-top: 0.5em;
+    box-sizing: border-box;
 }
 
 html,
 body {
     margin: 0;
     padding: 5px;
-}
-
-@media (prefers-color-scheme: dark) {
-
-    button:disabled,
-    button[disabled] {
-        color: colors.$text-background-dark;
-        border: 1px solid colors.$text-background-dark;
-    }
-}
-
-
-@media (prefers-color-scheme: light) {
-
-    button:disabled,
-    button[disabled] {
-        color: colors.$text-background-light;
-        border: 1px solid colors.$text-background-light;
-    }
 }

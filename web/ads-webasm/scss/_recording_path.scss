@@ -1,17 +1,11 @@
-@mixin recording_path($background-dark: solid 1px black, $background-light: solid 1px white) {
+/* The border arguments are retained for backward compatibility but unused;
+colors now come from the shared tokens (see `_tokens.scss`). */
+@mixin recording_path($background-dark: null, $background-light: null) {
 
     /* For RecordingPathWidget */
 
-    @media (prefers-color-scheme: dark) {
-        .recording-path-widget {
-            border: $background-dark;
-        }
-    }
-
-    @media (prefers-color-scheme: light) {
-        .recording-path-widget {
-            border: $background-light;
-        }
+    .recording-path-widget {
+        border: 1px solid var(--border);
     }
 
     .recording-path-blinker-off {
@@ -32,7 +26,7 @@
         width: 0.9em;
         height: 0.9em;
         border-radius: 50%;
-        background: red;
+        background: var(--danger);
         animation-timing-function: cubic-bezier(0, 1, 1, 0);
     }
     .recording-path-blinker-on span:nth-child(1) {
@@ -70,7 +64,7 @@
     }
 
     .recording-path-widget-inner {
-        background: red;
+        background: var(--danger);
         display: inline-block;
         vertical-align: middle;
         width: 1.5em;

@@ -1,0 +1,62 @@
+/* Shared design tokens for the strand-braid web UIs.
+
+These CSS custom properties are the single source of truth for the color
+scheme. Components reference `var(--token)` rather than hard-coding colors or
+duplicating `prefers-color-scheme` blocks, so the whole suite is themed from
+one place and a manual light/dark toggle can later be added by setting these
+on a `[data-theme]` element.
+
+Palette: "Braid Red" — a refined version of the braid logo red as the UI
+accent, on warm near-neutral surfaces. */
+
+:root {
+    /* Surfaces, from back to front. */
+    --bg: #faf7f6;            /* page background */
+    --panel: #ffffff;         /* raised cards / panels / modals */
+    --panel-muted: #f3ecea;   /* insets: inputs, tiles, header bars */
+
+    /* Text. */
+    --text: #241f1e;          /* primary text */
+    --muted: #7a6f6d;         /* secondary / labels */
+
+    /* Lines. */
+    --border: #e0d2cf;
+
+    /* Brand accent (the braid red) and its interactive states. */
+    --accent: #cf2e2e;        /* primary buttons, active controls, focus */
+    --accent-strong: #a81f1f; /* links, hover of accent */
+    --on-accent: #ffffff;     /* text/icons on top of an accent fill */
+
+    /* Status. Deeper than the accent so "recording" stays distinct. */
+    --danger: #b3261e;
+
+    /* Logo / pure brand mark. */
+    --brand: #ee1111;
+
+    --shadow: 0 12px 32px rgba(60, 20, 20, 0.10);
+
+    color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #15110f;
+        --panel: #211b19;
+        --panel-muted: #2c2421;
+
+        --text: #f1e9e7;
+        --muted: #b6a5a1;
+
+        --border: #43332f;
+
+        --accent: #ff5b52;
+        --accent-strong: #ff847d;
+        --on-accent: #220706;
+
+        --danger: #ff6a60;
+
+        --brand: #ff5b52;
+
+        --shadow: 0 14px 36px rgba(0, 0, 0, 0.34);
+    }
+}

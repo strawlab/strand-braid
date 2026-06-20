@@ -425,33 +425,38 @@ impl VideoField {
         ctx.set_stroke_style_str(self.green);
         ctx.set_line_width(1.0);
 
-        for drawable_shape in in_msg.draw_shapes.iter() {
-            ctx.set_stroke_style_str(&drawable_shape.stroke_style);
-            ctx.set_line_width(drawable_shape.line_width as f64);
-            use strand_http_video_streaming_types::Shape;
-            match &drawable_shape.shape {
-                Shape::Everything => {}
-                Shape::Circle(circle) => {
-                    draw_circle(&ctx, circle);
-                }
-                Shape::MultipleCircles(circles) => {
-                    for circle in circles {
-                        draw_circle(&ctx, circle);
-                    }
-                }
-                Shape::Polygon(polygon) => {
-                    let p = &polygon.points[..];
-                    if p.len() > 1 {
-                        ctx.begin_path();
+        draw_shapes(&ctx, &in_msg.draw_shapes);
+    }
+}
 
-                        ctx.move_to(p[0].0, p[0].1);
-                        for pp in &p[1..] {
-                            ctx.line_to(pp.0, pp.1);
-                        }
+/// Draw annotation shapes onto a canvas 2D context.
+pub fn draw_shapes(ctx: &web_sys::CanvasRenderingContext2d, shapes: &[CanvasDrawableShape]) {
+    for drawable_shape in shapes.iter() {
+        ctx.set_stroke_style_str(&drawable_shape.stroke_style);
+        ctx.set_line_width(drawable_shape.line_width as f64);
+        use strand_http_video_streaming_types::Shape;
+        match &drawable_shape.shape {
+            Shape::Everything => {}
+            Shape::Circle(circle) => {
+                draw_circle(ctx, circle);
+            }
+            Shape::MultipleCircles(circles) => {
+                for circle in circles {
+                    draw_circle(ctx, circle);
+                }
+            }
+            Shape::Polygon(polygon) => {
+                let p = &polygon.points[..];
+                if p.len() > 1 {
+                    ctx.begin_path();
 
-                        ctx.close_path();
-                        ctx.stroke();
+                    ctx.move_to(p[0].0, p[0].1);
+                    for pp in &p[1..] {
+                        ctx.line_to(pp.0, pp.1);
                     }
+
+                    ctx.close_path();
+                    ctx.stroke();
                 }
             }
         }

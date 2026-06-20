@@ -1,80 +1,111 @@
-@mixin base($body-color-dark: #adadad,
-    $body-background-dark: #000000,
-    $modal-background-dark: rgba(77, 77, 77, 1.0),
-    $text-background-dark: #5e5e5e,
-    $text-color-dark: #bababa,
-    $body-background-light: #ffffff,
-    $modal-background-light: rgba(178, 178, 178, 1.0),
-    $text-background-light: rgba(178, 178, 178, 1.0),
-    $text-color-light: #404040,
-    $body-color-light: #404040,
+@use 'tokens';
+
+/* The color arguments are retained for backward compatibility with existing
+call sites, but are no longer used: the color scheme now lives entirely in the
+CSS custom properties defined in `_tokens.scss`. Components reference those
+`var(--token)` values directly, so a single `@include base.base()` is enough. */
+@mixin base($body-color-dark: null,
+    $body-background-dark: null,
+    $modal-background-dark: null,
+    $text-background-dark: null,
+    $text-color-dark: null,
+    $body-background-light: null,
+    $modal-background-light: null,
+    $text-background-light: null,
+    $text-color-light: null,
+    $body-color-light: null,
 ) {
 
-    @media (prefers-color-scheme: dark) {
-        body {
-            background: $body-background-dark;
-            color: $body-color-dark;
-        }
-
-        a {
-            color: $body-color-dark;
-        }
-
-        input[type="text"],
-        textarea {
-            background-color: $text-background-dark;
-            color: $text-color-dark;
-            border: 0;
-        }
-
-        .modal-container {
-            background: $modal-background-dark;
-        }
-
-        .btn {
-            border: 1px solid $body-color-dark;
-        }
-
-        .btn-active {
-            background: $text-background-dark;
-        }
-
+    body {
+        background: var(--bg);
+        color: var(--text);
     }
 
-    @media (prefers-color-scheme: light) {
-        body {
-            background: $body-background-light;
-            color: $body-color-light;
-        }
+    a {
+        color: var(--accent-strong);
+    }
 
-        a {
-            color: $body-color-light;
-        }
+    input[type="text"],
+    textarea {
+        background-color: var(--panel-muted);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 5px 8px;
+        box-sizing: border-box;
+    }
 
-        input[type="text"],
-        textarea {
-            background-color: $text-background-light;
-            color: $text-color-light;
-            border: 0;
-        }
+    .modal-container {
+        background: var(--panel);
+    }
 
-        .modal-container {
-            background: $modal-background-light;
-        }
+    /* Full-window message that completely covers the app behind it (e.g. the
+    "has quit" screen), rather than a floating box with the stale UI visible
+    around it. */
+    .fullscreen-message {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        background: var(--bg);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 2rem;
+        box-sizing: border-box;
+    }
 
-        .btn {
-            border: 1px solid $body-color-light;
-        }
+    /* Buttons (yew-tincture renders them as `.btn` + `.btn-active`/
+    `.btn-inactive`). A neutral surface by default; the accent fill marks the
+    active state. */
+    .btn {
+        padding: 6px 12px;
+        margin: 2px;
+        box-sizing: border-box;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--panel-muted);
+        color: var(--text);
+        font-weight: 600;
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+    }
 
-        .btn-active {
-            background: $text-background-light;
-        }
+    .btn:enabled {
+        cursor: pointer;
+    }
 
+    .btn:enabled:hover {
+        border-color: var(--accent);
+        color: var(--accent-strong);
+    }
+
+    .btn-active,
+    .btn-active:enabled:hover {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--on-accent);
+    }
+
+    button:disabled,
+    button[disabled] {
+        color: var(--muted);
+        border: 1px solid var(--border);
+        cursor: not-allowed;
+    }
+
+    /* Keyboard focus ring (mouse clicks don't trigger :focus-visible). */
+    .btn:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    label:focus-within {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
     }
 
     body {
-        font: 10px 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        line-height: 1.4em;
+        font: 14px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
         margin: 0 auto;
     }
 
@@ -123,8 +154,9 @@
         height: 400px;
         padding: 20px;
         box-sizing: border-box;
-        box-shadow: 0 2px 4px 0 rgba(223, 25, 25, 0.92),
-            0 25px 50px 0 rgba(0, 255, 255, 0.91);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        box-shadow: var(--shadow);
     }
 
     .infoCircle {
@@ -136,15 +168,30 @@
         line-height: 0.9em;
     }
 
-    .btn {
-        padding: 2px;
-        margin: 2px;
-        box-sizing: border-box;
-        border-radius: 3px;
+    /* Toggle (rendered as a `<label class="toggle-on|toggle-off">` wrapping a
+    hidden checkbox). Styled as a small pill so on/off reads at a glance. */
+    .toggle-on,
+    .toggle-off {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5em;
+        cursor: pointer;
+        padding: 5px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--panel-muted);
+        transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     }
 
-    .btn:enabled {
-        cursor: pointer;
+    .toggle-on {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--on-accent);
+    }
+
+    .toggle-on input[type="checkbox"],
+    .toggle-off input[type="checkbox"] {
+        accent-color: var(--accent);
     }
 
 }

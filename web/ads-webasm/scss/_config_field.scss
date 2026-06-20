@@ -1,15 +1,9 @@
-@mixin config_field($background-dark: black, $background-light: white) {
+/* The background arguments are retained for backward compatibility but
+unused; colors now come from the shared tokens (see `_tokens.scss`). */
+@mixin config_field($background-dark: null, $background-light: null) {
 
-    @media (prefers-color-scheme: dark) {
-        .config-field-on-server {
-            background: $background-dark;
-        }
-    }
-
-    @media (prefers-color-scheme: light) {
-        .config-field-on-server {
-            background: $background-light;
-        }
+    .config-field-on-server {
+        background: var(--panel-muted);
     }
 
     .config-field-textarea {
