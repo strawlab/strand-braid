@@ -18,6 +18,7 @@ can serve as a reference for your builds.
 [Install rust](https://rustup.rs/)
 
 [Install trunk](https://trunk-rs.github.io/trunk/guide/getting-started/installation.html)
+and the WASM compilation target (`rustup target add wasm32-unknown-unknown`).[^trunk]
 
 Install your camera drivers. Currently Basler Pylon and Allied Vision Vimba are
 supported.
@@ -33,19 +34,12 @@ cd strand-braid # now in /path/to/strand-braid
 
 ## Strand Camera
 
-First, build the browser user interface (BUI) for Strand Camera. This will build
-files in `strand-cam/yew_frontend/dist` which get included in the Strand Cam
-executable:
-
-```
-cd /path/to/strand-braid/strand-cam/yew_frontend
-trunk build
-```
-
-Then, build the Strand Cam executable. A single `strand-cam` executable supports
-both the Basler Pylon and Allied Vision Vimba backends. The vendor drivers are
-loaded dynamically at runtime, so they do not need to be installed to build (but
-the relevant driver must be installed to actually open a camera):
+Build the Strand Cam executable. A single `strand-cam` executable supports
+the Basler Pylon and Allied Vision Vimba backends, plus a consumer webcam
+backend which is convenient for development because it needs no vendor driver.
+The vendor drivers are loaded dynamically at runtime, so they do not need to
+be installed to build (but the relevant driver must be installed to actually
+open a Basler or Allied Vision camera):
 
 ```
 cd /path/to/strand-braid/strand-cam
@@ -53,8 +47,8 @@ cargo build --release --bin strand-cam
 # By default, the executable will be put in /path/to/strand-braid/target/release/strand-cam
 ```
 
-Select the camera vendor backend at runtime with `--camera-backend pylon` (the
-default) or `--camera-backend vimba`.
+Select the camera backend at runtime with `--camera-backend pylon` (the
+default), `--camera-backend vimba`, or `--camera-backend webcam`.
 
 Many compile-time options exist to adjust the exact features used, but the
 instructions above should build a working copy of Strand Camera albeit with
@@ -62,24 +56,17 @@ potentially reduced features and performance.
 
 ## Braid
 
-We will build `braid-run` which is the main runtime application we call "Braid".
-
-First, build the browser user interface (BUI) for Braid. This will build files
-in `braid/braid-run/braid_frontend/dist` which get included in the `braid-run`
-executable:
-
-```
-cd /path/to/strand-braid/braid/braid-run/braid_frontend
-./build.sh
-```
-
-Then, build the `braid-run` executable:
+We will build `braid-run` which is the main runtime application we call "Braid":
 
 ```
 cd /path/to/strand-braid/braid/braid-run
 cargo build --release
 # By default, the executable will be put in /path/to/strand-braid/target/release/braid-run
 ```
+
+[^trunk]: The browser user interfaces (in `strand-cam/yew_frontend` and
+    `braid/braid-run/braid_frontend`) are compiled by `trunk` and embedded
+    into the executables automatically by `build.rs`.
 
 ## Testing without camera hardware
 

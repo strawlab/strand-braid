@@ -430,18 +430,26 @@ pub enum StartCameraBackend {
     /// Start a Vimba camera locally using the `strand-cam` program with the
     /// `--camera-backend vimba` argument.
     Vimba,
+    /// Start a consumer webcam locally using the `strand-cam` program with
+    /// the `--camera-backend webcam` argument.
+    ///
+    /// Intended for development use. The camera `name` to use in the
+    /// configuration is the human-readable device name of the webcam.
+    Webcam,
 }
 
 impl StartCameraBackend {
     /// Get the executable name for the camera backend.
     ///
-    /// Both local backends are served by the single merged `strand-cam`
+    /// All local backends are served by the single merged `strand-cam`
     /// executable, which selects the backend at runtime via
     /// [Self::camera_backend_arg].
     pub fn strand_cam_exe_name(&self) -> Option<&str> {
         match self {
             StartCameraBackend::Remote => None,
-            StartCameraBackend::Pylon | StartCameraBackend::Vimba => Some("strand-cam"),
+            StartCameraBackend::Pylon | StartCameraBackend::Vimba | StartCameraBackend::Webcam => {
+                Some("strand-cam")
+            }
         }
     }
 
@@ -453,6 +461,7 @@ impl StartCameraBackend {
             StartCameraBackend::Remote => None,
             StartCameraBackend::Pylon => Some("pylon"),
             StartCameraBackend::Vimba => Some("vimba"),
+            StartCameraBackend::Webcam => Some("webcam"),
         }
     }
 }

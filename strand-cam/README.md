@@ -1,15 +1,11 @@
 ## Building
 
-To build the frontend
-
-    cd yew_frontend
-    ./build.sh
-
-This crate builds the single `strand-cam` executable, which supports both the
-Basler Pylon and Allied Vision Vimba camera backends. The backend is selected at
-runtime with the `--camera-backend pylon|vimba` argument (defaulting to pylon).
-Both vendor SDKs are loaded dynamically at runtime, so neither is required to
-build.
+This crate builds the single `strand-cam` executable, which supports the
+Basler Pylon and Allied Vision Vimba camera backends, plus a consumer webcam
+backend intended for development use. The backend is selected at runtime with
+the `--camera-backend pylon|vimba|webcam` argument (defaulting to pylon). The
+vendor SDKs are loaded dynamically at runtime, so neither is required to
+build, and the webcam backend needs no SDK at all.
 
 To check the build
 
@@ -22,6 +18,12 @@ To build (debug)
 To build (release)
 
     cargo build --release --bin strand-cam --features "bundle_files checkercal fiducial flydra_feat_detect"
+
+Note: with the `bundle_files` feature, the browser frontend in `yew_frontend`
+is compiled by `trunk` and embedded into the executable automatically by
+`build.rs`. With `serve_files`, the frontend is instead served from
+`yew_frontend/dist` at runtime (useful for frontend development), so build it
+first in that case (`cd yew_frontend && ./build.sh`).
 
 Note, on Windows, due to [limitations on /clr compilation](https://msdn.microsoft.com/en-us/library/ffkc918h.aspx), the [Visual C++  Redistributable](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads) may need to be installed to run properly.
 
