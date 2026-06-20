@@ -59,6 +59,30 @@ jobs:
         run: |
           cargo check --workspace --all-targets
 
+  check-cargo-clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install clippy, the Rust wasm target, and trunk
+        run: |
+          rustup component add clippy
+          rustup target add wasm32-unknown-unknown
+          curl --location --remote-name https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-musl.tar.gz
+          tar xzf trunk-x86_64-unknown-linux-musl.tar.gz
+          sudo mv trunk /usr/local/bin/
+          trunk --version
+      # Same rationale as check-cargo-compiles: clippy compiles the whole
+      # workspace, and the strand-cam / braid-run build scripts build their
+      # Yew/WASM frontends with a nested offline cargo that first resolves the
+      # entire dependency graph via `cargo metadata`, so every platform's
+      # dependencies must already be in the cargo cache.
+      - name: Pre-fetch all dependencies (for the offline trunk frontend build)
+        run: |
+          cargo fetch
+      - name: Test that `cargo clippy` is happy (warnings are errors)
+        run: |
+          cargo clippy --workspace --all-targets -- -D warnings
+
   run-tests:
     runs-on: ubuntu-latest
     steps:
