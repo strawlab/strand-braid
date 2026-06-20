@@ -64,7 +64,93 @@ function makeOrthographicCamera(THREE, width, height, center, maxExtent, preset)
     return camera;
 }
 
-export function renderTrajectories3d(containerId, trajectories, bounds) {
+function cameraColor(THREE, index) {
+    const hue = (index * 137.508 + 40) % 360;
+    return new THREE.Color(`hsl(${hue}, 70%, 62%)`);
+}
+
+// World-space point for an image-plane pixel at forward distance `z`.
+function pixelToWorld(THREE, cam, px, py, z) {
+    const a = (px - cam.cx) / cam.fx;
+    const b = (py - cam.cy) / cam.fy;
+    return new THREE.Vector3(
+        cam.center[0] + z * (a * cam.right[0] + b * cam.down[0] + cam.forward[0]),
+        cam.center[1] + z * (a * cam.right[1] + b * cam.down[1] + cam.forward[1]),
+        cam.center[2] + z * (a * cam.right[2] + b * cam.down[2] + cam.forward[2]),
+    );
+}
+
+function makeLabelSprite(THREE, text, color) {
+    const pad = 8;
+    const font = "28px sans-serif";
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    ctx.font = font;
+    const textWidth = Math.ceil(ctx.measureText(text).width);
+    canvas.width = textWidth + pad * 2;
+    canvas.height = 28 + pad * 2;
+    ctx.font = font;
+    ctx.fillStyle = "rgba(20, 24, 33, 0.72)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = `#${color.getHexString()}`;
+    ctx.textBaseline = "top";
+    ctx.fillText(text, pad, pad);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(material);
+    sprite.userData.aspect = canvas.width / canvas.height;
+    return sprite;
+}
+
+// Draw camera frustums in the style of rerun's 3D view: a rectangle at the
+// image plane connected back to the camera center, plus an "up" triangle.
+function drawCameras(THREE, scene, cameras, maxExtent) {
+    if (!cameras || cameras.length === 0) {
+        return;
+    }
+    const z = maxExtent * 0.16;
+    const labelScale = maxExtent * 0.12;
+
+    cameras.forEach((cam, index) => {
+        if (!Number.isFinite(cam.fx) || !Number.isFinite(cam.fy) || cam.fx === 0 || cam.fy === 0) {
+            return;
+        }
+        const color = cameraColor(THREE, index);
+        const apex = new THREE.Vector3(cam.center[0], cam.center[1], cam.center[2]);
+        const w = cam.width;
+        const h = cam.height;
+
+        const c0 = pixelToWorld(THREE, cam, 0, 0, z);
+        const c1 = pixelToWorld(THREE, cam, 0, h, z);
+        const c2 = pixelToWorld(THREE, cam, w, h, z);
+        const c3 = pixelToWorld(THREE, cam, w, 0, z);
+
+        const material = new THREE.LineBasicMaterial({ color, linewidth: 2 });
+
+        // Frustum edges: rectangle corners tied back to the camera center.
+        const frustum = [c0, c1, apex, c2, c3, apex, c0, c3, apex];
+        scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(frustum), material));
+        // Remaining far-plane edge.
+        scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([c1, c2]), material));
+
+        // Up-direction triangle above the image-plane top edge.
+        const t0 = pixelToWorld(THREE, cam, 0.4 * w, 0, z);
+        const t1 = pixelToWorld(THREE, cam, 0.5 * w, -0.1 * w, z);
+        const t2 = pixelToWorld(THREE, cam, 0.6 * w, 0, z);
+        scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([t0, t1, t2]), material));
+
+        if (cam.name) {
+            const label = makeLabelSprite(THREE, cam.name, color);
+            label.position.copy(apex);
+            label.scale.set(labelScale * label.userData.aspect, labelScale, 1);
+            scene.add(label);
+        }
+    });
+}
+
+export function renderTrajectories3d(containerId, trajectories, cameras, bounds) {
     const THREE = getThree();
     const container = document.getElementById(containerId);
     if (!container) {
@@ -108,6 +194,8 @@ export function renderTrajectories3d(containerId, trajectories, bounds) {
     const axes = new THREE.AxesHelper(maxExtent * 0.45);
     axes.position.copy(center);
     scene.add(axes);
+
+    drawCameras(THREE, scene, cameras, maxExtent);
 
     trajectories.forEach((traj, index) => {
         const count = Math.min(traj.x.length, traj.y.length, traj.z.length);
