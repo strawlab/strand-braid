@@ -226,7 +226,14 @@ impl Detector {
         }
     }
 
-    /// Add a tag family
+    /// Add a tag family.
+    ///
+    /// The maximum number of bit errors to correct is chosen automatically from
+    /// the family (see [`FamilyType::recommended_correction_bits`]). Families
+    /// with a large minimum Hamming distance (e.g. tag36h11) keep the upstream
+    /// default of 2, while families with a small Hamming distance (e.g.
+    /// tag16h5, tag25h9) correct fewer bits to suppress false positives. Use
+    /// [`Detector::add_family_bits`] to choose the correction explicitly.
     ///
     /// We take ownership of the family to keep its lifetime.
     pub fn add_family(&mut self, family: Family) {
@@ -234,7 +241,8 @@ impl Detector {
         // lifetime of the families, but I'm not sure how we could do that with
         // multiple families with potentially different lifetimes. Furthermore,
         // that would make the type signature for Detector more complicated.
-        self.add_family_bits(family, 2)
+        let bits = family.family_type().recommended_correction_bits();
+        self.add_family_bits(family, bits)
     }
 
     /// Add a tag family
@@ -413,6 +421,34 @@ impl FamilyType {
             Family52H13 => "tagStandard52h13",
         }
     }
+
+    /// Recommended maximum number of erroneous bits to correct when detecting
+    /// this family.
+    ///
+    /// When matching an observed code against the known tags, the detector may
+    /// "correct" up to this many flipped bits. Allowing corrections extends the
+    /// usable detection range but also raises the false-positive rate, because
+    /// every correctable bit enlarges the set of bit patterns that decode to a
+    /// valid tag. A family tolerates corrections only in proportion to its
+    /// minimum Hamming distance — the trailing `hN` in the family name.
+    ///
+    /// Families with a large Hamming distance (tag36h11 and friends) tolerate
+    /// the upstream default of 2. The low-distance families (tag16h5, tag25h9,
+    /// tagCircle21h7) produce many false positives at that setting, so we
+    /// correct fewer bits — this is also why tag36h11 is the recommended
+    /// default family.
+    pub fn recommended_correction_bits(&self) -> i32 {
+        use FamilyType::*;
+        match self {
+            // Low Hamming distance: correcting bits yields many false
+            // positives, so require (near-)exact code matches.
+            Family16H5 => 0,
+            Family25H9 => 0,
+            FamilyCircle21h7 => 1,
+            // High Hamming distance: the upstream default of 2 is safe.
+            Family36H11 | Family41H12 | FamilyCircle49H12 | FamilyCustom48h12 | Family52H13 => 2,
+        }
+    }
 }
 
 #[repr(transparent)]
@@ -506,5 +542,21 @@ mod test {
         let ft = f.family_type();
         let s = ft.to_str();
         assert_eq!(s, "tagStandard52h13");
+    }
+
+    #[test]
+    fn correction_bits_per_family() {
+        use FamilyType::*;
+        // The high-Hamming-distance families keep the upstream default of 2.
+        assert_eq!(Family36H11.recommended_correction_bits(), 2);
+        assert_eq!(Family41H12.recommended_correction_bits(), 2);
+        assert_eq!(FamilyCircle49H12.recommended_correction_bits(), 2);
+        assert_eq!(FamilyCustom48h12.recommended_correction_bits(), 2);
+        assert_eq!(Family52H13.recommended_correction_bits(), 2);
+        // The low-Hamming-distance families correct fewer bits to suppress
+        // false positives.
+        assert_eq!(Family16H5.recommended_correction_bits(), 0);
+        assert_eq!(Family25H9.recommended_correction_bits(), 0);
+        assert_eq!(FamilyCircle21h7.recommended_correction_bits(), 1);
     }
 }
