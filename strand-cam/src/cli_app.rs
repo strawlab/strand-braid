@@ -3,7 +3,7 @@
 
 use std::path::PathBuf;
 
-use clap::{Arg, ArgAction, Args, FromArgMatches};
+use clap::{ArgAction, CommandFactory, FromArgMatches, Parser};
 
 use crate::{BraidArgs, StandaloneArgs, StandaloneOrBraid, StrandCamArgs, run_strand_cam_app};
 
@@ -203,24 +203,125 @@ where
     run_strand_cam_app(mymod, args, app_name)
 }
 
-fn parse_led_box_device(matches: &clap::ArgMatches) -> Option<String> {
-    matches.get_one::<String>("led_box_device").map(Into::into)
-}
-
-fn get_tracker_cfg(_matches: &clap::ArgMatches) -> Result<crate::ImPtDetectCfgSource> {
+fn get_tracker_cfg() -> Result<crate::ImPtDetectCfgSource> {
     let ai = (&APP_INFO, "object-detection".to_string());
     let tracker_cfg_src = crate::ImPtDetectCfgSource::ChangedSavedToDisk(ai);
     Ok(tracker_cfg_src)
 }
 
-// We started strand-cam before the `derive` capability of clap and thus we have
-// a bunch of stuff with the builder API. We should convert existing code to the
-// derive API. For now, we just write new code to use the derive API but keep
-// the existing builder API.
-#[derive(Args, Debug)]
-struct DerivedArgs {
-    #[cfg(target_os = "linux")]
+/// Intermediate, flat representation of the Strand Camera command line.
+///
+/// clap parses the raw arguments into this struct, which [parse_args] then
+/// translates into the richer [StrandCamArgs] (with its standalone/braid split
+/// and feature-gated fields). The field names double as the argument ids that
+/// the braid-mode validation reports in its error messages, so renaming a field
+/// changes those messages.
+///
+/// This doc comment is deliberately kept out of `--help`: the
+/// `#[command(about = None, long_about = None)]` attribute below resets the
+/// description that clap would otherwise derive from this comment, matching the
+/// former builder-based parser, which had no top-level description.
+#[derive(Parser, Debug)]
+#[command(version, about = None, long_about = None)]
+struct CliArgs {
+    /// Prevent auto-opening of browser
+    #[arg(long = "no-browser", action = ArgAction::Count, conflicts_with = "browser")]
+    no_browser: u8,
+
+    /// Force auto-opening of browser
+    #[arg(long, action = ArgAction::Count)]
+    browser: u8,
+
+    /// Set the initial filename template of the destination to be saved to.
+    #[arg(long = "mp4_filename_template", default_value = crate::MP4_FILENAME_TEMPLATE_DEFAULT)]
+    mp4_filename_template: String,
+
+    /// Set the initial filename template of the destination to be saved to.
+    #[arg(long = "fmf_filename_template", default_value = crate::FMF_FILENAME_TEMPLATE_DEFAULT)]
+    fmf_filename_template: String,
+
+    /// Set the initial filename template of the destination to be saved to.
+    #[arg(long = "ufmf_filename_template", default_value = crate::UFMF_FILENAME_TEMPLATE_DEFAULT)]
+    ufmf_filename_template: String,
+
+    /// The name of the desired camera.
+    #[arg(long = "camera-name")]
+    camera_name: Option<String>,
+
+    /// Which camera backend library to load. Only meaningful for the merged
+    /// Strand Camera binary that supports multiple backends.
+    #[arg(long = "camera-backend", value_parser = ["pylon", "vimba", "webcam", "sim"])]
+    camera_backend: Option<String>,
+
+    /// List the cameras available for the selected backend and exit, without
+    /// launching the application or opening a browser.
+    #[arg(long = "list-cameras")]
+    list_cameras: bool,
+
+    /// Path to file with camera settings which will be loaded.
+    #[arg(long = "camera-settings-filename")]
+    camera_settings_filename: Option<PathBuf>,
+
+    /// The port to open the HTTP server.
+    #[arg(long = "http-server-addr")]
+    http_server_addr: Option<String>,
+
+    /// The directory in which to save CSV data files.
+    #[arg(long = "csv-save-dir", default_value = "~/DATA")]
+    csv_save_dir: String,
+
+    /// The desired pixel format. (incompatible with braid).
+    #[arg(long = "pixel-format")]
+    pixel_format: Option<String>,
+
+    /// The secret (base64 encoded) for signing HTTP cookies.
+    #[arg(long = "strand-cam-cookie-secret", env = "STRAND_CAM_COOKIE_SECRET")]
+    strand_cam_cookie_secret: Option<String>,
+
+    /// A client network (CIDR, e.g. 100.64.0.0/10) trusted to have already
+    /// authenticated the peer (e.g. Tailscale/WireGuard). Clients from it need
+    /// no access token. May be given multiple times.
+    #[arg(
+        long = "trusted-network",
+        env = "STRAND_CAM_TRUSTED_NETWORKS",
+        value_delimiter = ','
+    )]
+    trusted_network: Vec<String>,
+
+    /// Force the camera to synchronize to external trigger. (incompatible with braid).
+    #[arg(long = "force_camera_sync_mode", action = ArgAction::Count)]
+    force_camera_sync_mode: u8,
+
+    /// Braid HTTP URL address (e.g. 'http://host:port/')
+    #[arg(long = "braid-url")]
+    braid_url: Option<String>,
+
+    /// The filename of the LED box device
+    #[arg(long = "led-box")]
+    led_box_device: Option<String>,
+
+    /// Filename of flydra .xml camera calibration.
+    #[cfg(feature = "flydratrax")]
+    #[arg(long = "camera-xml-calibration")]
+    camera_xml_calibration: Option<String>,
+
+    /// Filename of pymvg json camera calibration.
+    #[cfg(feature = "flydratrax")]
+    #[arg(long = "camera-pymvg-calibration")]
+    camera_pymvg_calibration: Option<String>,
+
+    /// do not save data2d_distoted also when no detections found
+    #[cfg(feature = "flydratrax")]
+    #[arg(long = "no-save-empty-data2d", action = ArgAction::Count)]
+    no_save_empty_data2d: u8,
+
+    /// The address of the model server.
+    #[cfg(feature = "flydratrax")]
+    #[arg(long = "model-server-addr", default_value = braid_types::DEFAULT_MODEL_SERVER_ADDR)]
+    model_server_addr: String,
+
     /// If set, output a copy of the video stream on this v4l2 device (e.g. `/dev/video0`)
+    #[cfg(target_os = "linux")]
     #[arg(long)]
     v4l2loopback: Option<PathBuf>,
 
@@ -230,213 +331,40 @@ struct DerivedArgs {
 }
 
 fn parse_args(app_name: &str, cli_args: Vec<String>) -> Result<StrandCamArgs> {
-    let arg_default_box: Box<StrandCamArgs> = Default::default();
-    let arg_default: &'static StrandCamArgs = Box::leak(arg_default_box);
-
-    let app_name_box = Box::new(clap::builder::Str::from(app_name.to_string()));
-    let app_name: &'static clap::builder::Str = Box::leak(app_name_box);
-
-    let matches = {
-        let parser = clap::Command::new(app_name)
-            .version(env!("CARGO_PKG_VERSION"))
-            .arg(
-                Arg::new("no_browser")
-                    .long("no-browser")
-                    .action(clap::ArgAction::Count)
-                    .conflicts_with("browser")
-                    .help("Prevent auto-opening of browser"),
-            )
-            .arg(
-                Arg::new("browser")
-                    .long("browser")
-                    .action(clap::ArgAction::Count)
-                    .conflicts_with("no_browser")
-                    .help("Force auto-opening of browser"),
-            )
-            .arg(
-                Arg::new("mp4_filename_template")
-                    .action(ArgAction::Set)
-                    .long("mp4_filename_template")
-                    .default_value(&*arg_default.mp4_filename_template)
-                    .help("Set the initial filename template of the destination to be saved to."),
-            )
-            .arg(
-                Arg::new("fmf_filename_template")
-                    .long("fmf_filename_template")
-                    .default_value(&*arg_default.fmf_filename_template)
-                    .help("Set the initial filename template of the destination to be saved to."),
-            )
-            .arg(
-                Arg::new("ufmf_filename_template")
-                    .long("ufmf_filename_template")
-                    .default_value(&*arg_default.ufmf_filename_template)
-                    .help("Set the initial filename template of the destination to be saved to."),
-            )
-            .arg(
-                Arg::new("camera_name")
-                    .long("camera-name")
-                    .help("The name of the desired camera."),
-            )
-            .arg(
-                Arg::new("camera_backend")
-                    .long("camera-backend")
-                    .value_parser(["pylon", "vimba", "webcam", "sim"])
-                    .help(
-                        "Which camera backend library to load. Only meaningful for \
-                        the merged Strand Camera binary that supports multiple backends.",
-                    ),
-            )
-            .arg(
-                Arg::new("list_cameras")
-                    .long("list-cameras")
-                    .action(clap::ArgAction::SetTrue)
-                    .help(
-                        "List the cameras available for the selected backend and exit, \
-                        without launching the application or opening a browser.",
-                    ),
-            )
-            .arg(
-                Arg::new("camera_settings_filename")
-                    .long("camera-settings-filename")
-                    .help("Path to file with camera settings which will be loaded."),
-            )
-            .arg(
-                Arg::new("http_server_addr")
-                    .long("http-server-addr")
-                    .help("The port to open the HTTP server."),
-            )
-            .arg(
-                Arg::new("csv_save_dir")
-                    .long("csv-save-dir")
-                    .help("The directory in which to save CSV data files.")
-                    .default_value("~/DATA"),
-            );
-
-        let parser = parser
-                .arg(
-                    Arg::new("pixel_format")
-                        .long("pixel-format")
-                        .help("The desired pixel format. (incompatible with braid).")
-                        ,
-                )
-                .arg(
-                    clap::Arg::new("strand_cam_cookie_secret")
-                        .help("The secret (base64 encoded) for signing HTTP cookies.")
-                        .long("strand-cam-cookie-secret")
-                        .env("STRAND_CAM_COOKIE_SECRET")
-                        .action(ArgAction::Set),
-                )
-                .arg(
-                    clap::Arg::new("trusted_network")
-                        .help(
-                            "A client network (CIDR, e.g. 100.64.0.0/10) trusted to have already \
-                             authenticated the peer (e.g. Tailscale/WireGuard). Clients from it \
-                             need no access token. May be given multiple times.",
-                        )
-                        .long("trusted-network")
-                        .env("STRAND_CAM_TRUSTED_NETWORKS")
-                        .value_delimiter(',')
-                        .action(ArgAction::Append),
-                )
-                .arg(
-                    Arg::new("force_camera_sync_mode")
-                        .long("force_camera_sync_mode")
-                        .action(clap::ArgAction::Count)
-                        .help("Force the camera to synchronize to external trigger. (incompatible with braid)."),
-                );
-
-        let parser = parser.arg(
-            Arg::new("braid_url")
-                .long("braid-url")
-                .help("Braid HTTP URL address (e.g. 'http://host:port/')"),
-        );
-
-        let parser = parser.arg(
-            Arg::new("led_box_device")
-                .long("led-box")
-                .help("The filename of the LED box device"),
-        );
-
-        #[cfg(feature = "flydratrax")]
-        let parser = {
-            parser
-                .arg(
-                    Arg::new("camera_xml_calibration")
-                        .long("camera-xml-calibration")
-                        .help("Filename of flydra .xml camera calibration."),
-                )
-                .arg(
-                    Arg::new("camera_pymvg_calibration")
-                        .long("camera-pymvg-calibration")
-                        .help("Filename of pymvg json camera calibration."),
-                )
-                .arg(
-                    Arg::new("no_save_empty_data2d")
-                        .action(clap::ArgAction::Count)
-                        .long("no-save-empty-data2d")
-                        .help("do not save data2d_distoted also when no detections found"),
-                )
-                .arg(
-                    Arg::new("model_server_addr")
-                        .long("model-server-addr")
-                        .help("The address of the model server.")
-                        .default_value(braid_types::DEFAULT_MODEL_SERVER_ADDR),
-                )
-        };
-
-        let parser = DerivedArgs::augment_args(parser);
-
-        // Use `try_get_matches_from` rather than `get_matches_from` so that a
-        // parse error returns a `clap::Error` instead of terminating the
-        // process. The binary entry point ([cli_main]) restores the usual
-        // exit-on-error / print-help behavior by calling `clap::Error::exit`;
-        // tests can recover the error instead.
-        parser.try_get_matches_from(cli_args)?
+    // Build the derived command so that the program name shown in help/usage is
+    // the runtime `app_name` (the derive default would be the crate name).
+    //
+    // Use `try_get_matches_from` rather than `get_matches_from` so that a parse
+    // error returns a `clap::Error` instead of terminating the process. The
+    // binary entry point ([cli_main]) restores the usual exit-on-error /
+    // print-help behavior by calling `clap::Error::exit`; tests can recover the
+    // error instead.
+    let cli = {
+        let command = CliArgs::command().name(app_name.to_string());
+        let matches = command.try_get_matches_from(cli_args)?;
+        CliArgs::from_arg_matches(&matches)?
     };
 
-    let secret = matches
-        .get_one::<String>("strand_cam_cookie_secret")
-        .cloned()
-        .clone();
+    // `camera_backend` and `list_cameras` are acted upon before full parsing by
+    // `requested_camera_backend()` and `list_cameras_requested()`, which peek at
+    // the raw process arguments. They appear in `CliArgs` only so the parser
+    // accepts, validates, and documents them in `--help`.
+    let _ = (&cli.camera_backend, cli.list_cameras);
 
-    let trusted_networks: Vec<String> = matches
-        .get_many::<String>("trusted_network")
-        .map(|vals| vals.cloned().collect())
-        .unwrap_or_default();
+    let secret = cli.strand_cam_cookie_secret.clone();
 
-    let mp4_filename_template = matches
-        .get_one::<String>("mp4_filename_template")
-        .ok_or_else(|| eyre!("expected mp4_filename_template"))?
-        .to_string();
+    let trusted_networks: Vec<String> = cli.trusted_network.clone();
 
-    let fmf_filename_template = matches
-        .get_one::<String>("fmf_filename_template")
-        .ok_or_else(|| eyre!("expected fmf_filename_template"))?
-        .to_string();
+    let mp4_filename_template = cli.mp4_filename_template.clone();
+    let fmf_filename_template = cli.fmf_filename_template.clone();
+    let ufmf_filename_template = cli.ufmf_filename_template.clone();
 
-    let ufmf_filename_template = matches
-        .get_one::<String>("ufmf_filename_template")
-        .ok_or_else(|| eyre!("expected ufmf_filename_template"))?
-        .to_string();
-
-    let camera_name: Option<String> = matches.get_one::<String>("camera_name").map(Into::into);
-    let camera_settings_filename = matches
-        .get_one::<String>("camera_settings_filename")
-        .map(PathBuf::from);
-
-    #[cfg(feature = "flydratrax")]
-    let camera_xml_calibration = matches
-        .get_one::<String>("camera_xml_calibration")
-        .map(|s| s.to_string());
-
-    #[cfg(feature = "flydratrax")]
-    let camera_pymvg_calibration = matches
-        .get_one::<String>("camera_pymvg_calibration")
-        .map(|s| s.to_string());
+    let camera_name: Option<String> = cli.camera_name.clone();
+    let camera_settings_filename = cli.camera_settings_filename.clone();
 
     #[cfg(feature = "flydratrax")]
     let flydratrax_calibration_source = {
-        match (camera_xml_calibration, camera_pymvg_calibration) {
+        match (&cli.camera_xml_calibration, &cli.camera_pymvg_calibration) {
             (None, None) => crate::CalSource::PseudoCal,
             (Some(xml_fname), None) => crate::CalSource::XmlFile(PathBuf::from(xml_fname)),
             (None, Some(json_fname)) => crate::CalSource::PymvgJsonFile(PathBuf::from(json_fname)),
@@ -446,52 +374,37 @@ fn parse_args(app_name: &str, cli_args: Vec<String>) -> Result<StrandCamArgs> {
         }
     };
 
-    let csv_save_dir = matches
-        .get_one::<String>("csv_save_dir")
-        .ok_or_else(|| eyre!("expected csv_save_dir"))?
-        .to_string();
-
-    let csv_save_dir = shellexpand::full(&csv_save_dir)
+    let csv_save_dir = shellexpand::full(&cli.csv_save_dir)
         .map_err(|e| eyre!("{}", e))?
         .into();
 
-    let http_server_addr: Option<String> = matches
-        .get_one::<String>("http_server_addr")
-        .map(Into::into);
+    let http_server_addr: Option<String> = cli.http_server_addr.clone();
 
     #[cfg(feature = "flydratrax")]
-    let save_empty_data2d = matches!(matches.get_count("no_save_empty_data2d"), 0);
+    let save_empty_data2d = matches!(cli.no_save_empty_data2d, 0);
 
     #[cfg(feature = "flydratrax")]
-    let model_server_addr = matches
-        .get_one::<String>("model_server_addr")
-        .ok_or_else(|| eyre!("expected model_server_addr"))?
-        .to_string()
-        .parse()
-        .unwrap();
+    let model_server_addr = cli.model_server_addr.parse().unwrap();
 
-    let led_box_device_path = parse_led_box_device(&matches);
+    let led_box_device_path = cli.led_box_device.clone();
 
-    let braid_url: Option<String> = matches.get_one::<String>("braid_url").map(Into::into);
-
-    let standalone_or_braid = if let Some(braid_url) = braid_url {
-        for argname in &[
-            "pixel_format",
-            "strand_cam_cookie_secret",
-            "camera_settings_filename",
-            "http_server_addr",
+    let standalone_or_braid = if let Some(braid_url) = cli.braid_url.clone() {
+        // These values are not relevant or are set via
+        // [braid_types::RemoteCameraInfoResponse], so they cannot be supplied on
+        // the command line when running under braid.
+        for (argname, is_set) in [
+            ("pixel_format", cli.pixel_format.is_some()),
+            (
+                "strand_cam_cookie_secret",
+                cli.strand_cam_cookie_secret.is_some(),
+            ),
+            (
+                "camera_settings_filename",
+                cli.camera_settings_filename.is_some(),
+            ),
+            ("http_server_addr", cli.http_server_addr.is_some()),
         ] {
-            // These values are not relevant or are set via
-            // [braid_types::RemoteCameraInfoResponse].
-            //
-            // Use `try_contains_id` rather than `contains_id`: the latter panics
-            // if `argname` is not a defined argument id, which silently breaks if
-            // an argument is ever renamed. `try_contains_id` surfaces that as an
-            // error instead.
-            if matches
-                .try_contains_id(argname)
-                .map_err(|e| eyre!("checking argument '{argname}': {e}"))?
-            {
+            if is_set {
                 eyre::bail!(
                     "'{argname}' cannot be set from the command line when calling \
                     strand-cam from braid.",
@@ -499,7 +412,7 @@ fn parse_args(app_name: &str, cli_args: Vec<String>) -> Result<StrandCamArgs> {
             }
         }
 
-        if matches.get_count("force_camera_sync_mode") != 0 {
+        if cli.force_camera_sync_mode != 0 {
             eyre::bail!(
                 "'force_camera_sync_mode' cannot be set from the command line when calling \
                 strand-cam from braid.",
@@ -516,14 +429,14 @@ fn parse_args(app_name: &str, cli_args: Vec<String>) -> Result<StrandCamArgs> {
         })
     } else {
         // not braid
-        let pixel_format = matches.get_one::<String>("pixel_format").map(Into::into);
-        let force_camera_sync_mode = !matches!(matches.get_count("force_camera_sync_mode"), 0);
+        let pixel_format = cli.pixel_format.clone();
+        let force_camera_sync_mode = cli.force_camera_sync_mode != 0;
         let software_limit_framerate = braid_types::StartSoftwareFrameRateLimit::NoChange;
 
         let acquisition_duration_allowed_imprecision_msec =
             braid_types::DEFAULT_ACQUISITION_DURATION_ALLOWED_IMPRECISION_MSEC;
 
-        let tracker_cfg_src = get_tracker_cfg(&matches)?;
+        let tracker_cfg_src = get_tracker_cfg()?;
 
         #[cfg(not(feature = "flydra_feat_detect"))]
         let _ = tracker_cfg_src; // This is unused without `flydra_feat_detect` feature.
@@ -546,8 +459,8 @@ fn parse_args(app_name: &str, cli_args: Vec<String>) -> Result<StrandCamArgs> {
         StandaloneOrBraid::Standalone(_) => false,
     };
 
-    let no_browser = match matches.get_count("no_browser") {
-        0 => match matches.get_count("browser") {
+    let no_browser = match cli.no_browser {
+        0 => match cli.browser {
             0 => no_browser_default,
             _ => false,
         },
@@ -557,12 +470,6 @@ fn parse_args(app_name: &str, cli_args: Vec<String>) -> Result<StrandCamArgs> {
     #[cfg(feature = "fiducial")]
     let apriltag_csv_filename_template =
         strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT.to_string();
-
-    // Since DerivedArgs implements FromArgMatches, we can extract it from the unstructured ArgMatches.
-    // This is the main benefit of using derived arguments.
-    let derived_matches = DerivedArgs::from_arg_matches(&matches)
-        .map_err(|err| err.exit())
-        .unwrap();
 
     // There are some fields set by `Default::default()` but only when various
     // cargo features are used. So turn off this clippy warning.
@@ -586,8 +493,8 @@ fn parse_args(app_name: &str, cli_args: Vec<String>) -> Result<StrandCamArgs> {
         #[cfg(feature = "fiducial")]
         apriltag_csv_filename_template,
         #[cfg(target_os = "linux")]
-        v4l2loopback: derived_matches.v4l2loopback,
-        data_dir: derived_matches.data_dir,
+        v4l2loopback: cli.v4l2loopback.clone(),
+        data_dir: cli.data_dir.clone(),
         ..Default::default()
     })
 }
@@ -868,5 +775,27 @@ mod tests {
     #[test]
     fn unknown_argument_is_an_error() {
         assert!(parse(&["--this-does-not-exist"]).is_err());
+    }
+
+    #[test]
+    fn help_omits_struct_docstring() {
+        // The `CliArgs` doc comment documents the type for developers but must
+        // not appear as a command description in `--help` (it would be noise).
+        let mut short = CliArgs::command();
+        let mut long = CliArgs::command();
+        let short = short.render_help().to_string();
+        let long = long.render_long_help().to_string();
+        for help in [&short, &long] {
+            assert!(
+                !help.contains("Intermediate"),
+                "help text leaked the struct docstring:\n{help}"
+            );
+            assert!(
+                !help.contains("flat representation"),
+                "help text leaked the struct docstring:\n{help}"
+            );
+        }
+        // Sanity check that we are actually rendering the real help.
+        assert!(short.contains("--no-browser"));
     }
 }
