@@ -17,6 +17,8 @@
 //! - [`projection`]: project a 3D point into each camera's distorted pixel, with
 //!   field-of-view culling.
 
+#[cfg(feature = "inprocess")]
+pub mod bench;
 pub mod calibration;
 pub mod harness;
 #[cfg(feature = "inprocess")]
