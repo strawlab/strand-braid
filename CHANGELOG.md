@@ -31,6 +31,16 @@
   configuration file, so camera names can be discovered without launching a
   camera per terminal.
 
+### Changed
+
+* Several `strand-cam` command-line flags were renamed to standard kebab-case
+  for consistency: `--mp4_filename_template`, `--fmf_filename_template`,
+  `--ufmf_filename_template`, and `--force_camera_sync_mode` are now
+  `--mp4-filename-template`, `--fmf-filename-template`, `--ufmf-filename-template`,
+  and `--force-camera-sync-mode`. The underscore spellings are no longer
+  accepted. Flags used by Braid to launch Strand Camera (`--camera-name`,
+  `--braid-url`, `--camera-backend`) are unchanged.
+
 ### Fixed
 
 * Frame-rate estimation now prefers the trigger timestamp, falling back to the
