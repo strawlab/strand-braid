@@ -979,32 +979,31 @@ pub(crate) async fn frame_process_task<'a>(
 
                     #[cfg(feature = "fiducial")]
                     {
-                        if let Some(ref store_cache_ref) = store_cache {
-                            if let Some(ref ts) = store_cache_ref.apriltag_state {
-                                if ts.do_detection {
-                                    if current_tag_family != ts.april_family {
-                                        april_td.clear_families();
-                                        current_tag_family = ts.april_family.clone();
-                                        let april_tf = make_family(&current_tag_family);
-                                        april_td.add_family(april_tf);
-                                    }
-
-                                    let mut im = frame2april(&frame.image.borrow())?;
-
-                                    let detections = april_td.detect(im.inner_mut());
-
-                                    if let Some(ref mut wtr) = apriltag_writer {
-                                        wtr.save(
-                                            &detections,
-                                            frame.host_timing.fno,
-                                            frame.host_timing.datetime,
-                                        )?;
-                                    }
-
-                                    let tag_points = detections.as_slice().iter().map(det2display);
-                                    all_points.extend(tag_points);
-                                }
+                        if let Some(ref store_cache_ref) = store_cache
+                            && let Some(ref ts) = store_cache_ref.apriltag_state
+                            && ts.do_detection
+                        {
+                            if current_tag_family != ts.april_family {
+                                april_td.clear_families();
+                                current_tag_family = ts.april_family.clone();
+                                let april_tf = make_family(&current_tag_family);
+                                april_td.add_family(april_tf);
                             }
+
+                            let mut im = frame2april(&frame.image.borrow())?;
+
+                            let detections = april_td.detect(im.inner_mut());
+
+                            if let Some(ref mut wtr) = apriltag_writer {
+                                wtr.save(
+                                    &detections,
+                                    frame.host_timing.fno,
+                                    frame.host_timing.datetime,
+                                )?;
+                            }
+
+                            let tag_points = detections.as_slice().iter().map(det2display);
+                            all_points.extend(tag_points);
                         }
                     }
 

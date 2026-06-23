@@ -446,10 +446,7 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
         .map(Into::into);
 
     #[cfg(feature = "flydratrax")]
-    let save_empty_data2d = match matches.get_count("no_save_empty_data2d") {
-        0 => true,
-        _ => false,
-    };
+    let save_empty_data2d = matches!(matches.get_count("no_save_empty_data2d"), 0);
 
     #[cfg(feature = "flydratrax")]
     let model_server_addr = matches
