@@ -722,6 +722,13 @@ impl Default for StandaloneOrBraid {
     }
 }
 
+/// Default filename template for saved `.mp4` recordings.
+pub(crate) const MP4_FILENAME_TEMPLATE_DEFAULT: &str = "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.mp4";
+/// Default filename template for saved `.fmf` recordings.
+pub(crate) const FMF_FILENAME_TEMPLATE_DEFAULT: &str = "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.fmf";
+/// Default filename template for saved `.ufmf` recordings.
+pub(crate) const UFMF_FILENAME_TEMPLATE_DEFAULT: &str = "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.ufmf";
+
 #[derive(Debug)]
 pub struct StrandCamArgs {
     /// Is Strand Cam running inside Braid context?
@@ -773,9 +780,9 @@ impl Default for StrandCamArgs {
             secret: None,
             trusted_networks: Vec::new(),
             no_browser: true,
-            mp4_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.mp4".to_string(),
-            fmf_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.fmf".to_string(),
-            ufmf_filename_template: "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.ufmf".to_string(),
+            mp4_filename_template: MP4_FILENAME_TEMPLATE_DEFAULT.to_string(),
+            fmf_filename_template: FMF_FILENAME_TEMPLATE_DEFAULT.to_string(),
+            ufmf_filename_template: UFMF_FILENAME_TEMPLATE_DEFAULT.to_string(),
             disable_console: false,
             #[cfg(feature = "fiducial")]
             apriltag_csv_filename_template: strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT
