@@ -181,7 +181,18 @@ where
         };
     }
 
-    let args = parse_args(app_name).with_context(|| "parsing args".to_string())?;
+    let cli_args: Vec<String> = std::env::args().collect();
+    let args = parse_args(app_name, cli_args)
+        .inspect_err(|e| {
+            // Preserve clap's native behavior for the binary: print the
+            // formatted help/version/usage-error message and exit with the
+            // appropriate status code instead of bubbling up as an `eyre`
+            // error.
+            if let Some(clap_err) = e.downcast_ref::<clap::Error>() {
+                clap_err.exit();
+            }
+        })
+        .with_context(|| "parsing args".to_string())?;
 
     // Handle `--list-cameras` after argument parsing (so `--help` and argument
     // validation still work), but before launching the full application.
@@ -218,9 +229,7 @@ struct DerivedArgs {
     data_dir: Option<PathBuf>,
 }
 
-fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
-    let cli_args: Vec<String> = std::env::args().collect();
-
+fn parse_args(app_name: &str, cli_args: Vec<String>) -> Result<StrandCamArgs> {
     let arg_default_box: Box<StrandCamArgs> = Default::default();
     let arg_default: &'static StrandCamArgs = Box::leak(arg_default_box);
 
@@ -377,7 +386,12 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
 
         let parser = DerivedArgs::augment_args(parser);
 
-        parser.get_matches_from(cli_args)
+        // Use `try_get_matches_from` rather than `get_matches_from` so that a
+        // parse error returns a `clap::Error` instead of terminating the
+        // process. The binary entry point ([cli_main]) restores the usual
+        // exit-on-error / print-help behavior by calling `clap::Error::exit`;
+        // tests can recover the error instead.
+        parser.try_get_matches_from(cli_args)?
     };
 
     let secret = matches
@@ -576,4 +590,283 @@ fn parse_args(app_name: &str) -> Result<StrandCamArgs> {
         data_dir: derived_matches.data_dir,
         ..Default::default()
     })
+}
+
+#[cfg(test)]
+mod tests {
+    //! Tests that pin the command-line argument parsing behavior of
+    //! [parse_args]. They exist so that a later refactor (switching from the
+    //! clap builder API to the derive API) can be verified to preserve the
+    //! observable behavior of every argument.
+    //!
+    //! These run under the crate's default features
+    //! (`flydra_feat_detect`, `bundle_files`), so the `flydratrax`- and
+    //! `fiducial`-gated arguments are not exercised here.
+    use super::*;
+
+    /// Parse `args` (without the leading program name) and return the result.
+    fn parse(args: &[&str]) -> Result<StrandCamArgs> {
+        let cli_args: Vec<String> = std::iter::once("strand-cam")
+            .chain(args.iter().copied())
+            .map(String::from)
+            .collect();
+        parse_args("strand-cam", cli_args)
+    }
+
+    /// Parse `args`, asserting success and returning the standalone arguments.
+    fn parse_standalone(args: &[&str]) -> StandaloneArgs {
+        match parse(args).unwrap().standalone_or_braid {
+            StandaloneOrBraid::Standalone(s) => s,
+            StandaloneOrBraid::Braid(_) => panic!("expected standalone, got braid"),
+        }
+    }
+
+    /// Parse `args`, asserting success and returning the braid arguments.
+    fn parse_braid(args: &[&str]) -> BraidArgs {
+        match parse(args).unwrap().standalone_or_braid {
+            StandaloneOrBraid::Braid(b) => b,
+            StandaloneOrBraid::Standalone(_) => panic!("expected braid, got standalone"),
+        }
+    }
+
+    #[test]
+    fn defaults_are_standalone() {
+        let args = parse(&[]).unwrap();
+        assert!(matches!(
+            args.standalone_or_braid,
+            StandaloneOrBraid::Standalone(_)
+        ));
+        // Standalone mode auto-opens the browser by default.
+        assert!(!args.no_browser);
+        assert_eq!(
+            args.mp4_filename_template,
+            "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.mp4"
+        );
+        assert_eq!(
+            args.fmf_filename_template,
+            "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.fmf"
+        );
+        assert_eq!(
+            args.ufmf_filename_template,
+            "movie%Y%m%d_%H%M%S.%f_{CAMNAME}.ufmf"
+        );
+        // `--csv-save-dir` defaults to `~/DATA`, shell-expanded.
+        assert!(!args.csv_save_dir.contains('~'));
+        assert!(args.csv_save_dir.ends_with("DATA"));
+        assert!(args.led_box_device_path.is_none());
+        assert!(args.data_dir.is_none());
+    }
+
+    #[test]
+    fn camera_name_standalone() {
+        let s = parse_standalone(&["--camera-name", "Basler-1234"]);
+        assert_eq!(s.camera_name.as_deref(), Some("Basler-1234"));
+    }
+
+    #[test]
+    fn browser_flag_forces_browser() {
+        let args = parse(&["--browser"]).unwrap();
+        assert!(!args.no_browser);
+    }
+
+    #[test]
+    fn no_browser_flag_prevents_browser() {
+        let args = parse(&["--no-browser"]).unwrap();
+        assert!(args.no_browser);
+    }
+
+    #[test]
+    fn browser_and_no_browser_conflict() {
+        assert!(parse(&["--browser", "--no-browser"]).is_err());
+    }
+
+    #[test]
+    fn filename_templates_override() {
+        let args = parse(&[
+            "--mp4_filename_template",
+            "a_{CAMNAME}.mp4",
+            "--fmf_filename_template",
+            "b_{CAMNAME}.fmf",
+            "--ufmf_filename_template",
+            "c_{CAMNAME}.ufmf",
+        ])
+        .unwrap();
+        assert_eq!(args.mp4_filename_template, "a_{CAMNAME}.mp4");
+        assert_eq!(args.fmf_filename_template, "b_{CAMNAME}.fmf");
+        assert_eq!(args.ufmf_filename_template, "c_{CAMNAME}.ufmf");
+    }
+
+    #[test]
+    fn camera_backend_accepts_known_values() {
+        for backend in ["pylon", "vimba", "webcam", "sim"] {
+            assert!(
+                parse(&["--camera-backend", backend]).is_ok(),
+                "backend {backend} should parse"
+            );
+        }
+    }
+
+    #[test]
+    fn camera_backend_rejects_unknown_value() {
+        assert!(parse(&["--camera-backend", "nonsense"]).is_err());
+    }
+
+    #[test]
+    fn pixel_format_standalone() {
+        let s = parse_standalone(&["--pixel-format", "Mono8"]);
+        assert_eq!(s.pixel_format.as_deref(), Some("Mono8"));
+    }
+
+    #[test]
+    fn force_camera_sync_mode_standalone() {
+        let s = parse_standalone(&["--force_camera_sync_mode"]);
+        assert!(s.force_camera_sync_mode);
+        // Absent by default.
+        let s = parse_standalone(&[]);
+        assert!(!s.force_camera_sync_mode);
+    }
+
+    #[test]
+    fn http_server_addr_standalone() {
+        let s = parse_standalone(&["--http-server-addr", "127.0.0.1:8080"]);
+        assert_eq!(s.http_server_addr.as_deref(), Some("127.0.0.1:8080"));
+    }
+
+    #[test]
+    fn camera_settings_filename_standalone() {
+        let s = parse_standalone(&["--camera-settings-filename", "/etc/cam.pfs"]);
+        assert_eq!(
+            s.camera_settings_filename,
+            Some(PathBuf::from("/etc/cam.pfs"))
+        );
+    }
+
+    #[test]
+    fn csv_save_dir_override() {
+        let args = parse(&["--csv-save-dir", "/tmp/strand-data"]).unwrap();
+        assert_eq!(args.csv_save_dir, "/tmp/strand-data");
+    }
+
+    #[test]
+    fn led_box_device() {
+        let args = parse(&["--led-box", "/dev/ttyUSB0"]).unwrap();
+        assert_eq!(args.led_box_device_path.as_deref(), Some("/dev/ttyUSB0"));
+    }
+
+    #[test]
+    fn cookie_secret_from_cli() {
+        let args = parse(&["--strand-cam-cookie-secret", "abc123"]).unwrap();
+        assert_eq!(args.secret.as_deref(), Some("abc123"));
+    }
+
+    #[test]
+    fn trusted_networks_split_and_appended() {
+        // Comma-delimited within one occurrence, plus repeated occurrences.
+        let args = parse(&[
+            "--trusted-network",
+            "100.64.0.0/10,10.0.0.0/8",
+            "--trusted-network",
+            "192.168.0.0/16",
+        ])
+        .unwrap();
+        assert_eq!(
+            args.trusted_networks,
+            vec![
+                "100.64.0.0/10".to_string(),
+                "10.0.0.0/8".to_string(),
+                "192.168.0.0/16".to_string(),
+            ]
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn data_dir_and_v4l2loopback_derived() {
+        let args = parse(&[
+            "--data-dir",
+            "/var/strand",
+            "--v4l2loopback",
+            "/dev/video10",
+        ])
+        .unwrap();
+        assert_eq!(args.data_dir, Some(PathBuf::from("/var/strand")));
+        assert_eq!(args.v4l2loopback, Some(PathBuf::from("/dev/video10")));
+    }
+
+    #[test]
+    fn braid_url_selects_braid_mode() {
+        let b = parse_braid(&[
+            "--braid-url",
+            "http://127.0.0.1:1234/",
+            "--camera-name",
+            "Basler-1",
+        ]);
+        assert_eq!(b.braid_url, "http://127.0.0.1:1234/");
+        assert_eq!(b.camera_name, "Basler-1");
+    }
+
+    #[test]
+    fn braid_defaults_to_no_browser() {
+        let args = parse(&[
+            "--braid-url",
+            "http://127.0.0.1:1234/",
+            "--camera-name",
+            "Basler-1",
+        ])
+        .unwrap();
+        assert!(args.no_browser);
+    }
+
+    #[test]
+    fn braid_requires_camera_name() {
+        assert!(parse(&["--braid-url", "http://127.0.0.1:1234/"]).is_err());
+    }
+
+    #[test]
+    fn braid_conflicts_with_pixel_format() {
+        let err = parse(&[
+            "--braid-url",
+            "http://127.0.0.1:1234/",
+            "--camera-name",
+            "Basler-1",
+            "--pixel-format",
+            "Mono8",
+        ])
+        .unwrap_err();
+        assert!(err.to_string().contains("pixel_format"));
+    }
+
+    #[test]
+    fn braid_conflicts_with_http_server_addr() {
+        assert!(
+            parse(&[
+                "--braid-url",
+                "http://127.0.0.1:1234/",
+                "--camera-name",
+                "Basler-1",
+                "--http-server-addr",
+                "127.0.0.1:8080",
+            ])
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn braid_conflicts_with_force_camera_sync_mode() {
+        assert!(
+            parse(&[
+                "--braid-url",
+                "http://127.0.0.1:1234/",
+                "--camera-name",
+                "Basler-1",
+                "--force_camera_sync_mode",
+            ])
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn unknown_argument_is_an_error() {
+        assert!(parse(&["--this-does-not-exist"]).is_err());
+    }
 }
