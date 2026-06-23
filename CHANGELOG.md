@@ -30,6 +30,11 @@
   the value to use with `--camera-name` or as a camera `name` in a Braid
   configuration file, so camera names can be discovered without launching a
   camera per terminal.
+* Added `braid-sim-bench`, a reproducible scaling/timing benchmark for Braid's
+  in-process 3D tracking core. It sweeps a grid of camera and insect counts,
+  reports tracker throughput (frames/s and real-time factor), and writes CSV
+  for scaling plots (`braid/braid-sim/scripts/plot_scaling.py`). Build it with
+  `cargo run -p braid-sim --features inprocess --bin braid-sim-bench`.
 
 ### Changed
 
