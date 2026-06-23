@@ -73,15 +73,15 @@ Reported columns: `track_fps` (frames tracked per wall-second), `realtime_x`
 
 ### Plotting
 
-[`scripts/plot_scaling.py`](scripts/plot_scaling.py) turns the CSV into two SVG
-line charts (vs. insects, one line per camera count; and vs. cameras, one line
-per insect count). It uses **only the Python 3 standard library** — no
-numpy/matplotlib required:
+`braid-sim-plot` turns the CSV into two SVG line charts (vs. insects, one line
+per camera count; and vs. cameras, one line per insect count). It only reads the
+CSV and writes SVG, so it builds in the default (lightweight) crate — no
+`inprocess`/flydra2/tokio and no plotting dependency:
 
 ```bash
-python3 scripts/plot_scaling.py scaling.csv --out scaling
+cargo run -p braid-sim --bin braid-sim-plot -- scaling.csv --out scaling
 # -> scaling-vs-insects.svg and scaling-vs-cameras.svg
-# choose the metric with --metric {realtime_x,track_fps,us_per_cam_frame,track_s}
+# choose the metric with --metric {realtime-x,track-fps,us-per-cam-frame,track-s}
 ```
 
 ### Reproducibility

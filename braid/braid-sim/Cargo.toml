@@ -46,3 +46,9 @@ path = "src/bin/braid-sim.rs"
 name = "braid-sim-bench"
 path = "src/bin/braid-sim-bench.rs"
 required-features = ["inprocess"]
+
+# The plotter only reads the benchmark CSV and writes SVG, so it builds in the
+# default (lightweight) crate — no `inprocess`/flydra2/tokio needed.
+[[bin]]
+name = "braid-sim-plot"
+path = "src/bin/braid-sim-plot.rs"
