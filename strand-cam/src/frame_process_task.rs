@@ -651,39 +651,51 @@ pub(crate) async fn frame_process_task<'a>(
                     )
                 };
 
-                // Estimate the frame rate from the camera's hardware timestamp
-                // when available (in nanoseconds), falling back to the host grab
-                // time otherwise. The hardware timestamp reflects the true
-                // acquisition time and is immune to host-side buffering; the host
-                // clock can be bunched under load, reading several times too
+                // Estimate the frame rate from the most acquisition-faithful
+                // timestamp available (in nanoseconds). Prefer the trigger
+                // timestamp: it is derived from the trigger / clock model and is
+                // available whenever a trigger is configured, so it covers more
+                // cases than the raw device timestamp (some cameras expose no
+                // usable hardware timestamp). When no trigger is in use, fall
+                // back to the camera's hardware/device timestamp, and only when
+                // neither is available fall back to the host grab time.
+                //
+                // Both the trigger and hardware timestamps reflect the true
+                // acquisition time and are immune to host-side buffering; the
+                // host clock can be bunched under load, reading several times too
                 // high. A too-high frame rate makes the tracker's dt=1/fps too
                 // small, shrinking the process noise and producing overconfident
                 // priors that reject real motion -- which can drop tracking and
                 // fragment trajectories.
-                let (fps_stamp_nanos, fps_source) = match device_timestamp {
-                    Some(device_ns) => (device_ns as i128, crate::FpsTimestampSource::Hardware),
-                    None => {
-                        if !warned_no_hw_timestamp {
-                            warned_no_hw_timestamp = true;
-                            tracing::warn!(
-                                "No hardware (camera device) timestamp available; estimating \
-                                 frame rate from the host clock. Under load the host may grab \
-                                 buffered frames in bursts, making the measured frame rate too \
-                                 high. A too-high frame rate gives the tracker an overconfident \
-                                 motion prior (dt=1/fps too small), which can reject real \
-                                 detections and drop/fragment tracking. Prefer a camera that \
-                                 provides hardware timestamps, or an external trigger."
-                            );
-                        }
-                        (
-                            frame
-                                .host_timing
-                                .datetime
-                                .timestamp_nanos_opt()
-                                .unwrap_or(0) as i128,
-                            crate::FpsTimestampSource::HostClock,
-                        )
+                let (fps_stamp_nanos, fps_source) = if let Some(stamp) = &braid_ts {
+                    let stamp_chrono: chrono::DateTime<chrono::Utc> = stamp.into();
+                    (
+                        stamp_chrono.timestamp_nanos_opt().unwrap_or(0) as i128,
+                        crate::FpsTimestampSource::Trigger,
+                    )
+                } else if let Some(device_ns) = device_timestamp {
+                    (device_ns as i128, crate::FpsTimestampSource::Hardware)
+                } else {
+                    if !warned_no_hw_timestamp {
+                        warned_no_hw_timestamp = true;
+                        tracing::warn!(
+                            "No trigger or hardware (camera device) timestamp available; \
+                             estimating frame rate from the host clock. Under load the host may \
+                             grab buffered frames in bursts, making the measured frame rate too \
+                             high. A too-high frame rate gives the tracker an overconfident \
+                             motion prior (dt=1/fps too small), which can reject real detections \
+                             and drop/fragment tracking. Prefer an external trigger, or a camera \
+                             that provides hardware timestamps."
+                        );
                     }
+                    (
+                        frame
+                            .host_timing
+                            .datetime
+                            .timestamp_nanos_opt()
+                            .unwrap_or(0) as i128,
+                        crate::FpsTimestampSource::HostClock,
+                    )
                 };
 
                 if let Some(new_fps) =

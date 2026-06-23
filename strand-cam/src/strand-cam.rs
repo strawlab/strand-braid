@@ -183,18 +183,24 @@ pub enum Tracker {
     BackgroundSubtraction(ImPtDetectCfg),
 }
 
-/// calculates a framerate every n frames
 /// Which timestamp source is used to estimate the frame rate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FpsTimestampSource {
-    /// The camera's hardware/device timestamp. Preferred: it reflects the true
-    /// acquisition time and is immune to host-side buffering, so the estimate is
-    /// correct even when frames are delivered to the host in bursts.
+    /// A trigger-derived timestamp (external trigger box, PTP sync, or the
+    /// device clock mapped through a clock model). Most preferred: it reflects
+    /// the true acquisition time and is available whenever a trigger is
+    /// configured — including for cameras that expose no usable raw hardware
+    /// timestamp — so it is usable in more cases than the device timestamp.
+    Trigger,
+    /// The camera's hardware/device timestamp. Used when no trigger is in use.
+    /// It reflects the true acquisition time and is immune to host-side
+    /// buffering, so the estimate is correct even when frames are delivered to
+    /// the host in bursts.
     Hardware,
-    /// The host clock sampled when the frame was grabbed. Fallback used when the
-    /// camera provides no hardware timestamp. Under load the driver buffers
-    /// frames and the host grabs them in bursts, so this can read several times
-    /// too high.
+    /// The host clock sampled when the frame was grabbed. Last-resort fallback
+    /// used when neither a trigger timestamp nor a camera hardware timestamp is
+    /// available. Under load the driver buffers frames and the host grabs them
+    /// in bursts, so this can read several times too high.
     HostClock,
 }
 
@@ -282,6 +288,28 @@ mod fps_calc_tests {
         assert!(
             (fps - true_fps).abs() < 0.1,
             "hardware fps {fps} != {true_fps}"
+        );
+    }
+
+    /// The trigger timestamp (the preferred source) is likewise robust to
+    /// bursty host-side delivery, since it reflects the true acquisition cadence
+    /// rather than when the host grabbed each frame.
+    #[test]
+    fn trigger_timestamp_is_robust_to_bursty_delivery() {
+        let mut fc = FpsCalc::new(100);
+        let true_fps = 30.0;
+        let dt_ns = (NS_PER_S as f64 / true_fps) as i128; // true inter-frame, ns
+        let mut measured = None;
+        for fno in 0..=100usize {
+            let stamp = fno as i128 * dt_ns;
+            if let Some(fps) = fc.update(fno, stamp, FpsTimestampSource::Trigger) {
+                measured = Some(fps);
+            }
+        }
+        let fps = measured.expect("should produce an estimate after 100 frames");
+        assert!(
+            (fps - true_fps).abs() < 0.1,
+            "trigger fps {fps} != {true_fps}"
         );
     }
 
