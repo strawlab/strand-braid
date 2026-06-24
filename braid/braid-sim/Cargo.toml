@@ -9,7 +9,7 @@ description = "Simulation harness for end-to-end testing of Braid 3D tracking: g
 # The in-process detection injector (src/inject.rs) drives the full flydra2
 # tracker, so it is opt-in to keep the default braid-sim build (and the ci2-sim
 # backend that depends on it) lightweight.
-inprocess = ["dep:flydra2", "dep:tokio", "dep:tokio-stream", "dep:chrono"]
+inprocess = ["dep:flydra2", "dep:tokio", "dep:tokio-stream", "dep:chrono", "dep:tempfile"]
 
 [dependencies]
 flydra-mvg.workspace = true
@@ -29,6 +29,7 @@ flydra2 = { workspace = true, features = ["bundle_files"], optional = true }
 tokio = { workspace = true, optional = true }
 tokio-stream = { workspace = true, optional = true }
 chrono = { workspace = true, optional = true }
+tempfile = { workspace = true, optional = true }
 
 [dev-dependencies]
 approx.workspace = true
@@ -38,3 +39,16 @@ tempfile.workspace = true
 [[bin]]
 name = "braid-sim"
 path = "src/bin/braid-sim.rs"
+
+# The scaling/timing benchmark drives the in-process tracker, so it only builds
+# with the `inprocess` feature (which pulls in flydra2 and a tokio runtime).
+[[bin]]
+name = "braid-sim-bench"
+path = "src/bin/braid-sim-bench.rs"
+required-features = ["inprocess"]
+
+# The plotter only reads the benchmark CSV and writes SVG, so it builds in the
+# default (lightweight) crate — no `inprocess`/flydra2/tokio needed.
+[[bin]]
+name = "braid-sim-plot"
+path = "src/bin/braid-sim-plot.rs"
