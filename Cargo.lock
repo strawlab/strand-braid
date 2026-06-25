@@ -170,7 +170,9 @@ dependencies = [
  "gloo-timers 0.3.0",
  "js-sys",
  "libflate",
+ "qrcode",
  "serde",
+ "serde_json",
  "serde_yaml",
  "simple-obj-parse",
  "strand-bui-backend-session-types",
@@ -180,6 +182,7 @@ dependencies = [
  "textured-tri-mesh",
  "uuid",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "web-sys",
  "yew",
  "yew-tincture",
@@ -10623,9 +10626,6 @@ name = "qrcode"
 version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d68782463e408eb1e668cf6152704bd856c78c5b6417adaee3203d8f4c1fc9ec"
-dependencies = [
- "image",
-]
 
 [[package]]
 name = "quick-error"
