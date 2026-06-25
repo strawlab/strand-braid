@@ -87,6 +87,13 @@ crates and files are derived from third-party code and carry different
 licenses (for example BSD-2-Clause or BSD-3-Clause), as noted in their
 file headers and `Cargo.toml` `license` fields.
 
+## Funding and Acknowledgments
+
+Strand Camera and Braid are developed partly via the [BeeTracked
+project](https://strawlab.org/2021/09/20/beetracked/), which is funded by the
+[VolkswagenStiftung](https://www.volkswagenstiftung.de/en). Further support
+comes from the [University of Freiburg](https://uni-freiburg.de).
+
 ## Contributions
 
 Contributions of any kind are welcome as a pull request.
