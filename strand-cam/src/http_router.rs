@@ -17,7 +17,7 @@ use eyre::Result;
 
 use crate::{
     APP_INFO, COOKIE_SECRET_KEY, StrandCamAppState, callback_handler, cam_name_handler,
-    events_handler, handle_auth_error,
+    device_connect_urls_handler, events_handler, handle_auth_error,
 };
 
 /// Load the persistent cookie/token secret, generating and saving a fresh one
@@ -103,6 +103,10 @@ pub(crate) fn build_http_router(
     let router = axum::Router::new()
         .route("/strand-cam-events", axum::routing::get(events_handler))
         .route("/cam-name", axum::routing::get(cam_name_handler))
+        .route(
+            "/device-connect-urls",
+            axum::routing::get(device_connect_urls_handler),
+        )
         .route("/callback", axum::routing::post(callback_handler))
         .fallback_service(serve_dir)
         .layer(

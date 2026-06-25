@@ -18,6 +18,9 @@ pub use self::toggle::Toggle;
 mod reload_button;
 pub use self::reload_button::ReloadButton;
 
+mod connect_device;
+pub use self::connect_device::ConnectDevice;
+
 mod enum_toggle;
 pub use self::enum_toggle::EnumToggle;
 

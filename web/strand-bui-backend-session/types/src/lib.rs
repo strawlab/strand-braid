@@ -47,6 +47,21 @@ pub enum AccessToken {
     PreSharedToken(String),
 }
 
+/// Connection URLs for reaching the running web UI from another device.
+///
+/// Returned by the backend `device-connect-urls` endpoint so the frontend can
+/// present per-interface links (and QR codes) for connecting a phone or other
+/// device on the same network.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceConnectUrls {
+    /// One entry per reachable interface address, each a full URL (including the
+    /// access token as a query parameter, when one is required).
+    pub urls: Vec<String>,
+    /// True when the only reachable address is loopback, in which case another
+    /// device cannot connect (the server is bound to localhost only).
+    pub loopback_only: bool,
+}
+
 /// Error type for URL parsing failures
 #[derive(Debug)]
 pub struct UrlParseError;

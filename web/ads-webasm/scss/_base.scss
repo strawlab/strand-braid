@@ -159,6 +159,43 @@ CSS custom properties defined in `_tokens.scss`. Components reference those
         box-shadow: var(--shadow);
     }
 
+    // The connect-a-device modal grows with its content (a list of per-interface
+    // QR codes) rather than using the fixed height of a plain modal.
+    .connect-device-modal {
+        height: auto;
+        max-height: calc(100vh - 100px);
+        overflow-y: auto;
+        background: var(--panel, #fff);
+    }
+
+    .connect-device-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .connect-device-item {
+        margin-bottom: 1.25em;
+    }
+
+    .connect-device-qr {
+        display: block;
+        margin: 0.5em 0;
+        background: #fff;
+        padding: 8px;
+        border-radius: 6px;
+    }
+
+    .connect-device-link {
+        word-break: break-all;
+        font-family: monospace;
+        font-size: 0.85em;
+    }
+
+    .connect-device-error {
+        color: var(--error, #b00);
+    }
+
     .infoCircle {
         display: inline-block;
         width: 1.0em;

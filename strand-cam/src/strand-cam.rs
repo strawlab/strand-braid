@@ -536,6 +536,12 @@ struct StrandCamAppState {
     callback_senders: StrandCamCallbackSenders,
     tx_new_connection: tokio::sync::mpsc::Sender<event_stream_types::ConnectionEvent>,
     shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
+    /// The address the HTTP server is bound to (possibly unspecified, e.g.
+    /// `0.0.0.0`), used to enumerate device-connection URLs on demand.
+    bui_server_info: strand_bui_backend_session_types::BuiServerAddrInfo,
+    /// The cookie/token secret, used to mint a fresh short-lived access token
+    /// when a device-connection QR code is requested.
+    persistent_secret: cookie::Key,
 }
 
 type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, strand_bui_backend_session::Error>;
@@ -946,6 +952,59 @@ async fn cam_name_handler(
 ) -> impl axum::response::IntoResponse {
     session_key.is_present();
     app_state.cam_name.clone()
+}
+
+/// Returns the URLs (one per reachable network interface) at which this web UI
+/// can be reached, each carrying a freshly minted short-lived access token. The
+/// frontend turns these into QR codes for connecting another device.
+async fn device_connect_urls_handler(
+    axum::extract::State(app_state): axum::extract::State<StrandCamAppState>,
+    session_key: axum_token_auth::SessionKey,
+) -> impl axum::response::IntoResponse {
+    session_key.is_present();
+    build_device_connect_urls(&app_state.bui_server_info, &app_state.persistent_secret)
+}
+
+/// Build the [`DeviceConnectUrls`] response: enumerate the interfaces the server
+/// is reachable on and mint a fresh access token (unless bound to loopback).
+///
+/// [`DeviceConnectUrls`]: strand_bui_backend_session_types::DeviceConnectUrls
+fn build_device_connect_urls(
+    bui_server_info: &strand_bui_backend_session_types::BuiServerAddrInfo,
+    persistent_secret: &cookie::Key,
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    use strand_bui_backend_session_types::{AccessToken, BuiServerAddrInfo, DeviceConnectUrls};
+
+    let bound = *bui_server_info.addr();
+    // Match the token policy of `braid_types::start_listener`: a token is only
+    // required (and only useful) when the server is not bound to loopback.
+    let token = if bound.ip().is_loopback() {
+        AccessToken::NoToken
+    } else {
+        AccessToken::PreSharedToken(axum_token_auth::generate_token(
+            persistent_secret,
+            braid_types::ACCESS_TOKEN_TTL,
+        ))
+    };
+    let info = BuiServerAddrInfo::new(bound, token);
+    let uris = match strand_bui_backend_session::build_urls(&info) {
+        Ok(uris) => uris,
+        Err(e) => {
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                format!("failed to enumerate network interfaces: {e}"),
+            )
+                .into_response();
+        }
+    };
+    let loopback_only = uris.iter().all(braid_types::is_loopback);
+    let urls = uris.into_iter().map(|u| u.to_string()).collect();
+    axum::Json(DeviceConnectUrls {
+        urls,
+        loopback_only,
+    })
+    .into_response()
 }
 
 async fn callback_handler(
@@ -2262,6 +2321,8 @@ where
         callback_senders,
         tx_new_connection,
         shared_store_arc,
+        bui_server_info: http_camserver_info.clone(),
+        persistent_secret: persistent_secret.clone(),
     };
 
     let shared_store_arc = shared_state.clone();

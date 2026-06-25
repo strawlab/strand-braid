@@ -18,7 +18,7 @@ use strand_cam_bui_types::RecordingPath;
 use yew::{Component, Context, Event, Html, html};
 use yew_tincture::components::{Button, CheckboxLabel, TypedInput, TypedInputStorage};
 
-use ads_webasm::components::{RecordingPathWidget, ReloadButton, Toggle};
+use ads_webasm::components::{ConnectDevice, RecordingPathWidget, ReloadButton, Toggle};
 
 mod cam_preview;
 use cam_preview::CamPreview;
@@ -242,6 +242,7 @@ impl Component for Model {
                         <a href="https://strawlab.org/braid/"><span class="infoCircle">{"ⓘ"}</span></a>
                     </h1>
                     <img src="braid-logo-no-text.png" class="center logo-img" width="523" height="118" alt="Braid logo"/>
+                    <div style="text-align: center;"><ConnectDevice /></div>
                     {self.disconnected_dialog()}
                     {self.view_shared(ctx)}
                     <footer id="footer">

@@ -43,7 +43,9 @@ use yew_tincture::components::{TypedInput, TypedInputStorage};
 mod components;
 use crate::components::AutoModeSelect;
 
-use ads_webasm::components::{ConfigField, RangedValue, RecordingPathWidget, ReloadButton, Toggle};
+use ads_webasm::components::{
+    ConfigField, ConnectDevice, RangedValue, RecordingPathWidget, ReloadButton, Toggle,
+};
 use yew_tincture::components::Button;
 
 use components::LedBoxControl;
@@ -595,6 +597,7 @@ impl Component for Model {
             <div>
                 <h1 style="text-align: center;">{strand_cam_name}<a href="https://strawlab.org/strand-cam/"><span class="infoCircle">{"ⓘ"}</span></a></h1>
                 <img src="strand-camera-no-text.png" width="521" height="118" class="center logo-img" alt="Strand Camera logo"/>
+                <div style="text-align: center;"><ConnectDevice /></div>
                 { self.disconnected_dialog() }
                 { self.frame_processing_error_dialog(ctx) }
                 { self.led_box_failed() }

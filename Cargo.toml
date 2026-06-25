@@ -225,7 +225,7 @@ pin-project = "1.0.11"
 preferences-serde1 = "2.0.0"
 pretty-print-nalgebra = "0.1.0"
 pylon-shimload = "0.1.1"
-qrcode = "0.14.1"
+qrcode = { version = "0.14.1", default-features = false }
 rand = "0.9"
 rand_chacha = "0.9"
 regex = "1.11"

@@ -97,6 +97,12 @@ pub(crate) struct BraidAppState {
     pub(crate) braidz_write_tx_weak: tokio::sync::mpsc::WeakSender<flydra2::SaveToDiskMsg>,
     /// Sending `()` initiates the graceful shutdown sequence.
     pub(crate) shtdwn_q_tx: tokio::sync::mpsc::Sender<()>,
+    /// The address the HTTP server is bound to (possibly unspecified, e.g.
+    /// `0.0.0.0`), used to enumerate device-connection URLs on demand.
+    pub(crate) bui_server_info: BuiServerAddrInfo,
+    /// The cookie/token secret, used to mint a fresh short-lived access token
+    /// when a device-connection QR code is requested.
+    pub(crate) persistent_secret: cookie::Key,
 }
 
 async fn events_handler(
@@ -187,6 +193,46 @@ async fn remote_camera_info_handler(
             format!("Camera \"{raw_cam_name}\" not found."),
         ))
     }
+}
+
+/// Returns the URLs (one per reachable network interface) at which this web UI
+/// can be reached, each carrying a freshly minted short-lived access token. The
+/// frontend turns these into QR codes for connecting another device.
+async fn device_connect_urls_handler(
+    State(app_state): State<BraidAppState>,
+    session_key: axum_token_auth::SessionKey,
+) -> impl axum::response::IntoResponse {
+    session_key.is_present();
+
+    let bound = *app_state.bui_server_info.addr();
+    // Match the token policy of `braid_types::start_listener`: a token is only
+    // required (and only useful) when the server is not bound to loopback.
+    let token = if bound.ip().is_loopback() {
+        AccessToken::NoToken
+    } else {
+        AccessToken::PreSharedToken(axum_token_auth::generate_token(
+            &app_state.persistent_secret,
+            braid_types::ACCESS_TOKEN_TTL,
+        ))
+    };
+    let info = BuiServerAddrInfo::new(bound, token);
+    let uris = match strand_bui_backend_session::build_urls(&info) {
+        Ok(uris) => uris,
+        Err(e) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("failed to enumerate network interfaces: {e}"),
+            ));
+        }
+    };
+    let loopback_only = uris.iter().all(braid_types::is_loopback);
+    let urls = uris.into_iter().map(|u| u.to_string()).collect();
+    Ok(axum::Json(
+        strand_bui_backend_session_types::DeviceConnectUrls {
+            urls,
+            loopback_only,
+        },
+    ))
 }
 
 async fn cam_proxy_handler_inner(
@@ -352,6 +398,7 @@ async fn launch_braid_http_backend(
             "/remote-camera-info/{encoded_cam_name}",
             get(remote_camera_info_handler),
         )
+        .route("/device-connect-urls", get(device_connect_urls_handler))
         // .route("/cam-proxy/:encoded_cam_name", get(slash_redirect_handler))
         .route(
             "/cam-proxy/{encoded_cam_name}/",
@@ -704,6 +751,8 @@ pub(crate) async fn do_run_forever(
         output_base_dirname,
         strand_cam_http_session_handler: strand_cam_http_session_handler.clone(),
         shtdwn_q_tx,
+        bui_server_info: mainbrain_server_info.clone(),
+        persistent_secret: persistent_secret.clone(),
     };
 
     // This future will send state updates to all connected event listeners.
