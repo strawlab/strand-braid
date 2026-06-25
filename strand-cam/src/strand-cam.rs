@@ -2329,6 +2329,9 @@ where
 
     // This future will send state updates to all connected event listeners.
     let event_broadcaster = app_state.event_broadcaster.clone();
+    // A separate handle for the command task, which broadcasts a final "quit"
+    // event to all clients during shutdown.
+    let quit_event_broadcaster = app_state.event_broadcaster.clone();
     let send_updates_future = async move {
         while let Some((_prev_state, next_state)) = shared_store_changes_rx.next().await {
             let chunk = to_event_chunk(&next_state);
@@ -2550,6 +2553,7 @@ where
             cam,
             cam_args_rx,
             shared_store_arc.clone(),
+            quit_event_broadcaster,
             frame_processing_error_state,
             transmit_msg_tx,
             current_cam_settings_extension,

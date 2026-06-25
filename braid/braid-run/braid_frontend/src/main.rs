@@ -56,6 +56,8 @@ enum Msg {
     SetBackgroundUpdating(bool),
     SetCamPreview(String, bool),
     DoQuit,
+    /// The server broadcast that it is shutting down.
+    ServerQuit,
     RenderView,
 }
 
@@ -115,6 +117,15 @@ impl Component for Model {
                 cb.emit(text);
             },
         )];
+
+        let quit_callback = ctx.link().callback(|_| Msg::ServerQuit);
+        _listeners.push(EventListener::new(
+            &es,
+            braid_types::BRAID_QUIT_EVENT_NAME,
+            move |_event: &Event| {
+                quit_callback.emit(());
+            },
+        ));
 
         let link = ctx.link().clone();
         _listeners.push(EventListener::new(&es, "error", move |_event: &Event| {
@@ -230,11 +241,25 @@ impl Component for Model {
                     }
                 });
             }
+            Msg::ServerQuit => {
+                // The server is shutting down. Show the "has quit" screen (the
+                // same as if this browser had pressed Quit) and close the event
+                // stream so the browser stops trying to reconnect.
+                self.user_quit = true;
+                self.es.close();
+            }
         }
         true
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
+        if self.user_quit {
+            // Show only the "has quit" screen. Rendering nothing else unmounts
+            // the camera-preview tiles, stopping their keepalive intervals which
+            // would otherwise keep POSTing `FirehoseNotify` through the now-gone
+            // proxy.
+            return self.disconnected_dialog();
+        }
         html! {
             <div id="page-container">
                 <div id="content-wrap">

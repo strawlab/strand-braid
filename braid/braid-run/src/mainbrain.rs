@@ -24,9 +24,9 @@ use tower_http::trace::TraceLayer;
 use tracing::{debug, error, info};
 
 use braid_types::{
-    BRAID_EVENT_NAME, BRAID_EVENTS_URL_PATH, BraidHttpApiSharedState, CamInfo, CborPacketCodec,
-    FakeSyncConfig, FlydraFloatTimestampLocal, PerCamSaveData, RawCamName, SyncFno,
-    TRIGGERBOX_SYNC_SECONDS, TriggerType, Triggerbox,
+    BRAID_EVENT_NAME, BRAID_EVENTS_URL_PATH, BRAID_QUIT_EVENT_NAME, BraidHttpApiSharedState,
+    CamInfo, CborPacketCodec, FakeSyncConfig, FlydraFloatTimestampLocal, PerCamSaveData,
+    RawCamName, SyncFno, TRIGGERBOX_SYNC_SECONDS, TriggerType, Triggerbox,
     braid_http::{CAM_PROXY_PATH, REMOTE_CAMERA_INFO_PATH},
 };
 use event_stream_types::{AcceptsEventStream, EventBroadcaster};
@@ -541,6 +541,12 @@ pub(crate) async fn do_run_forever(
     let (quit_trigger, valve) = stream_cancel::Valve::new();
     let (shtdwn_q_tx, mut shtdwn_q_rx) = tokio::sync::mpsc::channel::<()>(5);
 
+    // The SSE event broadcaster. Browser connections register here (via the app
+    // state) and state updates are pushed through it. It is created here, before
+    // the shutdown handler below, so that handler can broadcast a final "quit"
+    // event to every connected client during shutdown.
+    let event_broadcaster: EventBroadcaster<usize> = EventBroadcaster::default();
+
     let recon = if let Some(ref cal_fname) = cal_fname {
         info!("using calibration: {}", cal_fname.display());
         let require_radfiles = false;
@@ -614,6 +620,7 @@ pub(crate) async fn do_run_forever(
     let mut quit_trigger_container = Some(quit_trigger);
     let mut strand_cam_http_session_handler2 = strand_cam_http_session_handler.clone();
     let braidz_write_tx_weak = coord_processor.braidz_write_tx.downgrade();
+    let shutdown_event_broadcaster = event_broadcaster.clone();
     tokio::spawn(async move {
         while let Some(()) = shtdwn_q_rx.recv().await {
             debug!("got shutdown command {}:{}", file!(), line!());
@@ -636,6 +643,17 @@ pub(crate) async fn do_run_forever(
             }
 
             strand_cam_http_session_handler2.send_quit_all().await;
+
+            // Tell every connected browser we are shutting down, so all clients
+            // (not only the one that pressed Quit) show the "Braid has quit"
+            // screen and stop reconnecting. This is sent while the HTTP server
+            // is still running: `quit_trigger.cancel()` below ends the
+            // top-level `select!` and thus drops the server future. The brief
+            // sleep gives the message time to flush to clients first.
+            shutdown_event_broadcaster
+                .broadcast_frame(quit_event_frame())
+                .await;
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
             // When we get here, we have successfully sent DoQuit to all cams.
             // We can now quit everything in the mainbrain.
@@ -741,7 +759,7 @@ pub(crate) async fn do_run_forever(
         lowlatency_camdata_udp_addr,
         force_camera_sync_mode,
         software_limit_framerate,
-        event_broadcaster: Default::default(),
+        event_broadcaster: event_broadcaster.clone(),
         per_cam_data_arc: per_cam_data_arc.clone(),
         camera_configs,
         next_connection_id: Arc::new(RwLock::new(0)),
@@ -1439,4 +1457,12 @@ fn to_event_frame(state: &BraidHttpApiSharedState) -> String {
     let buf = serde_json::to_string(&state).unwrap();
     let frame_string = format!("event: {BRAID_EVENT_NAME}\ndata: {buf}\n\n");
     frame_string
+}
+
+/// Build the Server-Sent Events frame announcing that the server is quitting.
+///
+/// The data payload is unused by the frontend (the event name alone is the
+/// signal), but SSE frames must carry a `data:` line.
+fn quit_event_frame() -> String {
+    format!("event: {BRAID_QUIT_EVENT_NAME}\ndata: quit\n\n")
 }

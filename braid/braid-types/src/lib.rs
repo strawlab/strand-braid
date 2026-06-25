@@ -1535,3 +1535,9 @@ where
 pub const BRAID_EVENTS_URL_PATH: &str = "braid-events";
 /// Event name for Braid events.
 pub const BRAID_EVENT_NAME: &str = "braid";
+/// Event name for the server-is-quitting SSE message.
+///
+/// Broadcast to every connected browser just before the server shuts down so
+/// that all clients (not only the one that initiated the quit) show the "Braid
+/// has quit" screen and stop trying to reconnect.
+pub const BRAID_QUIT_EVENT_NAME: &str = "braid-quit";

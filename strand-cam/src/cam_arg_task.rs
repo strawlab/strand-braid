@@ -18,9 +18,10 @@ use eyre::Result;
 
 use async_change_tracker::ChangeTracker;
 use ci2::Camera;
+use event_stream_types::{ConnectionSessionKey, EventBroadcaster};
 use strand_cam_bui_types::RecordingPath;
 use strand_cam_remote_control::CamArg;
-use strand_cam_storetype::StoreType;
+use strand_cam_storetype::{STRAND_CAM_QUIT_EVENT_NAME, StoreType};
 
 use crate::{FrameProcessingErrorState, Msg, send_cam_settings_to_braid, to_eyre};
 
@@ -60,6 +61,7 @@ pub(crate) async fn run_cam_arg_task<C>(
     mut cam: ci2_async::ThreadedAsyncCamera<C>,
     cam_args_rx: tokio::sync::mpsc::Receiver<CamArg>,
     shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
+    event_broadcaster: EventBroadcaster<ConnectionSessionKey>,
     frame_processing_error_state: Arc<RwLock<crate::FrameProcessingErrorState>>,
     transmit_msg_tx: Option<tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>>,
     current_cam_settings_extension: String,
@@ -832,7 +834,16 @@ where
         }
     }
 
-    // We get here iff DoQuit broke us out of infinite loop.
+    // We get here iff DoQuit (or a closed command channel) broke us out of the
+    // infinite loop.
+
+    // Tell every connected browser that we are shutting down, so that all
+    // clients show the "Strand Camera has quit" screen and stop reconnecting,
+    // not just the one that pressed Quit. This must happen here, while the HTTP
+    // server is still running: once this task returns, the top-level `select!`
+    // drops (cancels) the HTTP server future. The camera-stop sequence below
+    // then gives the message time to flush to clients before that happens.
+    event_broadcaster.broadcast_frame(quit_event_chunk()).await;
 
     // In theory, all things currently being saved should nicely stop themselves when dropped.
     // For now, while we are working on ctrlc handling, we manually stop them.
@@ -865,4 +876,12 @@ where
     info!("cam_args_rx future is resolved");
 
     Ok(())
+}
+
+/// Build the Server-Sent Events frame announcing that the server is quitting.
+///
+/// The data payload is unused by the frontend (the event name alone is the
+/// signal), but SSE frames must carry a `data:` line.
+fn quit_event_chunk() -> String {
+    format!("event: {STRAND_CAM_QUIT_EVENT_NAME}\ndata: quit\n\n")
 }

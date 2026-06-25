@@ -62,6 +62,9 @@ enum Msg {
     NewConnKey(String),
     NewServerState(Box<ServerState>),
 
+    /// The server broadcast that it is shutting down.
+    ServerQuit,
+
     FailedCallbackJsonDecode(String),
     DismissJsonDecodeError,
 
@@ -262,6 +265,15 @@ impl Component for Model {
             },
         ));
 
+        let quit_callback = ctx.link().callback(|_| Msg::ServerQuit);
+        _listeners.push(EventListener::new(
+            &es,
+            strand_cam_storetype::STRAND_CAM_QUIT_EVENT_NAME,
+            move |_event: &Event| {
+                quit_callback.emit(());
+            },
+        ));
+
         let link = ctx.link().clone();
         _listeners.push(EventListener::new(&es, "error", move |_event: &Event| {
             // Trigger a UI redraw on error, because we won't get any state
@@ -334,6 +346,13 @@ impl Component for Model {
             }
             Msg::RenderedImage(fci) => {
                 self.send_message(CallbackType::FirehoseNotify(fci), ctx);
+            }
+            Msg::ServerQuit => {
+                // The server is shutting down. Show the "has quit" screen (the
+                // same as if this browser had pressed Quit) and close the event
+                // stream so the browser stops trying to reconnect.
+                self.user_quit = true;
+                self.es.close();
             }
             Msg::NewConnKey(conn_key) => {
                 self.conn_key = conn_key;
@@ -588,6 +607,12 @@ impl Component for Model {
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
+        if self.user_quit {
+            // Show only the "has quit" screen. Rendering nothing else unmounts
+            // the video field, stopping its keepalive interval which would
+            // otherwise keep POSTing `FirehoseNotify` to the now-gone server.
+            return self.disconnected_dialog();
+        }
         if self.video_field_full_window {
             // alternate top-level view where only the video field is shown
             return self.view_video(ctx);

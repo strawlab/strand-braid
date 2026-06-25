@@ -110,6 +110,13 @@ pub const STRAND_CAM_EVENT_NAME: &str = "strand-cam";
 /// Used for session management and authentication in the browser interface.
 pub const CONN_KEY_EVENT_NAME: &str = "connection-key";
 
+/// Event name for the server-is-quitting SSE message.
+///
+/// Broadcast to every connected browser just before the server shuts down so
+/// that all clients (not only the one that initiated the quit) show the
+/// "Strand Camera has quit" screen and stop trying to reconnect.
+pub const STRAND_CAM_QUIT_EVENT_NAME: &str = "strand-cam-quit";
+
 /// Complete state representation of a Strand Camera instance.
 ///
 /// This is the primary data structure that encapsulates all configuration,
