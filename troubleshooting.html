@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">9.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">10.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">11.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html" class="active"><strong aria-hidden="true">12.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="braid_scaling_reverse_proxy.html"><strong aria-hidden="true">9.</strong> Running Braid with many cameras (reverse proxy)</a></li><li class="chapter-item expanded "><a href="braid_tailscale_remote_access.html"><strong aria-hidden="true">10.</strong> Remote access with Tailscale</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">11.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="braid_offline_retracking.html"><strong aria-hidden="true">12.</strong> Offline retracking</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">13.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">14.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html" class="active"><strong aria-hidden="true">15.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -262,6 +262,23 @@ http_server_addr = &quot;192.168.1.20:0&quot;  # IP of the remote camera machine
 </li>
 </ol>
 <p>See <a href="braid_remote_cameras.html">Remote Cameras for Braid</a> for the full setup guide.</p>
+<h2><a class="header" href="#camera-fails-to-open-controlled-by-another-application" id="camera-fails-to-open-controlled-by-another-application">Camera fails to open: &quot;controlled by another application&quot;</a></h2>
+<p>If launching Strand Camera or Braid fails with an error mentioning that opening
+the camera failed and that <em>&quot;The device is controlled by another application&quot;</em>,
+the camera is already open in another program. The camera vendor SDKs (Basler
+Pylon, Allied Vision Vimba) allow only <strong>one</strong> application to open a given camera
+at a time.</p>
+<p>The most common causes are:</p>
+<ul>
+<li><strong>Basler Pylon Viewer</strong> (or the pylon IP Configurator) is open with the camera
+selected. Close it fully — it is good practice to close vendor viewers before
+starting Braid.</li>
+<li><strong>A previous Braid or Strand Camera instance is still running.</strong> A browser GUI
+window can be closed while the program keeps running in its terminal. Find the
+terminal still running the program and stop it (Ctrl+C), or otherwise ensure no
+stale <code>strand-cam</code> / <code>braid-run</code> process is holding the camera.</li>
+</ul>
+<p>Once the other application has released the camera, start Braid again.</p>
 <h2><a class="header" href="#any-other-problem-or-question" id="any-other-problem-or-question">Any other problem or question</a></h2>
 <p>To help diagnose issues, it is helpful to increase logging verbosity by setting
 the <code>RUST_LOG</code> environment variable to <code>debug</code> (or, more verbose, <code>trace</code>) when

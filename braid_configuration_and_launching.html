@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html" class="active"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">9.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">10.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">11.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">12.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html" class="active"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="braid_scaling_reverse_proxy.html"><strong aria-hidden="true">9.</strong> Running Braid with many cameras (reverse proxy)</a></li><li class="chapter-item expanded "><a href="braid_tailscale_remote_access.html"><strong aria-hidden="true">10.</strong> Remote access with Tailscale</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">11.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="braid_offline_retracking.html"><strong aria-hidden="true">12.</strong> Offline retracking</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">13.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">14.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">15.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -203,6 +203,74 @@ name = &quot;Basler-0815-0001&quot;
 
 [[cameras]]
 name = &quot;Basler-0815-0002&quot;
+</code></pre>
+<p>Each camera <code>name</code> is computed from its vendor and serial number (for example
+<code>Basler-22005677</code>). To discover the names of the connected cameras without
+launching a camera, run:</p>
+<pre><code class="language-sh">strand-cam --list-cameras
+</code></pre>
+<p>This prints the available cameras (name, model, and serial) for the selected
+<code>--camera-backend</code> (Basler Pylon by default) and exits. Use a printed name as
+the <code>name</code> of a <code>[[cameras]]</code> entry above, or with <code>strand-cam --camera-name</code>.</p>
+<h2><a class="header" href="#camera-synchronization-the-trigger-table" id="camera-synchronization-the-trigger-table">Camera synchronization (the <code>[trigger]</code> table)</a></h2>
+<p>For 3D tracking, all cameras must expose frames that were acquired at the same
+instant so that Braid can combine their 2D detections. How this synchronization
+is achieved is configured in the optional <code>[trigger]</code> table. The variant is
+selected with the <code>trigger_type</code> key. If the <code>[trigger]</code> table is omitted, Braid
+defaults to <code>FakeSync</code> (see below), which is <strong>not</strong> true synchronization and is
+intended only for testing.</p>
+<p>The reference documentation is
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/enum.TriggerType.html"><code>braid_types::TriggerType</code></a>.</p>
+<h3><a class="header" href="#ptpsync--gige-cameras-synchronized-over-the-network-with-ptp" id="ptpsync--gige-cameras-synchronized-over-the-network-with-ptp"><code>PtpSync</code> — GigE cameras synchronized over the network with PTP</a></h3>
+<p>This is the recommended method for GigE Vision cameras (such as Basler GigE
+models) that support the Precision Time Protocol (PTP, IEEE 1588). The cameras
+discipline their clocks to a PTP master clock running on the host PC (for
+example via <a href="https://github.com/ptpd/ptpd"><code>ptpd</code></a>), and Braid programs each
+camera to emit frames on a shared periodic schedule.</p>
+<pre><code class="language-toml">[trigger]
+trigger_type = &quot;PtpSync&quot;
+# The frame period in microseconds. 25000 µs = 25 ms = 40 fps.
+periodic_signal_period_usec = 25000.0
+</code></pre>
+<p>The <strong>camera frame rate is set by <code>periodic_signal_period_usec</code></strong> — it is the
+interval between triggers, in microseconds. For example <code>25000.0</code> gives 40 fps,
+<code>20000.0</code> gives 50 fps, and <code>10000.0</code> gives 100 fps.</p>
+<blockquote>
+<p><strong>Warning:</strong> Do not set the period shorter than the camera exposure time
+(configured in the camera's <code>.pfs</code>/settings). If the exposure is longer than
+the trigger period, the camera cannot produce a frame for every trigger, and
+the effective frame rate will differ from the configured value and cameras may
+desynchronize. Set the exposure time below the period (e.g. for 40 fps / 25 ms,
+use an exposure well under 25 ms).</p>
+</blockquote>
+<p>Setting up <code>ptpd</code> and the network (jumbo frames, the correct interface, the host
+as PTP master) is an operating-system task performed once; see the
+<a href="./troubleshooting.html#ptp-synchronization-problems">Troubleshooting</a> page if
+cameras fail to synchronize.</p>
+<h3><a class="header" href="#triggerboxv1--hardware-trigger-over-usb" id="triggerboxv1--hardware-trigger-over-usb"><code>TriggerboxV1</code> — hardware trigger over USB</a></h3>
+<p>Cameras are triggered by a hardware pulse from a <a href="https://github.com/strawlab/triggerbox">Straw Lab
+triggerbox</a>. This works with cameras
+that have an external trigger input (including USB cameras) and provides
+sub-millisecond timing.</p>
+<pre><code class="language-toml">[trigger]
+trigger_type = &quot;TriggerboxV1&quot;
+device_fname = &quot;/dev/trig1&quot;   # serial device of the triggerbox
+framerate = 100.0             # frames per second
+</code></pre>
+<h3><a class="header" href="#devicetimestamp--rely-on-camera-provided-timestamps" id="devicetimestamp--rely-on-camera-provided-timestamps"><code>DeviceTimestamp</code> — rely on camera-provided timestamps</a></h3>
+<p>Cameras are synchronized using timestamps reported by the cameras themselves
+(for example, cameras already disciplined to a common clock by external means).</p>
+<pre><code class="language-toml">[trigger]
+trigger_type = &quot;DeviceTimestamp&quot;
+</code></pre>
+<h3><a class="header" href="#fakesync--no-real-synchronization-testing-only" id="fakesync--no-real-synchronization-testing-only"><code>FakeSync</code> — no real synchronization (testing only)</a></h3>
+<p>Braid pretends the cameras are synchronized at a fixed nominal frame rate. This
+is useful for development and with emulated cameras, but must <strong>not</strong> be used for
+real 3D tracking, because frames from different cameras are not actually
+simultaneous. The Braid GUI displays a warning when <code>FakeSync</code> is in effect.</p>
+<pre><code class="language-toml">[trigger]
+trigger_type = &quot;FakeSync&quot;
+framerate = 95.0
 </code></pre>
 <h2><a class="header" href="#inspecting-the-resolved-configuration" id="inspecting-the-resolved-configuration">Inspecting the resolved configuration</a></h2>
 <p>To see the full configuration that Braid will use — including all default

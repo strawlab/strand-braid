@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html" class="active"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">9.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">10.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">11.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">12.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html" class="active"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="braid_scaling_reverse_proxy.html"><strong aria-hidden="true">9.</strong> Running Braid with many cameras (reverse proxy)</a></li><li class="chapter-item expanded "><a href="braid_tailscale_remote_access.html"><strong aria-hidden="true">10.</strong> Remote access with Tailscale</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">11.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="braid_offline_retracking.html"><strong aria-hidden="true">12.</strong> Offline retracking</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">13.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">14.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">15.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -238,6 +238,33 @@ file (for example <code>~/.bashrc</code>):</p>
 <p><code>PYLON_CABI</code> is read from the process environment, so make sure it is set
 wherever the software is launched — including non-interactive contexts such as a
 <code>systemd</code> service, a <code>cron</code> job, or <code>sudo</code> without <code>-E</code>.</p>
+<h2><a class="header" href="#installing-the-vimba-sdk-allied-vision-cameras" id="installing-the-vimba-sdk-allied-vision-cameras">Installing the Vimba SDK (Allied Vision cameras)</a></h2>
+<p>To use Allied Vision cameras (the <code>--camera-backend vimba</code> backend), install
+Allied Vision's <strong>Vimba X</strong> SDK. Download <code>VimbaX_Setup-2024-1-Linux64.tar.gz</code>
+from the <a href="https://www.alliedvision.com/en/products/vimba-sdk/">Allied Vision website</a>
+and follow Allied Vision's installation instructions.</p>
+<blockquote>
+<p><strong>Important:</strong> Follow the Vimba SDK's own installation steps to the end — in
+particular, <strong>run its GenTL path installer</strong>. Extracting the archive alone is
+not sufficient. After extracting to <code>/opt</code>, run:</p>
+<pre><code class="language-sh">sudo /opt/VimbaX_2024-1/cti/Install_GenTL_Path.sh
+</code></pre>
+<p>This installs <code>/etc/profile.d/VimbaX_GenTL_Path_64bit.sh</code>, which sets the
+<code>GENICAM_GENTL64_PATH</code> environment variable so the SDK can find its GenTL
+<em>transport layers</em> (the <code>.cti</code> files under <code>/opt/VimbaX_2024-1/cti/</code>). Then
+<strong>start a new login shell</strong> (log out and back in, or open a new terminal) so
+that variable is in effect.</p>
+<p>If <code>GENICAM_GENTL64_PATH</code> does not point to the Vimba transport layers, Strand
+Camera fails to start the Vimba backend with the error <code>VmbErrorNoTL</code> (&quot;no
+transport layer&quot;), even though the SDK library itself loaded successfully. If
+you see that error, complete the Vimba installation as above. To set the
+variable for just one shell without the installer, export it directly:</p>
+<pre><code class="language-sh">export GENICAM_GENTL64_PATH=&quot;/opt/VimbaX_2024-1/cti:$GENICAM_GENTL64_PATH&quot;
+</code></pre>
+<p>(The SDK also ships <code>Set_GenTL_Path.sh</code> for this, but that script must be
+sourced from within its own directory to work correctly, so the explicit
+<code>export</code> above is more reliable. The installer is the persistent fix.)</p>
+</blockquote>
 <h2><a class="header" href="#hardware-installation" id="hardware-installation">Hardware installation</a></h2>
 <h3><a class="header" href="#cameras" id="cameras">Cameras</a></h3>
 <p>Currently Basler cameras are best supported. We use Basler's Pylon library to

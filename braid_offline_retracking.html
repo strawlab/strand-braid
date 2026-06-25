@@ -3,12 +3,12 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Braid and Strand Camera - User's Guide for Braid and Strand Camera</title>
+        <title>Offline retracking - User's Guide for Braid and Strand Camera</title>
         
         
 
 
-        <link rel="canonical" href="index.html">
+        <!-- Custom HTML head -->
         
 
 
@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="braid_scaling_reverse_proxy.html"><strong aria-hidden="true">9.</strong> Running Braid with many cameras (reverse proxy)</a></li><li class="chapter-item expanded "><a href="braid_tailscale_remote_access.html"><strong aria-hidden="true">10.</strong> Remote access with Tailscale</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">11.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="braid_offline_retracking.html"><strong aria-hidden="true">12.</strong> Offline retracking</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">13.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">14.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">15.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="braid_scaling_reverse_proxy.html"><strong aria-hidden="true">9.</strong> Running Braid with many cameras (reverse proxy)</a></li><li class="chapter-item expanded "><a href="braid_tailscale_remote_access.html"><strong aria-hidden="true">10.</strong> Remote access with Tailscale</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">11.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="braid_offline_retracking.html" class="active"><strong aria-hidden="true">12.</strong> Offline retracking</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">13.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">14.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">15.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -167,80 +167,79 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1><a class="header" href="#braid-and-strand-camera" id="braid-and-strand-camera">Braid and Strand Camera</a></h1>
-<p>This is the User's Guide for <a href="https://strawlab.org/braid/">Braid</a> and <a href="https://strawlab.org/strand-cam/">Strand
-Camera</a>.</p>
-<h2><a class="header" href="#what-is-strand-camera" id="what-is-strand-camera">What is Strand Camera?</a></h2>
-<p><strong>Strand Camera</strong> is a single-camera application for live video acquisition,
-real-time 2D object tracking, and recording. It runs as a local web server and
-is controlled through a browser-based interface. You can also control it
-programmatically via Python scripts. Use Strand Camera when you have one camera
-and need 2D tracking or video recording, or when setting up and calibrating
-cameras that will later be used with Braid.</p>
-<h2><a class="header" href="#what-is-braid" id="what-is-braid">What is Braid?</a></h2>
-<p><strong>Braid</strong> is a multi-camera system for real-time 3D tracking. It coordinates
-multiple Strand Camera instances — each running on the same machine or on
-remote machines — synchronizes their cameras using a hardware trigger, and
-fuses the per-camera 2D detections into 3D trajectories. Use Braid when you
-need 3D position estimates of one or more moving objects.</p>
-<h2><a class="header" href="#which-should-i-use" id="which-should-i-use">Which should I use?</a></h2>
-<table><thead><tr><th align="left">Goal</th><th align="left">Software</th></tr></thead><tbody>
-<tr><td align="left">Record video from a single camera</td><td align="left">Strand Camera</td></tr>
-<tr><td align="left">2D tracking from a single camera</td><td align="left">Strand Camera</td></tr>
-<tr><td align="left">3D tracking with two or more cameras</td><td align="left">Braid</td></tr>
-<tr><td align="left">Calibrating cameras for use with Braid</td><td align="left">Strand Camera (one camera at a time)</td></tr>
-</tbody></table>
-<p>Both Braid and Strand Camera are free and open source. You can find the source
-code on <a href="https://github.com/strawlab/strand-braid">GitHub</a>. Issues and feature
-requests can be posted on the <a href="https://github.com/strawlab/strand-braid/issues">GitHub issue
-tracker</a>.</p>
-<h2><a class="header" href="#recording-video-in-strand-camera" id="recording-video-in-strand-camera">Recording video in Strand Camera</a></h2>
-<p>Strand Camera can record compressed H.264 video to MP4 files. Recording is
-started and stopped from the browser UI or via the <a href="./scripting-with-python.html">Python scripting
-interface</a>.</p>
-<h3><a class="header" href="#post-trigger-recording" id="post-trigger-recording">Post-trigger recording</a></h3>
-<p>The <strong>Post Triggering</strong> section in the Strand Camera UI allows you to record
-video that includes footage from <em>before</em> the recording command was given — a
-&quot;time travel&quot; or pre-roll buffer.</p>
-<p>To use it:</p>
-<ol>
-<li>In the <strong>Post Triggering</strong> section, enter a <strong>buffer size</strong> (number of
-frames). Strand Camera will continuously keep this many recent frames in
-memory. A larger buffer means you can go further back in time, but uses more
-RAM.</li>
-<li>When an event of interest occurs (or has just occurred), click <strong>Post Trigger
-MP4 Recording</strong>. Strand Camera starts an MP4 file that begins with the
-buffered frames, so the recording includes footage from before the trigger.</li>
-<li>Click the stop recording button to end the recording when done.</li>
-</ol>
-<p>The buffer size defaults to 0 (disabled). Set it to a non-zero value before the
-experiment begins.</p>
-<h2><a class="header" href="#viewing-live-camera-images-in-braid" id="viewing-live-camera-images-in-braid">Viewing live camera images in Braid</a></h2>
-<p>The Braid browser UI shows a live preview of each connected camera, including
-the points detected for tracking. The <strong>Cameras</strong> section shows a tile for
-each camera with a <strong>live</strong> toggle. Switching a tile live streams the camera's
-images; switching it off shows a grayed-out placeholder instead. Images are
-streamed only while a tile is live, so leaving tiles off avoids unnecessary
-load on the camera computers. Clicking a camera's name opens the full Strand
-Camera UI for that camera.</p>
-<h2><a class="header" href="#getting-started" id="getting-started">Getting started</a></h2>
-<p>New users should begin with <a href="./hardware-selection.html">Hardware selection</a> and
-then <a href="./installation.html">Installation</a>. To go straight to 3D tracking, proceed
-to <a href="./braid_configuration_and_launching.html">Configuring and Launching Braid</a>
-after installation.</p>
-<h3><a class="header" href="#about-this-book" id="about-this-book">About this book</a></h3>
-<p>The source code for this documentation is at
-<a href="https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/users-guide">github.com/strawlab/strand-braid/tree/main/docs/user-docs/users-guide</a>.
-This book is made with <a href="https://rust-lang.github.io/mdBook/">mdBook</a>.</p>
+                        <h1><a class="header" href="#offline-retracking-of-braidz-files" id="offline-retracking-of-braidz-files">Offline retracking of <code>.braidz</code> files</a></h1>
+<p>While Braid runs, it produces 3D position estimates (the Kalman estimates) at
+low latency. To keep latency low, the online tracker never waits for late or
+out-of-order data: any 2D detection that arrives after Braid has already moved on
+to a later frame is discarded from the <em>online</em> 3D reconstruction. However, every
+2D detection is still saved to the <code>.braidz</code> file as it arrives.</p>
+<p><em>Retracking</em> re-runs the tracker offline over a recorded <code>.braidz</code> file, using
+<strong>all</strong> of the saved 2D detections for each frame. Because latency is no longer a
+concern, the offline reconstruction can incorporate data the online tracker had
+to drop, and can also use information from frames acquired <em>after</em> a given
+instant. See <a href="./braid_3d_tracking.html#details-about-how-data-are-processed-online-and-saved-for-later-analysis">3D Tracking in Braid</a>
+for the underlying rationale.</p>
+<p>Retracking is performed by the <code>braid-offline-retrack</code> program.</p>
+<h2><a class="header" href="#retrack-with-the-original-parameters-and-calibration" id="retrack-with-the-original-parameters-and-calibration">Retrack with the original parameters and calibration</a></h2>
+<p>To recompute the 3D trajectories using the same calibration and tracking
+parameters that were used during the live recording:</p>
+<pre><code class="language-sh">braid-offline-retrack --data-src &lt;input.braidz&gt; --output &lt;output.braidz&gt;
+</code></pre>
+<ul>
+<li><code>--data-src</code> / <code>-d</code> is the input <code>.braidz</code> file to retrack.</li>
+<li><code>--output</code> / <code>-o</code> is the output file; its name <strong>must end in <code>.braidz</code></strong>.</li>
+</ul>
+<p><code>braid-offline-retrack</code> will <strong>not</strong> overwrite an existing file, so <code>--output</code>
+must be a new path (and must differ from <code>--data-src</code>).</p>
+<p>Typical improvements after retracking include:</p>
+<ul>
+<li>3D estimates added or adjusted for frames where they were missing or noisy
+online.</li>
+<li>Trajectory fragments of the same object that were given different object IDs
+online may be unified into a single object.</li>
+<li>Spurious low-confidence estimates near the end of a track may be removed.</li>
+<li>Object IDs in the output are renumbered starting from 0.</li>
+</ul>
+<h2><a class="header" href="#retrack-with-different-tracking-parameters-or-a-different-calibration" id="retrack-with-different-tracking-parameters-or-a-different-calibration">Retrack with different tracking parameters or a different calibration</a></h2>
+<p>You can also retrack with alternative tracking parameters and/or a different
+(for example, higher-quality) calibration:</p>
+<pre><code class="language-sh">braid-offline-retrack \
+  --data-src &lt;input.braidz&gt; \
+  --output &lt;output.braidz&gt; \
+  --tracking-params &lt;tracking-params.toml&gt; \
+  --new-calibration &lt;new-calibration.xml&gt;
+</code></pre>
+<ul>
+<li><code>--tracking-params</code> is a TOML file of tracking parameters. See
+<a href="./parameters_for_object_detection_and_tracking.html">Parameters for Object Detection and Tracking</a>
+and
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.TrackingParams.html"><code>braid_types::TrackingParams</code></a>.</li>
+<li><code>--new-calibration</code> is a calibration file produced as described in
+<a href="./braid_calibration.html">Calibration in Braid</a>.</li>
+</ul>
+<p>Both options are independent; you may supply either, both, or neither. Supplying
+neither is equivalent to the first command above.</p>
+<p>Other options (<code>--fps</code>, <code>--start-frame</code>, <code>--stop-frame</code>) are available; run
+<code>braid-offline-retrack --help</code> for the full list.</p>
+<h2><a class="header" href="#visualizing-the-result" id="visualizing-the-result">Visualizing the result</a></h2>
+<p>The output <code>.braidz</code> file can be inspected with the same tools as any other
+<code>.braidz</code> file — see <a href="./braidz-files.html">BRAIDZ files and Analysis
+Scripts</a> — including opening it in the
+<a href="https://braidz.strawlab.org/">Braidz viewer</a> or visualizing it in
+<a href="https://rerun.io/">Rerun</a>.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
+                            <a rel="prev" href="scripting-with-python.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
 
                         
-                            <a rel="next" href="hardware-selection.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="processing-saved-videos.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -252,9 +251,13 @@ This book is made with <a href="https://rust-lang.github.io/mdBook/">mdBook</a>.
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
+                    <a rel="prev" href="scripting-with-python.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
 
                 
-                    <a rel="next" href="hardware-selection.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="processing-saved-videos.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

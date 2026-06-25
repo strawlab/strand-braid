@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html" class="active"><strong aria-hidden="true">9.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">10.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">11.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">12.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="braid_scaling_reverse_proxy.html"><strong aria-hidden="true">9.</strong> Running Braid with many cameras (reverse proxy)</a></li><li class="chapter-item expanded "><a href="braid_tailscale_remote_access.html"><strong aria-hidden="true">10.</strong> Remote access with Tailscale</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html" class="active"><strong aria-hidden="true">11.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="braid_offline_retracking.html"><strong aria-hidden="true">12.</strong> Offline retracking</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">13.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">14.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">15.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -218,6 +218,31 @@ first detected), <code>Update</code> (position estimate for a tracked object), a
 (an object is no longer tracked). The script forwards only <code>Update</code> events. You
 can extend it to handle <code>Birth</code> and <code>Death</code> events for applications that need
 to track object identity over time.</p>
+<h2><a class="header" href="#demo-resetting-the-object-detection-background-model-using-python" id="demo-resetting-the-object-detection-background-model-using-python">Demo: resetting the object detection background model using Python</a></h2>
+<p><a href="https://github.com/strawlab/strand-braid/blob/main/docs/user-docs/scripts/reset-background.py"><code>reset-background.py</code></a>
+presses the background model buttons of the <a href="parameters_for_object_detection_and_tracking.html">object detection
+UI</a> programmatically. By
+default it acts like the <strong>Take Current Image As Background</strong> button,
+re-initializing the background model from the next ~20 incoming frames:</p>
+<pre><code class="language-sh">python reset-background.py --strand-cam-url http://127.0.0.1:3440/
+</code></pre>
+<p>With <code>--clear-to-value</code>, it instead acts like the <strong>Set background to
+mid-gray</strong> button, setting the background model to a uniform gray value:</p>
+<pre><code class="language-sh">python reset-background.py --strand-cam-url http://127.0.0.1:3440/ --clear-to-value 127
+</code></pre>
+<p>The underlying HTTP calls are simple: a POST to the <code>/callback</code> endpoint with
+the JSON body <code>&quot;TakeCurrentImageAsBackground&quot;</code> or <code>{&quot;ClearBackground&quot;: 127.0}</code>.</p>
+<h2><a class="header" href="#demo-resetting-the-background-model-on-all-cameras-of-a-braid-setup" id="demo-resetting-the-background-model-on-all-cameras-of-a-braid-setup">Demo: resetting the background model on all cameras of a Braid setup</a></h2>
+<p><a href="https://github.com/strawlab/strand-braid/blob/main/docs/user-docs/scripts/reset-background-braid-all-cams.py"><code>reset-background-braid-all-cams.py</code></a>
+performs the same background reset on every camera connected to a running
+Braid instance. Run it like so:</p>
+<pre><code class="language-sh">python reset-background-braid-all-cams.py --braid-url http://127.0.0.1:8397/
+</code></pre>
+<p>Unlike MP4 recording, there is no single Braid command for this. Instead, the
+script asks Braid for the HTTP address of every connected camera (this is
+carried in the <code>connected_cameras</code> field of the Braid event stream) and then
+sends the command to each Strand Camera directly. The same pattern can be used
+to automate any other per-camera action across a whole Braid setup.</p>
 <h2><a class="header" href="#advanced-automating-manual-actions" id="advanced-automating-manual-actions">Advanced: automating manual actions</a></h2>
 <p>Any action available in the browser UI can be scripted. To discover the
 corresponding HTTP call, open your browser's developer tools (F12 in most
@@ -231,13 +256,13 @@ or <code>BraidProxy</code> pattern shown in the demo scripts above.</p>
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="braid_remote_cameras.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="braid_tailscale_remote_access.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="processing-saved-videos.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="braid_offline_retracking.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -249,13 +274,13 @@ or <code>BraidProxy</code> pattern shown in the demo scripts above.</p>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a rel="prev" href="braid_remote_cameras.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="braid_tailscale_remote_access.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a rel="next" href="processing-saved-videos.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next" href="braid_offline_retracking.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

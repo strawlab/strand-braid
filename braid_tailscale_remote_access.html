@@ -1,0 +1,397 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Remote access with Tailscale - User's Guide for Braid and Strand Camera</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="Low latency image processing and tracking">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="favicon.png">
+        
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        
+        <link rel="stylesheet" href="css/print.css" media="print">
+        
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="braid_scaling_reverse_proxy.html"><strong aria-hidden="true">9.</strong> Running Braid with many cameras (reverse proxy)</a></li><li class="chapter-item expanded "><a href="braid_tailscale_remote_access.html" class="active"><strong aria-hidden="true">10.</strong> Remote access with Tailscale</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">11.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="braid_offline_retracking.html"><strong aria-hidden="true">12.</strong> Offline retracking</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">13.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">14.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">15.</strong> Troubleshooting</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">User's Guide for Braid and Strand Camera</h1>
+
+                    <div class="right-buttons">
+                        
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        
+                        <a href="https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/users-guide" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#remote-access-with-tailscale" id="remote-access-with-tailscale">Remote access with Tailscale</a></h1>
+<p>The Braid and Strand Camera web interfaces are normally reached over the local
+network — you open <code>http://&lt;braid-host&gt;:44444/</code> from a computer on the same LAN.
+That works well in the lab, but it breaks down the moment the device you want to
+use is <strong>somewhere else</strong>: a laptop at home, a phone on cellular data, or a
+collaborator on another campus. The instrument is usually behind a NAT router or
+an institutional firewall with no inbound access, so there is no address the
+remote device can simply browse to.</p>
+<p><a href="https://tailscale.com/">Tailscale</a> solves this without any port forwarding,
+public IP address, or firewall changes. It puts the Braid computer and your
+remote devices onto the same private, encrypted network, so the remote device
+can reach Braid by a stable address exactly as if it were on the same LAN.
+<strong>No changes to Braid's security model are required</strong> — and you can optionally
+let Braid recognize Tailscale connections so no access token is needed at all.</p>
+<h2><a class="header" href="#when-tailscale-helps" id="when-tailscale-helps">When Tailscale helps</a></h2>
+<p>Use Tailscale when <strong>the device and the instrument are on different networks</strong>:</p>
+<ul>
+<li>a laptop or phone away from the lab (home, conference, cellular),</li>
+<li>a remote collaborator who needs to view or control an experiment,</li>
+<li>any case where the Braid computer is behind NAT/firewall with no inbound access.</li>
+</ul>
+<p>You <strong>do not need</strong> Tailscale when the browser is already on the same LAN as
+Braid — just use the normal <code>http://&lt;braid-host&gt;:44444/</code> URL. Tailscale is also a
+separate concern from the <a href="braid_scaling_reverse_proxy.html">reverse-proxy guide</a>,
+which addresses a <em>different</em> problem (browser connection limits with many camera
+previews). The two compose nicely, and the <a href="#option-b--https-with-tailscale-serve-also-fixes-many-camera-previews">HTTPS option below</a>
+solves both at once.</p>
+<blockquote>
+<p><strong>Note:</strong> Tailscale is for reaching Braid from a device you control and can
+install software on. It is <strong>not</strong> a way to hand anonymous, zero-install access
+to a random phone — that device must join your tailnet first. For one-off local
+access, the printed token URL / QR code remains the right tool.</p>
+</blockquote>
+<h2><a class="header" href="#how-it-works-briefly" id="how-it-works-briefly">How it works (briefly)</a></h2>
+<p>Tailscale builds an encrypted <a href="https://www.wireguard.com/">WireGuard</a> mesh
+between your devices (your <em>tailnet</em>). Each device gets a stable address in the
+<code>100.64.0.0/10</code> range and a name via <em>MagicDNS</em> (for example
+<code>braid-host.your-tailnet.ts.net</code>). Connections are made directly device-to-device
+when possible and fall back to Tailscale's relays when NAT makes a direct path
+impossible — either way the traffic is end-to-end encrypted and authenticated, so
+the connection itself is already secure before Braid sees it.</p>
+<h2><a class="header" href="#step-1--install-tailscale-on-both-ends" id="step-1--install-tailscale-on-both-ends">Step 1 — install Tailscale on both ends</a></h2>
+<p>Install and sign in to Tailscale on:</p>
+<ul>
+<li>the <strong>Braid computer</strong> (see the <a href="https://tailscale.com/download">Tailscale download
+page</a>), and</li>
+<li>each <strong>remote device</strong> — desktop clients for Windows/macOS/Linux, or the
+Tailscale app from the iOS App Store / Google Play for a phone or tablet.</li>
+</ul>
+<p>Sign every device into the <strong>same tailnet</strong> (the same Tailscale account or
+organization). Self-hosters who cannot use Tailscale's coordination service can
+run <a href="https://github.com/juanfont/headscale">Headscale</a> instead; the Braid side is
+identical.</p>
+<h2><a class="header" href="#step-2--find-the-braid-computers-tailscale-address" id="step-2--find-the-braid-computers-tailscale-address">Step 2 — find the Braid computer's Tailscale address</a></h2>
+<p>On the Braid computer:</p>
+<pre><code class="language-sh">tailscale ip -4        # prints the 100.x.y.z address
+tailscale status       # also shows the MagicDNS name
+</code></pre>
+<p>Use either the <code>100.x.y.z</code> address or the MagicDNS name
+(<code>braid-host.your-tailnet.ts.net</code>) from the remote device.</p>
+<h2><a class="header" href="#step-3--choose-how-to-expose-braid" id="step-3--choose-how-to-expose-braid">Step 3 — choose how to expose Braid</a></h2>
+<p>There are two good options. Option A is the simplest; Option B adds HTTPS (and,
+as a bonus, fixes the many-camera preview limit).</p>
+<h3><a class="header" href="#option-a--direct-over-the-tailnet-token-free" id="option-a--direct-over-the-tailnet-token-free">Option A — direct over the tailnet (token-free)</a></h3>
+<p>Leave Braid listening on a LAN-reachable address (the default) so the tailnet
+interface can reach it, and tell Braid to <strong>trust connections coming from the
+Tailscale range</strong>. Because Tailscale has already authenticated and encrypted the
+peer, an additional access token is redundant — set
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_config_data/struct.MainbrainConfig.html#structfield.trusted_networks"><code>trusted_networks</code></a>
+in your Braid config:</p>
+<pre><code class="language-toml">[mainbrain]
+# Accept clients arriving over Tailscale without an access token.
+# 100.64.0.0/10 is Tailscale's address range (use your WireGuard subnet instead
+# if you run plain WireGuard).
+trusted_networks = [&quot;100.64.0.0/10&quot;]
+</code></pre>
+<p>From the remote device, browse to <code>http://braid-host.your-tailnet.ts.net:44444/</code>
+(or the <code>100.x.y.z</code> address). No token is needed — Braid recognizes the
+Tailscale peer and issues the session directly.</p>
+<blockquote>
+<p><strong>Security note:</strong> <code>trusted_networks</code> matches the <strong>immediate peer address</strong> of
+the connection. This is correct when the browser connects <em>directly</em> to Braid
+over Tailscale. Do <strong>not</strong> add <code>100.64.0.0/10</code> here if Braid sits behind a
+reverse proxy, because then every request appears to come from the proxy and
+the check no longer identifies the real client. Strand Camera supports the same
+setting via the <code>--trusted-network</code> command-line flag.</p>
+</blockquote>
+<p>If you would rather keep token authentication even over Tailscale, simply omit
+<code>trusted_networks</code>: the usual <code>?token=&lt;TOKEN&gt;</code> flow (Braid prints the full URL on
+startup) works unchanged over the tailnet.</p>
+<h3><a class="header" href="#option-b--https-with-tailscale-serve-also-fixes-many-camera-previews" id="option-b--https-with-tailscale-serve-also-fixes-many-camera-previews">Option B — HTTPS with <code>tailscale serve</code> (also fixes many-camera previews)</a></h3>
+<p>Tailscale can terminate <strong>HTTPS</strong> for you using a certificate it manages
+automatically (no certificate files to install on clients), and serve Braid at
+its MagicDNS name. This also upgrades the browser connection to <strong>HTTP/2</strong>, which
+removes the ~6-connection limit that stalls previews when <a href="braid_scaling_reverse_proxy.html">many cameras are
+shown at once</a> — so a single step gives you both
+remote access and preview scaling.</p>
+<p>First enable HTTPS / MagicDNS for your tailnet in the Tailscale admin console
+(<strong>DNS → Enable MagicDNS</strong>, and <strong>Enable HTTPS</strong>). Then bind Braid to loopback so
+that only the local Tailscale proxy can reach it:</p>
+<pre><code class="language-toml">[mainbrain]
+http_api_server_addr = &quot;127.0.0.1:44444&quot;
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> Bind to loopback only if all cameras are local. If you also run
+<a href="braid_remote_cameras.html">remote cameras</a>, keep Braid on a LAN-reachable
+address so those camera computers can still connect, and point <code>tailscale serve</code>
+at that same address.</p>
+</blockquote>
+<p>Then publish it over HTTPS:</p>
+<pre><code class="language-sh">tailscale serve --bg http://127.0.0.1:44444
+</code></pre>
+<p>Braid is now reachable at <code>https://braid-host.your-tailnet.ts.net/</code> from any
+device on your tailnet. (The exact <code>tailscale serve</code> syntax has changed across
+Tailscale versions; see <a href="https://tailscale.com/kb/1242/tailscale-serve">the <code>tailscale serve</code>
+documentation</a> and
+<code>tailscale serve --help</code>.)</p>
+<p>In this mode you do <strong>not</strong> set <code>trusted_networks</code>: the Tailscale proxy reaches
+Braid over the loopback interface, and Braid already treats loopback connections
+as trusted (no token required). The security boundary is your tailnet — only
+devices you have added, subject to your <a href="#restricting-who-can-reach-braid">ACLs</a>,
+can reach the served endpoint.</p>
+<blockquote>
+<p><strong>Note:</strong> Treating loopback as trusted means <em>any</em> local user on the Braid
+computer can also reach the interface. On a single-user instrument machine this
+is fine; on a shared multi-user host, prefer Option A (keep the token, or trust
+only the Tailscale range).</p>
+</blockquote>
+<h2><a class="header" href="#restricting-who-can-reach-braid" id="restricting-who-can-reach-braid">Restricting who can reach Braid</a></h2>
+<p>By default every device in your tailnet can reach every other. To limit which
+people or devices may open the Braid interface, use <a href="https://tailscale.com/kb/1018/acls">Tailscale
+ACLs</a> — for example, tag the Braid computer
+and grant access only to a specific group:</p>
+<pre><code class="language-jsonc">{
+  &quot;tagOwners&quot;: { &quot;tag:braid&quot;: [&quot;group:lab-admins&quot;] },
+  &quot;acls&quot;: [
+    { &quot;action&quot;: &quot;accept&quot;, &quot;src&quot;: [&quot;group:lab-members&quot;], &quot;dst&quot;: [&quot;tag:braid:44444,443&quot;] }
+  ]
+}
+</code></pre>
+<p>This keeps the instrument private to your team even though it is reachable from
+anywhere.</p>
+<h2><a class="header" href="#caveats" id="caveats">Caveats</a></h2>
+<ul>
+<li><strong>Every device must run Tailscale and be signed into your tailnet.</strong> This is
+ideal for lab members and named collaborators, but not for handing a stranger
+ad-hoc access — for that, the local token URL / QR code is still the tool.</li>
+<li><strong>Tailscale's relays may be used</strong> when a direct path is impossible (e.g. both
+ends behind strict NAT). Throughput over a relay is lower than a direct
+connection; this matters only for live video previews, not for control or for
+the tracking data (which travels camera→Braid over the LAN and never leaves it).</li>
+<li><strong><code>tailscale funnel</code> is different from <code>tailscale serve</code>.</strong> Funnel exposes a
+service to the <em>public internet</em>; for private remote access to an instrument you
+want <code>serve</code> (tailnet-only), not Funnel.</li>
+<li><strong>Remote cameras do not need Tailscale to talk to Braid</strong> if they are on the
+same LAN. Tailscale is about reaching the <em>web interface</em> from afar; the
+camera↔Braid data path is unchanged (see <a href="braid_remote_cameras.html">Braid: Remote
+cameras</a>).</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="braid_scaling_reverse_proxy.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="scripting-with-python.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="braid_scaling_reverse_proxy.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="scripting-with-python.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>

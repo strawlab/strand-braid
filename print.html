@@ -97,7 +97,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">9.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">10.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">11.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">12.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="braid_scaling_reverse_proxy.html"><strong aria-hidden="true">9.</strong> Running Braid with many cameras (reverse proxy)</a></li><li class="chapter-item expanded "><a href="braid_tailscale_remote_access.html"><strong aria-hidden="true">10.</strong> Remote access with Tailscale</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">11.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="braid_offline_retracking.html"><strong aria-hidden="true">12.</strong> Offline retracking</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">13.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">14.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">15.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -217,6 +217,14 @@ buffered frames, so the recording includes footage from before the trigger.</li>
 </ol>
 <p>The buffer size defaults to 0 (disabled). Set it to a non-zero value before the
 experiment begins.</p>
+<h2><a class="header" href="#viewing-live-camera-images-in-braid" id="viewing-live-camera-images-in-braid">Viewing live camera images in Braid</a></h2>
+<p>The Braid browser UI shows a live preview of each connected camera, including
+the points detected for tracking. The <strong>Cameras</strong> section shows a tile for
+each camera with a <strong>live</strong> toggle. Switching a tile live streams the camera's
+images; switching it off shows a grayed-out placeholder instead. Images are
+streamed only while a tile is live, so leaving tiles off avoids unnecessary
+load on the camera computers. Clicking a camera's name opens the full Strand
+Camera UI for that camera.</p>
 <h2><a class="header" href="#getting-started" id="getting-started">Getting started</a></h2>
 <p>New users should begin with <a href="./hardware-selection.html">Hardware selection</a> and
 then <a href="./installation.html">Installation</a>. To go straight to 3D tracking, proceed
@@ -370,6 +378,33 @@ file (for example <code>~/.bashrc</code>):</p>
 <p><code>PYLON_CABI</code> is read from the process environment, so make sure it is set
 wherever the software is launched — including non-interactive contexts such as a
 <code>systemd</code> service, a <code>cron</code> job, or <code>sudo</code> without <code>-E</code>.</p>
+<h2><a class="header" href="#installing-the-vimba-sdk-allied-vision-cameras" id="installing-the-vimba-sdk-allied-vision-cameras">Installing the Vimba SDK (Allied Vision cameras)</a></h2>
+<p>To use Allied Vision cameras (the <code>--camera-backend vimba</code> backend), install
+Allied Vision's <strong>Vimba X</strong> SDK. Download <code>VimbaX_Setup-2024-1-Linux64.tar.gz</code>
+from the <a href="https://www.alliedvision.com/en/products/vimba-sdk/">Allied Vision website</a>
+and follow Allied Vision's installation instructions.</p>
+<blockquote>
+<p><strong>Important:</strong> Follow the Vimba SDK's own installation steps to the end — in
+particular, <strong>run its GenTL path installer</strong>. Extracting the archive alone is
+not sufficient. After extracting to <code>/opt</code>, run:</p>
+<pre><code class="language-sh">sudo /opt/VimbaX_2024-1/cti/Install_GenTL_Path.sh
+</code></pre>
+<p>This installs <code>/etc/profile.d/VimbaX_GenTL_Path_64bit.sh</code>, which sets the
+<code>GENICAM_GENTL64_PATH</code> environment variable so the SDK can find its GenTL
+<em>transport layers</em> (the <code>.cti</code> files under <code>/opt/VimbaX_2024-1/cti/</code>). Then
+<strong>start a new login shell</strong> (log out and back in, or open a new terminal) so
+that variable is in effect.</p>
+<p>If <code>GENICAM_GENTL64_PATH</code> does not point to the Vimba transport layers, Strand
+Camera fails to start the Vimba backend with the error <code>VmbErrorNoTL</code> (&quot;no
+transport layer&quot;), even though the SDK library itself loaded successfully. If
+you see that error, complete the Vimba installation as above. To set the
+variable for just one shell without the installer, export it directly:</p>
+<pre><code class="language-sh">export GENICAM_GENTL64_PATH=&quot;/opt/VimbaX_2024-1/cti:$GENICAM_GENTL64_PATH&quot;
+</code></pre>
+<p>(The SDK also ships <code>Set_GenTL_Path.sh</code> for this, but that script must be
+sourced from within its own directory to work correctly, so the explicit
+<code>export</code> above is more reliable. The installer is the persistent fix.)</p>
+</blockquote>
 <h2><a class="header" href="#hardware-installation" id="hardware-installation">Hardware installation</a></h2>
 <h3><a class="header" href="#cameras" id="cameras">Cameras</a></h3>
 <p>Currently Basler cameras are best supported. We use Basler's Pylon library to
@@ -456,6 +491,74 @@ name = &quot;Basler-0815-0001&quot;
 [[cameras]]
 name = &quot;Basler-0815-0002&quot;
 </code></pre>
+<p>Each camera <code>name</code> is computed from its vendor and serial number (for example
+<code>Basler-22005677</code>). To discover the names of the connected cameras without
+launching a camera, run:</p>
+<pre><code class="language-sh">strand-cam --list-cameras
+</code></pre>
+<p>This prints the available cameras (name, model, and serial) for the selected
+<code>--camera-backend</code> (Basler Pylon by default) and exits. Use a printed name as
+the <code>name</code> of a <code>[[cameras]]</code> entry above, or with <code>strand-cam --camera-name</code>.</p>
+<h2><a class="header" href="#camera-synchronization-the-trigger-table" id="camera-synchronization-the-trigger-table">Camera synchronization (the <code>[trigger]</code> table)</a></h2>
+<p>For 3D tracking, all cameras must expose frames that were acquired at the same
+instant so that Braid can combine their 2D detections. How this synchronization
+is achieved is configured in the optional <code>[trigger]</code> table. The variant is
+selected with the <code>trigger_type</code> key. If the <code>[trigger]</code> table is omitted, Braid
+defaults to <code>FakeSync</code> (see below), which is <strong>not</strong> true synchronization and is
+intended only for testing.</p>
+<p>The reference documentation is
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/enum.TriggerType.html"><code>braid_types::TriggerType</code></a>.</p>
+<h3><a class="header" href="#ptpsync--gige-cameras-synchronized-over-the-network-with-ptp" id="ptpsync--gige-cameras-synchronized-over-the-network-with-ptp"><code>PtpSync</code> — GigE cameras synchronized over the network with PTP</a></h3>
+<p>This is the recommended method for GigE Vision cameras (such as Basler GigE
+models) that support the Precision Time Protocol (PTP, IEEE 1588). The cameras
+discipline their clocks to a PTP master clock running on the host PC (for
+example via <a href="https://github.com/ptpd/ptpd"><code>ptpd</code></a>), and Braid programs each
+camera to emit frames on a shared periodic schedule.</p>
+<pre><code class="language-toml">[trigger]
+trigger_type = &quot;PtpSync&quot;
+# The frame period in microseconds. 25000 µs = 25 ms = 40 fps.
+periodic_signal_period_usec = 25000.0
+</code></pre>
+<p>The <strong>camera frame rate is set by <code>periodic_signal_period_usec</code></strong> — it is the
+interval between triggers, in microseconds. For example <code>25000.0</code> gives 40 fps,
+<code>20000.0</code> gives 50 fps, and <code>10000.0</code> gives 100 fps.</p>
+<blockquote>
+<p><strong>Warning:</strong> Do not set the period shorter than the camera exposure time
+(configured in the camera's <code>.pfs</code>/settings). If the exposure is longer than
+the trigger period, the camera cannot produce a frame for every trigger, and
+the effective frame rate will differ from the configured value and cameras may
+desynchronize. Set the exposure time below the period (e.g. for 40 fps / 25 ms,
+use an exposure well under 25 ms).</p>
+</blockquote>
+<p>Setting up <code>ptpd</code> and the network (jumbo frames, the correct interface, the host
+as PTP master) is an operating-system task performed once; see the
+<a href="./troubleshooting.html#ptp-synchronization-problems">Troubleshooting</a> page if
+cameras fail to synchronize.</p>
+<h3><a class="header" href="#triggerboxv1--hardware-trigger-over-usb" id="triggerboxv1--hardware-trigger-over-usb"><code>TriggerboxV1</code> — hardware trigger over USB</a></h3>
+<p>Cameras are triggered by a hardware pulse from a <a href="https://github.com/strawlab/triggerbox">Straw Lab
+triggerbox</a>. This works with cameras
+that have an external trigger input (including USB cameras) and provides
+sub-millisecond timing.</p>
+<pre><code class="language-toml">[trigger]
+trigger_type = &quot;TriggerboxV1&quot;
+device_fname = &quot;/dev/trig1&quot;   # serial device of the triggerbox
+framerate = 100.0             # frames per second
+</code></pre>
+<h3><a class="header" href="#devicetimestamp--rely-on-camera-provided-timestamps" id="devicetimestamp--rely-on-camera-provided-timestamps"><code>DeviceTimestamp</code> — rely on camera-provided timestamps</a></h3>
+<p>Cameras are synchronized using timestamps reported by the cameras themselves
+(for example, cameras already disciplined to a common clock by external means).</p>
+<pre><code class="language-toml">[trigger]
+trigger_type = &quot;DeviceTimestamp&quot;
+</code></pre>
+<h3><a class="header" href="#fakesync--no-real-synchronization-testing-only" id="fakesync--no-real-synchronization-testing-only"><code>FakeSync</code> — no real synchronization (testing only)</a></h3>
+<p>Braid pretends the cameras are synchronized at a fixed nominal frame rate. This
+is useful for development and with emulated cameras, but must <strong>not</strong> be used for
+real 3D tracking, because frames from different cameras are not actually
+simultaneous. The Braid GUI displays a warning when <code>FakeSync</code> is in effect.</p>
+<pre><code class="language-toml">[trigger]
+trigger_type = &quot;FakeSync&quot;
+framerate = 95.0
+</code></pre>
 <h2><a class="header" href="#inspecting-the-resolved-configuration" id="inspecting-the-resolved-configuration">Inspecting the resolved configuration</a></h2>
 <p>To see the full configuration that Braid will use — including all default
 values filled in for options not present in your <code>.toml</code> file — run:</p>
@@ -511,7 +614,7 @@ original recording. You can override either or both:</p>
   --new-calibration &lt;calibration.xml&gt;
 </code></pre>
 <p><code>--tracking-params</code> accepts a TOML file containing
-<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.TrackingParams.html"><code>TrackingParams</code></a>
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.TrackingParams.html"><code>TrackingParams</code></a>
 fields. <code>--new-calibration</code> accepts a Braid XML calibration file. Both are
 optional and can be combined or used independently.</p>
 <p>Retracking commonly improves results in these ways:</p>
@@ -618,23 +721,23 @@ Archive:  20191119_114103.NOT-A-VALID-BRAIDZ
 <h4><a class="header" href="#data2d_distorted-table" id="data2d_distorted-table"><code>data2d_distorted</code> table</a></h4>
 <p>The <code>data2d_distorted</code> table contains the raw (2D) camera detections and is
 typically quite large. See the documentation for the row type
-<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.Data2dDistortedRow.html">Data2dDistortedRow</a>.
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.Data2dDistortedRow.html">Data2dDistortedRow</a>.
 This file is important for carrying synchronization data between cameras. For
 example, when saving videos, the timing data carried by the
-<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.Data2dDistortedRow.html#structfield.frame">frame</a>
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.Data2dDistortedRow.html#structfield.frame">frame</a>
 and
-<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.Data2dDistortedRow.html#structfield.block_id">block_id</a>
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.Data2dDistortedRow.html#structfield.block_id">block_id</a>
 fields is important.</p>
 <h4><a class="header" href="#kalman_estimates-table" id="kalman_estimates-table"><code>kalman_estimates</code> table</a></h4>
 <p>The <code>kalman_estimates</code> tables contains the estimated state (positions and
 velocities) of each tracked object in addition to the estimated covariance. See
 the documentation for the row type
-<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.KalmanEstimatesRow.html">KalmanEstimatesRow</a>.</p>
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.KalmanEstimatesRow.html">KalmanEstimatesRow</a>.</p>
 <h4><a class="header" href="#data_association-table" id="data_association-table"><code>data_association</code> table</a></h4>
 <p>The <code>data_association</code> table contains which camera detections contributed to
 estimating the state of which objects in the <code>kalman_estimates</code> table. See the
 documentation for the row type
-<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.DataAssocRow.html">DataAssocRow</a>.</p>
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.DataAssocRow.html">DataAssocRow</a>.</p>
 <h3><a class="header" href="#chunked-iteration-of-kalman_estimates" id="chunked-iteration-of-kalman_estimates">Chunked iteration of <code>kalman_estimates</code></a></h3>
 <p>The primary tracking results are in the <code>kalman_estimates</code> table. There can
 often be many gigabytes of data here, and thus it is useful to iterate over
@@ -806,6 +909,13 @@ background mean (with sign according to <code>polarity</code>) exceeds a thresho
 the running standard deviation of that pixel, but never less than
 <code>diff_threshold</code>. With <code>use_cmp</code> disabled, the fixed <code>diff_threshold</code> is used
 everywhere.</p>
+<p>One subtlety when tuning <code>diff_threshold</code> live with <code>use_cmp</code> enabled: the
+per-pixel thresholds are stored with the <code>diff_threshold</code> floor already
+applied, and <em>lowering</em> <code>diff_threshold</code> cannot restore the values underneath
+the old floor. The lower floor takes full effect when the per-pixel thresholds
+are next recomputed — at the next background model update, or immediately
+after pressing one of the background reset buttons described below. (Raising
+<code>diff_threshold</code> takes effect immediately.)</p>
 <h3><a class="header" href="#background-model-controls-in-the-browser-ui" id="background-model-controls-in-the-browser-ui">Background model controls in the browser UI</a></h3>
 <p>The object detection panel in Strand Camera's browser interface has two
 buttons affecting the background model:</p>
@@ -817,8 +927,15 @@ disabled.</li>
 <li><strong>Set background to mid-gray</strong> — sets the background mean to a uniform value
 of 127 with zero variance.</li>
 </ul>
+<p>When running Braid, the Braid browser interface has a &quot;Background Model&quot;
+section with buttons that act on all connected cameras at once: <strong>Take New
+Background Image</strong>, <strong>Enable Background Updating</strong>, and <strong>Disable Background
+Updating</strong>. The per-camera background updating state is shown in the camera
+list.</p>
 <p>Like everything in the browser interface, these buttons can also be triggered
-programmatically; see <a href="scripting-with-python.html">Scripting with Python</a>.</p>
+programmatically, including on all cameras of a Braid setup at once; see the
+background reset demos in <a href="scripting-with-python.html#demo-resetting-the-object-detection-background-model-using-python">Scripting with
+Python</a>.</p>
 <!--
 ### Optimization
 
@@ -832,7 +949,7 @@ There is unfortunately no easy procedure for optimizing parameters. For optimizi
 individual cameras to a 3D model, and an Extended Kalman Filter, which updates
 the estimated position and velocity of the 3D model from the 2D features.</p>
 <p>The implementation details for the 3D tracking procedures can be found in the
-<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.TrackingParams.html">TrackingParams</a>
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.TrackingParams.html">TrackingParams</a>
 section of the API.</p>
 <!--
 ### Optimization
@@ -1177,6 +1294,289 @@ http_server_addr = &quot;192.168.1.20:0&quot;
 </code></pre>
 <p>The port <code>0</code> instructs the operating system to assign a free port automatically.
 You may also specify a fixed port number if needed (e.g. for firewall rules).</p>
+<h1><a class="header" href="#running-braid-with-many-cameras-reverse-proxy" id="running-braid-with-many-cameras-reverse-proxy">Running Braid with many cameras (reverse proxy)</a></h1>
+<p>When you open the Braid web interface in a browser with <strong>many cameras</strong>, the
+live camera previews can stop updating once more than a handful are shown at
+once. This is a limitation of the browser, not of Braid, and it is easily solved
+by placing an HTTPS reverse proxy in front of Braid. <strong>No changes to Braid or to
+its configuration logic are required</strong> — the proxy is purely a deployment step.</p>
+<h2><a class="header" href="#why-the-previews-stall" id="why-the-previews-stall">Why the previews stall</a></h2>
+<p>Browsers limit how many simultaneous network connections they will open to a
+single server over HTTP/1.1 — typically <strong>6 connections per origin</strong> (host and
+port). The Braid web interface holds connections open continuously:</p>
+<ul>
+<li><strong>one</strong> connection for the main Braid event stream, plus</li>
+<li><strong>one</strong> connection for <em>each live camera preview</em> (every preview tile opens its
+own <a href="https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events">server-sent events</a>
+stream through Braid's camera proxy).</li>
+</ul>
+<p>So with the main stream plus ~5 live previews you reach the browser's 6-connection
+limit. Any further previews — and the per-frame requests that pace them — simply
+queue inside the browser and never run, so those tiles freeze.</p>
+<p>This limit applies <strong>only to browsers</strong>. Remote Strand Camera computers
+connecting to Braid are not affected and do <strong>not</strong> need the proxy; they continue
+to connect directly to Braid as described in <a href="braid_remote_cameras.html">Braid: Remote
+cameras</a>.</p>
+<h2><a class="header" href="#the-fix-serve-the-web-interface-over-http2" id="the-fix-serve-the-web-interface-over-http2">The fix: serve the web interface over HTTP/2</a></h2>
+<p>HTTP/2 multiplexes many independent streams over a <em>single</em> connection, so the
+6-connection limit disappears and all camera previews stream concurrently.
+Browsers only use HTTP/2 over TLS (HTTPS), so the solution is to run a small
+reverse proxy that terminates HTTPS and forwards plain HTTP to Braid on the same
+machine:</p>
+<pre><code class="language-text">   browser  ──HTTPS / HTTP/2──▶  reverse proxy  ──HTTP (localhost)──▶  braid-run
+</code></pre>
+<p>Because the browser now sees a single HTTP/2 connection to the proxy, all of the
+event streams and preview requests share it. Braid itself keeps speaking ordinary
+HTTP/1.1 on the loopback interface and is unchanged.</p>
+<p>We recommend <a href="https://caddyserver.com/">Caddy</a> because it obtains and renews TLS
+certificates automatically and streams server-sent events correctly out of the
+box. The examples below use Caddy; any HTTP/2-capable proxy (nginx, Traefik,
+…) works too (see the note on buffering at the end).</p>
+<h2><a class="header" href="#step-1-let-the-proxy-reach-braid" id="step-1-let-the-proxy-reach-braid">Step 1: let the proxy reach Braid</a></h2>
+<p>Run the proxy on the <strong>same computer</strong> as <code>braid-run</code> and forward to Braid over
+the loopback interface. Braid listens on port <code>44444</code> by default. If you want
+Braid to accept <em>only</em> proxied browser connections, bind its HTTP server to
+loopback by setting <a href="https://strawlab.org/strand-braid-api-docs/latest/braid_config_data/struct.MainbrainConfig.html#structfield.http_api_server_addr">the <code>http_api_server_addr</code>
+field</a>:</p>
+<pre><code class="language-toml">[mainbrain]
+http_api_server_addr = &quot;127.0.0.1:44444&quot;
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> Bind to loopback only if all cameras are local. If you also run
+<a href="braid_remote_cameras.html">remote cameras</a>, those computers must still be able
+to reach Braid's HTTP server directly, so keep Braid bound to a LAN-reachable
+address (the default) and simply let the proxy forward to that same address.</p>
+</blockquote>
+<h2><a class="header" href="#step-2-configure-caddy" id="step-2-configure-caddy">Step 2: configure Caddy</a></h2>
+<p>Automatic TLS still requires the browser to <em>trust</em> the certificate. On a private
+network you have two practical options.</p>
+<h3><a class="header" href="#option-a--with-a-domain-name-publicly-trusted-nothing-to-install-on-clients" id="option-a--with-a-domain-name-publicly-trusted-nothing-to-install-on-clients">Option A — with a domain name (publicly trusted, nothing to install on clients)</a></h3>
+<p>If you control a domain name, point a DNS record at the Braid computer's address
+(a private/LAN IP is fine) and let Caddy obtain a publicly trusted certificate
+using the <strong>DNS-01</strong> challenge, which needs no inbound access to the LAN. This is
+the smoothest option: every browser trusts the certificate with no per-machine
+setup.</p>
+<pre><code class="language-caddy">braid.lab.example.com {
+    reverse_proxy 127.0.0.1:44444
+    tls {
+        dns &lt;your-dns-provider&gt; {env.DNS_API_TOKEN}
+    }
+}
+</code></pre>
+<p>DNS-01 requires a build of Caddy that includes your DNS provider's module (see
+the <a href="https://caddyserver.com/docs/automatic-https#dns-challenge">Caddy DNS-challenge
+documentation</a>; build
+with <a href="https://github.com/caddyserver/xcaddy"><code>xcaddy</code></a>) and an API token for that
+provider supplied via the <code>DNS_API_TOKEN</code> environment variable.</p>
+<h3><a class="header" href="#option-b--fully-offline-caddys-internal-ca-one-time-trust-install" id="option-b--fully-offline-caddys-internal-ca-one-time-trust-install">Option B — fully offline (Caddy's internal CA, one-time trust install)</a></h3>
+<p>With no domain or no internet access, let Caddy act as its own certificate
+authority. Caddy issues and renews certificates automatically; you install
+Caddy's root certificate on each computer that will open the web interface
+<strong>once</strong>.</p>
+<pre><code class="language-caddy">braid.local {
+    reverse_proxy 127.0.0.1:44444
+    tls internal
+}
+</code></pre>
+<p>Install Caddy's root certificate into the system trust store:</p>
+<pre><code class="language-sh">caddy trust
+</code></pre>
+<p>On other computers, copy Caddy's root certificate (printed by <code>caddy trust</code>,
+typically under Caddy's data directory at
+<code>pki/authorities/local/root.crt</code>) and add it to that machine's (or browser's)
+trust store. On a managed set of lab computers this can be pushed out
+automatically. Make sure <code>braid.local</code> resolves to the Braid computer on each
+client (via DNS, an <code>/etc/hosts</code> entry, or mDNS).</p>
+<h2><a class="header" href="#step-3-open-the-web-interface-through-the-proxy" id="step-3-open-the-web-interface-through-the-proxy">Step 3: open the web interface through the proxy</a></h2>
+<p>Browse to the proxy's HTTPS address (e.g. <code>https://braid.lab.example.com/</code>)
+instead of <code>http://&lt;braid-host&gt;:44444/</code>. Braid's access token works exactly as
+before: append <code>?token=&lt;TOKEN&gt;</code> (Braid prints the full URL with the token on
+startup) on first connection; the browser then stores a cookie and reconnects
+without it. Do <strong>not</strong> disable Braid's token authentication — the proxy only
+changes the transport, not the security model.</p>
+<h2><a class="header" href="#scaling-notes-and-caveats" id="scaling-notes-and-caveats">Scaling notes and caveats</a></h2>
+<ul>
+<li><strong>The ceiling moves from ~6 to ~100–250.</strong> HTTP/2 multiplexes streams but
+still caps the number of <em>concurrent</em> streams per connection (Caddy allows a
+few hundred by default). Each live preview uses one stream, so this is far
+above any realistic camera count. If you ever approach it, raise the proxy's
+maximum-concurrent-streams setting — it is a single configuration knob.</li>
+<li><strong>The proxy → Braid hop stays HTTP/1.1, and that is fine.</strong> It is a
+server-to-server connection on the same machine and is not subject to the
+browser's per-origin limit.</li>
+<li><strong>If you use nginx instead of Caddy</strong>, disable response buffering for the
+event streams or previews will be delayed indefinitely: set
+<code>proxy_buffering off;</code>, <code>proxy_http_version 1.1;</code>, and forward to Braid over
+HTTP/1.1. Caddy needs none of this.</li>
+<li><strong>Remote cameras do not use the proxy, and should not.</strong> The connection limit
+is a browser-only concern — Strand Camera is a native client and is not subject
+to it — so <a href="braid_remote_cameras.html">remote cameras</a> keep connecting directly
+to Braid. There is also nothing to gain: the high-rate tracking data travels
+camera→Braid over <strong>UDP</strong>, which an HTTP proxy cannot carry, and the only HTTP
+traffic between them is light control messages. Routing cameras through the
+proxy would add a TLS certificate-trust and configuration burden on every
+camera computer for no real benefit. The proxy and the cameras simply use
+independent paths to Braid.</li>
+</ul>
+<h1><a class="header" href="#remote-access-with-tailscale" id="remote-access-with-tailscale">Remote access with Tailscale</a></h1>
+<p>The Braid and Strand Camera web interfaces are normally reached over the local
+network — you open <code>http://&lt;braid-host&gt;:44444/</code> from a computer on the same LAN.
+That works well in the lab, but it breaks down the moment the device you want to
+use is <strong>somewhere else</strong>: a laptop at home, a phone on cellular data, or a
+collaborator on another campus. The instrument is usually behind a NAT router or
+an institutional firewall with no inbound access, so there is no address the
+remote device can simply browse to.</p>
+<p><a href="https://tailscale.com/">Tailscale</a> solves this without any port forwarding,
+public IP address, or firewall changes. It puts the Braid computer and your
+remote devices onto the same private, encrypted network, so the remote device
+can reach Braid by a stable address exactly as if it were on the same LAN.
+<strong>No changes to Braid's security model are required</strong> — and you can optionally
+let Braid recognize Tailscale connections so no access token is needed at all.</p>
+<h2><a class="header" href="#when-tailscale-helps" id="when-tailscale-helps">When Tailscale helps</a></h2>
+<p>Use Tailscale when <strong>the device and the instrument are on different networks</strong>:</p>
+<ul>
+<li>a laptop or phone away from the lab (home, conference, cellular),</li>
+<li>a remote collaborator who needs to view or control an experiment,</li>
+<li>any case where the Braid computer is behind NAT/firewall with no inbound access.</li>
+</ul>
+<p>You <strong>do not need</strong> Tailscale when the browser is already on the same LAN as
+Braid — just use the normal <code>http://&lt;braid-host&gt;:44444/</code> URL. Tailscale is also a
+separate concern from the <a href="braid_scaling_reverse_proxy.html">reverse-proxy guide</a>,
+which addresses a <em>different</em> problem (browser connection limits with many camera
+previews). The two compose nicely, and the <a href="braid_tailscale_remote_access.html#option-b--https-with-tailscale-serve-also-fixes-many-camera-previews">HTTPS option below</a>
+solves both at once.</p>
+<blockquote>
+<p><strong>Note:</strong> Tailscale is for reaching Braid from a device you control and can
+install software on. It is <strong>not</strong> a way to hand anonymous, zero-install access
+to a random phone — that device must join your tailnet first. For one-off local
+access, the printed token URL / QR code remains the right tool.</p>
+</blockquote>
+<h2><a class="header" href="#how-it-works-briefly" id="how-it-works-briefly">How it works (briefly)</a></h2>
+<p>Tailscale builds an encrypted <a href="https://www.wireguard.com/">WireGuard</a> mesh
+between your devices (your <em>tailnet</em>). Each device gets a stable address in the
+<code>100.64.0.0/10</code> range and a name via <em>MagicDNS</em> (for example
+<code>braid-host.your-tailnet.ts.net</code>). Connections are made directly device-to-device
+when possible and fall back to Tailscale's relays when NAT makes a direct path
+impossible — either way the traffic is end-to-end encrypted and authenticated, so
+the connection itself is already secure before Braid sees it.</p>
+<h2><a class="header" href="#step-1--install-tailscale-on-both-ends" id="step-1--install-tailscale-on-both-ends">Step 1 — install Tailscale on both ends</a></h2>
+<p>Install and sign in to Tailscale on:</p>
+<ul>
+<li>the <strong>Braid computer</strong> (see the <a href="https://tailscale.com/download">Tailscale download
+page</a>), and</li>
+<li>each <strong>remote device</strong> — desktop clients for Windows/macOS/Linux, or the
+Tailscale app from the iOS App Store / Google Play for a phone or tablet.</li>
+</ul>
+<p>Sign every device into the <strong>same tailnet</strong> (the same Tailscale account or
+organization). Self-hosters who cannot use Tailscale's coordination service can
+run <a href="https://github.com/juanfont/headscale">Headscale</a> instead; the Braid side is
+identical.</p>
+<h2><a class="header" href="#step-2--find-the-braid-computers-tailscale-address" id="step-2--find-the-braid-computers-tailscale-address">Step 2 — find the Braid computer's Tailscale address</a></h2>
+<p>On the Braid computer:</p>
+<pre><code class="language-sh">tailscale ip -4        # prints the 100.x.y.z address
+tailscale status       # also shows the MagicDNS name
+</code></pre>
+<p>Use either the <code>100.x.y.z</code> address or the MagicDNS name
+(<code>braid-host.your-tailnet.ts.net</code>) from the remote device.</p>
+<h2><a class="header" href="#step-3--choose-how-to-expose-braid" id="step-3--choose-how-to-expose-braid">Step 3 — choose how to expose Braid</a></h2>
+<p>There are two good options. Option A is the simplest; Option B adds HTTPS (and,
+as a bonus, fixes the many-camera preview limit).</p>
+<h3><a class="header" href="#option-a--direct-over-the-tailnet-token-free" id="option-a--direct-over-the-tailnet-token-free">Option A — direct over the tailnet (token-free)</a></h3>
+<p>Leave Braid listening on a LAN-reachable address (the default) so the tailnet
+interface can reach it, and tell Braid to <strong>trust connections coming from the
+Tailscale range</strong>. Because Tailscale has already authenticated and encrypted the
+peer, an additional access token is redundant — set
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_config_data/struct.MainbrainConfig.html#structfield.trusted_networks"><code>trusted_networks</code></a>
+in your Braid config:</p>
+<pre><code class="language-toml">[mainbrain]
+# Accept clients arriving over Tailscale without an access token.
+# 100.64.0.0/10 is Tailscale's address range (use your WireGuard subnet instead
+# if you run plain WireGuard).
+trusted_networks = [&quot;100.64.0.0/10&quot;]
+</code></pre>
+<p>From the remote device, browse to <code>http://braid-host.your-tailnet.ts.net:44444/</code>
+(or the <code>100.x.y.z</code> address). No token is needed — Braid recognizes the
+Tailscale peer and issues the session directly.</p>
+<blockquote>
+<p><strong>Security note:</strong> <code>trusted_networks</code> matches the <strong>immediate peer address</strong> of
+the connection. This is correct when the browser connects <em>directly</em> to Braid
+over Tailscale. Do <strong>not</strong> add <code>100.64.0.0/10</code> here if Braid sits behind a
+reverse proxy, because then every request appears to come from the proxy and
+the check no longer identifies the real client. Strand Camera supports the same
+setting via the <code>--trusted-network</code> command-line flag.</p>
+</blockquote>
+<p>If you would rather keep token authentication even over Tailscale, simply omit
+<code>trusted_networks</code>: the usual <code>?token=&lt;TOKEN&gt;</code> flow (Braid prints the full URL on
+startup) works unchanged over the tailnet.</p>
+<h3><a class="header" href="#option-b--https-with-tailscale-serve-also-fixes-many-camera-previews" id="option-b--https-with-tailscale-serve-also-fixes-many-camera-previews">Option B — HTTPS with <code>tailscale serve</code> (also fixes many-camera previews)</a></h3>
+<p>Tailscale can terminate <strong>HTTPS</strong> for you using a certificate it manages
+automatically (no certificate files to install on clients), and serve Braid at
+its MagicDNS name. This also upgrades the browser connection to <strong>HTTP/2</strong>, which
+removes the ~6-connection limit that stalls previews when <a href="braid_scaling_reverse_proxy.html">many cameras are
+shown at once</a> — so a single step gives you both
+remote access and preview scaling.</p>
+<p>First enable HTTPS / MagicDNS for your tailnet in the Tailscale admin console
+(<strong>DNS → Enable MagicDNS</strong>, and <strong>Enable HTTPS</strong>). Then bind Braid to loopback so
+that only the local Tailscale proxy can reach it:</p>
+<pre><code class="language-toml">[mainbrain]
+http_api_server_addr = &quot;127.0.0.1:44444&quot;
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> Bind to loopback only if all cameras are local. If you also run
+<a href="braid_remote_cameras.html">remote cameras</a>, keep Braid on a LAN-reachable
+address so those camera computers can still connect, and point <code>tailscale serve</code>
+at that same address.</p>
+</blockquote>
+<p>Then publish it over HTTPS:</p>
+<pre><code class="language-sh">tailscale serve --bg http://127.0.0.1:44444
+</code></pre>
+<p>Braid is now reachable at <code>https://braid-host.your-tailnet.ts.net/</code> from any
+device on your tailnet. (The exact <code>tailscale serve</code> syntax has changed across
+Tailscale versions; see <a href="https://tailscale.com/kb/1242/tailscale-serve">the <code>tailscale serve</code>
+documentation</a> and
+<code>tailscale serve --help</code>.)</p>
+<p>In this mode you do <strong>not</strong> set <code>trusted_networks</code>: the Tailscale proxy reaches
+Braid over the loopback interface, and Braid already treats loopback connections
+as trusted (no token required). The security boundary is your tailnet — only
+devices you have added, subject to your <a href="braid_tailscale_remote_access.html#restricting-who-can-reach-braid">ACLs</a>,
+can reach the served endpoint.</p>
+<blockquote>
+<p><strong>Note:</strong> Treating loopback as trusted means <em>any</em> local user on the Braid
+computer can also reach the interface. On a single-user instrument machine this
+is fine; on a shared multi-user host, prefer Option A (keep the token, or trust
+only the Tailscale range).</p>
+</blockquote>
+<h2><a class="header" href="#restricting-who-can-reach-braid" id="restricting-who-can-reach-braid">Restricting who can reach Braid</a></h2>
+<p>By default every device in your tailnet can reach every other. To limit which
+people or devices may open the Braid interface, use <a href="https://tailscale.com/kb/1018/acls">Tailscale
+ACLs</a> — for example, tag the Braid computer
+and grant access only to a specific group:</p>
+<pre><code class="language-jsonc">{
+  &quot;tagOwners&quot;: { &quot;tag:braid&quot;: [&quot;group:lab-admins&quot;] },
+  &quot;acls&quot;: [
+    { &quot;action&quot;: &quot;accept&quot;, &quot;src&quot;: [&quot;group:lab-members&quot;], &quot;dst&quot;: [&quot;tag:braid:44444,443&quot;] }
+  ]
+}
+</code></pre>
+<p>This keeps the instrument private to your team even though it is reachable from
+anywhere.</p>
+<h2><a class="header" href="#caveats" id="caveats">Caveats</a></h2>
+<ul>
+<li><strong>Every device must run Tailscale and be signed into your tailnet.</strong> This is
+ideal for lab members and named collaborators, but not for handing a stranger
+ad-hoc access — for that, the local token URL / QR code is still the tool.</li>
+<li><strong>Tailscale's relays may be used</strong> when a direct path is impossible (e.g. both
+ends behind strict NAT). Throughput over a relay is lower than a direct
+connection; this matters only for live video previews, not for control or for
+the tracking data (which travels camera→Braid over the LAN and never leaves it).</li>
+<li><strong><code>tailscale funnel</code> is different from <code>tailscale serve</code>.</strong> Funnel exposes a
+service to the <em>public internet</em>; for private remote access to an instrument you
+want <code>serve</code> (tailnet-only), not Funnel.</li>
+<li><strong>Remote cameras do not need Tailscale to talk to Braid</strong> if they are on the
+same LAN. Tailscale is about reaching the <em>web interface</em> from afar; the
+camera↔Braid data path is unchanged (see <a href="braid_remote_cameras.html">Braid: Remote
+cameras</a>).</li>
+</ul>
 <h1><a class="header" href="#scripting-with-python" id="scripting-with-python">Scripting with Python</a></h1>
 <p>Everything in Strand Camera and Braid that can be controlled from the web
 browser can also be controlled from a Python script. The general technique is to
@@ -1228,6 +1628,31 @@ first detected), <code>Update</code> (position estimate for a tracked object), a
 (an object is no longer tracked). The script forwards only <code>Update</code> events. You
 can extend it to handle <code>Birth</code> and <code>Death</code> events for applications that need
 to track object identity over time.</p>
+<h2><a class="header" href="#demo-resetting-the-object-detection-background-model-using-python" id="demo-resetting-the-object-detection-background-model-using-python">Demo: resetting the object detection background model using Python</a></h2>
+<p><a href="https://github.com/strawlab/strand-braid/blob/main/docs/user-docs/scripts/reset-background.py"><code>reset-background.py</code></a>
+presses the background model buttons of the <a href="parameters_for_object_detection_and_tracking.html">object detection
+UI</a> programmatically. By
+default it acts like the <strong>Take Current Image As Background</strong> button,
+re-initializing the background model from the next ~20 incoming frames:</p>
+<pre><code class="language-sh">python reset-background.py --strand-cam-url http://127.0.0.1:3440/
+</code></pre>
+<p>With <code>--clear-to-value</code>, it instead acts like the <strong>Set background to
+mid-gray</strong> button, setting the background model to a uniform gray value:</p>
+<pre><code class="language-sh">python reset-background.py --strand-cam-url http://127.0.0.1:3440/ --clear-to-value 127
+</code></pre>
+<p>The underlying HTTP calls are simple: a POST to the <code>/callback</code> endpoint with
+the JSON body <code>&quot;TakeCurrentImageAsBackground&quot;</code> or <code>{&quot;ClearBackground&quot;: 127.0}</code>.</p>
+<h2><a class="header" href="#demo-resetting-the-background-model-on-all-cameras-of-a-braid-setup" id="demo-resetting-the-background-model-on-all-cameras-of-a-braid-setup">Demo: resetting the background model on all cameras of a Braid setup</a></h2>
+<p><a href="https://github.com/strawlab/strand-braid/blob/main/docs/user-docs/scripts/reset-background-braid-all-cams.py"><code>reset-background-braid-all-cams.py</code></a>
+performs the same background reset on every camera connected to a running
+Braid instance. Run it like so:</p>
+<pre><code class="language-sh">python reset-background-braid-all-cams.py --braid-url http://127.0.0.1:8397/
+</code></pre>
+<p>Unlike MP4 recording, there is no single Braid command for this. Instead, the
+script asks Braid for the HTTP address of every connected camera (this is
+carried in the <code>connected_cameras</code> field of the Braid event stream) and then
+sends the command to each Strand Camera directly. The same pattern can be used
+to automate any other per-camera action across a whole Braid setup.</p>
 <h2><a class="header" href="#advanced-automating-manual-actions" id="advanced-automating-manual-actions">Advanced: automating manual actions</a></h2>
 <p>Any action available in the browser UI can be scripted. To discover the
 corresponding HTTP call, open your browser's developer tools (F12 in most
@@ -1235,6 +1660,66 @@ browsers), go to the <strong>Network</strong> tab, and perform the action manual
 see the POST request sent to the <code>/callback</code> endpoint and the JSON body it
 carries. You can then replicate that call in Python using the <code>StrandCamProxy</code>
 or <code>BraidProxy</code> pattern shown in the demo scripts above.</p>
+<h1><a class="header" href="#offline-retracking-of-braidz-files" id="offline-retracking-of-braidz-files">Offline retracking of <code>.braidz</code> files</a></h1>
+<p>While Braid runs, it produces 3D position estimates (the Kalman estimates) at
+low latency. To keep latency low, the online tracker never waits for late or
+out-of-order data: any 2D detection that arrives after Braid has already moved on
+to a later frame is discarded from the <em>online</em> 3D reconstruction. However, every
+2D detection is still saved to the <code>.braidz</code> file as it arrives.</p>
+<p><em>Retracking</em> re-runs the tracker offline over a recorded <code>.braidz</code> file, using
+<strong>all</strong> of the saved 2D detections for each frame. Because latency is no longer a
+concern, the offline reconstruction can incorporate data the online tracker had
+to drop, and can also use information from frames acquired <em>after</em> a given
+instant. See <a href="./braid_3d_tracking.html#details-about-how-data-are-processed-online-and-saved-for-later-analysis">3D Tracking in Braid</a>
+for the underlying rationale.</p>
+<p>Retracking is performed by the <code>braid-offline-retrack</code> program.</p>
+<h2><a class="header" href="#retrack-with-the-original-parameters-and-calibration" id="retrack-with-the-original-parameters-and-calibration">Retrack with the original parameters and calibration</a></h2>
+<p>To recompute the 3D trajectories using the same calibration and tracking
+parameters that were used during the live recording:</p>
+<pre><code class="language-sh">braid-offline-retrack --data-src &lt;input.braidz&gt; --output &lt;output.braidz&gt;
+</code></pre>
+<ul>
+<li><code>--data-src</code> / <code>-d</code> is the input <code>.braidz</code> file to retrack.</li>
+<li><code>--output</code> / <code>-o</code> is the output file; its name <strong>must end in <code>.braidz</code></strong>.</li>
+</ul>
+<p><code>braid-offline-retrack</code> will <strong>not</strong> overwrite an existing file, so <code>--output</code>
+must be a new path (and must differ from <code>--data-src</code>).</p>
+<p>Typical improvements after retracking include:</p>
+<ul>
+<li>3D estimates added or adjusted for frames where they were missing or noisy
+online.</li>
+<li>Trajectory fragments of the same object that were given different object IDs
+online may be unified into a single object.</li>
+<li>Spurious low-confidence estimates near the end of a track may be removed.</li>
+<li>Object IDs in the output are renumbered starting from 0.</li>
+</ul>
+<h2><a class="header" href="#retrack-with-different-tracking-parameters-or-a-different-calibration" id="retrack-with-different-tracking-parameters-or-a-different-calibration">Retrack with different tracking parameters or a different calibration</a></h2>
+<p>You can also retrack with alternative tracking parameters and/or a different
+(for example, higher-quality) calibration:</p>
+<pre><code class="language-sh">braid-offline-retrack \
+  --data-src &lt;input.braidz&gt; \
+  --output &lt;output.braidz&gt; \
+  --tracking-params &lt;tracking-params.toml&gt; \
+  --new-calibration &lt;new-calibration.xml&gt;
+</code></pre>
+<ul>
+<li><code>--tracking-params</code> is a TOML file of tracking parameters. See
+<a href="./parameters_for_object_detection_and_tracking.html">Parameters for Object Detection and Tracking</a>
+and
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.TrackingParams.html"><code>braid_types::TrackingParams</code></a>.</li>
+<li><code>--new-calibration</code> is a calibration file produced as described in
+<a href="./braid_calibration.html">Calibration in Braid</a>.</li>
+</ul>
+<p>Both options are independent; you may supply either, both, or neither. Supplying
+neither is equivalent to the first command above.</p>
+<p>Other options (<code>--fps</code>, <code>--start-frame</code>, <code>--stop-frame</code>) are available; run
+<code>braid-offline-retrack --help</code> for the full list.</p>
+<h2><a class="header" href="#visualizing-the-result" id="visualizing-the-result">Visualizing the result</a></h2>
+<p>The output <code>.braidz</code> file can be inspected with the same tools as any other
+<code>.braidz</code> file — see <a href="./braidz-files.html">BRAIDZ files and Analysis
+Scripts</a> — including opening it in the
+<a href="https://braidz.strawlab.org/">Braidz viewer</a> or visualizing it in
+<a href="https://rerun.io/">Rerun</a>.</p>
 <h1><a class="header" href="#processing-recorded-videos-using-braid" id="processing-recorded-videos-using-braid">Processing recorded videos using Braid</a></h1>
 <h2><a class="header" href="#overview" id="overview">Overview</a></h2>
 <p>The <code>braid-process-video</code> program will takes video files and process them to
@@ -1502,6 +1987,23 @@ http_server_addr = &quot;192.168.1.20:0&quot;  # IP of the remote camera machine
 </li>
 </ol>
 <p>See <a href="braid_remote_cameras.html">Remote Cameras for Braid</a> for the full setup guide.</p>
+<h2><a class="header" href="#camera-fails-to-open-controlled-by-another-application" id="camera-fails-to-open-controlled-by-another-application">Camera fails to open: &quot;controlled by another application&quot;</a></h2>
+<p>If launching Strand Camera or Braid fails with an error mentioning that opening
+the camera failed and that <em>&quot;The device is controlled by another application&quot;</em>,
+the camera is already open in another program. The camera vendor SDKs (Basler
+Pylon, Allied Vision Vimba) allow only <strong>one</strong> application to open a given camera
+at a time.</p>
+<p>The most common causes are:</p>
+<ul>
+<li><strong>Basler Pylon Viewer</strong> (or the pylon IP Configurator) is open with the camera
+selected. Close it fully — it is good practice to close vendor viewers before
+starting Braid.</li>
+<li><strong>A previous Braid or Strand Camera instance is still running.</strong> A browser GUI
+window can be closed while the program keeps running in its terminal. Find the
+terminal still running the program and stop it (Ctrl+C), or otherwise ensure no
+stale <code>strand-cam</code> / <code>braid-run</code> process is holding the camera.</li>
+</ul>
+<p>Once the other application has released the camera, start Braid again.</p>
 <h2><a class="header" href="#any-other-problem-or-question" id="any-other-problem-or-question">Any other problem or question</a></h2>
 <p>To help diagnose issues, it is helpful to increase logging verbosity by setting
 the <code>RUST_LOG</code> environment variable to <code>debug</code> (or, more verbose, <code>trace</code>) when

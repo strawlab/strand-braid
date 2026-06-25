@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html" class="active"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">9.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">10.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">11.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">12.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html" class="active"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="braid_scaling_reverse_proxy.html"><strong aria-hidden="true">9.</strong> Running Braid with many cameras (reverse proxy)</a></li><li class="chapter-item expanded "><a href="braid_tailscale_remote_access.html"><strong aria-hidden="true">10.</strong> Remote access with Tailscale</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">11.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="braid_offline_retracking.html"><strong aria-hidden="true">12.</strong> Offline retracking</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">13.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">14.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">15.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -204,6 +204,13 @@ background mean (with sign according to <code>polarity</code>) exceeds a thresho
 the running standard deviation of that pixel, but never less than
 <code>diff_threshold</code>. With <code>use_cmp</code> disabled, the fixed <code>diff_threshold</code> is used
 everywhere.</p>
+<p>One subtlety when tuning <code>diff_threshold</code> live with <code>use_cmp</code> enabled: the
+per-pixel thresholds are stored with the <code>diff_threshold</code> floor already
+applied, and <em>lowering</em> <code>diff_threshold</code> cannot restore the values underneath
+the old floor. The lower floor takes full effect when the per-pixel thresholds
+are next recomputed — at the next background model update, or immediately
+after pressing one of the background reset buttons described below. (Raising
+<code>diff_threshold</code> takes effect immediately.)</p>
 <h3><a class="header" href="#background-model-controls-in-the-browser-ui" id="background-model-controls-in-the-browser-ui">Background model controls in the browser UI</a></h3>
 <p>The object detection panel in Strand Camera's browser interface has two
 buttons affecting the background model:</p>
@@ -215,8 +222,15 @@ disabled.</li>
 <li><strong>Set background to mid-gray</strong> — sets the background mean to a uniform value
 of 127 with zero variance.</li>
 </ul>
+<p>When running Braid, the Braid browser interface has a &quot;Background Model&quot;
+section with buttons that act on all connected cameras at once: <strong>Take New
+Background Image</strong>, <strong>Enable Background Updating</strong>, and <strong>Disable Background
+Updating</strong>. The per-camera background updating state is shown in the camera
+list.</p>
 <p>Like everything in the browser interface, these buttons can also be triggered
-programmatically; see <a href="scripting-with-python.html">Scripting with Python</a>.</p>
+programmatically, including on all cameras of a Braid setup at once; see the
+background reset demos in <a href="scripting-with-python.html#demo-resetting-the-object-detection-background-model-using-python">Scripting with
+Python</a>.</p>
 <!--
 ### Optimization
 
@@ -230,7 +244,7 @@ There is unfortunately no easy procedure for optimizing parameters. For optimizi
 individual cameras to a 3D model, and an Extended Kalman Filter, which updates
 the estimated position and velocity of the 3D model from the 2D features.</p>
 <p>The implementation details for the 3D tracking procedures can be found in the
-<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.TrackingParams.html">TrackingParams</a>
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.TrackingParams.html">TrackingParams</a>
 section of the API.</p>
 <!--
 ### Optimization

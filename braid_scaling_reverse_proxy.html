@@ -1,0 +1,362 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Running Braid with many cameras (reverse proxy) - User's Guide for Braid and Strand Camera</title>
+        
+        
+
+
+        <!-- Custom HTML head -->
+        
+
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="Low latency image processing and tracking">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        
+        <link rel="icon" href="favicon.svg">
+        
+        
+        <link rel="shortcut icon" href="favicon.png">
+        
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        
+        <link rel="stylesheet" href="css/print.css" media="print">
+        
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        
+        <link rel="stylesheet" href="fonts/fonts.css">
+        
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="braid_scaling_reverse_proxy.html" class="active"><strong aria-hidden="true">9.</strong> Running Braid with many cameras (reverse proxy)</a></li><li class="chapter-item expanded "><a href="braid_tailscale_remote_access.html"><strong aria-hidden="true">10.</strong> Remote access with Tailscale</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">11.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="braid_offline_retracking.html"><strong aria-hidden="true">12.</strong> Offline retracking</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">13.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">14.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">15.</strong> Troubleshooting</a></li></ol>
+            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                        
+                    </div>
+
+                    <h1 class="menu-title">User's Guide for Braid and Strand Camera</h1>
+
+                    <div class="right-buttons">
+                        
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                        
+                        
+                        <a href="https://github.com/strawlab/strand-braid/tree/main/docs/user-docs/users-guide" title="Git repository" aria-label="Git repository">
+                            <i id="git-repository-button" class="fa fa-github"></i>
+                        </a>
+                        
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1><a class="header" href="#running-braid-with-many-cameras-reverse-proxy" id="running-braid-with-many-cameras-reverse-proxy">Running Braid with many cameras (reverse proxy)</a></h1>
+<p>When you open the Braid web interface in a browser with <strong>many cameras</strong>, the
+live camera previews can stop updating once more than a handful are shown at
+once. This is a limitation of the browser, not of Braid, and it is easily solved
+by placing an HTTPS reverse proxy in front of Braid. <strong>No changes to Braid or to
+its configuration logic are required</strong> — the proxy is purely a deployment step.</p>
+<h2><a class="header" href="#why-the-previews-stall" id="why-the-previews-stall">Why the previews stall</a></h2>
+<p>Browsers limit how many simultaneous network connections they will open to a
+single server over HTTP/1.1 — typically <strong>6 connections per origin</strong> (host and
+port). The Braid web interface holds connections open continuously:</p>
+<ul>
+<li><strong>one</strong> connection for the main Braid event stream, plus</li>
+<li><strong>one</strong> connection for <em>each live camera preview</em> (every preview tile opens its
+own <a href="https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events">server-sent events</a>
+stream through Braid's camera proxy).</li>
+</ul>
+<p>So with the main stream plus ~5 live previews you reach the browser's 6-connection
+limit. Any further previews — and the per-frame requests that pace them — simply
+queue inside the browser and never run, so those tiles freeze.</p>
+<p>This limit applies <strong>only to browsers</strong>. Remote Strand Camera computers
+connecting to Braid are not affected and do <strong>not</strong> need the proxy; they continue
+to connect directly to Braid as described in <a href="braid_remote_cameras.html">Braid: Remote
+cameras</a>.</p>
+<h2><a class="header" href="#the-fix-serve-the-web-interface-over-http2" id="the-fix-serve-the-web-interface-over-http2">The fix: serve the web interface over HTTP/2</a></h2>
+<p>HTTP/2 multiplexes many independent streams over a <em>single</em> connection, so the
+6-connection limit disappears and all camera previews stream concurrently.
+Browsers only use HTTP/2 over TLS (HTTPS), so the solution is to run a small
+reverse proxy that terminates HTTPS and forwards plain HTTP to Braid on the same
+machine:</p>
+<pre><code class="language-text">   browser  ──HTTPS / HTTP/2──▶  reverse proxy  ──HTTP (localhost)──▶  braid-run
+</code></pre>
+<p>Because the browser now sees a single HTTP/2 connection to the proxy, all of the
+event streams and preview requests share it. Braid itself keeps speaking ordinary
+HTTP/1.1 on the loopback interface and is unchanged.</p>
+<p>We recommend <a href="https://caddyserver.com/">Caddy</a> because it obtains and renews TLS
+certificates automatically and streams server-sent events correctly out of the
+box. The examples below use Caddy; any HTTP/2-capable proxy (nginx, Traefik,
+…) works too (see the note on buffering at the end).</p>
+<h2><a class="header" href="#step-1-let-the-proxy-reach-braid" id="step-1-let-the-proxy-reach-braid">Step 1: let the proxy reach Braid</a></h2>
+<p>Run the proxy on the <strong>same computer</strong> as <code>braid-run</code> and forward to Braid over
+the loopback interface. Braid listens on port <code>44444</code> by default. If you want
+Braid to accept <em>only</em> proxied browser connections, bind its HTTP server to
+loopback by setting <a href="https://strawlab.org/strand-braid-api-docs/latest/braid_config_data/struct.MainbrainConfig.html#structfield.http_api_server_addr">the <code>http_api_server_addr</code>
+field</a>:</p>
+<pre><code class="language-toml">[mainbrain]
+http_api_server_addr = &quot;127.0.0.1:44444&quot;
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> Bind to loopback only if all cameras are local. If you also run
+<a href="braid_remote_cameras.html">remote cameras</a>, those computers must still be able
+to reach Braid's HTTP server directly, so keep Braid bound to a LAN-reachable
+address (the default) and simply let the proxy forward to that same address.</p>
+</blockquote>
+<h2><a class="header" href="#step-2-configure-caddy" id="step-2-configure-caddy">Step 2: configure Caddy</a></h2>
+<p>Automatic TLS still requires the browser to <em>trust</em> the certificate. On a private
+network you have two practical options.</p>
+<h3><a class="header" href="#option-a--with-a-domain-name-publicly-trusted-nothing-to-install-on-clients" id="option-a--with-a-domain-name-publicly-trusted-nothing-to-install-on-clients">Option A — with a domain name (publicly trusted, nothing to install on clients)</a></h3>
+<p>If you control a domain name, point a DNS record at the Braid computer's address
+(a private/LAN IP is fine) and let Caddy obtain a publicly trusted certificate
+using the <strong>DNS-01</strong> challenge, which needs no inbound access to the LAN. This is
+the smoothest option: every browser trusts the certificate with no per-machine
+setup.</p>
+<pre><code class="language-caddy">braid.lab.example.com {
+    reverse_proxy 127.0.0.1:44444
+    tls {
+        dns &lt;your-dns-provider&gt; {env.DNS_API_TOKEN}
+    }
+}
+</code></pre>
+<p>DNS-01 requires a build of Caddy that includes your DNS provider's module (see
+the <a href="https://caddyserver.com/docs/automatic-https#dns-challenge">Caddy DNS-challenge
+documentation</a>; build
+with <a href="https://github.com/caddyserver/xcaddy"><code>xcaddy</code></a>) and an API token for that
+provider supplied via the <code>DNS_API_TOKEN</code> environment variable.</p>
+<h3><a class="header" href="#option-b--fully-offline-caddys-internal-ca-one-time-trust-install" id="option-b--fully-offline-caddys-internal-ca-one-time-trust-install">Option B — fully offline (Caddy's internal CA, one-time trust install)</a></h3>
+<p>With no domain or no internet access, let Caddy act as its own certificate
+authority. Caddy issues and renews certificates automatically; you install
+Caddy's root certificate on each computer that will open the web interface
+<strong>once</strong>.</p>
+<pre><code class="language-caddy">braid.local {
+    reverse_proxy 127.0.0.1:44444
+    tls internal
+}
+</code></pre>
+<p>Install Caddy's root certificate into the system trust store:</p>
+<pre><code class="language-sh">caddy trust
+</code></pre>
+<p>On other computers, copy Caddy's root certificate (printed by <code>caddy trust</code>,
+typically under Caddy's data directory at
+<code>pki/authorities/local/root.crt</code>) and add it to that machine's (or browser's)
+trust store. On a managed set of lab computers this can be pushed out
+automatically. Make sure <code>braid.local</code> resolves to the Braid computer on each
+client (via DNS, an <code>/etc/hosts</code> entry, or mDNS).</p>
+<h2><a class="header" href="#step-3-open-the-web-interface-through-the-proxy" id="step-3-open-the-web-interface-through-the-proxy">Step 3: open the web interface through the proxy</a></h2>
+<p>Browse to the proxy's HTTPS address (e.g. <code>https://braid.lab.example.com/</code>)
+instead of <code>http://&lt;braid-host&gt;:44444/</code>. Braid's access token works exactly as
+before: append <code>?token=&lt;TOKEN&gt;</code> (Braid prints the full URL with the token on
+startup) on first connection; the browser then stores a cookie and reconnects
+without it. Do <strong>not</strong> disable Braid's token authentication — the proxy only
+changes the transport, not the security model.</p>
+<h2><a class="header" href="#scaling-notes-and-caveats" id="scaling-notes-and-caveats">Scaling notes and caveats</a></h2>
+<ul>
+<li><strong>The ceiling moves from ~6 to ~100–250.</strong> HTTP/2 multiplexes streams but
+still caps the number of <em>concurrent</em> streams per connection (Caddy allows a
+few hundred by default). Each live preview uses one stream, so this is far
+above any realistic camera count. If you ever approach it, raise the proxy's
+maximum-concurrent-streams setting — it is a single configuration knob.</li>
+<li><strong>The proxy → Braid hop stays HTTP/1.1, and that is fine.</strong> It is a
+server-to-server connection on the same machine and is not subject to the
+browser's per-origin limit.</li>
+<li><strong>If you use nginx instead of Caddy</strong>, disable response buffering for the
+event streams or previews will be delayed indefinitely: set
+<code>proxy_buffering off;</code>, <code>proxy_http_version 1.1;</code>, and forward to Braid over
+HTTP/1.1. Caddy needs none of this.</li>
+<li><strong>Remote cameras do not use the proxy, and should not.</strong> The connection limit
+is a browser-only concern — Strand Camera is a native client and is not subject
+to it — so <a href="braid_remote_cameras.html">remote cameras</a> keep connecting directly
+to Braid. There is also nothing to gain: the high-rate tracking data travels
+camera→Braid over <strong>UDP</strong>, which an HTTP proxy cannot carry, and the only HTTP
+traffic between them is light control messages. Routing cameras through the
+proxy would add a TLS certificate-trust and configuration burden on every
+camera computer for no real benefit. The proxy and the cameras simply use
+independent paths to Braid.</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="braid_remote_cameras.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="braid_tailscale_remote_access.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a rel="prev" href="braid_remote_cameras.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a rel="next" href="braid_tailscale_remote_access.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>

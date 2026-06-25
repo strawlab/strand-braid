@@ -95,7 +95,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html" class="active"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">9.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">10.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">11.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">12.</strong> Troubleshooting</a></li></ol>
+                <ol class="chapter"><li class="chapter-item expanded affix "><a href="braid-and-strand-camera.html">Braid and Strand Camera</a></li><li class="chapter-item expanded "><a href="hardware-selection.html"><strong aria-hidden="true">1.</strong> Hardware selection</a></li><li class="chapter-item expanded "><a href="installation.html"><strong aria-hidden="true">2.</strong> Installation</a></li><li class="chapter-item expanded "><a href="braid_configuration_and_launching.html"><strong aria-hidden="true">3.</strong> Configuring and Launching Braid</a></li><li class="chapter-item expanded "><a href="braidz-files.html" class="active"><strong aria-hidden="true">4.</strong> BRAIDZ files and Analysis Scripts</a></li><li class="chapter-item expanded "><a href="braid_3d_tracking.html"><strong aria-hidden="true">5.</strong> Braid: 3D Tracking</a></li><li class="chapter-item expanded "><a href="parameters_for_object_detection_and_tracking.html"><strong aria-hidden="true">6.</strong> Parameters for Object Detection and Tracking</a></li><li class="chapter-item expanded "><a href="braid_calibration.html"><strong aria-hidden="true">7.</strong> Braid: 3D Calibration</a></li><li class="chapter-item expanded "><a href="braid_remote_cameras.html"><strong aria-hidden="true">8.</strong> Braid: Remote cameras</a></li><li class="chapter-item expanded "><a href="braid_scaling_reverse_proxy.html"><strong aria-hidden="true">9.</strong> Running Braid with many cameras (reverse proxy)</a></li><li class="chapter-item expanded "><a href="braid_tailscale_remote_access.html"><strong aria-hidden="true">10.</strong> Remote access with Tailscale</a></li><li class="chapter-item expanded "><a href="scripting-with-python.html"><strong aria-hidden="true">11.</strong> Scripting with Python</a></li><li class="chapter-item expanded "><a href="braid_offline_retracking.html"><strong aria-hidden="true">12.</strong> Offline retracking</a></li><li class="chapter-item expanded "><a href="processing-saved-videos.html"><strong aria-hidden="true">13.</strong> Processing saved videos</a></li><li class="chapter-item expanded "><a href="fmf_format.html"><strong aria-hidden="true">14.</strong> Fly Movie Format</a></li><li class="chapter-item expanded "><a href="troubleshooting.html"><strong aria-hidden="true">15.</strong> Troubleshooting</a></li></ol>
             </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
@@ -214,7 +214,7 @@ original recording. You can override either or both:</p>
   --new-calibration &lt;calibration.xml&gt;
 </code></pre>
 <p><code>--tracking-params</code> accepts a TOML file containing
-<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.TrackingParams.html"><code>TrackingParams</code></a>
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.TrackingParams.html"><code>TrackingParams</code></a>
 fields. <code>--new-calibration</code> accepts a Braid XML calibration file. Both are
 optional and can be combined or used independently.</p>
 <p>Retracking commonly improves results in these ways:</p>
@@ -321,23 +321,23 @@ Archive:  20191119_114103.NOT-A-VALID-BRAIDZ
 <h4><a class="header" href="#data2d_distorted-table" id="data2d_distorted-table"><code>data2d_distorted</code> table</a></h4>
 <p>The <code>data2d_distorted</code> table contains the raw (2D) camera detections and is
 typically quite large. See the documentation for the row type
-<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.Data2dDistortedRow.html">Data2dDistortedRow</a>.
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.Data2dDistortedRow.html">Data2dDistortedRow</a>.
 This file is important for carrying synchronization data between cameras. For
 example, when saving videos, the timing data carried by the
-<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.Data2dDistortedRow.html#structfield.frame">frame</a>
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.Data2dDistortedRow.html#structfield.frame">frame</a>
 and
-<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.Data2dDistortedRow.html#structfield.block_id">block_id</a>
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.Data2dDistortedRow.html#structfield.block_id">block_id</a>
 fields is important.</p>
 <h4><a class="header" href="#kalman_estimates-table" id="kalman_estimates-table"><code>kalman_estimates</code> table</a></h4>
 <p>The <code>kalman_estimates</code> tables contains the estimated state (positions and
 velocities) of each tracked object in addition to the estimated covariance. See
 the documentation for the row type
-<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.KalmanEstimatesRow.html">KalmanEstimatesRow</a>.</p>
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.KalmanEstimatesRow.html">KalmanEstimatesRow</a>.</p>
 <h4><a class="header" href="#data_association-table" id="data_association-table"><code>data_association</code> table</a></h4>
 <p>The <code>data_association</code> table contains which camera detections contributed to
 estimating the state of which objects in the <code>kalman_estimates</code> table. See the
 documentation for the row type
-<a href="https://strawlab.org/strand-braid-api-docs/latest/flydra_types/struct.DataAssocRow.html">DataAssocRow</a>.</p>
+<a href="https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.DataAssocRow.html">DataAssocRow</a>.</p>
 <h3><a class="header" href="#chunked-iteration-of-kalman_estimates" id="chunked-iteration-of-kalman_estimates">Chunked iteration of <code>kalman_estimates</code></a></h3>
 <p>The primary tracking results are in the <code>kalman_estimates</code> table. There can
 often be many gigabytes of data here, and thus it is useful to iterate over
