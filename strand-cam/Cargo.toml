@@ -1,6 +1,6 @@
 [package]
 name = "strand-cam"
-version = "1.0.0-rc.2"                       # braid release synchronized
+version.workspace = true
 authors = ["Andrew Straw <strawman@astraw.com>"]
 build = "build.rs"
 homepage = "https://strawlab.org/strand-cam"

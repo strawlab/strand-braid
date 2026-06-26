@@ -1,5 +1,7 @@
 ## Unreleased
 
+## 1.0.0-rc.3 - 2026-06-26
+
 ### Added
 
 * The browser UIs of Braid and of standalone Strand Camera have a "Quit"

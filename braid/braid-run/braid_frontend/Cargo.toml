@@ -1,6 +1,6 @@
 [package]
 name = "braid_frontend"
-version = "1.0.0-rc.2"                       # braid release synchronized
+version.workspace = true
 authors = ["Andrew Straw <strawman@astraw.com>"]
 edition = "2024"
 license = "MIT OR Apache-2.0"

@@ -14,6 +14,29 @@ inputs:
 runs:
   using: composite
   steps:
+    # On tag builds, the .deb version (taken from the [workspace.package]
+    # version via write-debian-changelog's CARGO_PKG_VERSION) and the tag name
+    # (which names the published release zip) are set independently. Guard
+    # against drift: if they disagree, the zip would advertise one version while
+    # the .deb inside carries another. Fail fast, before the long build.
+    - name: Verify tag matches workspace version (tag builds only)
+      if: github.ref_type == 'tag'
+      shell: bash
+      run: |
+        # The first `version = "..."` after the [workspace.package] header.
+        ws_version="$(sed -nE '/^\[workspace\.package\]/,/^\[/ s/^version = "([^"]+)"/\1/p' Cargo.toml | head -1)"
+        if [ -z "$ws_version" ]; then
+          echo "Could not read [workspace.package] version from Cargo.toml." >&2
+          exit 1
+        fi
+        if [ "$ws_version" != "${{ github.ref_name }}" ]; then
+          echo "Release tag '${{ github.ref_name }}' does not match workspace version '$ws_version'." >&2
+          echo "Update [workspace.package] version and re-tag so they agree" >&2
+          echo "(see docs/developer-docs/making-releases.md)." >&2
+          exit 1
+        fi
+        echo "Tag matches workspace version: $ws_version"
+
     # All packaged binaries are built in a single cargo invocation so that
     # features are resolved once and every shared dependency (flydra2, the
     # rerun stack, etc.) is compiled exactly once -- instead of being rebuilt

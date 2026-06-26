@@ -1,6 +1,6 @@
 [package]
 name = "strand-cam-gui"
-version = "1.0.0-rc.2"    # braid release synchronized
+version.workspace = true
 edition = "2024"
 license = "MIT OR Apache-2.0"
 description = "Strand Camera with an eframe GUI, supporting the Basler Pylon and Allied Vision Vimba backends"

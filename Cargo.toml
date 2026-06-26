@@ -135,6 +135,15 @@ exclude = [
     "led-box/led-box-firmware-pico",
 ]
 
+# The single source of truth for the strand-braid release version. Every crate
+# that participates in a release inherits this with `version.workspace = true`;
+# crates with their own independent version simply do not opt in. The
+# strand-braid .deb takes its version from here (via write-debian-changelog's
+# CARGO_PKG_VERSION). To bump: edit the version below, then run
+# `cargo update --workspace` (see docs/developer-docs/making-releases.md).
+[workspace.package]
+version = "1.0.0-rc.3"
+
 [workspace.dependencies]
 adskalman = "0.17"
 anyhow = "1.0.99"
