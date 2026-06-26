@@ -1422,7 +1422,7 @@ dependencies = [
 
 [[package]]
 name = "braid"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "braid-config-data",
  "braid-types",
@@ -1571,7 +1571,7 @@ dependencies = [
 
 [[package]]
 name = "braid-offline"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "approx 0.5.1",
  "braid-config-data",
@@ -1612,7 +1612,7 @@ dependencies = [
 
 [[package]]
 name = "braid-process-video"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "base64 0.22.1",
  "braid-config-data",
@@ -1658,7 +1658,7 @@ dependencies = [
 
 [[package]]
 name = "braid-run"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "async-change-tracker",
  "axum",
@@ -1805,7 +1805,7 @@ dependencies = [
 
 [[package]]
 name = "braid_frontend"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "ads-webasm",
  "anyhow",
@@ -1844,7 +1844,7 @@ dependencies = [
 
 [[package]]
 name = "braidz-cli"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "anyhow",
  "braid-types",
@@ -1859,7 +1859,7 @@ dependencies = [
 
 [[package]]
 name = "braidz-export-rrd"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "braidz-parser",
  "braidz-rerun",
@@ -5341,7 +5341,7 @@ dependencies = [
 
 [[package]]
 name = "flytrax-csv-to-braidz"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "braid-apriltag-types",
  "braid-offline",
@@ -5396,7 +5396,7 @@ dependencies = [
 
 [[package]]
 name = "fmf-cli"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "anyhow",
  "chrono",
@@ -6530,7 +6530,7 @@ dependencies = [
 
 [[package]]
 name = "gocal"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "camino",
  "clap",
@@ -14089,7 +14089,7 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "show-timestamps"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "camino",
  "chrono",
@@ -14489,7 +14489,7 @@ dependencies = [
 
 [[package]]
 name = "strand-cam"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "ads-apriltag",
  "approx 0.5.1",
@@ -14613,7 +14613,7 @@ version = "0.1.0"
 
 [[package]]
 name = "strand-cam-frontend-yew"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "ads-webasm",
  "console_error_panic_hook",
@@ -14641,7 +14641,7 @@ dependencies = [
 
 [[package]]
 name = "strand-cam-gui"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "ci2-async",
  "ci2-pylon",
@@ -14726,7 +14726,7 @@ dependencies = [
 
 [[package]]
 name = "strand-convert"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "chrono",
  "clap",
@@ -17591,7 +17591,7 @@ dependencies = [
 
 [[package]]
 name = "write-debian-changelog"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "chrono",
 ]
