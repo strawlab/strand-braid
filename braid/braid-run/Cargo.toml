@@ -26,6 +26,8 @@ tokio-util.workspace = true
 tokio-stream.workspace = true
 stream-cancel.workspace = true
 bytes.workspace = true
+semver = { version = "1.0.27", features = ["serde"] }
+strand-version-check.workspace = true
 clap.workspace = true
 preferences-serde1.workspace = true
 qrcode.workspace = true

@@ -148,6 +148,7 @@
  - license-check (utils/license-check) - CLI program to check (or add) SPDX license headers on workspace .rs files
  - strand-cam-enum-iter (utils/strand-cam-enum-iter) - A utility crate to provide an EnumIter trait for iterating over enums in the Strand Camera ecosystem
  - strand-datetime-conversion (utils/strand-datetime-conversion) - Convert between chrono and f64 time. Used in Strand Camera and Braid.
+ - strand-version-check (utils/strand-version-check) - client for the strand-braid version-check service
  - strand-withkey (utils/strand-withkey) - defines the WithKey trait for Strand Camera
  - workspace-docs (utils/workspace-docs) - CLI program to maintain repository overview in workspace README.md
  - write-debian-changelog (utils/write-debian-changelog) - simple and hacky CLI program to print a debian changelog

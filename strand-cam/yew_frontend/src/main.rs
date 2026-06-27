@@ -71,6 +71,9 @@ enum Msg {
     DismissProcessingErrorModal,
     SetIgnoreAllFutureErrors(bool),
 
+    /// Dismiss the "new version available" banner for the given version.
+    DismissVersionUpdate(String),
+
     SetGainAuto(AutoMode),
     SetGainValue(f64),
     SetExposureAuto(AutoMode),
@@ -193,6 +196,10 @@ struct Model {
     im_ops_threshold: TypedInputStorage<u8>,
 
     ignore_all_future_frame_processing_errors: bool,
+
+    /// The available version whose "new version" banner the user has dismissed.
+    /// The banner reappears if the server later reports a different version.
+    dismissed_update_version: Option<String>,
 }
 
 fn log_warn(msg: &str) {
@@ -303,6 +310,7 @@ impl Component for Model {
             im_ops_threshold: TypedInputStorage::empty(),
 
             ignore_all_future_frame_processing_errors: false,
+            dismissed_update_version: None,
         }
     }
 
@@ -418,6 +426,9 @@ impl Component for Model {
             }
             Msg::SetIgnoreAllFutureErrors(val) => {
                 self.ignore_all_future_frame_processing_errors = val;
+            }
+            Msg::DismissVersionUpdate(version) => {
+                self.dismissed_update_version = Some(version);
             }
             Msg::SetGainAuto(v) => {
                 self.send_cam_message(CamArg::SetGainAuto(v), ctx);
@@ -620,6 +631,7 @@ impl Component for Model {
         let strand_cam_name = get_strand_cam_name(self.server_state.as_ref().map(AsRef::as_ref));
         html! {
             <div>
+                { self.version_update_banner(ctx) }
                 <h1 style="text-align: center;">{strand_cam_name}<a href="https://strawlab.org/strand-cam/"><span class="infoCircle">{"ⓘ"}</span></a></h1>
                 <img src="strand-camera-no-text.png" width="521" height="118" class="center logo-img" alt="Strand Camera logo"/>
                 <div style="text-align: center;"><ConnectDevice /></div>
@@ -775,6 +787,35 @@ impl Model {
             return html! {
                 <div class="quit-section">
                     <Button title={"Quit Strand Camera"} onsignal={ctx.link().callback(|_| Msg::DoQuit)}/>
+                </div>
+            };
+        }
+        html! {}
+    }
+
+    fn version_update_banner(&self, ctx: &Context<Self>) -> Html {
+        if let Some(ref shared) = self.server_state
+            // Under Braid, the update notice is shown once in Braid's own UI
+            // rather than repeated in every camera tile.
+            && !shared.is_braid
+            && let Some(ref update) = shared.version_update
+            && self.dismissed_update_version.as_deref() != Some(update.available.as_str())
+        {
+            let available = update.available.clone();
+            return html! {
+                <div class="update-banner">
+                    <span>
+                        { format!("A new version of Strand Camera is available ({}). ", update.available) }
+                        { &update.message }
+                        { " " }
+                        <a href={update.url.clone()} target="_blank" rel="noopener noreferrer">
+                            { "Release notes and downloads" }
+                        </a>
+                    </span>
+                    <Button
+                        title={"Dismiss"}
+                        onsignal={ctx.link().callback(move |_| Msg::DismissVersionUpdate(available.clone()))}
+                    />
                 </div>
             };
         }

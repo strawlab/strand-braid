@@ -39,6 +39,9 @@ struct Model {
     preview_cams: BTreeSet<String>,
     /// Whether the user has commanded Braid to quit.
     user_quit: bool,
+    /// The available version whose "new version" banner the user has dismissed.
+    /// The banner reappears if the server later reports a different version.
+    dismissed_update_version: Option<String>,
     _listeners: Vec<EventListener>,
 }
 
@@ -58,6 +61,8 @@ enum Msg {
     DoQuit,
     /// The server broadcast that it is shutting down.
     ServerQuit,
+    /// Dismiss the "new version available" banner for the given version.
+    DismissVersionUpdate(String),
     RenderView,
 }
 
@@ -144,6 +149,7 @@ impl Component for Model {
             post_trigger_buffer_size_local: TypedInputStorage::empty(),
             preview_cams: BTreeSet::new(),
             user_quit: false,
+            dismissed_update_version: None,
             _listeners,
         }
     }
@@ -248,6 +254,9 @@ impl Component for Model {
                 self.user_quit = true;
                 self.es.close();
             }
+            Msg::DismissVersionUpdate(version) => {
+                self.dismissed_update_version = Some(version);
+            }
         }
         true
     }
@@ -268,6 +277,7 @@ impl Component for Model {
                     </h1>
                     <img src="braid-logo-no-text.png" class="center logo-img" width="523" height="118" alt="Braid logo"/>
                     <div style="text-align: center;"><ConnectDevice /></div>
+                    {self.version_update_banner(ctx)}
                     {self.disconnected_dialog()}
                     {self.view_shared(ctx)}
                     <footer id="footer">
@@ -424,6 +434,32 @@ impl Model {
                 </div>
             }
         }
+    }
+
+    fn version_update_banner(&self, ctx: &Context<Self>) -> Html {
+        if let Some(ref shared) = self.shared
+            && let Some(ref update) = shared.version_update
+            && self.dismissed_update_version.as_deref() != Some(update.available.as_str())
+        {
+            let available = update.available.clone();
+            return html! {
+                <div class="update-banner">
+                    <span>
+                        { format!("A new version of Braid is available ({}). ", update.available) }
+                        { &update.message }
+                        { " " }
+                        <a href={update.url.clone()} target="_blank" rel="noopener noreferrer">
+                            { "Release notes and downloads" }
+                        </a>
+                    </span>
+                    <Button
+                        title={"Dismiss"}
+                        onsignal={ctx.link().callback(move |_| Msg::DismissVersionUpdate(available.clone()))}
+                    />
+                </div>
+            };
+        }
+        html! {}
     }
 
     fn disconnected_dialog(&self) -> Html {

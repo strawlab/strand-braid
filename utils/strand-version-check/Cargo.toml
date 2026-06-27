@@ -1,0 +1,24 @@
+[package]
+name = "strand-version-check"
+description = "client for the strand-braid version-check service"
+version.workspace = true
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+hyper.workspace = true
+hyper-util.workspace = true
+http-body-util.workspace = true
+bytes.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tracing.workspace = true
+tokio = { workspace = true, features = ["time"] }
+semver = { version = "1.0.27", features = ["serde"] }
+hyper-rustls = { version = "0.27.3", default-features = false, features = [
+    "webpki-tokio",
+    "native-tokio",
+    "http1",
+    "logging",
+    "ring",
+] }

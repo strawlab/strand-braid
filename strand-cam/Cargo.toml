@@ -70,6 +70,7 @@ dotenv.workspace = true
 json-lines.workspace = true
 
 strand-cam-storetype.workspace = true
+strand-version-check.workspace = true
 flydra-feature-detector = { workspace = true, optional = true }
 flydra-feature-detector-types.workspace = true
 flydra-pt-detect-cfg.workspace = true

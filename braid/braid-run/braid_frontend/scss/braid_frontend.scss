@@ -118,6 +118,20 @@ live. */
     text-align: right;
 }
 
+/* "A new version is available" banner, shown across the top of the page. */
+.update-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1em;
+    padding: 0.6em 1em;
+    background: var(--panel-muted);
+    color: var(--text);
+    border-left: 4px solid var(--accent);
+    border-radius: 4px;
+    margin-bottom: 0.75em;
+}
+
 #page-container {
     position: relative;
     min-height: 100vh;

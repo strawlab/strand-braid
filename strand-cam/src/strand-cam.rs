@@ -17,9 +17,6 @@ use futures::stream::StreamExt;
 use http::StatusCode;
 use strand_http_video_streaming as video_streaming;
 
-use hyper_rustls::HttpsConnector;
-
-use hyper_util::{client::legacy::Client, rt::TokioExecutor};
 use machine_vision_formats as formats;
 use preferences_serde1::{AppInfo, Preferences};
 use serde::{Deserialize, Serialize};
@@ -542,76 +539,6 @@ struct StrandCamAppState {
     /// The cookie/token secret, used to mint a fresh short-lived access token
     /// when a device-connection QR code is requested.
     persistent_secret: cookie::Key,
-}
-
-type MyBody = http_body_util::combinators::BoxBody<bytes::Bytes, strand_bui_backend_session::Error>;
-
-fn body_from_buf(body_buf: &[u8]) -> MyBody {
-    let body = http_body_util::Full::new(bytes::Bytes::from(body_buf.to_vec()));
-    use http_body_util::BodyExt;
-    MyBody::new(body.map_err(|_: std::convert::Infallible| unreachable!()))
-}
-
-async fn check_version(
-    client: Client<
-        HttpsConnector<hyper_util::client::legacy::connect::HttpConnector>,
-        MyBody,
-        // http_body_util::Empty<bytes::Bytes>,
-    >,
-    known_version: Arc<RwLock<semver::Version>>,
-    app_name: &'static str,
-) -> Result<()> {
-    let url = format!("https://version-check.strawlab.org/{app_name}");
-    let url = url.parse::<hyper::Uri>().unwrap();
-    let agent = format!("{}/{}", app_name, *known_version.read().unwrap());
-
-    let req = hyper::Request::builder()
-        .uri(&url)
-        .header(hyper::header::USER_AGENT, agent.as_str())
-        .body(body_from_buf(b""))
-        .unwrap();
-
-    #[derive(Debug, Deserialize, PartialEq, Clone)]
-    struct VersionResponse {
-        available: semver::Version,
-        message: String,
-    }
-
-    let known_version2 = known_version.clone();
-
-    let res = client.request(req).await?;
-
-    if res.status() != hyper::StatusCode::OK {
-        // should return error?
-        return Ok(());
-    }
-
-    let known_version3 = known_version2.clone();
-
-    let body = res.into_body();
-    let chunks: StdResult<http_body_util::Collected<bytes::Bytes>, _> = {
-        use http_body_util::BodyExt;
-        body.collect().await
-    };
-    let data = chunks?.to_bytes();
-
-    let version: VersionResponse = match serde_json::from_slice(&data) {
-        Ok(version) => version,
-        Err(e) => {
-            warn!("Could not parse version response JSON from {}: {}", url, e);
-            return Ok(());
-        }
-    };
-    let mut known_v = known_version3.write().unwrap();
-    if version.available > *known_v {
-        info!(
-            "New version of {} is available: {}. {}",
-            app_name, version.available, version.message
-        );
-        *known_v = version.available;
-    }
-
-    Ok(())
 }
 
 fn display_qr_url(url: &str) -> Result<()> {
@@ -2290,6 +2217,7 @@ where
         im_ops_state,
         had_frame_processing_error: false,
         camera_calibration: None,
+        version_update: None,
     });
 
     let frame_processing_error_state = Arc::new(RwLock::new(FrameProcessingErrorState::default()));
@@ -2493,7 +2421,6 @@ where
         None => true,
     };
 
-    // This is quick-and-dirtry version checking. It can be cleaned up substantially...
     if do_version_check {
         let app_version: semver::Version = {
             let mut my_version = semver::Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
@@ -2509,31 +2436,37 @@ where
             app_name, app_version,
         );
 
-        // TODO I just used Arc and RwLock to code this quickly. Convert to single-threaded
-        // versions later.
-        let known_version = Arc::new(RwLock::new(app_version));
+        let store_for_version_check = shared_store_arc.clone();
+        // Build the version-check client once and reuse it for every check.
+        let checker = strand_version_check::VersionChecker::new();
 
-        // Create a stream to call our closure now and every 30 minutes.
+        // Check now and every 30 minutes.
         let interval_stream = tokio::time::interval(std::time::Duration::from_secs(1800));
-
         let mut interval_stream = tokio_stream::wrappers::IntervalStream::new(interval_stream);
 
-        let known_version2 = known_version;
         let stream_future = async move {
+            // The newest version this client knows about. Starts as our own
+            // version and is advanced as the server reports newer ones, so each
+            // new version is announced only once.
+            let mut known_version = app_version;
             while interval_stream.next().await.is_some() {
-                let https = hyper_rustls::HttpsConnectorBuilder::new()
-                    .with_webpki_roots()
-                    .https_only()
-                    .enable_http1()
-                    .build();
-                let client = Client::builder(TokioExecutor::new()).build::<_, MyBody>(https);
-
-                let r = check_version(client, known_version2.clone(), app_name).await;
-                match r {
-                    Ok(()) => {}
-                    Err(e) => {
-                        error!("error checking version: {}", e);
-                    }
+                let user_agent = format!("{}/{}", app_name, known_version);
+                if let Some(av) = checker.fetch("strand-cam", &user_agent).await
+                    && av.version > known_version
+                {
+                    info!(
+                        "New version of {} is available: {}. {}",
+                        app_name, av.version, av.message
+                    );
+                    // Surface to every connected browser as a dismissible banner.
+                    let update = strand_cam_storetype::VersionUpdate {
+                        available: av.version.to_string(),
+                        message: av.message,
+                        url: av.url,
+                    };
+                    let mut tracker = store_for_version_check.write().unwrap();
+                    tracker.modify(|store| store.version_update = Some(update));
+                    known_version = av.version;
                 }
             }
             debug!("version check future done {}:{}", file!(), line!());

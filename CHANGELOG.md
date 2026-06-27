@@ -1,5 +1,15 @@
 ## Unreleased
 
+### Added
+
+* The automatic version check now shows an "update available" banner in the
+  browser UI (with a link to release notes/downloads), instead of only writing
+  to the log. Braid now performs this check too (previously only Strand Camera
+  did); under Braid, the notice appears once in the Braid UI rather than in every
+  camera tile. The version-check response gained an optional `url` field for the
+  link; older clients ignore it. The flydratrax build now uses the same
+  version-check endpoint as every other build.
+
 ## 1.0.0-rc.3 - 2026-06-26
 
 ### Added

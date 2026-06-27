@@ -623,6 +623,21 @@ impl ConnectedCameraSyncState {
     }
 }
 
+/// Information about a newer available release of Braid.
+///
+/// Populated by the background version check when the version-check server
+/// reports a version newer than the running one. Surfaced to every connected
+/// browser as a dismissible banner.
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct VersionUpdate {
+    /// The newest available version as a semver string, e.g. `"1.0.0-rc.3"`.
+    pub available: String,
+    /// Human-readable message from the version-check server.
+    pub message: String,
+    /// URL with release notes / downloads, rendered as a link.
+    pub url: String,
+}
+
 /// Shared state for the Braid HTTP API.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct BraidHttpApiSharedState {
@@ -661,6 +676,9 @@ pub struct BraidHttpApiSharedState {
     pub flydra_app_name: String,
     /// Whether all expected cameras are synchronized.
     pub all_expected_cameras_are_synced: bool,
+    /// A newer available release discovered by the background version check, or
+    /// `None` if up to date (or the check has not yet found a newer version).
+    pub version_update: Option<VersionUpdate>,
 }
 
 /// Statistics for recent camera activity.

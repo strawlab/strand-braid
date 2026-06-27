@@ -117,6 +117,22 @@ pub const CONN_KEY_EVENT_NAME: &str = "connection-key";
 /// "Strand Camera has quit" screen and stop trying to reconnect.
 pub const STRAND_CAM_QUIT_EVENT_NAME: &str = "strand-cam-quit";
 
+/// Information about a newer available release of Strand Camera.
+///
+/// Populated by the background version check when the version-check server
+/// reports a version newer than the running one. Surfaced to every connected
+/// browser as a dismissible banner.
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VersionUpdate {
+    /// The newest available version as a semver string, e.g. `"1.0.0-rc.3"`.
+    pub available: String,
+    /// Human-readable message from the version-check server.
+    pub message: String,
+    /// URL with release notes / downloads, rendered as a link.
+    pub url: String,
+}
+
 /// Complete state representation of a Strand Camera instance.
 ///
 /// This is the primary data structure that encapsulates all configuration,
@@ -240,6 +256,9 @@ pub struct StoreType {
     pub had_frame_processing_error: bool,
     /// The camera calibration (does not contain potential information about water)
     pub camera_calibration: Option<braid_mvg::Camera<f64>>,
+    /// A newer available release discovered by the background version check, or
+    /// `None` if up to date (or the check has not yet found a newer version).
+    pub version_update: Option<VersionUpdate>,
 }
 
 /// State and configuration of AprilTag detection.

@@ -699,10 +699,61 @@ pub(crate) async fn do_run_forever(
         flydra_app_name,
         all_expected_cameras_are_synced: false,
         needs_clock_model,
+        version_update: None,
     };
     let shared_store = ChangeTracker::new(shared);
     let mut shared_store_changes_rx = shared_store.get_changes(1);
     let shared_store = Arc::new(RwLock::new(shared_store));
+
+    // Periodically ask the version-check server whether a newer Braid release is
+    // available; if so, surface it to connected browsers as a dismissible
+    // banner. Disabled by setting DISABLE_VERSION_CHECK=1. Mirrors the check in
+    // Strand Camera.
+    let do_version_check = match std::env::var_os("DISABLE_VERSION_CHECK") {
+        Some(v) => &v == "0",
+        None => true,
+    };
+    if do_version_check {
+        let app_version: semver::Version = {
+            let mut my_version = semver::Version::parse(env!("CARGO_PKG_VERSION")).unwrap();
+            my_version.build = semver::BuildMetadata::new(env!("GIT_HASH"))?;
+            my_version
+        };
+        info!(
+            "This program will check for new versions automatically. To disable, \
+            set the environment variable DISABLE_VERSION_CHECK=1."
+        );
+        let store_for_version_check = shared_store.clone();
+        let checker = strand_version_check::VersionChecker::new();
+        let interval_stream = tokio_stream::wrappers::IntervalStream::new(tokio::time::interval(
+            std::time::Duration::from_secs(1800),
+        ));
+        let mut interval_stream = valve.wrap(interval_stream);
+        tokio::spawn(async move {
+            // The newest version known so far; advanced as the server reports
+            // newer ones so each is announced only once.
+            let mut known_version = app_version;
+            while interval_stream.next().await.is_some() {
+                let user_agent = format!("braid/{}", known_version);
+                if let Some(av) = checker.fetch("braid", &user_agent).await
+                    && av.version > known_version
+                {
+                    info!(
+                        "New version of Braid is available: {}. {}",
+                        av.version, av.message
+                    );
+                    let update = braid_types::VersionUpdate {
+                        available: av.version.to_string(),
+                        message: av.message,
+                        url: av.url,
+                    };
+                    let mut tracker = store_for_version_check.write().unwrap();
+                    tracker.modify(|shared| shared.version_update = Some(update));
+                    known_version = av.version;
+                }
+            }
+        });
+    }
 
     let expected_framerate_arc = Arc::new(RwLock::new(None));
 
