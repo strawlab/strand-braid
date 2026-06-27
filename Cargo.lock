@@ -1693,6 +1693,7 @@ dependencies = [
  "preferences-serde1",
  "qrcode",
  "regex",
+ "semver",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -1703,6 +1704,7 @@ dependencies = [
  "strand-cam-remote-control",
  "strand-cam-storetype",
  "strand-datetime-conversion",
+ "strand-version-check",
  "stream-cancel",
  "thiserror 2.0.18",
  "tokio",
@@ -14573,6 +14575,7 @@ dependencies = [
  "strand-http-video-streaming",
  "strand-http-video-streaming-types",
  "strand-led-box-comms",
+ "strand-version-check",
  "target",
  "tokio",
  "tokio-serial",
@@ -14801,6 +14804,22 @@ dependencies = [
  "defmt 1.1.0",
  "serde",
  "strand-cam-enum-iter",
+]
+
+[[package]]
+name = "strand-version-check"
+version = "1.0.0-rc.3"
+dependencies = [
+ "bytes",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-util",
+ "semver",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
