@@ -178,6 +178,12 @@ GitHub creates the Release as part of the upload. Edit it to add human-readable
 release notes (the relevant `CHANGELOG.md` section is a good source), and mark it
 as a pre-release for `-rc.N` versions.
 
+### 9. Update https://version-check.strawlab.org/
+
+In a step done outside this repository, but the files served from
+https://version-check.strawlab.org/ need to be updated to reflect the new
+release.
+
 ## Fixing a mistake
 
 A release is published by a tag, so an aborted or wrong release is undone by
