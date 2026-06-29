@@ -103,18 +103,18 @@ impl VersionChecker {
             .unwrap();
 
         // Bound the request so a hung connection cannot wedge the checker.
-        let res = match tokio::time::timeout(Duration::from_secs(30), self.client.request(req)).await
-        {
-            Ok(Ok(res)) => res,
-            Ok(Err(e)) => {
-                warn!("version check request to {url} failed: {e}");
-                return None;
-            }
-            Err(_elapsed) => {
-                warn!("version check request to {url} timed out");
-                return None;
-            }
-        };
+        let res =
+            match tokio::time::timeout(Duration::from_secs(30), self.client.request(req)).await {
+                Ok(Ok(res)) => res,
+                Ok(Err(e)) => {
+                    warn!("version check request to {url} failed: {e}");
+                    return None;
+                }
+                Err(_elapsed) => {
+                    warn!("version check request to {url} timed out");
+                    return None;
+                }
+            };
 
         if res.status() != hyper::StatusCode::OK {
             return None;
