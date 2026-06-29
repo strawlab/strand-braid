@@ -127,3 +127,71 @@ jobs:
         uses: ./.github/actions/package-strand-braid-deb
         with:
           ubuntu-version: ${{ matrix.ubuntu-version }}
+
+  # On tag pushes, once every .zip has been published to the GitHub Release,
+  # prepend a download table to the release notes so users see the assets
+  # without having to expand the collapsed "Assets" section. The table is
+  # generated from the assets actually attached to the release, so it stays in
+  # sync with whatever the build jobs uploaded.
+  update-release-notes:
+    name: Add download table to release notes
+    needs: [strand-braid-deb, strand-braid-deb-container]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Prepend download table to release body
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          base_url="https://github.com/${REPO}/releases/download/${TAG}"
+
+          # Map the Ubuntu version label embedded in each zip name to its
+          # release codename (kept in sync with the build matrices above).
+          codename() {
+            case "$1" in
+              2004) echo "20.04 (Focal)" ;;
+              2204) echo "22.04 (Jammy)" ;;
+              2404) echo "24.04 (Noble)" ;;
+              2604) echo "26.04 (Resolute)" ;;
+              *) echo "$1" ;;
+            esac
+          }
+
+          # Build the table, wrapped in HTML-comment markers. The markers let a
+          # re-run replace (rather than duplicate) the table while preserving any
+          # release notes added below it.
+          table_file="$(mktemp)"
+          {
+            echo "<!-- BEGIN DOWNLOAD TABLE (auto-generated) -->"
+            echo "## Downloads"
+            echo
+            echo "| Download | Ubuntu version |"
+            echo "| :--- | :--- |"
+            gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name' \
+              | grep -E '^strand-braid-ubuntu-[0-9]+-.*\.zip$' \
+              | sort \
+              | while read -r zip; do
+                  ver="$(printf '%s' "$zip" | sed -E 's/^strand-braid-ubuntu-([0-9]+)-.*/\1/')"
+                  echo "| [\`${zip}\`](${base_url}/${zip}) | $(codename "$ver") |"
+                done
+            echo "<!-- END DOWNLOAD TABLE (auto-generated) -->"
+          } > "$table_file"
+
+          # Current body, with any previously auto-generated table stripped out
+          # and leading blank lines trimmed.
+          rest_file="$(mktemp)"
+          gh release view "$TAG" --repo "$REPO" --json body --jq .body \
+            | sed '/<!-- BEGIN DOWNLOAD TABLE/,/<!-- END DOWNLOAD TABLE/d' \
+            | sed '/./,$!d' > "$rest_file"
+
+          body_file="$(mktemp)"
+          cat "$table_file" > "$body_file"
+          if [ -s "$rest_file" ]; then
+            printf '\n\n' >> "$body_file"
+            cat "$rest_file" >> "$body_file"
+          fi
+
+          gh release edit "$TAG" --repo "$REPO" --notes-file "$body_file"

@@ -174,9 +174,17 @@ strand-braid-ubuntu-2604-1.0.0-rc.3.zip
 
 ### 8. Finalize the release notes
 
-GitHub creates the Release as part of the upload. Edit it to add human-readable
-release notes (the relevant `CHANGELOG.md` section is a good source), and mark it
-as a pre-release for `-rc.N` versions.
+GitHub creates the Release as part of the upload. Once all four `.zip` assets
+are published, the `update-release-notes` job prepends a **Downloads** table
+(one row per `.zip`, linking each Ubuntu version's asset) to the top of the
+release body, so users see the downloads without expanding the collapsed
+"Assets" section. The table sits between `<!-- BEGIN DOWNLOAD TABLE -->` and
+`<!-- END DOWNLOAD TABLE -->` markers; re-running the workflow replaces it in
+place and leaves anything below the markers untouched.
+
+Edit the release to add human-readable release notes *below* the table (the
+relevant `CHANGELOG.md` section is a good source) — leave the marker block
+intact — and mark it as a pre-release for `-rc.N` versions.
 
 ### 9. Update https://version-check.strawlab.org/
 
