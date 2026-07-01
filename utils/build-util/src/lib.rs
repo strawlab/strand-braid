@@ -1,17 +1,91 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+/// Environment variable used to supply the git revision when building outside a
+/// git checkout (e.g. from a source archive), where `git rev-parse HEAD` yields
+/// nothing.
+const GIT_HASH_OVERRIDE_ENV: &str = "STRAND_BRAID_GIT_HASH";
+
 /// Set the environment variables `GIT_HASH` AND `CARGO_PKG_VERSION` to include
 /// the current git revision.
+///
+/// The revision is read from `git rev-parse HEAD` when building inside a git
+/// checkout. When building outside a git tree that command yields nothing, so
+/// the revision must be supplied explicitly via the [`GIT_HASH_OVERRIDE_ENV`]
+/// environment variable. If neither source provides one, the build fails
+/// deliberately: an empty hash would produce the malformed version string
+/// `"<version>+"` (invalid semver) that crashes consumers which parse the
+/// version at runtime (issue #27), so we refuse to emit it rather than defer the
+/// failure to startup.
 pub fn git_hash(orig_version: &str) -> Result<(), Box<dyn std::error::Error>> {
+    // Rebuild if the override changes so the embedded hash stays in sync.
+    println!("cargo:rerun-if-env-changed={GIT_HASH_OVERRIDE_ENV}");
+
+    let git_hash = match head_rev() {
+        Some(hash) => hash,
+        None => override_from_env()?,
+    };
+
+    validate_build_metadata(&git_hash)?;
+
+    println!("cargo:rustc-env=GIT_HASH={git_hash}");
+    // Append the hash as semver build metadata; override cargo's default.
+    println!("cargo:rustc-env=CARGO_PKG_VERSION={orig_version}+{git_hash}");
+    Ok(())
+}
+
+/// The current `HEAD` commit hash, or `None` when it cannot be determined — git
+/// absent, not a git checkout, or empty output. Returns `None` rather than
+/// erroring so the caller can fall back to the environment override.
+fn head_rev() -> Option<String> {
     let output = std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
-        .output()?;
-    let git_hash = String::from_utf8(output.stdout)?;
-    println!("cargo:rustc-env=GIT_HASH={git_hash}");
-    let version = format!("{orig_version}+{git_hash}");
-    println!("cargo:rustc-env=CARGO_PKG_VERSION={version}"); // override default
-    Ok(())
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let hash = String::from_utf8(output.stdout).ok()?.trim().to_string();
+    (!hash.is_empty()).then_some(hash)
+}
+
+/// The explicitly-provided revision for out-of-tree builds, or a build error
+/// explaining how to supply one.
+fn override_from_env() -> Result<String, Box<dyn std::error::Error>> {
+    match std::env::var(GIT_HASH_OVERRIDE_ENV) {
+        Ok(value) if !value.trim().is_empty() => Ok(value.trim().to_string()),
+        _ => Err(format!(
+            "could not determine the git revision: `git rev-parse HEAD` produced no \
+             output (this is not a git checkout, or git is unavailable). Build from a \
+             git clone, or set {GIT_HASH_OVERRIDE_ENV} to the commit hash you are \
+             building from."
+        )
+        .into()),
+    }
+}
+
+/// Ensure `hash` is a valid semver build-metadata value, so appending it to the
+/// version can never produce an unparseable string that panics at runtime. The
+/// grammar is dot-separated identifiers, each non-empty and made up only of
+/// ASCII alphanumerics and hyphens.
+fn validate_build_metadata(hash: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let valid = !hash.is_empty()
+        && hash.split('.').all(|segment| {
+            !segment.is_empty()
+                && segment
+                    .bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        });
+    if valid {
+        Ok(())
+    } else {
+        Err(format!(
+            "git revision {hash:?} is not a valid semver build-metadata identifier \
+             (dot-separated ASCII alphanumeric/hyphen segments); refusing to embed it. \
+             Check the {GIT_HASH_OVERRIDE_ENV} value."
+        )
+        .into())
+    }
 }
 
 /// Build a Trunk-based Yew/WASM frontend crate and verify that the expected
@@ -259,5 +333,41 @@ impl TrunkBuildLock {
 impl Drop for TrunkBuildLock {
     fn drop(&mut self) {
         let _ = std::fs::remove_file(&self.path);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_build_metadata;
+
+    #[test]
+    fn accepts_a_git_hash() {
+        assert!(validate_build_metadata("8581679a9cf313a24b230081637ffd4fc27568ad").is_ok());
+    }
+
+    #[test]
+    fn accepts_dotted_and_hyphenated_identifiers() {
+        // e.g. an override such as a `git describe` output.
+        assert!(validate_build_metadata("1.0.0-rc.3-5-gabc123").is_ok());
+    }
+
+    #[test]
+    fn rejects_empty() {
+        assert!(validate_build_metadata("").is_err());
+    }
+
+    #[test]
+    fn rejects_empty_segment() {
+        // A trailing dot leaves an empty segment — the class of malformed value
+        // (like the bare trailing `+`) that crashed consumers at runtime.
+        assert!(validate_build_metadata("abc.").is_err());
+        assert!(validate_build_metadata(".abc").is_err());
+    }
+
+    #[test]
+    fn rejects_invalid_characters() {
+        assert!(validate_build_metadata("has space").is_err());
+        assert!(validate_build_metadata("plus+sign").is_err());
+        assert!(validate_build_metadata("under_score").is_err());
     }
 }
