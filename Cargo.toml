@@ -143,7 +143,7 @@ exclude = [
 # CARGO_PKG_VERSION). To bump: edit the version below, then run
 # `cargo update --workspace` (see docs/developer-docs/making-releases.md).
 [workspace.package]
-version = "1.0.0-rc.3"
+version = "1.0.0-rc.4"
 
 [workspace.dependencies]
 adskalman = "0.17"

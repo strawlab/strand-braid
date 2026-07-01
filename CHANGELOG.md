@@ -1,3 +1,16 @@
+## 1.0.0-rc.4 - 2026-07-01
+
+### Fixed
+
+* The prebuilt `1.0.0-rc.3` binaries panicked on startup with "empty identifier
+  segment in build metadata"
+  (https://github.com/strawlab/strand-braid/issues/27). The release build could
+  not embed the git commit hash, producing a malformed version string that the
+  automatic version check then failed to parse. The build now embeds the hash
+  reliably and the release fails rather than shipping a binary without one.
+  Builds made outside a git checkout must supply the revision via the
+  `STRAND_BRAID_GIT_HASH` environment variable.
+
 ## 1.0.0-rc.3 - 2026-06-29
 
 ### Added
