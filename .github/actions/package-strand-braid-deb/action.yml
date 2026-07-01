@@ -198,7 +198,8 @@ runs:
         PYLON_CABI_SHIM: libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so
         PYLON_CABI_URL: https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-linux-x86_64-pylon_7.3.0.27189.so
       run: |
-        curl --fail -L -o "build/${PYLON_CABI_SHIM}" "${PYLON_CABI_URL}"
+        curl --fail --ipv4 --connect-timeout 30 --retry 3 --retry-connrefused \
+          -L -o "build/${PYLON_CABI_SHIM}" "${PYLON_CABI_URL}"
 
     - name: Build .deb
       shell: bash
