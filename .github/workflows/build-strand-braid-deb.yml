@@ -26,10 +26,11 @@ name: Build strand-braid Debian packages
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
     tags: ["*"]
   pull_request:
     branches: ["**"]
+  workflow_dispatch:
 
 permissions:
   contents: write

@@ -2,9 +2,11 @@ name: Build strand-cam-offline-checkerboards app
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
+    tags: ["*"]
   pull_request:
     branches: ["**"]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
