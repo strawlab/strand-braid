@@ -21,7 +21,7 @@ name: Build strand-braid Windows package
 
 on:
   push:
-    branches: [main]
+    branches: ["**"]
     tags: ["*"]
   pull_request:
     branches: ["**"]
