@@ -1,0 +1,240 @@
+name: Build strand-braid Windows package
+
+# Build the strand-braid Windows (x86_64) binaries and assemble a portable .zip,
+# so that release artifacts can be built and published directly from GitHub.
+#
+# This mirrors the binary set and feature flags of the .deb build
+# (.github/actions/package-strand-braid-deb) but produces a plain zip of .exe
+# files instead of a Debian package: there is no system package manager to
+# integrate with on Windows, and the programs are self-contained.
+#
+# The proprietary camera SDKs (Basler Pylon, Allied Vision Vimba) are loaded at
+# runtime via LoadLibrary, so they are NOT needed to build these binaries, and
+# the webcam / vimba / sim backends work without any extra download. The Basler
+# Pylon backend additionally needs a Windows build of the public Pylon C-ABI
+# shim DLL; if the PYLON_CABI_WIN_URL repository variable points at one it is
+# bundled, otherwise the zip ships without it (see the "Bundle Pylon shim" step).
+#
+# Note: the auto-generated "Downloads" table in build-strand-braid-deb.yml only
+# lists the Ubuntu zips; the Windows zip is attached to the same GitHub Release
+# but is not (yet) added to that table.
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["*"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  strand-braid-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      # Let git operate on the checkout regardless of ownership. The build
+      # scripts run `git rev-parse HEAD` (via build-util) to embed the commit
+      # hash in the binaries' version string; a "dubious ownership" guard would
+      # make that fail and drop the hash (see issue #27 and the matching note in
+      # the .deb packaging action).
+      - name: Mark checkout as a safe git directory
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE" || true
+          git config --global --add safe.directory '*' || true
+
+      # On tag builds, guard against the release tag and the workspace version
+      # disagreeing (the zip name comes from the tag, the embedded version from
+      # Cargo.toml). Fail fast, before the long build. Mirrors the .deb action.
+      - name: Verify tag matches workspace version (tag builds only)
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          ws_version="$(sed -nE '/^\[workspace\.package\]/,/^\[/ s/^version = "([^"]+)"/\1/p' Cargo.toml | head -1)"
+          if [ -z "$ws_version" ]; then
+            echo "Could not read [workspace.package] version from Cargo.toml." >&2
+            exit 1
+          fi
+          if [ "$ws_version" != "${{ github.ref_name }}" ]; then
+            echo "Release tag '${{ github.ref_name }}' does not match workspace version '$ws_version'." >&2
+            echo "Update [workspace.package] version and re-tag so they agree" >&2
+            echo "(see docs/developer-docs/making-releases.md)." >&2
+            exit 1
+          fi
+          echo "Tag matches workspace version: $ws_version"
+
+      # windows-latest ships rustup + a stable toolchain; we only need to add the
+      # wasm target used by the Yew/WASM frontends. The x86_64-pc-windows-msvc
+      # baseline ISA (target-cpu=sandybridge) is set in .cargo/config.toml, so we
+      # deliberately do NOT set a RUSTFLAGS env var here (that would override,
+      # not merge with, the config entry).
+      - name: Install Rust wasm target
+        shell: bash
+        run: |
+          rustup target add wasm32-unknown-unknown
+          rustc --version
+
+      # trunk builds the Yew/WASM frontends from the strand-cam / braid-run build
+      # scripts. Download the prebuilt Windows binary and put it on PATH
+      # ($USERPROFILE\.cargo\bin is already on PATH). Extract with 7-Zip
+      # (preinstalled, on PATH as `7z`): Git Bash's `tar` is GNU tar and does not
+      # reliably extract .zip archives.
+      - name: Install trunk
+        shell: bash
+        run: |
+          curl --location --remote-name https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-pc-windows-msvc.zip
+          7z x trunk-x86_64-pc-windows-msvc.zip
+          mv trunk.exe "$USERPROFILE/.cargo/bin/"
+          trunk --version
+
+      # Populate the cargo cache with the FULL dependency graph BEFORE the build.
+      # The strand-cam and braid-run build scripts invoke `trunk`, whose nested
+      # cargo runs offline and first resolves the whole workspace graph via
+      # `cargo metadata` (for every platform), so a wasm32-only fetch is not
+      # enough. See the matching note in the .deb packaging action.
+      - name: Pre-fetch all dependencies (for the offline trunk frontend build)
+        shell: bash
+        run: |
+          cargo fetch
+
+      # All packaged binaries in a single cargo invocation so features resolve
+      # once and shared dependencies compile once. This mirrors the .deb build's
+      # -p/-features set, minus the Debian-only `write-debian-changelog`.
+      #
+      # strand-cam-flydratrax is built in a separate step (below): it is
+      # strand-cam compiled with `flydratrax`, and Cargo unifies features across
+      # a single build, so including it here would force `flydratrax` into the
+      # standalone strand-cam binary.
+      - name: Build packaged binaries (single unified pass)
+        shell: bash
+        run: |
+          cargo build --release \
+            -p strand-cam \
+            -p braid \
+            -p braid-run \
+            -p braid-offline \
+            -p braid-process-video \
+            -p flytrax-csv-to-braidz \
+            -p braidz-mcsc \
+            -p fmf-cli \
+            -p gocal \
+            -p mvg-util \
+            -p braid-april-cal-cli \
+            -p braidz-export-rrd \
+            -p rerun-braidz-viewer \
+            -p braidz-cli \
+            -p strand-convert \
+            -p show-timestamps \
+            --features "strand-cam/checkercal,strand-cam/fiducial,braid-run/with-rerun,flytrax-csv-to-braidz/with_apriltags,braidz-mcsc/with-rerun,braid-april-cal-cli/with-rerun"
+          # Sanity-check the braid config tooling.
+          ./target/release/braid-default-config.exe >/dev/null
+          ./target/release/braid-show-config.exe braid/simple.toml >/dev/null
+
+      - name: Build strand-cam-flydratrax (flydratrax-enabled strand-cam)
+        shell: bash
+        run: |
+          cargo build --release -p strand-cam-gui --no-default-features \
+            --features "strand-cam/bundle_files,strand-cam/flydratrax,strand-cam/checkercal,strand-cam/fiducial,strand-cam/flydra_feat_detect"
+
+      - name: Collect binaries
+        shell: bash
+        run: |
+          mkdir -p build
+          for bin in \
+            strand-cam braid braid-run braid-show-config braid-default-config \
+            braid-offline-retrack compute-flydra1-compat braid-process-video \
+            flytrax-csv-to-braidz braidz-mcsc fmf gocal cal-to-xml \
+            align-calibration braid-april-cal-cli braidz-export-rrd \
+            rerun-braidz-viewer braidz-cli strand-convert show-timestamps; do
+            cp "target/release/$bin.exe" build/
+          done
+          # The flydratrax GUI binary is renamed during packaging.
+          cp target/release/strand-cam-gui.exe build/strand-cam-flydratrax.exe
+
+      - name: Show binary versions
+        shell: bash
+        run: |
+          ./build/strand-cam.exe --version
+          ./build/braid-run.exe --version
+
+      # On tag (release) builds, insist that the embedded git hash is present.
+      # build-util falls back to a placeholder when git is unavailable, so a
+      # broken build no longer crashes at startup -- but a release with no real
+      # provenance is still a bug we want to catch here (guards against the issue
+      # #27 regression recurring).
+      - name: Verify release binaries embed a git hash (tag builds only)
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for bin in braid-run strand-cam; do
+            version_line="$(./build/$bin.exe --version)"
+            echo "$bin: $version_line"
+            if ! printf '%s' "$version_line" | grep -qE '\+[0-9a-f]+'; then
+              echo "ERROR: $bin has no embedded git hash: '$version_line'" >&2
+              echo "The build could not run 'git rev-parse HEAD' in the checkout." >&2
+              exit 1
+            fi
+          done
+
+      - name: Generate THIRD-PARTY-LICENSES
+        shell: bash
+        run: |
+          cargo install cargo-bundle-licenses --locked
+          _packaging/gen-strand-braid-third-party-licenses.sh build/licenses
+          ls -lh build/licenses
+
+      # Optionally bundle a Windows build of the public Pylon C-ABI shim DLL so
+      # the Basler backend works out of the box. It is loaded at runtime, so its
+      # absence does not break the build or the other backends -- if the
+      # PYLON_CABI_WIN_URL repository variable is not set, we simply skip it and
+      # the README explains how users can supply their own.
+      - name: Bundle Pylon shim (optional)
+        shell: bash
+        env:
+          PYLON_CABI_WIN_URL: ${{ vars.PYLON_CABI_WIN_URL }}
+        run: |
+          if [ -n "${PYLON_CABI_WIN_URL:-}" ]; then
+            echo "Downloading Pylon shim from ${PYLON_CABI_WIN_URL}"
+            curl --fail --connect-timeout 30 --retry 3 --retry-connrefused \
+              -L -o "build/$(basename "${PYLON_CABI_WIN_URL}")" "${PYLON_CABI_WIN_URL}"
+          else
+            echo "PYLON_CABI_WIN_URL not set; shipping without the Pylon shim."
+            echo "The webcam, vimba, and sim backends still work; see README for Basler setup."
+          fi
+
+      - name: Assemble release zip
+        id: assemble
+        shell: bash
+        run: |
+          VERSION="${{ github.ref_type == 'tag' && github.ref_name || github.sha }}"
+          OUTDIR="strand-braid-windows-x86_64-${VERSION}"
+          mkdir -p "$OUTDIR"
+          cp -a build/*.exe "$OUTDIR/"
+          cp -a build/licenses "$OUTDIR/"
+          cp _packaging/windows-installer-zip-readme.txt "$OUTDIR/README.txt"
+          # Bundle the Pylon shim DLL, if one was downloaded above.
+          if ls build/*.dll >/dev/null 2>&1; then cp -a build/*.dll "$OUTDIR/"; fi
+          ls -lh "$OUTDIR/"
+          # 7-Zip is preinstalled on windows-latest and on PATH as `7z`.
+          7z a -tzip "${OUTDIR}.zip" "$OUTDIR" >/dev/null
+          echo "outdir=$OUTDIR" >> "$GITHUB_OUTPUT"
+          echo "zip=${OUTDIR}.zip" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: strand-braid-windows-x86_64
+          path: ${{ steps.assemble.outputs.outdir }}
+
+      # On tag pushes, publish the .zip to the GitHub Release.
+      - name: Publish to GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.assemble.outputs.zip }}
