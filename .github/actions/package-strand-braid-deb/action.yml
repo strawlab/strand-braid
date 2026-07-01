@@ -14,6 +14,20 @@ inputs:
 runs:
   using: composite
   steps:
+    # Let git operate on the checkout no matter who owns it. The build scripts
+    # run `git rev-parse HEAD` (via build-util) to embed the commit hash in the
+    # binaries' version string. In container jobs the workspace is often owned by
+    # a different uid than the user running the build, so git's "dubious
+    # ownership" guard makes that command fail with empty output -- which used to
+    # produce a malformed version ("1.0.0-rc.3+") that crashed braid-run and
+    # strand-cam on startup (issue #27). build-util now degrades gracefully, but
+    # marking the checkout safe lets releases embed the real hash.
+    - name: Mark checkout as a safe git directory
+      shell: bash
+      run: |
+        git config --global --add safe.directory "$GITHUB_WORKSPACE" || true
+        git config --global --add safe.directory '*' || true
+
     # On tag builds, the .deb version (taken from the [workspace.package]
     # version via write-debian-changelog's CARGO_PKG_VERSION) and the tag name
     # (which names the published release zip) are set independently. Guard
@@ -139,6 +153,27 @@ runs:
           braidz-export-rrd braid-process-video; do
           echo "== $bin =="
           ldd "build/$bin" || true
+        done
+
+    # On tag (release) builds, insist that the embedded git hash is present.
+    # build-util now falls back to a placeholder when git is unavailable, so a
+    # broken build no longer crashes at startup -- but a *release* with no real
+    # provenance is still a bug we want to catch here rather than ship. The
+    # version string is "<semver>+<githash>"; require a non-empty hex hash after
+    # the '+' (guards against the issue #27 regression recurring).
+    - name: Verify release binaries embed a git hash (tag builds only)
+      if: github.ref_type == 'tag'
+      shell: bash
+      run: |
+        set -euo pipefail
+        for bin in braid-run strand-cam; do
+          version_line="$(./build/$bin --version)"
+          echo "$bin: $version_line"
+          if ! printf '%s' "$version_line" | grep -qE '\+[0-9a-f]+'; then
+            echo "ERROR: $bin has no embedded git hash: '$version_line'" >&2
+            echo "The build could not run 'git rev-parse HEAD' in the checkout." >&2
+            exit 1
+          fi
         done
 
     - name: Generate THIRD-PARTY-LICENSES
