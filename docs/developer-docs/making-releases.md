@@ -116,7 +116,6 @@ Edit [`CHANGELOG.md`](../../CHANGELOG.md):
 
 - Rename the top `## Unreleased` heading to `## 1.0.0-rc.3 - YYYY-MM-DD` (use the
   release date).
-- Add a fresh empty `## Unreleased` section above it for future work.
 - Read through the entries and make sure they describe this release accurately.
 
 ### 4. Build locally to sanity-check (recommended)
@@ -191,6 +190,11 @@ intact — and mark it as a pre-release for `-rc.N` versions.
 In a step done outside this repository, but the files served from
 https://version-check.strawlab.org/ need to be updated to reflect the new
 release.
+
+### 10. Prepare for future development
+
+Add a fresh empty `## Unreleased` section at the start of CHANGELOG.md for
+future work.
 
 ## Fixing a mistake
 
