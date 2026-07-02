@@ -2,9 +2,15 @@ name: Build FMF CLI app
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
+    tags: ["*"]
   pull_request:
     branches: ["**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   fmf-cli-app-ubuntu-22-04:

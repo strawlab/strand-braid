@@ -26,13 +26,18 @@ name: Build strand-braid Debian packages
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
     tags: ["*"]
   pull_request:
     branches: ["**"]
+  workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # Native builds on GitHub-hosted runners.
@@ -69,6 +74,10 @@ jobs:
           tar xzf trunk-x86_64-unknown-linux-musl.tar.gz
           sudo mv trunk /usr/local/bin/
           trunk --version
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.ubuntu-version }}
 
       - name: Build, package, and publish .deb
         uses: ./.github/actions/package-strand-braid-deb
@@ -122,6 +131,10 @@ jobs:
           tar xzf trunk-x86_64-unknown-linux-musl.tar.gz
           mv trunk "$HOME/.cargo/bin/"
           trunk --version
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.ubuntu-version }}
 
       - name: Build, package, and publish .deb
         uses: ./.github/actions/package-strand-braid-deb

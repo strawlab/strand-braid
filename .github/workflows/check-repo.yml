@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: ["**"]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   check-readme-updated:
     runs-on: ubuntu-latest
@@ -35,6 +39,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: check
       - name: Install Rust wasm target and trunk
         run: |
           rustup target add wasm32-unknown-unknown
@@ -63,6 +70,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: check
       - name: Install clippy, the Rust wasm target, and trunk
         run: |
           rustup component add clippy
@@ -87,6 +97,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: test
       # Some workspace tests shell out to ffmpeg (e.g. apriltag-track-movie's
       # test_detect_tags decodes a movie fixture), and the GitHub-hosted runner
       # image does not ship it. The GitLab workspace-test job installs it the same

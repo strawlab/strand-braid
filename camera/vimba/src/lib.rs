@@ -104,6 +104,12 @@ pub enum Error {
     UnknownPixelFormatCode { code: u32 },
     #[error("invalid call")]
     InvalidCall {},
+    #[cfg(target_os = "windows")]
+    #[error("{source}")]
+    Windows {
+        #[from]
+        source: windows::core::Error,
+    },
 }
 
 pub type Result<T> = std::result::Result<T, Error>;
