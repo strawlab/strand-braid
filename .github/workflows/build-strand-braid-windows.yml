@@ -13,7 +13,14 @@ name: Build strand-braid Windows package
 # the webcam / vimba / sim backends work without any extra download. The Basler
 # Pylon backend additionally needs a Windows build of the public Pylon C-ABI
 # shim DLL; if the PYLON_CABI_WIN_URL repository variable points at one it is
-# bundled, otherwise the zip ships without it (see the "Bundle Pylon shim" step).
+# bundled (see the "Bundle Pylon shim" step).
+#
+# STATUS (2026-07-02): no Windows shim DLL has been built yet, so
+# PYLON_CABI_WIN_URL is unset. CI/PR builds still run and produce a zip without
+# the shim (the webcam/vimba/sim backends work), but RELEASE (tag) builds are
+# deliberately blocked by the "Require Pylon shim on release builds" step until
+# a shim DLL exists and PYLON_CABI_WIN_URL points at it -- so no Windows release
+# can be published missing Basler/Pylon support. See making-releases.md.
 #
 # Note: the auto-generated "Downloads" table in build-strand-braid-deb.yml only
 # lists the Ubuntu zips; the Windows zip is attached to the same GitHub Release
@@ -74,6 +81,38 @@ jobs:
             exit 1
           fi
           echo "Tag matches workspace version: $ws_version"
+
+      # Block a release until a Windows Pylon C-ABI shim DLL is available.
+      #
+      # STATUS (2026-07-02): no Windows build of the public Pylon C-ABI shim
+      # exists yet, so the PYLON_CABI_WIN_URL repository variable is unset and
+      # release zips would silently ship WITHOUT Basler/Pylon support. That is
+      # fine for CI/PR builds and for the maintainer's own testing, but a
+      # published release that quietly drops a camera backend is a bug. Until a
+      # shim DLL is built and hosted (and PYLON_CABI_WIN_URL points at it), fail
+      # fast on tag builds -- before the long compile -- so no incomplete
+      # Windows release can be published. Non-tag builds are unaffected.
+      #
+      # To unblock: build the Windows libpylon-cabi DLL, host it next to the
+      # Linux .so under https://strawlab.org/assets/libpylon-cabi/precompiled/,
+      # set the PYLON_CABI_WIN_URL repo variable to its URL, then delete this
+      # guard step (the "Bundle Pylon shim" and assemble steps already pick the
+      # DLL up). See docs/developer-docs/making-releases.md.
+      - name: Require Pylon shim on release builds (tag builds only)
+        if: github.ref_type == 'tag'
+        shell: bash
+        env:
+          PYLON_CABI_WIN_URL: ${{ vars.PYLON_CABI_WIN_URL }}
+        run: |
+          if [ -z "${PYLON_CABI_WIN_URL:-}" ]; then
+            echo "Refusing to publish a Windows release without a Pylon C-ABI shim DLL." >&2
+            echo "The PYLON_CABI_WIN_URL repository variable is not set, so the zip" >&2
+            echo "would ship without Basler/Pylon support. Build and host a Windows" >&2
+            echo "shim DLL, set PYLON_CABI_WIN_URL, and remove this guard." >&2
+            echo "See docs/developer-docs/making-releases.md." >&2
+            exit 1
+          fi
+          echo "PYLON_CABI_WIN_URL is set; the release will bundle the Pylon shim."
 
       # windows-latest ships rustup + a stable toolchain; we only need to add the
       # wasm target used by the Yew/WASM frontends. The x86_64-pc-windows-msvc
@@ -227,6 +266,14 @@ jobs:
           cp _packaging/windows-installer-zip-readme.txt "$OUTDIR/README.txt"
           # Bundle the Pylon shim DLL, if one was downloaded above.
           if ls build/*.dll >/dev/null 2>&1; then cp -a build/*.dll "$OUTDIR/"; fi
+          # On tag (release) builds a shim DLL is mandatory (the earlier
+          # "Require Pylon shim" guard ensures PYLON_CABI_WIN_URL is set, and the
+          # "Bundle Pylon shim" step downloads it with --fail). Assert it is
+          # actually present so a release can never ship without Basler support.
+          if [ "${{ github.ref_type }}" = "tag" ] && ! ls "$OUTDIR"/*.dll >/dev/null 2>&1; then
+            echo "ERROR: release build produced no Pylon shim DLL in $OUTDIR." >&2
+            exit 1
+          fi
           ls -lh "$OUTDIR/"
           # 7-Zip is preinstalled on windows-latest and on PATH as `7z`.
           7z a -tzip "${OUTDIR}.zip" "$OUTDIR" >/dev/null
