@@ -160,24 +160,44 @@ impl FfmpegReWriter {
         let width = frame_src.width();
         let height = frame_src.height();
 
+        // Snapshot the source's per-sample timing (stts + ctts) before
+        // iterating (which borrows `frame_src` mutably). Preserving this timing
+        // verbatim is what keeps reordered (B-frame) streams correct: the
+        // container ordering comes from the source, while the precise capture
+        // time is carried per-frame in the precision-timestamp SEI.
+        let sample_timing: Option<Vec<_>> =
+            frame_src.mp4_sample_timing().map(|t| t.to_vec());
+
         let mut count = 0;
         for frame in frame_src.iter() {
             let frame = frame?;
             let timestamp = frame0_time + frame.timestamp().unwrap_duration();
+            let idx = frame.idx();
             let data = match frame.image() {
                 frame_source::ImageData::EncodedH264(data) => &data.data,
                 _ => {
                     return Err(Error::SourceIsNotH264);
                 }
             };
-            new_mp4.write_h264_buf(
-                data,
-                width,
-                height,
-                timestamp,
-                frame0_time,
-                insert_precision_timestamp,
-            )?;
+            match sample_timing.as_ref().and_then(|t| t.get(idx)) {
+                Some(st) => new_mp4.write_h264_buf_passthrough(
+                    data,
+                    width,
+                    height,
+                    st.decode_duration,
+                    st.composition_offset,
+                    timestamp,
+                    insert_precision_timestamp,
+                )?,
+                None => new_mp4.write_h264_buf(
+                    data,
+                    width,
+                    height,
+                    timestamp,
+                    frame0_time,
+                    insert_precision_timestamp,
+                )?,
+            }
             count += 1;
         }
 
@@ -265,14 +285,21 @@ mod test {
         assert_eq!(frame_src.width(), w);
         assert_eq!(frame_src.height(), h);
 
-        let mut count = 0;
-        for (i, frame) in frame_src.iter().enumerate() {
+        // Frames are read back in decode order, which differs from
+        // presentation (input) order for B-frame streams. Every precise
+        // timestamp must nonetheless round-trip intact; the per-frame SEI
+        // carries each frame's own capture time regardless of decode order.
+        // (Correct playback *ordering* is covered by the end-to-end smoke test.)
+        let mut got: Vec<_> = Vec::new();
+        for frame in frame_src.iter() {
             let frame = frame?;
-            let timestamp = frame0_time + frame.timestamp().unwrap_duration();
-            assert_eq!(timestamps[i], timestamp);
-            count += 1;
+            got.push(frame0_time + frame.timestamp().unwrap_duration());
         }
-        assert_eq!(count, timestamps.len());
+        assert_eq!(got.len(), timestamps.len());
+        got.sort();
+        let mut expected = timestamps.clone();
+        expected.sort();
+        assert_eq!(got, expected);
 
         Ok(())
     }

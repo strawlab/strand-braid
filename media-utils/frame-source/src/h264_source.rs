@@ -51,9 +51,38 @@ impl SrtData {
         let tnow = Self::parse_time(stanza);
         Ok(tnow.signed_duration_since(self.frame0_time).to_std()?)
     }
+    /// Capture time (relative to frame0) for stanza `idx`, where `idx` is the
+    /// frame's presentation (display) rank. Frames are handed to us in decode
+    /// order, which differs from presentation order for B-frame streams, so we
+    /// must index the (presentation-order) stanzas by display rank rather than
+    /// by decode index.
+    fn time_at(&self, idx: usize) -> Result<std::time::Duration> {
+        let stanza = &self.stanzas[idx];
+        let tnow = Self::parse_time(stanza);
+        Ok(tnow.signed_duration_since(self.frame0_time).to_std()?)
+    }
     fn frame0_time(&self) -> DateTime<FixedOffset> {
         self.frame0_time
     }
+    /// Wall-clock span from the first to the last stanza (presentation order).
+    fn span(&self) -> Result<std::time::Duration> {
+        let first = Self::parse_time(&self.stanzas[0]);
+        let last = Self::parse_time(&self.stanzas[self.stanzas.len() - 1]);
+        Ok(last.signed_duration_since(first).to_std()?)
+    }
+}
+
+/// Per-sample timing carried through from an MP4 source, so it can be
+/// preserved verbatim when re-muxing (rather than re-derived from
+/// presentation-time deltas). This is what lets reordered (B-frame) streams be
+/// re-muxed correctly.
+#[derive(Debug, Clone, Copy)]
+pub struct Mp4SampleTiming {
+    /// The sample's own decode duration (stts delta).
+    pub decode_duration: std::time::Duration,
+    /// The sample's composition time offset (ctts); `presentation = decode +
+    /// composition_offset`. Non-zero for reordered streams.
+    pub composition_offset: chrono::Duration,
 }
 
 pub trait H264Preparser {
@@ -129,12 +158,28 @@ pub struct H264Source<H: SeekableH264Source> {
     timestamp_source: Option<crate::TimestampSource>,
     has_timestamps: bool,
     srt_data: Option<SrtData>,
+    /// Per-sample decode duration + composition offset (MP4 sources only), so a
+    /// re-mux can preserve the source's timing (stts + ctts) verbatim.
+    mp4_sample_timing: Option<Vec<Mp4SampleTiming>>,
+    /// For SRT timestamps: the display rank of each decode-order frame, i.e.
+    /// `srt_display_rank[decode_index]` is the SRT stanza index (stanzas are in
+    /// presentation order) for that frame. `None` when SRT timestamps or
+    /// per-sample PTS are unavailable, in which case stanzas are consumed
+    /// sequentially.
+    srt_display_rank: Option<Vec<usize>>,
     average_fps: Option<f64>,
 }
 
 impl<H: SeekableH264Source> H264Source<H> {
     pub fn as_seekable_h264_source(&self) -> &H {
         &self.seekable_h264_source
+    }
+
+    /// Per-sample timing (decode duration + composition offset) for MP4
+    /// sources, indexed by frame number (see [`FrameData::idx`]). `None` for
+    /// non-MP4 sources.
+    pub fn mp4_sample_timing(&self) -> Option<&[Mp4SampleTiming]> {
+        self.mp4_sample_timing.as_deref()
     }
 
     fn create_iter_unchecked<'a>(
@@ -319,6 +364,7 @@ where
         mut seekable_h264_source: H,
         do_decode_h264: bool,
         mp4_pts: Option<Vec<std::time::Duration>>,
+        mp4_sample_timing: Option<Vec<Mp4SampleTiming>>,
         data_from_mp4_track: Option<FromMp4Track>,
         timestamp_source: crate::TimestampSource,
         srt_file_path: Option<std::path::PathBuf>,
@@ -472,10 +518,58 @@ where
         }
         let average_fps = calc_avg_fps(&frame_time_info[..]);
 
+        // Rescale the source's per-sample timing (stts/ctts) to the real
+        // capture cadence given by the SRT. The intermediate encoder uses a
+        // fixed nominal framerate unrelated to the true capture rate, so its
+        // absolute durations are meaningless; only its *relative* reorder
+        // structure (the ratio of composition offset to frame duration) is.
+        // Scaling by real_span/source_span fixes the playback rate while
+        // preserving valid decode/composition ordering (and cancels any
+        // timescale discrepancy in the source durations).
+        let mp4_sample_timing = match (mp4_sample_timing, srt_data.as_ref()) {
+            (Some(mut timing), Some(srt)) if timing.len() >= 2 => {
+                let source_span: f64 =
+                    timing.iter().map(|t| t.decode_duration.as_secs_f64()).sum();
+                let real_span = srt.span().map(|d| d.as_secs_f64()).unwrap_or(0.0);
+                if source_span > 0.0 && real_span > 0.0 {
+                    let scale = real_span / source_span;
+                    for t in timing.iter_mut() {
+                        t.decode_duration = t.decode_duration.mul_f64(scale);
+                        let off_ns = t.composition_offset.num_nanoseconds().unwrap_or(0) as f64;
+                        t.composition_offset =
+                            chrono::Duration::nanoseconds((off_ns * scale) as i64);
+                    }
+                }
+                Some(timing)
+            }
+            (other, _) => other,
+        };
+
+        // Precompute the display rank of each decode-order frame from the
+        // per-sample presentation PTS, so SRT stanzas (which are in presentation
+        // order) can be paired with reordered (B-frame) streams. Ranking by PTS
+        // is robust to a constant encoder composition delay (unlike matching
+        // absolute PTS values against stanza timecodes).
+        let srt_display_rank = if srt_data.is_some() {
+            mp4_pts.as_ref().map(|pts| {
+                let mut order: Vec<usize> = (0..pts.len()).collect();
+                order.sort_by_key(|&i| pts[i]);
+                let mut rank = vec![0usize; pts.len()];
+                for (display_rank, &decode_index) in order.iter().enumerate() {
+                    rank[decode_index] = display_rank;
+                }
+                rank
+            })
+        } else {
+            None
+        };
+
         Ok(Self {
             seekable_h264_source,
             nal_locations,
             mp4_pts,
+            mp4_sample_timing,
+            srt_display_rank,
             frame_time_info,
             h264_metadata,
             frame0_precision_time,
@@ -826,8 +920,20 @@ impl<H: SeekableH264Source> Iterator for RawH264Iter<'_, H> {
                 }
                 Some(TimestampSource::Mp4Pts) => Timestamp::Duration(mp4_pts.unwrap()),
                 Some(TimestampSource::SrtFile) => {
+                    // Pair this decode-order frame with the SRT stanza at its
+                    // display rank, so B-frame reordering (decode order !=
+                    // presentation order) does not misassign timestamps. For raw
+                    // Annex B (no per-sample PTS) fall back to sequential order.
+                    let rank_idx = self
+                        .parent
+                        .srt_display_rank
+                        .as_ref()
+                        .map(|rank| rank[frame_number]);
                     let srt_data = self.parent.srt_data.as_mut().unwrap();
-                    let pts = srt_data.next_pts().unwrap();
+                    let pts = match rank_idx {
+                        Some(idx) => srt_data.time_at(idx).unwrap(),
+                        None => srt_data.next_pts().unwrap(),
+                    };
                     Timestamp::Duration(pts)
                 }
                 None => Timestamp::Fraction(fraction_done),
@@ -947,8 +1053,9 @@ fn from_annexb_reader_with_timestamp_source(
     H264Source::from_seekable_h264_source_with_timestamp_source(
         annex_b_source,
         do_decode_h264,
-        None,
-        None,
+        None, // mp4_pts
+        None, // mp4_sample_timing
+        None, // data_from_mp4_track
         timestamp_source,
         srt_file_path,
         show_progress,

@@ -174,12 +174,81 @@ where
         let timestamp: chrono::DateTime<chrono::Local> = timestamp.into();
         let frame0_time: chrono::DateTime<chrono::Local> = frame0_time.into();
 
+        let pts = timestamp - frame0_time;
+        let mp4_sample_start_time = dur2raw(&pts.to_std().unwrap());
+        let precision_timestamp = insert_precision_timestamp.then_some(timestamp);
+        // The sample duration is derived from consecutive presentation-time
+        // deltas and no composition offset (ctts) is emitted, so this path
+        // requires monotonic timestamps and cannot represent reordered streams.
+        self.write_h264_sample(
+            data,
+            width,
+            height,
+            mp4_sample_start_time,
+            pts,
+            None,
+            0,
+            precision_timestamp,
+        )
+    }
+
+    /// Low-level writer for already-h264-encoded frames that carries per-sample
+    /// timing through from a source file: the decode duration (stts) and
+    /// composition offset (ctts), rather than deriving the duration from
+    /// presentation-time deltas.
+    ///
+    /// This is required to re-mux reordered (B-frame) streams, which store
+    /// samples in decode order with non-zero composition offsets that
+    /// [`Self::write_h264_buf`] cannot represent. The precise capture time is
+    /// still written into the per-frame precision-timestamp SEI.
+    #[allow(clippy::too_many_arguments)]
+    pub fn write_h264_buf_passthrough<TS>(
+        &mut self,
+        data: &frame_source::H264EncodingVariant,
+        width: u32,
+        height: u32,
+        decode_duration: std::time::Duration,
+        composition_offset: chrono::Duration,
+        sei_timestamp: TS,
+        insert_precision_timestamp: bool,
+    ) -> Result<()>
+    where
+        TS: Into<chrono::DateTime<chrono::Local>>,
+    {
+        let sei_timestamp: chrono::DateTime<chrono::Local> = sei_timestamp.into();
+        let explicit_duration = dur2raw(&decode_duration);
+        let rendering_offset = composition_offset_to_raw(composition_offset);
+        let precision_timestamp = insert_precision_timestamp.then_some(sei_timestamp);
+        // `start_time` is ignored by the mp4 crate; the duration and composition
+        // offset define the timing, so `pts` here is unused.
+        self.write_h264_sample(
+            data,
+            width,
+            height,
+            0,
+            chrono::Duration::zero(),
+            Some(explicit_duration),
+            rendering_offset,
+            precision_timestamp,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn write_h264_sample(
+        &mut self,
+        data: &frame_source::H264EncodingVariant,
+        width: u32,
+        height: u32,
+        mp4_sample_start_time: u64,
+        pts: chrono::Duration,
+        explicit_duration: Option<u64>,
+        rendering_offset: i32,
+        precision_timestamp: Option<chrono::DateTime<chrono::Local>>,
+    ) -> Result<()> {
         let inner = self.inner.take();
 
         let is_keyframe = parse_h264_is_idr_frame(data)?;
 
-        let pts = timestamp - frame0_time;
-        let mp4_sample_start_time = dur2raw(&pts.to_std().unwrap());
         let sample = match &data {
             frame_source::H264EncodingVariant::AnnexB(buf) => {
                 let nals = h264_annexb_split(&buf[..]).collect();
@@ -216,11 +285,12 @@ where
         let mut state = match inner {
             Some(WriteState::Configured(mut mybox)) => {
                 let (fd, _cfg, ref mut h264_parser) = *mybox;
-                if insert_precision_timestamp {
-                    h264_parser.push_nals(sample, Some(timestamp));
-                } else {
-                    h264_parser.push_nals(sample, None);
-                }
+                h264_parser.push_nals(
+                    sample,
+                    precision_timestamp,
+                    explicit_duration,
+                    rendering_offset,
+                );
 
                 let sps = if let Some(sps) = self.first_sps.as_ref() {
                     sps
@@ -256,11 +326,12 @@ where
                     &mut MyEncoder::CopyRawH264 {
                         ref mut h264_parser,
                     } => {
-                        if insert_precision_timestamp {
-                            h264_parser.push_nals(sample, Some(timestamp));
-                        } else {
-                            h264_parser.push_nals(sample, None);
-                        }
+                        h264_parser.push_nals(
+                            sample,
+                            precision_timestamp,
+                            explicit_duration,
+                            rendering_offset,
+                        );
                     }
                     _ => {
                         panic!();
@@ -823,7 +894,7 @@ impl LessEncoderWrapper {
         T: std::io::Write + std::io::Seek,
     {
         let local_timestamp = self.compute_local_timestamp(&sample);
-        self.h264_parser.push_nals(sample, Some(local_timestamp));
+        self.h264_parser.push_nals(sample, Some(local_timestamp), None, 0);
         let sps = self.h264_parser.sps().unwrap();
         let pps = self.h264_parser.pps().unwrap();
 
@@ -870,7 +941,7 @@ impl NvEncoder<'_> {
         T: std::io::Write + std::io::Seek,
     {
         let local_timestamp = self.compute_local_timestamp(&sample);
-        self.h264_parser.push_nals(sample, Some(local_timestamp));
+        self.h264_parser.push_nals(sample, Some(local_timestamp), None, 0);
         let mut mp4_writer = match std::mem::replace(mp4_segment, MaybeMp4Writer::Nothing) {
             MaybeMp4Writer::Mp4Writer(mp4_writer) => mp4_writer,
             MaybeMp4Writer::Starting(fd) => {
@@ -954,7 +1025,7 @@ impl OpenH264Encoder {
         T: std::io::Write + std::io::Seek,
     {
         let local_timestamp = self.compute_local_timestamp(&sample);
-        self.h264_parser.push_nals(sample, Some(local_timestamp));
+        self.h264_parser.push_nals(sample, Some(local_timestamp), None, 0);
         let sps = self.h264_parser.sps().unwrap();
         let pps = self.h264_parser.pps().unwrap();
 
@@ -1025,6 +1096,8 @@ impl H264Parser {
         &mut self,
         nals: EbspNals,
         mut precision_timestamp: Option<chrono::DateTime<chrono::Local>>,
+        explicit_duration: Option<u64>,
+        rendering_offset: i32,
     ) {
         // We assume that sample contains one or more compete NAL units and
         // starts with a NAL unit. Furthermore, we assume the start bytes can
@@ -1123,6 +1196,8 @@ impl H264Parser {
                 mp4_sample_start_time: nals.mp4_sample_start_time,
                 is_keyframe: nals.is_keyframe,
                 avcc_buf: all_avcc_nal_units,
+                explicit_duration,
+                rendering_offset,
             })
             .is_some()
         {
@@ -1131,16 +1206,30 @@ impl H264Parser {
     }
 
     fn avcc_sample(&mut self) -> Option<mp4::Mp4Sample> {
+        let explicit_duration = self.last_sample.as_ref().and_then(|f| f.explicit_duration);
         let mut sample = self.last_sample.take().map(parsed_to_mp4_sample);
         if let Some(ref mut s) = sample {
-            if let Some(prev) = self.previous_stamp {
-                // FIXME: This will be off by one frame because it calculates duration
-                // of this frame as delta between previous frame and this frame. (It
-                // should be delta between this frame and next frame.)
-                let dur = s.start_time - prev;
-                s.duration = dur.try_into().unwrap();
+            match explicit_duration {
+                // Timing passed through from a source file: use the sample's own
+                // duration (stts) directly. The composition offset (ctts) is
+                // already set on the sample, so reordered streams stay correct.
+                Some(dur) => {
+                    s.duration = dur.try_into().unwrap();
+                }
+                // Otherwise derive the duration from the delta between
+                // consecutive presentation times. This requires monotonic
+                // start_times and cannot represent reordered streams.
+                None => {
+                    if let Some(prev) = self.previous_stamp {
+                        // FIXME: This will be off by one frame because it calculates duration
+                        // of this frame as delta between previous frame and this frame. (It
+                        // should be delta between this frame and next frame.)
+                        let dur = s.start_time - prev;
+                        s.duration = dur.try_into().unwrap();
+                    }
+                    self.previous_stamp = Some(s.start_time);
+                }
             }
-            self.previous_stamp = Some(s.start_time);
         }
         // Note: as far as I can tell, as of version 0.13.0, the mp4 crate does not
         // use `start_time` for writing the sample. (So we have gone to the trouble
@@ -1155,7 +1244,7 @@ fn parsed_to_mp4_sample(orig: ParsedH264Frame) -> mp4::Mp4Sample {
     mp4::Mp4Sample {
         start_time: orig.mp4_sample_start_time,
         duration: 0,
-        rendering_offset: 0,
+        rendering_offset: orig.rendering_offset,
         is_sync: orig.is_keyframe,
         bytes,
     }
@@ -1186,6 +1275,13 @@ struct ParsedH264Frame {
     mp4_sample_start_time: u64,
     is_keyframe: bool,
     avcc_buf: Vec<u8>,
+    /// When `Some`, the exact sample duration (in `movie_timescale` units) to
+    /// use, instead of deriving it from consecutive start-time deltas. Used when
+    /// passing through timing (stts) from a source file.
+    explicit_duration: Option<u64>,
+    /// Composition time offset (ctts), in `movie_timescale` units. Non-zero for
+    /// reordered (B-frame) streams, where presentation order != decode order.
+    rendering_offset: i32,
 }
 
 fn buf_to_avcc(nal: &[u8]) -> Vec<u8> {
@@ -1298,6 +1394,13 @@ impl openh264::formats::YUVSource for YUVData {
 
 fn dur2raw(dur: &std::time::Duration) -> u64 {
     (dur.as_secs_f64() * MOVIE_TIMESCALE as f64).round() as u64
+}
+
+/// Convert a (possibly negative) composition time offset into raw
+/// `MOVIE_TIMESCALE` units for the `ctts` box.
+fn composition_offset_to_raw(offset: chrono::Duration) -> i32 {
+    let nanos = offset.num_nanoseconds().unwrap_or(0) as i128;
+    ((nanos * MOVIE_TIMESCALE as i128) / 1_000_000_000i128) as i32
 }
 
 fn timestamp_to_sei_payload(timestamp: chrono::DateTime<chrono::Utc>, payload: &mut [u8]) {
