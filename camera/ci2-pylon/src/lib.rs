@@ -1092,3 +1092,28 @@ fn mode_to_str(value: AutoMode) -> &'static str {
         ci2::AutoMode::Continuous => "Continuous",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Regression test for strawlab/strand-braid#29.
+    //
+    // Basler ace2 (ace 2) color cameras report and accept the modern SFNC
+    // pixel-format names `RGB8` and `YCbCr422_8` instead of the legacy
+    // `RGB8packed` / `YUV422packed` used by older Basler models. When these
+    // modern names are not recognized, `possible_pixel_formats` silently drops
+    // color formats and the ffmpeg/y4m recording fallback cannot be used on
+    // such cameras.
+    #[test]
+    fn test_modern_pixel_format_names_recognized() {
+        assert_eq!(
+            convert_to_pixel_format("RGB8").unwrap(),
+            formats::PixFmt::RGB8
+        );
+        assert_eq!(
+            convert_to_pixel_format("YCbCr422_8").unwrap(),
+            formats::PixFmt::YUV422
+        );
+    }
+}
