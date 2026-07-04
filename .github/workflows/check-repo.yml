@@ -108,6 +108,10 @@ jobs:
         run: |
           sudo apt-get update
           DEBIAN_FRONTEND=noninteractive sudo apt-get install -y ffmpeg
+      - name: Install uv (runs the smoke-test Python helper with its deps)
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Install Rust wasm target and trunk
         # Needed because some crates (e.g. strand-cam with its default
         # `bundle_files` feature) build a wasm frontend as part of the build.
@@ -153,3 +157,15 @@ jobs:
       - name: braid-sim in-process tracker tests
         run: |
           cargo test --release -p braid-sim --features inprocess
+      # End-to-end color-recording smoke test (strawlab/strand-braid#29): launch
+      # a standalone strand-cam on the synthetic-image `sim` backend rendering
+      # RGB8, record an MP4 with the ffmpeg codec via the documented Python
+      # helper, and verify a non-empty file is produced. Uses the sim backend
+      # (no Pylon SDK), so it runs here on GitHub CI; the Pylon-backend
+      # equivalent runs in the GitLab `smoke_test_camemu` job. The workspace
+      # test run above already built the strand-cam binary into target/release.
+      - name: strand-cam sim MP4 color-recording smoke test
+        run: |
+          cargo build --release -p strand-cam
+          STRAND_BRAID_TARGET_DIR="$PWD/target/release" \
+            smoke-tests/strand-cam-sim-mp4.sh
