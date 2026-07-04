@@ -8451,6 +8451,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "mp4-bframe-doctor"
+version = "0.1.0"
+dependencies = [
+ "camino",
+ "chrono",
+ "clap",
+ "env-tracing-logger",
+ "eyre",
+ "frame-source",
+ "h264-reader",
+ "mp4-writer",
+ "strand-cam-remote-control",
+ "tracing",
+]
+
+[[package]]
 name = "mp4-writer"
 version = "0.1.0"
 dependencies = [
