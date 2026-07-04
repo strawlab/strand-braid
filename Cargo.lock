@@ -5078,6 +5078,7 @@ dependencies = [
  "machine-vision-formats",
  "rusttype",
  "strand-dynamic-frame",
+ "tempfile",
  "thiserror 2.0.18",
  "tracing",
  "ttf-firacode",
