@@ -75,7 +75,6 @@ pub(crate) fn from_reader_with_timestamp_source(
     show_progress: bool,
     preparser: Option<Box<dyn H264Preparser>>,
 ) -> Result<H264Source<Mp4Source>> {
-    let timescale = mp4_reader.timescale();
     let mut video_track = None;
     for (track_id, track) in mp4_reader.tracks().iter() {
         // ignore all tracks except H264
@@ -109,24 +108,29 @@ pub(crate) fn from_reader_with_timestamp_source(
 
     // Per-sample composition-time offsets (ctts), expanded to one per sample.
     // Computed here while the shared borrow of `track` is still held. These are
-    // carried through per sample so a re-mux can preserve the composition
-    // offset (rather than re-deriving it from presentation-time deltas).
+    // needed to turn decode timestamps into presentation timestamps and to
+    // preserve the composition offset when re-muxing.
     let comp_offsets = composition_offsets(track);
-    // Sample durations and offsets are in the *track* (media) timescale, which
-    // differs from the movie timescale returned by `mp4_reader.timescale()`.
+    // Sample decode times and durations are in the *track* (media) timescale,
+    // which differs from the movie timescale returned by `mp4_reader.timescale()`.
     let media_timescale = track.timescale();
 
     let num_samples = mp4_reader.sample_count(track_id)?;
 
     // mp4 uses 1 based indexing
     for sample_id in 1..=num_samples {
-        let (start_time, duration) = mp4_reader.sample_time_duration(track_id, sample_id)?;
-        let this_pts = raw2dur(start_time, timescale);
-        mp4_pts.push(this_pts);
+        // `sample_time_duration` returns the *decode* time and the sample
+        // duration. For streams encoded with B-frames the samples are stored in
+        // decode order with non-zero composition offsets, so the *presentation*
+        // time is decode time + composition offset. Reporting presentation time
+        // (not decode time) keeps consumers correct for reordered streams.
+        let (decode_time, duration) = mp4_reader.sample_time_duration(track_id, sample_id)?;
         let offset = comp_offsets
             .get((sample_id - 1) as usize)
             .copied()
             .unwrap_or(0);
+        let pts_raw = (decode_time as i64 + offset as i64).max(0) as u64;
+        mp4_pts.push(raw2dur(pts_raw, media_timescale));
         sample_timing.push(crate::h264_source::Mp4SampleTiming {
             decode_duration: raw2dur(duration as u64, media_timescale),
             composition_offset: raw2signed_dur(offset, media_timescale),
