@@ -373,3 +373,143 @@ impl FfmpegWriter {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use machine_vision_formats::PixFmt;
+    use strand_dynamic_frame::DynamicFrameOwned;
+
+    /// One pixel format's lossless round-trip case.
+    struct Case {
+        pixfmt: PixFmt,
+        /// The ffmpeg raw-video pixel-format name the mapping should produce.
+        /// Hardcoded (not read from the code under test) so it is an independent
+        /// ground truth: the writer encodes using `ffmpeg_pixel_format(pixfmt)`,
+        /// while we decode back using this. If the mapping were wrong, encode
+        /// and decode would disagree and the round trip would not match.
+        ffmpeg_pixfmt: &'static str,
+        /// Bytes per pixel of the packed layout (used to compute row size).
+        bytes_per_pixel: usize,
+        /// A lossless codec that preserves this format's bytes exactly.
+        codec: &'static str,
+        /// Container extension matching `codec`.
+        ext: &'static str,
+    }
+
+    /// Decode the first (only) video frame of `path` back to tightly packed raw
+    /// bytes in `pix_fmt`, via ffmpeg.
+    fn ffmpeg_decode_raw(path: &std::path::Path, pix_fmt: &str) -> Vec<u8> {
+        let output = std::process::Command::new(FFMPEG)
+            .args(["-nostdin", "-loglevel", "error", "-i"])
+            .arg(path)
+            .args(["-f", "rawvideo", "-pix_fmt", pix_fmt, "-"])
+            .output()
+            .expect("running ffmpeg to decode the recording");
+        assert!(
+            output.status.success(),
+            "ffmpeg decode failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        output.stdout
+    }
+
+    fn assert_roundtrips_exactly(case: &Case) {
+        // Direct check of the mapping under test against the ground truth.
+        assert_eq!(
+            ffmpeg_pixel_format(case.pixfmt).unwrap(),
+            case.ffmpeg_pixfmt,
+            "unexpected ffmpeg pixel-format mapping for {:?}",
+            case.pixfmt
+        );
+        let ffmpeg_pixfmt = case.ffmpeg_pixfmt;
+        let (width, height) = (64u32, 48u32);
+        let valid_stride = width as usize * case.bytes_per_pixel;
+        // Give the frame stride padding so we also exercise the writer stripping
+        // it off before piping (rows must arrive tightly packed).
+        let pad = 16usize;
+        let stride = valid_stride + pad;
+
+        // Deterministic, non-constant content so any misframing or channel-order
+        // mistake in the pixel-format mapping would change the decoded bytes.
+        let mut buf = vec![0xAAu8; height as usize * stride]; // padding sentinel
+        let mut expected = Vec::with_capacity(height as usize * valid_stride);
+        for row in 0..height as usize {
+            for i in 0..valid_stride {
+                let v = ((row * valid_stride + i) * 31 + 7) as u8;
+                buf[row * stride + i] = v;
+                expected.push(v);
+            }
+        }
+
+        let frame = DynamicFrameOwned::from_buf(width, height, stride, buf, case.pixfmt).unwrap();
+
+        let tmp = tempfile::tempdir().unwrap();
+        let out_path = tmp.path().join(format!("roundtrip.{}", case.ext));
+        {
+            let codec_args = FfmpegCodecArgs {
+                codec: Some(case.codec.to_string()),
+                ..Default::default()
+            };
+            let mut wtr = FfmpegWriter::new(out_path.to_str().unwrap(), codec_args, None).unwrap();
+            wtr.write_dynamic_frame(&frame.borrow()).unwrap();
+            wtr.close().unwrap();
+        }
+
+        let got = ffmpeg_decode_raw(&out_path, ffmpeg_pixfmt);
+        assert_eq!(
+            got.len(),
+            expected.len(),
+            "{:?} ({ffmpeg_pixfmt}): decoded byte count differs",
+            case.pixfmt
+        );
+        assert!(
+            got == expected,
+            "{:?} ({ffmpeg_pixfmt}): pixel data did not round-trip exactly through ffmpeg",
+            case.pixfmt
+        );
+    }
+
+    /// Frame data piped raw to ffmpeg (see the crate docs / `ffmpeg_pixel_format`)
+    /// must survive a round trip byte-for-byte. Mono8/RGB8/YUV422 go through the
+    /// lossless FFV1 codec, which also interprets the colorspace and so catches
+    /// channel-order mistakes (e.g. RGB vs BGR, UYVY vs YUYV). Bayer has no
+    /// non-debayering codec, so it uses the verbatim `rawvideo` codec; that the
+    /// real (H.264) encoder accepts each format is covered by the sim smoke test.
+    #[test]
+    fn frame_data_roundtrips_exactly_via_ffmpeg() {
+        let cases = [
+            Case {
+                pixfmt: PixFmt::Mono8,
+                ffmpeg_pixfmt: "gray",
+                bytes_per_pixel: 1,
+                codec: "ffv1",
+                ext: "mkv",
+            },
+            Case {
+                pixfmt: PixFmt::RGB8,
+                ffmpeg_pixfmt: "rgb24",
+                bytes_per_pixel: 3,
+                codec: "ffv1",
+                ext: "mkv",
+            },
+            Case {
+                pixfmt: PixFmt::YUV422,
+                ffmpeg_pixfmt: "uyvy422",
+                bytes_per_pixel: 2,
+                codec: "ffv1",
+                ext: "mkv",
+            },
+            Case {
+                pixfmt: PixFmt::BayerRG8,
+                ffmpeg_pixfmt: "bayer_rggb8",
+                bytes_per_pixel: 1,
+                codec: "rawvideo",
+                ext: "nut",
+            },
+        ];
+        for case in &cases {
+            assert_roundtrips_exactly(case);
+        }
+    }
+}
