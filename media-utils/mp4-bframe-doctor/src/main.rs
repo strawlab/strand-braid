@@ -1,27 +1,31 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Detect MP4 or raw Annex B `.h264` files whose per-frame
-//! precision-timestamp SEI data is inconsistent with the true presentation
-//! order encoded in the H.264 bitstream itself.
+//! Detect MP4 or raw Annex B `.h264` files whose timing metadata is
+//! inconsistent with the true presentation order encoded in the H.264
+//! bitstream itself.
 //!
-//! A container's `stts`/`ctts` boxes are one place a recording can claim the
-//! wrong presentation order, but they aren't the only place: the SEI
-//! timestamp embedded in each sample can itself be mistagged at record time
-//! (e.g. associated with the wrong encoder output when B-frame reordering
-//! delays that output relative to when it was submitted for encoding),
-//! independent of what the container boxes say. Such a file has no
-//! trustworthy timing metadata left in the container at all: neither `ctts`
-//! nor the SEI can be assumed correct.
+//! There are two places a recording states timing, and either can be wrong:
+//!
+//!  * the MP4 container's `stts`/`ctts` boxes, which is what a player uses to
+//!    order frames; and
+//!  * the per-frame precision-timestamp SEI embedded in the bitstream (written
+//!    by strand-cam / braid), which can itself be mistagged at record time
+//!    (e.g. paired with the wrong encoder output when B-frame reordering delays
+//!    that output relative to when it was submitted), independent of what the
+//!    container boxes say.
 //!
 //! The one signal that cannot lie is the bitstream's own picture order count
-//! (POC, ITU-T H.264 §8.2.1): every slice header carries enough information
-//! to reconstruct the true relative display order of samples, independent of
-//! any container metadata or of what a (possibly buggy) writer put in the
-//! SEI. This tool decodes POC for every sample and checks whether sorting
-//! samples by POC reproduces non-decreasing SEI timestamps. If not, the
-//! SEI data is inconsistent with the bitstream's real presentation order and
-//! the file is broken.
+//! (POC, ITU-T H.264 §8.2.1): every slice header carries enough information to
+//! reconstruct the true relative display order of samples, independent of any
+//! container metadata or of what a (possibly buggy) writer put in the SEI. This
+//! tool decodes POC for every sample and checks that, walked in POC order, each
+//! available timing series comes out non-decreasing. It checks the container
+//! timing for every MP4 (so even a plain ffmpeg recording with no SEI can be
+//! verified) and the precision-timestamp SEI wherever it is present (the only
+//! signal for a raw `.h264` file). Any series that is not monotonic in POC
+//! order means that timing disagrees with the bitstream's real display order,
+//! and the file is broken.
 
 use camino::Utf8PathBuf;
 use clap::{Parser, Subcommand};
@@ -74,8 +78,9 @@ enum Cmd {
 
 /// One H.264 sample, in the order it appears in the file (decode order).
 struct LoadedFrame {
-    /// True capture/presentation time, read from the per-frame
-    /// precision-timestamp SEI, relative to the source's frame0 time.
+    /// The sample's claimed presentation/capture time (nanoseconds, relative to
+    /// frame0) under the timing source being checked -- either the MP4
+    /// container timing (`stts`/`ctts`) or the per-frame precision-timestamp SEI.
     pts_ns: i64,
     /// Picture order count, reconstructed from the bitstream's own slice
     /// headers (ITU-T H.264 §8.2.1). Only comparable in relative order
@@ -187,46 +192,99 @@ fn read_slice_poc_lsb(ctx: &H264ParsingContext, nals: &[Vec<u8>]) -> Result<(boo
     bail!("sample has no slice NAL unit")
 }
 
-/// Open `path` (either an MP4 or a raw Annex B `.h264` file) and load its
-/// frames. Both container types decode to the same H.264 samples; only the
-/// builder differs, so the per-frame analysis in [`load_frames`] is shared.
-fn read_source(path: &Utf8PathBuf) -> Result<Vec<LoadedFrame>> {
+/// Failure loading a timing series for one timestamp source.
+enum LoadError {
+    /// The file simply lacks the requested per-frame timestamps (e.g. a plain
+    /// ffmpeg-encoded MP4 has no precision-timestamp SEI). The caller can just
+    /// skip that particular check.
+    NoTimestamps,
+    /// A real failure (unreadable, unsupported POC type, etc.).
+    Other(eyre::Report),
+}
+
+/// Load per-frame `(poc, timestamp)` for `path` using `ts_source` as the timing
+/// to compare against the bitstream POC. Both container types decode to the
+/// same H.264 samples; only the builder differs, so the per-frame analysis in
+/// [`load_frames`] is shared.
+fn load(
+    path: &Utf8PathBuf,
+    ts_source: frame_source::TimestampSource,
+) -> std::result::Result<Vec<LoadedFrame>, LoadError> {
     let builder = frame_source::FrameSourceBuilder::new(path)
         .do_decode_h264(false)
-        .timestamp_source(frame_source::TimestampSource::MispMicrosectime);
+        .timestamp_source(ts_source);
 
     match path.extension().map(|e| e.to_lowercase()).as_deref() {
         Some("mp4") => {
-            let mut src = builder
-                .build_h264_in_mp4_source()
-                .map_err(|e| open_err(e, path))?;
-            load_frames(&mut src, path)
+            let mut src = builder.build_h264_in_mp4_source().map_err(build_err)?;
+            load_frames(&mut src, path).map_err(LoadError::Other)
         }
         Some("h264") => {
-            let mut src = builder
-                .build_h264_annexb_source()
-                .map_err(|e| open_err(e, path))?;
-            load_frames(&mut src, path)
+            let mut src = builder.build_h264_annexb_source().map_err(build_err)?;
+            load_frames(&mut src, path).map_err(LoadError::Other)
         }
-        _ => bail!("\"{path}\": unsupported extension (expected .mp4 or .h264)"),
+        _ => Err(LoadError::Other(eyre!(
+            "\"{path}\": unsupported extension (expected .mp4 or .h264)"
+        ))),
     }
 }
 
-/// Turn a source-open error into a friendly explanation. We always request the
-/// MISP precision-timestamp source, so a timestamp error means the file has no
-/// such per-frame timestamps (e.g. a plain ffmpeg-encoded MP4) and there is
-/// nothing for this tool to check.
-fn open_err(e: frame_source::Error, path: &Utf8PathBuf) -> eyre::Report {
+/// Classify a source-open error: a timestamp error means the requested timing
+/// is simply absent; anything else is a real failure.
+fn build_err(e: frame_source::Error) -> LoadError {
     match e {
-        frame_source::Error::H264TimestampError(_) => eyre!(
-            "\"{path}\" has no per-frame precision-timestamp SEI (as written by strand-cam / \
-            braid), so there is no timing for this tool to check"
-        ),
-        other => eyre::Report::new(other).wrap_err(format!(
-            "opening \"{path}\" (this tool requires per-frame precision-timestamp SEI data, \
-            as written by strand-cam / braid)"
-        )),
+        frame_source::Error::H264TimestampError(_) => LoadError::NoTimestamps,
+        other => LoadError::Other(eyre::Report::new(other)),
     }
+}
+
+/// One timing signal checked against the bitstream POC for a file.
+struct SourceCheck {
+    /// Human-readable name of the timing source.
+    label: &'static str,
+    analysis: Analysis,
+}
+
+/// Run every applicable timing-vs-POC check for `path`.
+///
+/// An MP4 always carries container timing (the `stts`/`ctts` boxes, which is
+/// what players use to order frames), so that is checked for every MP4 --
+/// including plain ffmpeg recordings with no SEI. The per-frame
+/// precision-timestamp SEI (written by strand-cam / braid) is checked whenever
+/// it is present; for a raw Annex B `.h264` file it is the only signal.
+fn check_file(path: &Utf8PathBuf) -> Result<Vec<SourceCheck>> {
+    let is_mp4 = path.extension().map(|e| e.to_lowercase()).as_deref() == Some("mp4");
+    let mut checks = Vec::new();
+
+    if is_mp4 {
+        let frames = load(path, frame_source::TimestampSource::Mp4Pts).map_err(|e| match e {
+            LoadError::NoTimestamps => eyre!("\"{path}\": MP4 has no container sample timing"),
+            LoadError::Other(r) => r,
+        })?;
+        checks.push(SourceCheck {
+            label: "container (stts/ctts)",
+            analysis: analyze(&frames),
+        });
+    }
+
+    match load(path, frame_source::TimestampSource::MispMicrosectime) {
+        Ok(frames) => checks.push(SourceCheck {
+            label: "precision-timestamp SEI",
+            analysis: analyze(&frames),
+        }),
+        Err(LoadError::NoTimestamps) => {
+            if !is_mp4 {
+                bail!(
+                    "\"{path}\" has no per-frame precision-timestamp SEI and no container timing, \
+                    so there is nothing for this tool to check"
+                );
+            }
+            // An MP4 without SEI is still covered by the container check above.
+        }
+        Err(LoadError::Other(r)) => return Err(r),
+    }
+
+    Ok(checks)
 }
 
 /// Accumulates the H.264 parsing context (SPS/PPS) and the POC decoder as
@@ -356,9 +414,8 @@ impl Analysis {
     }
 }
 
-/// Compare the bitstream's true picture order (POC) against the SEI capture
-/// times: sort samples by POC and check whether the SEI timestamps come out
-/// non-decreasing.
+/// Compare the bitstream's true picture order (POC) against a timing series:
+/// sort samples by POC and check whether the timestamps come out non-decreasing.
 fn analyze(frames: &[LoadedFrame]) -> Analysis {
     let mut order: Vec<usize> = (0..frames.len()).collect();
     order.sort_by_key(|&i| frames[i].poc);
@@ -387,18 +444,35 @@ fn analyze(frames: &[LoadedFrame]) -> Analysis {
 fn cmd_check(inputs: &[Utf8PathBuf]) -> Result<bool> {
     let mut any_broken = false;
     for path in inputs {
-        match read_source(path) {
-            Ok(frames) => {
-                let analysis = analyze(&frames);
-                if analysis.is_broken() {
+        match check_file(path) {
+            Ok(checks) => {
+                let broken: Vec<&SourceCheck> =
+                    checks.iter().filter(|c| c.analysis.is_broken()).collect();
+                if !broken.is_empty() {
                     any_broken = true;
-                    println!(
-                        "BROKEN  {path}  ({} of {} samples' SEI timestamps inconsistent with \
-                        bitstream POC order, up to {:.1}ms early)",
-                        analysis.num_inversions, analysis.num_frames, analysis.max_inversion_ms
-                    );
+                    let details = broken
+                        .iter()
+                        .map(|c| {
+                            format!(
+                                "{}: {} of {} samples inconsistent with bitstream POC order, up \
+                                to {:.1}ms early",
+                                c.label,
+                                c.analysis.num_inversions,
+                                c.analysis.num_frames,
+                                c.analysis.max_inversion_ms
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .join("; ");
+                    println!("BROKEN  {path}  ({details})");
                 } else {
-                    println!("OK      {path}  ({} samples)", analysis.num_frames);
+                    let num_frames = checks.first().map(|c| c.analysis.num_frames).unwrap_or(0);
+                    let checked = checks
+                        .iter()
+                        .map(|c| c.label)
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    println!("OK      {path}  ({num_frames} samples; checked: {checked})");
                 }
             }
             Err(e) => {
