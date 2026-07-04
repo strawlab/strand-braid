@@ -528,8 +528,7 @@ where
         // timescale discrepancy in the source durations).
         let mp4_sample_timing = match (mp4_sample_timing, srt_data.as_ref()) {
             (Some(mut timing), Some(srt)) if timing.len() >= 2 => {
-                let source_span: f64 =
-                    timing.iter().map(|t| t.decode_duration.as_secs_f64()).sum();
+                let source_span: f64 = timing.iter().map(|t| t.decode_duration.as_secs_f64()).sum();
                 let real_span = srt.span().map(|d| d.as_secs_f64()).unwrap_or(0.0);
                 if source_span > 0.0 && real_span > 0.0 {
                     let scale = real_span / source_span;

@@ -165,8 +165,7 @@ impl FfmpegReWriter {
         // verbatim is what keeps reordered (B-frame) streams correct: the
         // container ordering comes from the source, while the precise capture
         // time is carried per-frame in the precision-timestamp SEI.
-        let sample_timing: Option<Vec<_>> =
-            frame_src.mp4_sample_timing().map(|t| t.to_vec());
+        let sample_timing: Option<Vec<_>> = frame_src.mp4_sample_timing().map(|t| t.to_vec());
 
         let mut count = 0;
         for frame in frame_src.iter() {

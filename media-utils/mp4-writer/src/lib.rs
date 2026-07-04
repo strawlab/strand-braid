@@ -894,7 +894,8 @@ impl LessEncoderWrapper {
         T: std::io::Write + std::io::Seek,
     {
         let local_timestamp = self.compute_local_timestamp(&sample);
-        self.h264_parser.push_nals(sample, Some(local_timestamp), None, 0);
+        self.h264_parser
+            .push_nals(sample, Some(local_timestamp), None, 0);
         let sps = self.h264_parser.sps().unwrap();
         let pps = self.h264_parser.pps().unwrap();
 
@@ -941,7 +942,8 @@ impl NvEncoder<'_> {
         T: std::io::Write + std::io::Seek,
     {
         let local_timestamp = self.compute_local_timestamp(&sample);
-        self.h264_parser.push_nals(sample, Some(local_timestamp), None, 0);
+        self.h264_parser
+            .push_nals(sample, Some(local_timestamp), None, 0);
         let mut mp4_writer = match std::mem::replace(mp4_segment, MaybeMp4Writer::Nothing) {
             MaybeMp4Writer::Mp4Writer(mp4_writer) => mp4_writer,
             MaybeMp4Writer::Starting(fd) => {
@@ -1025,7 +1027,8 @@ impl OpenH264Encoder {
         T: std::io::Write + std::io::Seek,
     {
         let local_timestamp = self.compute_local_timestamp(&sample);
-        self.h264_parser.push_nals(sample, Some(local_timestamp), None, 0);
+        self.h264_parser
+            .push_nals(sample, Some(local_timestamp), None, 0);
         let sps = self.h264_parser.sps().unwrap();
         let pps = self.h264_parser.pps().unwrap();
 
