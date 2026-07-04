@@ -45,6 +45,31 @@ pub fn render_mono8(
     buf
 }
 
+/// Render a `width` x `height` RGB8 image of the same neutral-gray scene as
+/// [`render_mono8`]: every pixel's three channels are set equal to the Mono8
+/// value, so the content (background plus Gaussian blobs) is identical, just
+/// carried in a color pixel format. Stride equals `width * 3`.
+///
+/// This lets the sim backend produce color frames so the color recording path
+/// (e.g. the ffmpeg MP4 writer) can be exercised without camera hardware.
+pub fn render_rgb8(
+    width: usize,
+    height: usize,
+    background: u8,
+    blobs: &[(f64, f64)],
+    peak: f64,
+    sigma: f64,
+) -> Vec<u8> {
+    let mono = render_mono8(width, height, background, blobs, peak, sigma);
+    let mut buf = vec![0u8; width * height * 3];
+    for (pixel, &v) in buf.chunks_exact_mut(3).zip(mono.iter()) {
+        pixel[0] = v;
+        pixel[1] = v;
+        pixel[2] = v;
+    }
+    buf
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -66,5 +91,19 @@ mod tests {
     fn empty_blobs_yield_flat_background() {
         let buf = render_mono8(8, 8, 7, &[], 160.0, 1.5);
         assert!(buf.iter().all(|&v| v == 7));
+    }
+
+    #[test]
+    fn rgb8_replicates_mono_into_three_equal_channels() {
+        let (w, h) = (64usize, 48usize);
+        let blobs = [(20.0, 15.0)];
+        let mono = render_mono8(w, h, 3, &blobs, 160.0, 1.5);
+        let rgb = render_rgb8(w, h, 3, &blobs, 160.0, 1.5);
+        assert_eq!(rgb.len(), w * h * 3);
+        for (i, &v) in mono.iter().enumerate() {
+            assert_eq!(rgb[i * 3], v);
+            assert_eq!(rgb[i * 3 + 1], v);
+            assert_eq!(rgb[i * 3 + 2], v);
+        }
     }
 }

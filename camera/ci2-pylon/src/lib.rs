@@ -535,13 +535,16 @@ impl ci2::Camera for WrappedCamera {
         //     .collect::<ci2::Result<Vec<formats::PixFmt>>>()?)
     }
     fn set_pixel_format(&mut self, pixel_format: formats::PixFmt) -> ci2::Result<()> {
-        let s = convert_pixel_format(pixel_format)?;
         let camera = self.inner.lock().unwrap();
         let mut pixel_format_node = camera
             .node_map()
             .map_pylon_err()?
             .enum_node("PixelFormat")
             .map_pylon_err()?;
+        // Pick whichever name this camera actually offers, since modern (ace2)
+        // and legacy Basler cameras use different names for the same format.
+        let available = pixel_format_node.settable_values().map_pylon_err()?;
+        let s = choose_pixel_format_name(pixel_format, &available)?;
         pixel_format_node
             .set_value_pfs(&mut self.pfs_cache.lock().unwrap(), s)
             .map_pylon_err()
@@ -1006,22 +1009,41 @@ impl ci2::Camera for WrappedCamera {
 }
 
 pub fn convert_pixel_format(pixel_format: formats::PixFmt) -> ci2::Result<&'static str> {
+    // Return the preferred (modern SFNC) name for each format. See
+    // `pixel_format_name_candidates` for the full set of accepted names and
+    // `choose_pixel_format_name` for how a camera-specific name is selected.
+    Ok(pixel_format_name_candidates(pixel_format)?[0])
+}
+
+/// Returns the candidate Basler/pylon `PixelFormat` enum names for a given
+/// [`formats::PixFmt`], in order of preference.
+///
+/// Some formats have more than one possible name across Basler camera
+/// generations: modern SFNC 2.x cameras (e.g. Basler ace2) use `RGB8` and
+/// `YCbCr422_8`, while older cameras (and the Pylon camera emulator) use the
+/// legacy `RGB8Packed` / `YUV422Packed`. Callers should pick whichever
+/// candidate the camera actually offers (see [`choose_pixel_format_name`]).
+/// See strawlab/strand-braid#29.
+fn pixel_format_name_candidates(pixel_format: formats::PixFmt) -> ci2::Result<Vec<&'static str>> {
     use formats::PixFmt::*;
     let pixfmt = match pixel_format {
-        Mono8 => "Mono8",
+        Mono8 => vec!["Mono8"],
 
         // MONO10 => "Mono10",
         // MONO10p => "Mono10p",
         // MONO12 => "Mono12",
         // MONO12p => "Mono12p",
         // MONO16 => "Mono16",
-        YUV422 => "YUV422packed",
-        RGB8 => "RGB8packed",
+        // Modern SFNC name first, then legacy names. The exact spelling of the
+        // legacy name varies (`RGB8Packed` on most Basler models and the Pylon
+        // emulator; `RGB8packed` seen elsewhere), so list both.
+        YUV422 => vec!["YCbCr422_8", "YUV422Packed", "YUV422packed"],
+        RGB8 => vec!["RGB8", "RGB8Packed", "RGB8packed"],
 
-        BayerGR8 => "BayerGR8",
-        BayerRG8 => "BayerRG8",
-        BayerBG8 => "BayerBG8",
-        BayerGB8 => "BayerGB8",
+        BayerGR8 => vec!["BayerGR8"],
+        BayerRG8 => vec!["BayerRG8"],
+        BayerBG8 => vec!["BayerBG8"],
+        BayerGB8 => vec!["BayerGB8"],
         // e => {
         //     return Err(ci2::Error::from(format!("Unknown PixelFormat {:?}", e)));
         // }
@@ -1030,6 +1052,29 @@ pub fn convert_pixel_format(pixel_format: formats::PixFmt) -> ci2::Result<&'stat
         }
     };
     Ok(pixfmt)
+}
+
+/// Choose the pylon `PixelFormat` enum name to set for `pixel_format` given the
+/// names the camera actually reports as settable.
+///
+/// This resolves the ambiguity between modern SFNC names (`RGB8`,
+/// `YCbCr422_8`) and legacy names (`RGB8Packed`, `YUV422Packed`) by preferring
+/// whichever candidate the camera offers. See strawlab/strand-braid#29.
+fn choose_pixel_format_name(
+    pixel_format: formats::PixFmt,
+    available: &[String],
+) -> ci2::Result<&'static str> {
+    let candidates = pixel_format_name_candidates(pixel_format)?;
+    candidates
+        .iter()
+        .copied()
+        .find(|candidate| available.iter().any(|a| a == candidate))
+        .ok_or_else(|| {
+            ci2::Error::from(format!(
+                "camera does not support pixel format {pixel_format} \
+                 (tried {candidates:?}, camera offers {available:?})"
+            ))
+        })
 }
 
 pub fn convert_to_pixel_format(orig: &str) -> ci2::Result<formats::PixFmt> {
@@ -1041,8 +1086,11 @@ pub fn convert_to_pixel_format(orig: &str) -> ci2::Result<formats::PixFmt> {
         // "Mono12" => MONO12,
         // "Mono12p" => MONO12p,
         // "Mono16" => MONO16,
-        "YUV422packed" => YUV422,
-        "RGB8Packed" => RGB8,
+        // Accept both the legacy and modern SFNC names (Basler ace2 color
+        // cameras report the modern names; the Pylon emulator and older models
+        // report `RGB8Packed` / `YUV422Packed`). See strawlab/strand-braid#29.
+        "YUV422packed" | "YUV422Packed" | "YCbCr422_8" => YUV422,
+        "RGB8packed" | "RGB8Packed" | "RGB8" => RGB8,
 
         "BayerGR8" => BayerGR8,
         "BayerRG8" => BayerRG8,
@@ -1090,5 +1138,130 @@ fn mode_to_str(value: AutoMode) -> &'static str {
         ci2::AutoMode::Off => "Off",
         ci2::AutoMode::Once => "Once",
         ci2::AutoMode::Continuous => "Continuous",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Regression test for strawlab/strand-braid#29.
+    //
+    // Basler ace2 (ace 2) color cameras report and accept the modern SFNC
+    // pixel-format names `RGB8` and `YCbCr422_8` instead of the legacy
+    // `RGB8packed` / `YUV422packed` used by older Basler models. When these
+    // modern names are not recognized, `possible_pixel_formats` silently drops
+    // color formats and the ffmpeg/y4m recording fallback cannot be used on
+    // such cameras.
+    #[test]
+    fn test_modern_pixel_format_names_recognized() {
+        assert_eq!(
+            convert_to_pixel_format("RGB8").unwrap(),
+            formats::PixFmt::RGB8
+        );
+        assert_eq!(
+            convert_to_pixel_format("YCbCr422_8").unwrap(),
+            formats::PixFmt::YUV422
+        );
+    }
+
+    fn names(vals: &[&str]) -> Vec<String> {
+        vals.iter().map(|s| s.to_string()).collect()
+    }
+
+    // A modern (ace2) color camera only offers the modern SFNC names, so
+    // setting RGB8 / YUV422 must resolve to those (not the legacy names that
+    // ace2 cameras reject).
+    #[test]
+    fn test_choose_pixel_format_name_ace2() {
+        let offered = names(&["Mono8", "BayerRG8", "RGB8", "YCbCr422_8"]);
+        assert_eq!(
+            choose_pixel_format_name(formats::PixFmt::RGB8, &offered).unwrap(),
+            "RGB8"
+        );
+        assert_eq!(
+            choose_pixel_format_name(formats::PixFmt::YUV422, &offered).unwrap(),
+            "YCbCr422_8"
+        );
+    }
+
+    // A legacy camera only offers the legacy names.
+    #[test]
+    fn test_choose_pixel_format_name_legacy() {
+        let offered = names(&["Mono8", "BayerRG8", "RGB8packed", "YUV422packed"]);
+        assert_eq!(
+            choose_pixel_format_name(formats::PixFmt::RGB8, &offered).unwrap(),
+            "RGB8packed"
+        );
+        assert_eq!(
+            choose_pixel_format_name(formats::PixFmt::YUV422, &offered).unwrap(),
+            "YUV422packed"
+        );
+    }
+
+    // The Pylon camera emulator (PYLON_CAMEMU, used by the smoke tests) offers
+    // the capital-P legacy name `RGB8Packed`. This is the exact set of names it
+    // reports, and it must resolve to `RGB8`. Regression guard for the
+    // convert_pixel_format bug that emitted only lowercase `RGB8packed`.
+    #[test]
+    fn test_choose_pixel_format_name_emulator() {
+        let offered = names(&[
+            "Mono8",
+            "Mono10",
+            "Mono12",
+            "Mono16",
+            "BGRA8Packed",
+            "BGR8Packed",
+            "RGB8Packed",
+            "RGB16Packed",
+            "BayerGR8",
+            "BayerRG8",
+            "BayerGB8",
+            "BayerBG8",
+        ]);
+        assert_eq!(
+            choose_pixel_format_name(formats::PixFmt::RGB8, &offered).unwrap(),
+            "RGB8Packed"
+        );
+        assert_eq!(
+            convert_to_pixel_format("RGB8Packed").unwrap(),
+            formats::PixFmt::RGB8
+        );
+    }
+
+    // If the camera offers none of the candidate names, we get an error rather
+    // than blindly setting an unsupported value.
+    #[test]
+    fn test_choose_pixel_format_name_unsupported() {
+        let offered = names(&["Mono8", "BayerRG8"]);
+        assert!(choose_pixel_format_name(formats::PixFmt::RGB8, &offered).is_err());
+    }
+
+    // Every candidate name must round-trip back through
+    // `convert_to_pixel_format` (guards against the old "RGB8Packed" typo).
+    #[test]
+    fn test_pixel_format_roundtrip() {
+        for pixfmt in [
+            formats::PixFmt::Mono8,
+            formats::PixFmt::RGB8,
+            formats::PixFmt::YUV422,
+            formats::PixFmt::BayerGR8,
+            formats::PixFmt::BayerRG8,
+            formats::PixFmt::BayerGB8,
+            formats::PixFmt::BayerBG8,
+        ] {
+            for name in pixel_format_name_candidates(pixfmt).unwrap() {
+                assert_eq!(
+                    convert_to_pixel_format(name).unwrap(),
+                    pixfmt,
+                    "round-trip failed for name {name:?}"
+                );
+            }
+            // The public single-name accessor must also round-trip.
+            assert_eq!(
+                convert_to_pixel_format(convert_pixel_format(pixfmt).unwrap()).unwrap(),
+                pixfmt
+            );
+        }
     }
 }
