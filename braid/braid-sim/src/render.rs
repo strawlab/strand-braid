@@ -70,6 +70,41 @@ pub fn render_rgb8(
     buf
 }
 
+/// Neutral chroma value for the grayscale scene carried in a YUV format.
+const NEUTRAL_CHROMA: u8 = 128;
+
+/// Render a `width` x `height` YUV422 (UYVY-packed) image of the same
+/// neutral-gray scene as [`render_mono8`]: each pixel's luma (Y) is the Mono8
+/// value and the shared chroma (U, V) is neutral (128). The byte order is
+/// `[U, Y0, V, Y1]` per horizontal pixel pair, matching
+/// `machine_vision_formats::pixel_format::YUV422`. Stride equals `width * 2`.
+///
+/// `width` must be even (each 4-byte group encodes two pixels).
+pub fn render_yuv422_uyvy(
+    width: usize,
+    height: usize,
+    background: u8,
+    blobs: &[(f64, f64)],
+    peak: f64,
+    sigma: f64,
+) -> Vec<u8> {
+    assert!(width.is_multiple_of(2), "YUV422 requires an even width");
+    let mono = render_mono8(width, height, background, blobs, peak, sigma);
+    let mut buf = vec![0u8; width * height * 2];
+    for (out_row, in_row) in buf
+        .chunks_exact_mut(width * 2)
+        .zip(mono.chunks_exact(width))
+    {
+        for (group, pair) in out_row.chunks_exact_mut(4).zip(in_row.chunks_exact(2)) {
+            group[0] = NEUTRAL_CHROMA; // U
+            group[1] = pair[0]; // Y0
+            group[2] = NEUTRAL_CHROMA; // V
+            group[3] = pair[1]; // Y1
+        }
+    }
+    buf
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,6 +126,22 @@ mod tests {
     fn empty_blobs_yield_flat_background() {
         let buf = render_mono8(8, 8, 7, &[], 160.0, 1.5);
         assert!(buf.iter().all(|&v| v == 7));
+    }
+
+    #[test]
+    fn yuv422_carries_mono_luma_with_neutral_chroma() {
+        let (w, h) = (64usize, 48usize);
+        let blobs = [(20.0, 15.0)];
+        let mono = render_mono8(w, h, 3, &blobs, 160.0, 1.5);
+        let yuv = render_yuv422_uyvy(w, h, 3, &blobs, 160.0, 1.5);
+        assert_eq!(yuv.len(), w * h * 2);
+        // UYVY: [U, Y0, V, Y1] per pixel pair; chroma neutral, luma == mono.
+        for (group, pair) in yuv.chunks_exact(4).zip(mono.chunks_exact(2)) {
+            assert_eq!(group[0], 128); // U
+            assert_eq!(group[1], pair[0]); // Y0
+            assert_eq!(group[2], 128); // V
+            assert_eq!(group[3], pair[1]); // Y1
+        }
     }
 
     #[test]
