@@ -176,6 +176,7 @@ jobs:
             -p braidz-cli \
             -p strand-convert \
             -p show-timestamps \
+            -p mp4-bframe-doctor \
             --features "strand-cam/checkercal,strand-cam/fiducial,braid-run/with-rerun,flytrax-csv-to-braidz/with_apriltags,braidz-mcsc/with-rerun,braid-april-cal-cli/with-rerun"
           # Sanity-check the braid config tooling.
           ./target/release/braid-default-config.exe >/dev/null
@@ -196,7 +197,8 @@ jobs:
             braid-offline-retrack compute-flydra1-compat braid-process-video \
             flytrax-csv-to-braidz braidz-mcsc fmf gocal cal-to-xml \
             align-calibration braid-april-cal-cli braidz-export-rrd \
-            rerun-braidz-viewer braidz-cli strand-convert show-timestamps; do
+            rerun-braidz-viewer braidz-cli strand-convert show-timestamps \
+            mp4-bframe-doctor; do
             cp "target/release/$bin.exe" build/
           done
           # The flydratrax GUI binary is renamed during packaging.

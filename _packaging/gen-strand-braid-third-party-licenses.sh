@@ -32,6 +32,7 @@ CRATES=(
   geometry/mcsc-native/gocal
   im-proc/flydra-feature-detector
   media-utils/fmf/fmf-cli
+  media-utils/mp4-bframe-doctor
   media-utils/show-timestamps
   media-utils/strand-convert
   strand-cam
