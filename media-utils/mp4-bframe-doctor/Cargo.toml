@@ -1,0 +1,22 @@
+[package]
+name = "mp4-bframe-doctor"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "detect MP4 samples whose SEI timestamps are inconsistent with the bitstream's picture order count"
+
+[dependencies]
+clap.workspace = true
+eyre.workspace = true
+chrono.workspace = true
+camino.workspace = true
+tracing.workspace = true
+h264-reader.workspace = true
+
+frame-source.workspace = true
+env-tracing-logger.workspace = true
+# mp4-writer and strand-cam-remote-control are only needed by the `fix`
+# subcommand, currently commented out in src/main.rs -- see the module doc
+# comment there for why.
+# mp4-writer = { workspace = true, features = ["nv-encode"] }
+# strand-cam-remote-control.workspace = true
