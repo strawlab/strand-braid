@@ -88,6 +88,7 @@ members = [
     "media-utils/less-avc-wrapper",
     "media-utils/mkv-parser-kit",
     "media-utils/mkv-strand-reader",
+    "media-utils/mp4-bframe-doctor",
     "media-utils/mp4-writer",
     "media-utils/nvenc",
     "media-utils/nvenc/dynlink-cuda",
