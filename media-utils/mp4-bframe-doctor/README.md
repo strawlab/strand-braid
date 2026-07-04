@@ -1,29 +1,37 @@
 # mp4-bframe-doctor
 
-Detect MP4 or raw Annex B `.h264` files whose per-frame precision-timestamp
-SEI data (as written by strand-cam / braid) is inconsistent with the true
-presentation order encoded in the H.264 bitstream itself.
+Detect MP4 or raw Annex B `.h264` files whose timing metadata is inconsistent
+with the true presentation order encoded in the H.264 bitstream itself.
 
-A container's `stts`/`ctts` boxes are one place a recording can claim the
-wrong presentation order, but they aren't the only place: the SEI timestamp
-embedded in each sample can itself be mistagged at record time (e.g.
-associated with the wrong encoder output when B-frame reordering delays that
-output relative to when it was submitted for encoding), independent of what
-the container boxes say. Such a file has no trustworthy timing metadata left
-in the container at all: neither `ctts` nor the SEI can be assumed correct.
+There are two places a recording states timing, and either can be wrong:
+
+* the MP4 container's `stts`/`ctts` boxes, which is what a player uses to order
+  frames; and
+* the per-frame precision-timestamp SEI embedded in the bitstream (written by
+  strand-cam / braid), which can itself be mistagged at record time (e.g.
+  paired with the wrong encoder output when B-frame reordering delays that
+  output relative to when it was submitted), independent of what the container
+  boxes say.
 
 The one signal that cannot lie is the bitstream's own picture order count
 (POC, ITU-T H.264 §8.2.1): every slice header carries enough information to
 reconstruct the true relative display order of samples, independent of any
 container metadata or of what a (possibly buggy) writer put in the SEI. This
-tool decodes POC for every sample and checks whether sorting samples by POC
-reproduces non-decreasing SEI timestamps. If not, the SEI data is
-inconsistent with the bitstream's real presentation order and the file is
-broken.
+tool decodes POC for every sample and checks that, walked in POC order, each
+available timing series comes out non-decreasing. If a series is not monotonic
+in POC order, that timing disagrees with the bitstream's real display order and
+the file is broken.
 
-Only `pic_order_cnt_type == 0` streams are supported (covers essentially all
-cameras and software/hardware H.264 encoders in practice); others are
-reported as `UNKNOWN`.
+Which series are checked:
+
+* the container timing is checked for **every MP4** (so even a plain
+  ffmpeg-encoded recording with no SEI can be verified); and
+* the precision-timestamp SEI is checked wherever it is present -- for a raw
+  Annex B `.h264` file it is the only available signal.
+
+Streams using `pic_order_cnt_type` 0 or 2 are supported (this covers
+essentially all cameras and software/hardware H.264 encoders in practice); the
+rare type 1 is reported as `UNKNOWN`.
 
 ## Repair (`fix`)
 
@@ -103,7 +111,8 @@ mp4-bframe-doctor fix recording.mp4
 
 ## Caveat
 
-Detection relies on the precision-timestamp SEI that strand-cam / braid
-always embeds when writing MP4s through the `ffmpeg-rewriter` path. Files
-without it can't be analyzed and are reported as `UNKNOWN` rather than
-silently assumed to be fine.
+An MP4 can always be checked against its container timing. The extra SEI check
+relies on the precision-timestamp SEI that strand-cam / braid embeds when
+writing MP4s through the `ffmpeg-rewriter` path. A raw Annex B `.h264` file has
+no container, so if it also lacks that SEI there is nothing to check and it is
+reported as `UNKNOWN` rather than silently assumed to be fine.
