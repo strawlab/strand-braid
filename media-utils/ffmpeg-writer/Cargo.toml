@@ -18,5 +18,6 @@ env_logger.workspace = true
 rusttype.workspace = true
 ttf-firacode.workspace = true
 image.workspace = true
+tempfile.workspace = true
 
 font-drawing.workspace = true
