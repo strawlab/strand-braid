@@ -155,6 +155,10 @@ pub struct WrappedCamera {
     /// Whether acquisition is paced to `fps`. Braid's software frame-rate-limit
     /// enables this; it is on by default.
     frame_rate_enabled: bool,
+    /// The pixel format frames are rendered in. Defaults to Mono8; can be set
+    /// to RGB8 (e.g. via `--pixel-format RGB8`) to exercise the color
+    /// recording path.
+    pixel_format: PixFmt,
     /// When acquisition started (for pacing); `None` until `acquisition_start`.
     start: Option<Instant>,
     /// Wall-clock datetime captured at `acquisition_start`, used as the time of
@@ -207,6 +211,7 @@ impl WrappedCamera {
             bg_warmup_frames: scenario.bg_warmup_frames,
             fps: scenario.fps,
             frame_rate_enabled: true,
+            pixel_format: PixFmt::Mono8,
             start: None,
             start_datetime: None,
             next_fno: 0,
@@ -318,16 +323,19 @@ impl ci2::Camera for WrappedCamera {
     }
 
     fn pixel_format(&self) -> ci2::Result<PixFmt> {
-        Ok(PixFmt::Mono8)
+        Ok(self.pixel_format)
     }
     fn possible_pixel_formats(&self) -> ci2::Result<Vec<PixFmt>> {
-        Ok(vec![PixFmt::Mono8])
+        Ok(vec![PixFmt::Mono8, PixFmt::RGB8])
     }
     fn set_pixel_format(&mut self, pixel_format: PixFmt) -> ci2::Result<()> {
         match pixel_format {
-            PixFmt::Mono8 => Ok(()),
+            PixFmt::Mono8 | PixFmt::RGB8 => {
+                self.pixel_format = pixel_format;
+                Ok(())
+            }
             other => Err(ci2::Error::from(format!(
-                "sim backend only supports Mono8, not {other}"
+                "sim backend only supports Mono8 and RGB8, not {other}"
             ))),
         }
     }
@@ -439,21 +447,41 @@ impl ci2::Camera for WrappedCamera {
         }
 
         let blobs = self.blobs_for_frame(fno);
-        let buf = braid_sim::render::render_mono8(
-            self.image_width,
-            self.image_height,
-            self.blob.background,
-            &blobs,
-            self.blob.peak as f64,
-            self.blob.sigma,
-        );
+        // Render in the selected pixel format. RGB8 carries the same scene as
+        // Mono8 (equal channels) but exercises the color recording path.
+        let (buf, stride) = match self.pixel_format {
+            PixFmt::RGB8 => {
+                let buf = braid_sim::render::render_rgb8(
+                    self.image_width,
+                    self.image_height,
+                    self.blob.background,
+                    &blobs,
+                    self.blob.peak as f64,
+                    self.blob.sigma,
+                );
+                (buf, self.image_width * 3)
+            }
+            // set_pixel_format only accepts Mono8 or RGB8, so any other value
+            // here is Mono8.
+            _ => {
+                let buf = braid_sim::render::render_mono8(
+                    self.image_width,
+                    self.image_height,
+                    self.blob.background,
+                    &blobs,
+                    self.blob.peak as f64,
+                    self.blob.sigma,
+                );
+                (buf, self.image_width)
+            }
+        };
 
         let image = DynamicFrameOwned::from_buf(
             self.image_width as u32,
             self.image_height as u32,
-            self.image_width, // stride == width for Mono8
+            stride,
             buf,
-            PixFmt::Mono8,
+            self.pixel_format,
         )
         .ok_or_else(|| ci2::Error::SingleFrameError("sim frame had invalid layout".into()))?;
 
