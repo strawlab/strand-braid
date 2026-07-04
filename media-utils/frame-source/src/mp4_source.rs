@@ -101,17 +101,36 @@ pub(crate) fn from_reader_with_timestamp_source(
     // `nal_locations` and `mp4_pts` each are indexed by sample number.
     let mut nal_locations = Vec::new();
     let mut mp4_pts = Vec::new();
+    let mut sample_timing = Vec::new();
     let data_from_mp4_track = crate::h264_source::FromMp4Track {
         sequence_parameter_set: track.sequence_parameter_set()?.to_vec(),
         picture_parameter_set: track.picture_parameter_set()?.to_vec(),
     };
+
+    // Per-sample composition-time offsets (ctts), expanded to one per sample.
+    // Computed here while the shared borrow of `track` is still held. These are
+    // carried through per sample so a re-mux can preserve the composition
+    // offset (rather than re-deriving it from presentation-time deltas).
+    let comp_offsets = composition_offsets(track);
+    // Sample durations and offsets are in the *track* (media) timescale, which
+    // differs from the movie timescale returned by `mp4_reader.timescale()`.
+    let media_timescale = track.timescale();
+
     let num_samples = mp4_reader.sample_count(track_id)?;
 
     // mp4 uses 1 based indexing
     for sample_id in 1..=num_samples {
-        let (start_time, _duration) = mp4_reader.sample_time_duration(track_id, sample_id)?;
+        let (start_time, duration) = mp4_reader.sample_time_duration(track_id, sample_id)?;
         let this_pts = raw2dur(start_time, timescale);
         mp4_pts.push(this_pts);
+        let offset = comp_offsets
+            .get((sample_id - 1) as usize)
+            .copied()
+            .unwrap_or(0);
+        sample_timing.push(crate::h264_source::Mp4SampleTiming {
+            decode_duration: raw2dur(duration as u64, media_timescale),
+            composition_offset: raw2signed_dur(offset, media_timescale),
+        });
         nal_locations.push(Mp4NalLocation {
             track_id,
             sample_id,
@@ -130,6 +149,7 @@ pub(crate) fn from_reader_with_timestamp_source(
         seekable_h264_source,
         do_decode_h264,
         Some(mp4_pts),
+        Some(sample_timing),
         Some(data_from_mp4_track),
         timestamp_source,
         srt_file_path,
@@ -204,6 +224,29 @@ fn avcc_to_nalu_ebsp(mp4_sample_buffer: &[u8]) -> Result<Vec<&[u8]>> {
 
 fn raw2dur(raw: u64, timescale: u32) -> std::time::Duration {
     std::time::Duration::from_secs_f64(raw as f64 / timescale as f64)
+}
+
+/// Convert a (possibly negative) composition offset in `timescale` units into a
+/// signed duration.
+fn raw2signed_dur(raw: i32, timescale: u32) -> chrono::Duration {
+    let nanos = (raw as i64 * 1_000_000_000i64) / timescale as i64;
+    chrono::Duration::nanoseconds(nanos)
+}
+
+/// Per-sample composition-time offset (ctts), expanded from the run-length
+/// `ctts` box into one entry per sample. Returns an empty vec when there is no
+/// `ctts` box (i.e. no B-frame reordering, so all offsets are zero); callers
+/// treat a missing index as offset 0.
+fn composition_offsets(track: &mp4::Mp4Track) -> Vec<i32> {
+    let mut offsets = Vec::new();
+    if let Some(ctts) = track.trak.mdia.minf.stbl.ctts.as_ref() {
+        for entry in &ctts.entries {
+            for _ in 0..entry.sample_count {
+                offsets.push(entry.sample_offset);
+            }
+        }
+    }
+    offsets
 }
 
 #[test]

@@ -276,4 +276,149 @@ mod test {
 
         Ok(())
     }
+
+    /// Regression test for re-muxing a reordered (B-frame) stream so that it
+    /// plays back in the correct presentation order.
+    ///
+    /// The intermediate libx264 pass stores frames in *decode* order with
+    /// non-zero composition offsets (B-frames). Before the fix, [`FfmpegReWriter`]
+    /// could not represent this: `mp4-writer` hardcoded a zero composition
+    /// offset (no `ctts`) and paired each SRT capture time with the frame by
+    /// decode index, so the re-muxed file had its capture times scrambled
+    /// relative to the true display order (frames played e.g. 5,1,2,3,4,...).
+    ///
+    /// Here we force B-frames, re-mux, and then read the result back. We
+    /// reconstruct each sample's presentation time from the container timing
+    /// (`stts` decode duration + `ctts` composition offset) and assert that,
+    /// walked in presentation order, the per-frame precision-timestamp SEI
+    /// capture times are strictly increasing — i.e. the file plays in order.
+    /// Prior to the fix (composition offset forced to zero, SEI paired by
+    /// decode index) this ordering was violated.
+    #[test]
+    fn test_bframe_stream_remuxes_in_presentation_order() -> Result<()> {
+        use frame_source::h264_source::Mp4SampleTiming;
+
+        let tempdir = tempfile::tempdir()?;
+        let mp4_fname = tempdir.path().join("out.mp4");
+
+        // 25 fps nominal cadence; the SRT carries the real (here identical)
+        // capture times.
+        let n_frames = 24usize;
+        let base_micros: i64 = 1_662_921_288_000_000; // Sun, 11 Sep 2022 18:34:48 UTC
+        let frame_interval_micros = 40_000i64; // 25 fps
+        let timestamps: Vec<_> = (0..n_frames)
+            .map(|i| {
+                DateTime::from_timestamp_micros(base_micros + i as i64 * frame_interval_micros)
+                    .unwrap()
+            })
+            .collect();
+
+        let w = 64u32;
+        let h = 48u32;
+        {
+            // Force libx264 to insert a fixed pattern of B-frames (b_adapt=0
+            // takes the content out of the decision) so the re-mux definitely
+            // exercises the reordered path. A single keyframe keeps one GOP.
+            let ffmpeg_codec_args = FfmpegCodecArgs {
+                device_args: None,
+                pre_codec_args: None,
+                codec: Some("libx264".to_string()),
+                post_codec_args: Some(vec![
+                    ("-pix_fmt".to_string(), "yuv420p".to_string()),
+                    ("-bf".to_string(), "3".to_string()),
+                    (
+                        "-x264-params".to_string(),
+                        "b_adapt=0:scenecut=0:keyint=1000:min-keyint=1000".to_string(),
+                    ),
+                ]),
+            };
+
+            let mut wtr = FfmpegReWriter::new(&mp4_fname, ffmpeg_codec_args, None, None)?;
+
+            for (i, ts) in timestamps.iter().enumerate() {
+                // Vary the content per frame so the encoder has real motion to
+                // reorder around.
+                let mut data = vec![0u8; w as usize * h as usize * 3];
+                for (px, chunk) in data.chunks_exact_mut(3).enumerate() {
+                    let v = ((px + i * 7) % 256) as u8;
+                    chunk[0] = v;
+                    chunk[1] = v.wrapping_mul(3);
+                    chunk[2] = v.wrapping_add(i as u8 * 11);
+                }
+                let frame: OImage<RGB8> = OImage::new(w, h, w as usize * 3, data).unwrap();
+                let frame = strand_dynamic_frame::DynamicFrameOwned::from_static(frame);
+                wtr.write_dynamic_frame(&frame.borrow(), *ts)?;
+            }
+            wtr.close()?;
+        }
+
+        // Read the re-muxed file back, keeping the H264 in decode order and
+        // recovering the container timing so we can reconstruct presentation
+        // order.
+        let mut frame_src = frame_source::FrameSourceBuilder::new(&mp4_fname)
+            .do_decode_h264(false)
+            .timestamp_source(frame_source::TimestampSource::MispMicrosectime)
+            .build_h264_in_mp4_source()?;
+
+        let frame0_time = frame_src.frame0_time().unwrap();
+
+        // Snapshot per-sample timing (stts + ctts) before iterating (which
+        // borrows the source mutably).
+        let sample_timing: Vec<Mp4SampleTiming> = frame_src
+            .mp4_sample_timing()
+            .expect("MP4 source must expose per-sample timing")
+            .to_vec();
+        assert_eq!(sample_timing.len(), n_frames);
+
+        // The re-mux is only meaningful as a reordering test if the encoder
+        // actually produced B-frames (non-zero composition offsets).
+        let has_reordering = sample_timing
+            .iter()
+            .any(|t| t.composition_offset != chrono::Duration::zero());
+        assert!(
+            has_reordering,
+            "expected libx264 to emit B-frames (non-zero ctts); test would be vacuous otherwise"
+        );
+
+        // Collect the SEI capture time for each sample, in decode order.
+        let mut sei_times = vec![None; n_frames];
+        for frame in frame_src.iter() {
+            let frame = frame?;
+            sei_times[frame.idx()] = Some(frame0_time + frame.timestamp().unwrap_duration());
+        }
+
+        // Reconstruct each sample's presentation time: presentation = decode +
+        // composition_offset, where the decode time is the running sum of the
+        // per-sample decode durations (stts), all in decode order.
+        let mut decode_time = chrono::Duration::zero();
+        let mut presentation = Vec::with_capacity(n_frames);
+        for (i, timing) in sample_timing.iter().enumerate() {
+            let pts = decode_time
+                + chrono::Duration::from_std(timing.decode_duration).unwrap()
+                + timing.composition_offset;
+            let sei = sei_times[i].expect("every sample must carry a SEI timestamp");
+            presentation.push((pts, sei));
+            decode_time += chrono::Duration::from_std(timing.decode_duration).unwrap();
+        }
+
+        // Walk samples in presentation order and assert the SEI capture times
+        // are strictly increasing: the file plays back in the order it was
+        // recorded.
+        presentation.sort_by_key(|(pts, _)| *pts);
+        let ordered_sei: Vec<_> = presentation.iter().map(|(_, sei)| *sei).collect();
+        for pair in ordered_sei.windows(2) {
+            assert!(
+                pair[0] < pair[1],
+                "SEI capture times must strictly increase in presentation order, \
+                 but got {:?} then {:?} (out-of-order playback)",
+                pair[0],
+                pair[1]
+            );
+        }
+
+        // And the set of capture times must match what we wrote.
+        assert_eq!(ordered_sei, timestamps);
+
+        Ok(())
+    }
 }

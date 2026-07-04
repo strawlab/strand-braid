@@ -56,6 +56,19 @@ impl SrtData {
     }
 }
 
+/// Per-sample timing carried through from an MP4 source, so it can be
+/// preserved verbatim when re-muxing (rather than re-derived from
+/// presentation-time deltas). This is what lets reordered (B-frame) streams be
+/// re-muxed correctly.
+#[derive(Debug, Clone, Copy)]
+pub struct Mp4SampleTiming {
+    /// The sample's own decode duration (stts delta).
+    pub decode_duration: std::time::Duration,
+    /// The sample's composition time offset (ctts); `presentation = decode +
+    /// composition_offset`. Non-zero for reordered streams.
+    pub composition_offset: chrono::Duration,
+}
+
 pub trait H264Preparser {
     fn put_seq_param_set(&mut self, nalu: &RefNal<'_>) -> eyre::Result<()>;
     fn put_pic_param_set(&mut self, nalu: &RefNal<'_>) -> eyre::Result<()>;
@@ -129,12 +142,22 @@ pub struct H264Source<H: SeekableH264Source> {
     timestamp_source: Option<crate::TimestampSource>,
     has_timestamps: bool,
     srt_data: Option<SrtData>,
+    /// Per-sample decode duration + composition offset (MP4 sources only), so a
+    /// re-mux can preserve the source's timing (stts + ctts) verbatim.
+    mp4_sample_timing: Option<Vec<Mp4SampleTiming>>,
     average_fps: Option<f64>,
 }
 
 impl<H: SeekableH264Source> H264Source<H> {
     pub fn as_seekable_h264_source(&self) -> &H {
         &self.seekable_h264_source
+    }
+
+    /// Per-sample timing (decode duration + composition offset) for MP4
+    /// sources, indexed by frame number (see [`FrameData::idx`]). `None` for
+    /// non-MP4 sources.
+    pub fn mp4_sample_timing(&self) -> Option<&[Mp4SampleTiming]> {
+        self.mp4_sample_timing.as_deref()
     }
 
     fn create_iter_unchecked<'a>(
@@ -319,6 +342,7 @@ where
         mut seekable_h264_source: H,
         do_decode_h264: bool,
         mp4_pts: Option<Vec<std::time::Duration>>,
+        mp4_sample_timing: Option<Vec<Mp4SampleTiming>>,
         data_from_mp4_track: Option<FromMp4Track>,
         timestamp_source: crate::TimestampSource,
         srt_file_path: Option<std::path::PathBuf>,
@@ -476,6 +500,7 @@ where
             seekable_h264_source,
             nal_locations,
             mp4_pts,
+            mp4_sample_timing,
             frame_time_info,
             h264_metadata,
             frame0_precision_time,
@@ -947,8 +972,9 @@ fn from_annexb_reader_with_timestamp_source(
     H264Source::from_seekable_h264_source_with_timestamp_source(
         annex_b_source,
         do_decode_h264,
-        None,
-        None,
+        None, // mp4_pts
+        None, // mp4_sample_timing
+        None, // data_from_mp4_track
         timestamp_source,
         srt_file_path,
         show_progress,
