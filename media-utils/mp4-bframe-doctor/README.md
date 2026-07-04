@@ -25,13 +25,26 @@ Only `pic_order_cnt_type == 0` streams are supported (covers essentially all
 cameras and software/hardware H.264 encoders in practice); others are
 reported as `UNKNOWN`.
 
-## Status
+## Repair (`fix`)
 
-Currently `check`-only. A `fix` subcommand existed for an earlier, narrower
-bug (a missing `ctts` box, with trustworthy SEI data) but its repair strategy
-doesn't apply to what `check` detects now: if the SEI itself is mistagged,
-there is no trustworthy per-frame timestamp left in the container to repair
-from. The old implementation is kept, commented out, in `src/main.rs`.
+The `fix` subcommand repairs an affected file **in place**. Because the SEI
+itself is untrustworthy, the only lie-proof signal is the bitstream's picture
+order count (POC). `fix` assumes the *set* of capture timestamps in the file is
+correct but was permuted onto the wrong frames, and that the camera captured
+frames in display order. It therefore sorts the capture times and reassigns
+them to frames by POC (display) rank, then writes a new MP4 that keeps the
+original decode-order bitstream but lays down composition offsets (`ctts`) and
+a fresh per-frame precision-timestamp SEI so that the container order and the
+SEI both agree with the true display order. The old (stale) precision-timestamp
+SEI is stripped so only the corrected one remains.
+
+The original file `X` is renamed to `X.bak` (or `X.bak.1`, `X.bak.2`, ... if a
+backup already exists) and the repaired file is written to `X`. Already-OK
+files are left untouched unless `--force` is given.
+
+The repaired output is always MP4 data (Annex B has no container to carry
+`ctts`), so fixing a raw `X.h264` writes MP4 bytes to `X.h264` — rename it to
+`.mp4` afterwards if the extension matters to you.
 
 ## Compilation and installation
 
@@ -55,6 +68,7 @@ Usage: mp4-bframe-doctor <COMMAND>
 
 Commands:
   check  Report whether the SEI precision timestamps in MP4 or raw Annex B .h264 files are consistent with the true presentation order encoded in the H.264 bitstream (its picture order count, POC)
+  fix    Repair a file in place by reassigning its capture timestamps to frames in true (bitstream POC) display order and writing a new MP4 whose container timing and SEI both agree with that order
   help   Print this message or the help of the given subcommand(s)
 
 Options:
@@ -64,6 +78,7 @@ Options:
 
 ```
 Usage: mp4-bframe-doctor check <INPUTS>...
+Usage: mp4-bframe-doctor fix [--force] <INPUT>
 ```
 
 ## Example usage
@@ -78,6 +93,12 @@ Both MP4 and raw Annex B `.h264` files are accepted (dispatched by extension):
 
 ```bash
 mp4-bframe-doctor check recording.mp4 recording.h264
+```
+
+Repair a broken recording in place (the original is kept as `recording.mp4.bak`):
+
+```bash
+mp4-bframe-doctor fix recording.mp4
 ```
 
 ## Caveat

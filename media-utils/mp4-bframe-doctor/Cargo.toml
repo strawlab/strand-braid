@@ -15,8 +15,6 @@ h264-reader.workspace = true
 
 frame-source.workspace = true
 env-tracing-logger.workspace = true
-# mp4-writer and strand-cam-remote-control are only needed by the `fix`
-# subcommand, currently commented out in src/main.rs -- see the module doc
-# comment there for why.
-# mp4-writer = { workspace = true, features = ["nv-encode"] }
-# strand-cam-remote-control.workspace = true
+# Used by the `fix` subcommand to rewrite corrected timing into a new MP4.
+mp4-writer = { workspace = true, features = ["nv-encode"] }
+strand-cam-remote-control.workspace = true

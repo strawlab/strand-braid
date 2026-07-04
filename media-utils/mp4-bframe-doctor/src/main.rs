@@ -39,6 +39,7 @@ use h264_reader::{
         sps::{PicOrderCntType, SeqParameterSet},
     },
 };
+use strand_cam_remote_control::{Mp4Codec, Mp4RecordingConfig, RecordingFrameRate};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about)]
@@ -56,12 +57,19 @@ enum Cmd {
         #[arg(required = true, num_args = 1..)]
         inputs: Vec<Utf8PathBuf>,
     },
-    // The `fix` subcommand is temporarily disabled: its repair strategy
-    // assumed the SEI timestamps were trustworthy and only the container's
-    // `ctts` needed correcting. That assumption doesn't hold for files where
-    // the SEI itself is mistagged (the case `check` is now built to find),
-    // so there is currently no valid repair for what `check` detects. See
-    // the commented-out implementation further down in this file.
+    /// Repair a file in place by reassigning its capture timestamps to frames
+    /// in true (bitstream POC) display order and writing a new MP4 whose
+    /// container timing and SEI both agree with that order. See
+    /// [`repair_timing`] for the assumption this relies on.
+    Fix {
+        /// Input MP4 or raw Annex B `.h264` file. Repaired in place: the
+        /// original is renamed to `<input>.bak` (or `.bak.1`, `.bak.2`, ... if
+        /// that already exists) and the repaired MP4 is written to `<input>`.
+        input: Utf8PathBuf,
+        /// Rewrite even if analysis says the file is already fine.
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 /// One H.264 sample, in the order it appears in the file (decode order).
@@ -194,69 +202,104 @@ fn read_source(path: &Utf8PathBuf) -> Result<Vec<LoadedFrame>> {
     }
 }
 
+/// Accumulates the H.264 parsing context (SPS/PPS) and the POC decoder as
+/// samples are read, so both [`check`](cmd_check) and [`fix`](cmd_fix) can
+/// reconstruct each frame's picture order count the same way.
+struct PocReader {
+    ctx: H264ParsingContext,
+    // The POC decoder needs the SPS's `log2_max_pic_order_cnt_lsb`, so it can
+    // only be built once an SPS has been seen. MP4 keeps SPS/PPS in the
+    // container; Annex B streams carry them inline (picked up per-frame).
+    poc_decoder: Option<PocDecoder>,
+}
+
+impl PocReader {
+    fn new() -> Self {
+        Self {
+            ctx: H264ParsingContext::default(),
+            poc_decoder: None,
+        }
+    }
+
+    /// Seed SPS/PPS from container-level metadata (MP4). No-op for Annex B,
+    /// which carries them inline (handled in [`Self::poc_for_frame`]).
+    fn seed_from_container<H: SeekableH264Source>(
+        &mut self,
+        src: &H264Source<H>,
+        path: &Utf8PathBuf,
+    ) -> Result<()> {
+        if let Some(sps_bytes) = src.as_seekable_h264_source().first_sps() {
+            let nal = RefNal::new(&sps_bytes, &[], true);
+            let (sps, log2_max_poc_lsb) = parse_sps(&nal, path)?;
+            self.poc_decoder
+                .get_or_insert_with(|| PocDecoder::new(log2_max_poc_lsb));
+            self.ctx.put_seq_param_set(sps);
+        }
+        if let Some(pps_bytes) = src.as_seekable_h264_source().first_pps() {
+            let nal = RefNal::new(&pps_bytes, &[], true);
+            let pps = PicParameterSet::from_bits(&self.ctx, nal.rbsp_bits())
+                .map_err(|e| eyre!("bad PPS: {e:?}"))?;
+            self.ctx.put_pic_param_set(pps);
+        }
+        Ok(())
+    }
+
+    /// Feed any inline SPS/PPS (Annex B) carried with this frame, then return
+    /// the frame's POC from its first slice NAL.
+    fn poc_for_frame(&mut self, nals: &[Vec<u8>], path: &Utf8PathBuf) -> Result<i64> {
+        for nal_bytes in nals {
+            let nal = RefNal::new(nal_bytes, &[], true);
+            let Ok(header) = nal.header() else { continue };
+            match header.nal_unit_type() {
+                UnitType::SeqParameterSet => {
+                    let (sps, log2_max_poc_lsb) = parse_sps(&nal, path)?;
+                    self.poc_decoder
+                        .get_or_insert_with(|| PocDecoder::new(log2_max_poc_lsb));
+                    self.ctx.put_seq_param_set(sps);
+                }
+                UnitType::PicParameterSet => {
+                    let pps = PicParameterSet::from_bits(&self.ctx, nal.rbsp_bits())
+                        .map_err(|e| eyre!("bad PPS: {e:?}"))?;
+                    self.ctx.put_pic_param_set(pps);
+                }
+                _ => {}
+            }
+        }
+        let (is_idr, nal_ref_idc, poc_lsb) = read_slice_poc_lsb(&self.ctx, nals)?;
+        let poc_decoder = self
+            .poc_decoder
+            .as_mut()
+            .ok_or_else(|| eyre!("\"{path}\": slice data appeared before any SPS"))?;
+        Ok(poc_decoder.next_poc(is_idr, nal_ref_idc, poc_lsb))
+    }
+}
+
+/// Extract the raw-EBSP NAL units of one decoded (non-decoded) H.264 sample.
+fn frame_nals(frame: frame_source::FrameData) -> Result<Vec<Vec<u8>>> {
+    match frame.into_image() {
+        frame_source::ImageData::EncodedH264(encoded) => match encoded.data {
+            frame_source::H264EncodingVariant::RawEbsp(nals) => Ok(nals),
+            other => bail!("expected raw-EBSP H264 sample data, got {other:?}"),
+        },
+        other => bail!("expected H264-encoded frame data, got {other:?}"),
+    }
+}
+
 /// Reconstruct picture order count (POC) and read the SEI capture time for
 /// every sample of an already-opened H.264 source.
 fn load_frames<H: SeekableH264Source>(
     src: &mut H264Source<H>,
     path: &Utf8PathBuf,
 ) -> Result<Vec<LoadedFrame>> {
-    let mut ctx = H264ParsingContext::default();
-    // The POC decoder needs the SPS's `log2_max_pic_order_cnt_lsb`, so it can
-    // only be built once an SPS has been seen. MP4 keeps SPS/PPS in the
-    // container; Annex B streams carry them inline (picked up in the loop).
-    let mut poc_decoder: Option<PocDecoder> = None;
-
-    if let Some(sps_bytes) = src.as_seekable_h264_source().first_sps() {
-        let nal = RefNal::new(&sps_bytes, &[], true);
-        let (sps, log2_max_poc_lsb) = parse_sps(&nal, path)?;
-        poc_decoder = Some(PocDecoder::new(log2_max_poc_lsb));
-        ctx.put_seq_param_set(sps);
-    }
-    if let Some(pps_bytes) = src.as_seekable_h264_source().first_pps() {
-        let nal = RefNal::new(&pps_bytes, &[], true);
-        let pps = PicParameterSet::from_bits(&ctx, nal.rbsp_bits())
-            .map_err(|e| eyre!("bad PPS: {e:?}"))?;
-        ctx.put_pic_param_set(pps);
-    }
+    let mut reader = PocReader::new();
+    reader.seed_from_container(src, path)?;
 
     let mut frames = Vec::new();
     for frame in src.iter() {
         let frame = frame?;
         let pts_ns = frame.timestamp().unwrap_duration().as_nanos() as i64;
-        let nals = match frame.into_image() {
-            frame_source::ImageData::EncodedH264(encoded) => match encoded.data {
-                frame_source::H264EncodingVariant::RawEbsp(nals) => nals,
-                other => bail!("expected raw-EBSP H264 sample data, got {other:?}"),
-            },
-            other => bail!("expected H264-encoded frame data, got {other:?}"),
-        };
-
-        // Feed any inline SPS/PPS (Annex B) so the parsing context is ready
-        // before the slice headers that reference them. For MP4 these were
-        // already seeded from the container and are absent from the samples.
-        for nal_bytes in &nals {
-            let nal = RefNal::new(nal_bytes, &[], true);
-            let Ok(header) = nal.header() else { continue };
-            match header.nal_unit_type() {
-                UnitType::SeqParameterSet => {
-                    let (sps, log2_max_poc_lsb) = parse_sps(&nal, path)?;
-                    poc_decoder.get_or_insert_with(|| PocDecoder::new(log2_max_poc_lsb));
-                    ctx.put_seq_param_set(sps);
-                }
-                UnitType::PicParameterSet => {
-                    let pps = PicParameterSet::from_bits(&ctx, nal.rbsp_bits())
-                        .map_err(|e| eyre!("bad PPS: {e:?}"))?;
-                    ctx.put_pic_param_set(pps);
-                }
-                _ => {}
-            }
-        }
-
-        let (is_idr, nal_ref_idc, poc_lsb) = read_slice_poc_lsb(&ctx, &nals)?;
-        let poc_decoder = poc_decoder
-            .as_mut()
-            .ok_or_else(|| eyre!("\"{path}\": slice data appeared before any SPS"))?;
-        let poc = poc_decoder.next_poc(is_idr, nal_ref_idc, poc_lsb);
+        let nals = frame_nals(frame)?;
+        let poc = reader.poc_for_frame(&nals, path)?;
         frames.push(LoadedFrame { pts_ns, poc });
     }
 
@@ -340,158 +383,274 @@ fn main() -> Result<()> {
                 std::process::exit(1);
             }
         }
+        Cmd::Fix { input, force } => {
+            cmd_fix(input, *force)?;
+        }
     }
 
     Ok(())
 }
 
-// The `fix` subcommand, disabled while `check`'s new POC-based detection is
-// validated (see the module doc comment above for why the old repair
-// strategy no longer applies to what `check` now finds). This will need
-// rework before being re-enabled: `LoadedFrame` no longer carries the raw
-// sample data or container timing it used.
-//
-// /// Repair affected MP4 files by rewriting their timing metadata.
-// Fix {
-//     #[arg(required = true, num_args = 1..)]
-//     inputs: Vec<Utf8PathBuf>,
-//     /// Write the repaired copy here instead of overwriting in place.
-//     /// Only valid with a single input file.
-//     #[arg(long)]
-//     output: Option<Utf8PathBuf>,
-//     /// Rewrite the file even if analysis says it is already fine.
-//     #[arg(long)]
-//     force: bool,
-//     /// When overwriting in place, don't keep a `.bak` copy of the original.
-//     #[arg(long)]
-//     no_backup: bool,
-// },
-//
-// /// Compute (decode_duration, composition_offset) for every sample, keeping
-// /// decode order untouched but assigning a nominal, evenly spaced decode
-// /// timeline so that `decode_time + composition_offset == true capture time`
-// /// for every sample.
-// fn repair_timing(frames: &[LoadedFrame]) -> Vec<(std::time::Duration, chrono::Duration)> {
-//     let n = frames.len();
-//     assert!(n > 0);
-//
-//     let avg_interval_ns: i64 = if n > 1 {
-//         let min = frames.iter().map(|f| f.pts_ns).min().unwrap();
-//         let max = frames.iter().map(|f| f.pts_ns).max().unwrap();
-//         (((max - min) as f64) / ((n - 1) as f64)).round() as i64
-//     } else {
-//         // Nominal fallback: a single-frame file has no reordering to fix
-//         // anyway, but every mp4 sample needs a nonzero duration.
-//         (1_000_000_000f64 / 30.0).round() as i64
-//     }
-//     .max(1);
-//
-//     (0..n)
-//         .map(|i| {
-//             let dts_ns = avg_interval_ns * i as i64;
-//             let offset_ns = frames[i].pts_ns - dts_ns;
-//             (
-//                 std::time::Duration::from_nanos(avg_interval_ns as u64),
-//                 chrono::Duration::nanoseconds(offset_ns),
-//             )
-//         })
-//         .collect()
-// }
-//
-// fn write_repaired(loaded: &Loaded, out_path: &Utf8PathBuf) -> Result<()> {
-//     let timing = repair_timing(&loaded.frames);
-//
-//     let fd = std::fs::File::create(out_path)
-//         .with_context(|| format!("creating output file \"{out_path}\""))?;
-//     let cfg = Mp4RecordingConfig {
-//         codec: Mp4Codec::H264RawStream,
-//         max_framerate: RecordingFrameRate::Unlimited,
-//         h264_metadata: None,
-//     };
-//     let mut new_mp4 = mp4_writer::Mp4Writer::new(fd, cfg, None)?;
-//     new_mp4.set_first_sps_pps(loaded.first_sps.clone(), loaded.first_pps.clone());
-//
-//     let frame0_time_local: chrono::DateTime<chrono::Local> =
-//         loaded.frame0_time.with_timezone(&chrono::Local);
-//
-//     for (frame, (decode_duration, composition_offset)) in loaded.frames.iter().zip(timing) {
-//         let sei_timestamp = frame0_time_local + chrono::Duration::nanoseconds(frame.pts_ns);
-//         new_mp4.write_h264_buf_passthrough(
-//             &frame.data,
-//             loaded.width,
-//             loaded.height,
-//             decode_duration,
-//             composition_offset,
-//             sei_timestamp,
-//             true,
-//         )?;
-//     }
-//
-//     new_mp4.finish()?;
-//     Ok(())
-// }
-//
-// fn cmd_fix(
-//     inputs: &[Utf8PathBuf],
-//     output: Option<&Utf8PathBuf>,
-//     force: bool,
-//     no_backup: bool,
-// ) -> Result<()> {
-//     if output.is_some() && inputs.len() != 1 {
-//         bail!("--output can only be used with a single input file");
-//     }
-//
-//     for path in inputs {
-//         let loaded = read_source(path)?;
-//         let analysis = analyze(&loaded.frames);
-//
-//         if !analysis.needs_fix() && !force {
-//             println!(
-//                 "{path}: already OK, skipping ({} samples)",
-//                 analysis.num_frames
-//             );
-//             continue;
-//         }
-//
-//         if let Some(output) = output {
-//             write_repaired(&loaded, output)?;
-//             println!(
-//                 "{path}: repaired {} of {} samples, wrote \"{output}\"",
-//                 analysis.num_inversions, analysis.num_frames
-//             );
-//         } else {
-//             let tmp_path: Utf8PathBuf = format!("{path}.mp4-bframe-doctor-tmp").into();
-//             write_repaired(&loaded, &tmp_path)?;
-//
-//             if !no_backup {
-//                 let backup_path: Utf8PathBuf = format!("{path}.bak").into();
-//                 if backup_path.exists() {
-//                     bail!(
-//                         "backup path \"{backup_path}\" already exists; refusing to overwrite. \
-//                         Remove it or pass --no-backup."
-//                     );
-//                 }
-//                 std::fs::rename(path, &backup_path)
-//                     .with_context(|| format!("renaming \"{path}\" to backup \"{backup_path}\""))?;
-//             }
-//             std::fs::rename(&tmp_path, path)
-//                 .with_context(|| format!("renaming repaired file into place at \"{path}\""))?;
-//
-//             println!(
-//                 "{path}: repaired {} of {} samples in place{}",
-//                 analysis.num_inversions,
-//                 analysis.num_frames,
-//                 if no_backup {
-//                     ""
-//                 } else {
-//                     " (original kept as .bak)"
-//                 }
-//             );
-//         }
-//     }
-//
-//     Ok(())
-// }
+/// One decoded H.264 sample kept for the `fix` path: its (untrustworthy) SEI
+/// capture time, its bitstream POC, and the raw NAL units to re-emit.
+struct FixFrame {
+    pts_ns: i64,
+    poc: i64,
+    nals: Vec<Vec<u8>>,
+}
+
+/// A whole file loaded for repair.
+struct Loaded {
+    frames: Vec<FixFrame>,
+    width: u32,
+    height: u32,
+    /// Container-level SPS/PPS (MP4). `None` for Annex B, whose SPS/PPS ride
+    /// inline in the samples and are re-emitted as-is.
+    first_sps: Option<Vec<u8>>,
+    first_pps: Option<Vec<u8>>,
+    frame0_time: chrono::DateTime<chrono::FixedOffset>,
+}
+
+/// Open `path` (MP4 or raw Annex B `.h264`) and load every sample for repair.
+fn load_file_for_fix(path: &Utf8PathBuf) -> Result<Loaded> {
+    let builder = frame_source::FrameSourceBuilder::new(path)
+        .do_decode_h264(false)
+        .timestamp_source(frame_source::TimestampSource::MispMicrosectime);
+
+    let ctx = || {
+        format!(
+            "opening \"{path}\" (this tool requires per-frame precision-timestamp \
+            SEI data, as written by strand-cam / braid)"
+        )
+    };
+    match path.extension().map(|e| e.to_lowercase()).as_deref() {
+        Some("mp4") => load_for_fix(
+            &mut builder.build_h264_in_mp4_source().with_context(ctx)?,
+            path,
+        ),
+        Some("h264") => load_for_fix(
+            &mut builder.build_h264_annexb_source().with_context(ctx)?,
+            path,
+        ),
+        _ => bail!("\"{path}\": unsupported extension (expected .mp4 or .h264)"),
+    }
+}
+
+fn load_for_fix<H: SeekableH264Source>(
+    src: &mut H264Source<H>,
+    path: &Utf8PathBuf,
+) -> Result<Loaded> {
+    let width = src.width();
+    let height = src.height();
+    let first_sps = src.as_seekable_h264_source().first_sps();
+    let first_pps = src.as_seekable_h264_source().first_pps();
+    let frame0_time = src
+        .frame0_time()
+        .ok_or_else(|| eyre!("\"{path}\": source has no frame0 time"))?;
+
+    let mut reader = PocReader::new();
+    reader.seed_from_container(src, path)?;
+
+    let mut frames = Vec::new();
+    for frame in src.iter() {
+        let frame = frame?;
+        let pts_ns = frame.timestamp().unwrap_duration().as_nanos() as i64;
+        let nals = frame_nals(frame)?;
+        let poc = reader.poc_for_frame(&nals, path)?;
+        frames.push(FixFrame { pts_ns, poc, nals });
+    }
+
+    Ok(Loaded {
+        frames,
+        width,
+        height,
+        first_sps,
+        first_pps,
+        frame0_time,
+    })
+}
+
+/// The 16-byte UUID marking a MISB ST 0604 precision-timestamp SEI, as written
+/// by strand-cam / braid (and by `mp4-writer`).
+const MISP_MARKER: &[u8] = b"MISPmicrosectime";
+
+/// Is `nal_bytes` a precision-timestamp SEI NAL? The MISB marker is plain ASCII
+/// with no `00 00` runs, so emulation-prevention never splits it and a raw byte
+/// search of the NAL is reliable.
+fn is_precision_timestamp_sei(nal_bytes: &[u8]) -> bool {
+    let nal = RefNal::new(nal_bytes, &[], true);
+    matches!(nal.header(), Ok(h) if h.nal_unit_type() == UnitType::SEI)
+        && nal_bytes
+            .windows(MISP_MARKER.len())
+            .any(|w| w == MISP_MARKER)
+}
+
+/// The repaired per-sample timing for one decode-order frame.
+struct RepairedTiming {
+    /// Synthetic decode duration (stts).
+    decode_duration: std::time::Duration,
+    /// Composition offset (ctts) placing the sample at its corrected
+    /// presentation time.
+    composition_offset: chrono::Duration,
+    /// Corrected capture time (relative to frame0) to write into the SEI.
+    corrected_pts_ns: i64,
+}
+
+/// Compute corrected timing for every sample.
+///
+/// The bitstream's picture order count (POC) is the one trustworthy signal for
+/// *display order*. We assume the multiset of SEI capture times in the file is
+/// correct but was permuted onto the wrong frames (the mistagging `check`
+/// detects), and that the camera captured frames in display order. Reassigning
+/// the sorted capture times onto frames by POC rank therefore restores each
+/// frame's true capture time. We then keep the samples in their existing decode
+/// order (so the bitstream stays valid) and lay down a nominal, evenly spaced
+/// decode timeline with composition offsets (ctts) so that
+/// `decode_time + composition_offset == corrected capture time` for every
+/// sample -- making the container order and the SEI agree.
+fn repair_timing(frames: &[FixFrame]) -> Vec<RepairedTiming> {
+    let n = frames.len();
+    assert!(n > 0);
+
+    // Sorted capture times, reassigned to frames by their POC (display) rank.
+    let mut sorted_times: Vec<i64> = frames.iter().map(|f| f.pts_ns).collect();
+    sorted_times.sort_unstable();
+    let mut poc_order: Vec<usize> = (0..n).collect();
+    poc_order.sort_by_key(|&i| frames[i].poc);
+    let mut corrected = vec![0i64; n];
+    for (display_rank, &decode_index) in poc_order.iter().enumerate() {
+        corrected[decode_index] = sorted_times[display_rank];
+    }
+
+    let avg_interval_ns: i64 = if n > 1 {
+        ((sorted_times[n - 1] - sorted_times[0]) as f64 / (n - 1) as f64).round() as i64
+    } else {
+        // A single-frame file has no reordering to fix, but every sample needs
+        // a nonzero duration.
+        (1_000_000_000f64 / 30.0).round() as i64
+    }
+    .max(1);
+
+    (0..n)
+        .map(|i| {
+            let dts_ns = avg_interval_ns * i as i64;
+            RepairedTiming {
+                decode_duration: std::time::Duration::from_nanos(avg_interval_ns as u64),
+                composition_offset: chrono::Duration::nanoseconds(corrected[i] - dts_ns),
+                corrected_pts_ns: corrected[i],
+            }
+        })
+        .collect()
+}
+
+fn write_repaired(loaded: &Loaded, out_path: &Utf8PathBuf) -> Result<()> {
+    let timing = repair_timing(&loaded.frames);
+
+    let fd = std::fs::File::create(out_path)
+        .with_context(|| format!("creating output file \"{out_path}\""))?;
+    let cfg = Mp4RecordingConfig {
+        codec: Mp4Codec::H264RawStream,
+        max_framerate: RecordingFrameRate::Unlimited,
+        h264_metadata: None,
+    };
+    let mut new_mp4 = mp4_writer::Mp4Writer::new(fd, cfg, None)?;
+    // MP4 sources carry SPS/PPS in the container; pass them through. Annex B
+    // sources keep them inline in the samples, so leave them unset here.
+    if loaded.first_sps.is_some() || loaded.first_pps.is_some() {
+        new_mp4.set_first_sps_pps(loaded.first_sps.clone(), loaded.first_pps.clone());
+    }
+
+    let frame0_time_local: chrono::DateTime<chrono::Local> =
+        loaded.frame0_time.with_timezone(&chrono::Local);
+
+    for (frame, t) in loaded.frames.iter().zip(timing) {
+        let sei_timestamp = frame0_time_local + chrono::Duration::nanoseconds(t.corrected_pts_ns);
+        // Drop the file's existing (mistagged) precision-timestamp SEI so the
+        // fresh, corrected one inserted below is the only one; otherwise a
+        // reader would still pick up the stale timestamp.
+        let nals: Vec<Vec<u8>> = frame
+            .nals
+            .iter()
+            .filter(|n| !is_precision_timestamp_sei(n))
+            .cloned()
+            .collect();
+        let data = frame_source::H264EncodingVariant::RawEbsp(nals);
+        new_mp4.write_h264_buf_passthrough(
+            &data,
+            loaded.width,
+            loaded.height,
+            t.decode_duration,
+            t.composition_offset,
+            sei_timestamp,
+            true,
+        )?;
+    }
+
+    new_mp4.finish()?;
+    Ok(())
+}
+
+fn cmd_fix(input: &Utf8PathBuf, force: bool) -> Result<()> {
+    let loaded = load_file_for_fix(input)?;
+    let analysis = analyze_fix(&loaded.frames);
+
+    if !analysis.is_broken() && !force {
+        println!(
+            "{input}: already OK, nothing to fix ({} samples). Pass --force to rewrite anyway.",
+            analysis.num_frames
+        );
+        return Ok(());
+    }
+
+    // Write the repaired MP4 to a temporary file alongside the input first, so
+    // the original is only moved aside once the repair has fully succeeded.
+    let tmp_path: Utf8PathBuf = format!("{input}.mp4-bframe-doctor.tmp").into();
+    write_repaired(&loaded, &tmp_path)
+        .with_context(|| format!("writing repaired output for \"{input}\""))?;
+
+    let backup_path = next_backup_path(input);
+    std::fs::rename(input, &backup_path).with_context(|| {
+        format!("moving original \"{input}\" aside to backup \"{backup_path}\"")
+    })?;
+    std::fs::rename(&tmp_path, input)
+        .with_context(|| format!("moving repaired file into place at \"{input}\""))?;
+
+    println!(
+        "{input}: reassigned {} of {} samples' capture times to POC order \
+        (original saved as \"{backup_path}\")",
+        analysis.num_inversions, analysis.num_frames
+    );
+    Ok(())
+}
+
+/// The first available backup path for `input`: `<input>.bak`, or
+/// `<input>.bak.1`, `<input>.bak.2`, ... if earlier ones already exist.
+fn next_backup_path(input: &Utf8PathBuf) -> Utf8PathBuf {
+    let base: Utf8PathBuf = format!("{input}.bak").into();
+    if !base.exists() {
+        return base;
+    }
+    let mut n = 1u32;
+    loop {
+        let candidate: Utf8PathBuf = format!("{input}.bak.{n}").into();
+        if !candidate.exists() {
+            return candidate;
+        }
+        n += 1;
+    }
+}
+
+/// Same inversion analysis as [`analyze`], over [`FixFrame`]s.
+fn analyze_fix(frames: &[FixFrame]) -> Analysis {
+    let loaded: Vec<LoadedFrame> = frames
+        .iter()
+        .map(|f| LoadedFrame {
+            pts_ns: f.pts_ns,
+            poc: f.poc,
+        })
+        .collect();
+    analyze(&loaded)
+}
 
 #[cfg(test)]
 mod tests {
@@ -564,5 +723,54 @@ mod tests {
         // meets MaxPicOrderCntLsb/2, so this is really a forward step to
         // poc 16, not a jump back near zero.
         assert_eq!(dec.next_poc(false, 1, 0), 16);
+    }
+
+    fn fix_frame(pts_ns: i64, poc: i64) -> FixFrame {
+        FixFrame {
+            pts_ns,
+            poc,
+            nals: vec![],
+        }
+    }
+
+    #[test]
+    fn repair_reassigns_capture_times_to_poc_order() {
+        // Decode order with SEI capture times that climb in decode order but
+        // whose POC (true display order) is jumbled - the mistagging the tool
+        // detects. Display order by POC is decode indices [0, 2, 3, 1].
+        let frames = vec![
+            fix_frame(0, 0),
+            fix_frame(10, 3),
+            fix_frame(20, 1),
+            fix_frame(30, 2),
+        ];
+        let timing = repair_timing(&frames);
+
+        // The sorted capture times get reassigned onto frames by POC rank, so
+        // in decode order the corrected times are [0, 30, 10, 20].
+        let corrected: Vec<i64> = timing.iter().map(|t| t.corrected_pts_ns).collect();
+        assert_eq!(corrected, vec![0, 30, 10, 20]);
+
+        // Presentation time (decode time + composition offset) must equal the
+        // corrected capture time and strictly increase in POC display order.
+        let interval = timing[0].decode_duration.as_nanos() as i64;
+        let mut by_poc: Vec<usize> = (0..frames.len()).collect();
+        by_poc.sort_by_key(|&i| frames[i].poc);
+        let mut prev = i64::MIN;
+        for &i in &by_poc {
+            let dts = interval * i as i64;
+            let presentation = dts + timing[i].composition_offset.num_nanoseconds().unwrap();
+            assert_eq!(presentation, timing[i].corrected_pts_ns);
+            assert!(presentation > prev, "presentation must increase by POC");
+            prev = presentation;
+        }
+
+        // The repaired stream now passes the tool's own consistency check.
+        let repaired: Vec<LoadedFrame> = frames
+            .iter()
+            .zip(&timing)
+            .map(|(f, t)| frame(t.corrected_pts_ns, f.poc))
+            .collect();
+        assert!(!analyze(&repaired).is_broken());
     }
 }
