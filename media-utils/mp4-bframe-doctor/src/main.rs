@@ -1,9 +1,9 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Detect MP4 files whose per-frame precision-timestamp SEI data is
-//! inconsistent with the true presentation order encoded in the H.264
-//! bitstream itself.
+//! Detect MP4 or raw Annex B `.h264` files whose per-frame
+//! precision-timestamp SEI data is inconsistent with the true presentation
+//! order encoded in the H.264 bitstream itself.
 //!
 //! A container's `stts`/`ctts` boxes are one place a recording can claim the
 //! wrong presentation order, but they aren't the only place: the SEI
@@ -26,7 +26,10 @@
 use camino::Utf8PathBuf;
 use clap::{Parser, Subcommand};
 use eyre::{Context, Result, bail, eyre};
-use frame_source::{FrameDataSource, h264_source::SeekableH264Source};
+use frame_source::{
+    FrameDataSource,
+    h264_source::{H264Source, SeekableH264Source},
+};
 use h264_reader::{
     Context as H264ParsingContext,
     nal::{
@@ -46,9 +49,9 @@ struct Cli {
 
 #[derive(Subcommand, Debug)]
 enum Cmd {
-    /// Report whether the SEI precision timestamps in MP4 files are
-    /// consistent with the true presentation order encoded in the H.264
-    /// bitstream (its picture order count, POC).
+    /// Report whether the SEI precision timestamps in MP4 or raw Annex B
+    /// `.h264` files are consistent with the true presentation order encoded
+    /// in the H.264 bitstream (its picture order count, POC).
     Check {
         #[arg(required = true, num_args = 1..)]
         inputs: Vec<Utf8PathBuf>,
@@ -61,7 +64,7 @@ enum Cmd {
     // the commented-out implementation further down in this file.
 }
 
-/// One H.264 sample, in the order it appears in the MP4 file (decode order).
+/// One H.264 sample, in the order it appears in the file (decode order).
 struct LoadedFrame {
     /// True capture/presentation time, read from the per-frame
     /// precision-timestamp SEI, relative to the source's frame0 time.
@@ -119,8 +122,24 @@ impl PocDecoder {
     }
 }
 
+/// Parse an SPS NAL and extract its `log2_max_pic_order_cnt_lsb_minus4`
+/// (required to reconstruct POC). Only `pic_order_cnt_type == 0` is supported.
+fn parse_sps(nal: &RefNal<'_>, path: &Utf8PathBuf) -> Result<(SeqParameterSet, u8)> {
+    let sps = SeqParameterSet::from_bits(nal.rbsp_bits()).map_err(|e| eyre!("bad SPS: {e:?}"))?;
+    let log2_max_pic_order_cnt_lsb_minus4 = match sps.pic_order_cnt {
+        PicOrderCntType::TypeZero {
+            log2_max_pic_order_cnt_lsb_minus4,
+        } => log2_max_pic_order_cnt_lsb_minus4,
+        _ => bail!(
+            "\"{path}\" uses a pic_order_cnt_type other than 0, which this tool doesn't \
+            support yet"
+        ),
+    };
+    Ok((sps, log2_max_pic_order_cnt_lsb_minus4))
+}
+
 /// Extract (is_idr, nal_ref_idc, pic_order_cnt_lsb) from the first slice NAL
-/// unit in a decoded MP4 sample.
+/// unit in a decoded sample.
 fn read_slice_poc_lsb(ctx: &H264ParsingContext, nals: &[Vec<u8>]) -> Result<(bool, u8, i64)> {
     for nal_bytes in nals {
         let nal = RefNal::new(nal_bytes, &[], true);
@@ -147,47 +166,58 @@ fn read_slice_poc_lsb(ctx: &H264ParsingContext, nals: &[Vec<u8>]) -> Result<(boo
     bail!("sample has no slice NAL unit")
 }
 
+/// Open `path` (either an MP4 or a raw Annex B `.h264` file) and load its
+/// frames. Both container types decode to the same H.264 samples; only the
+/// builder differs, so the per-frame analysis in [`load_frames`] is shared.
 fn read_source(path: &Utf8PathBuf) -> Result<Vec<LoadedFrame>> {
-    let mut src = frame_source::FrameSourceBuilder::new(path)
+    let builder = frame_source::FrameSourceBuilder::new(path)
         .do_decode_h264(false)
-        .timestamp_source(frame_source::TimestampSource::MispMicrosectime)
-        .build_h264_in_mp4_source()
-        .with_context(|| {
-            format!(
-                "opening \"{path}\" (this tool requires per-frame precision-timestamp \
-                SEI data, as written by strand-cam / braid)"
-            )
-        })?;
+        .timestamp_source(frame_source::TimestampSource::MispMicrosectime);
 
-    let first_sps = src
-        .as_seekable_h264_source()
-        .first_sps()
-        .ok_or_else(|| eyre!("\"{path}\" has no SPS"))?;
-    let first_pps = src
-        .as_seekable_h264_source()
-        .first_pps()
-        .ok_or_else(|| eyre!("\"{path}\" has no PPS"))?;
-
-    let mut ctx = H264ParsingContext::default();
-    let sps_nal = RefNal::new(&first_sps, &[], true);
-    let sps =
-        SeqParameterSet::from_bits(sps_nal.rbsp_bits()).map_err(|e| eyre!("bad SPS: {e:?}"))?;
-    let log2_max_pic_order_cnt_lsb_minus4 = match sps.pic_order_cnt {
-        PicOrderCntType::TypeZero {
-            log2_max_pic_order_cnt_lsb_minus4,
-        } => log2_max_pic_order_cnt_lsb_minus4,
-        _ => bail!(
-            "\"{path}\" uses a pic_order_cnt_type other than 0, which this tool doesn't \
-            support yet"
-        ),
+    let ext = path.extension().map(|e| e.to_lowercase());
+    let ctx = || {
+        format!(
+            "opening \"{path}\" (this tool requires per-frame precision-timestamp \
+            SEI data, as written by strand-cam / braid)"
+        )
     };
-    ctx.put_seq_param_set(sps);
-    let pps_nal = RefNal::new(&first_pps, &[], true);
-    let pps = PicParameterSet::from_bits(&ctx, pps_nal.rbsp_bits())
-        .map_err(|e| eyre!("bad PPS: {e:?}"))?;
-    ctx.put_pic_param_set(pps);
+    match ext.as_deref() {
+        Some("mp4") => load_frames(
+            &mut builder.build_h264_in_mp4_source().with_context(ctx)?,
+            path,
+        ),
+        Some("h264") => load_frames(
+            &mut builder.build_h264_annexb_source().with_context(ctx)?,
+            path,
+        ),
+        _ => bail!("\"{path}\": unsupported extension (expected .mp4 or .h264)"),
+    }
+}
 
-    let mut poc_decoder = PocDecoder::new(log2_max_pic_order_cnt_lsb_minus4);
+/// Reconstruct picture order count (POC) and read the SEI capture time for
+/// every sample of an already-opened H.264 source.
+fn load_frames<H: SeekableH264Source>(
+    src: &mut H264Source<H>,
+    path: &Utf8PathBuf,
+) -> Result<Vec<LoadedFrame>> {
+    let mut ctx = H264ParsingContext::default();
+    // The POC decoder needs the SPS's `log2_max_pic_order_cnt_lsb`, so it can
+    // only be built once an SPS has been seen. MP4 keeps SPS/PPS in the
+    // container; Annex B streams carry them inline (picked up in the loop).
+    let mut poc_decoder: Option<PocDecoder> = None;
+
+    if let Some(sps_bytes) = src.as_seekable_h264_source().first_sps() {
+        let nal = RefNal::new(&sps_bytes, &[], true);
+        let (sps, log2_max_poc_lsb) = parse_sps(&nal, path)?;
+        poc_decoder = Some(PocDecoder::new(log2_max_poc_lsb));
+        ctx.put_seq_param_set(sps);
+    }
+    if let Some(pps_bytes) = src.as_seekable_h264_source().first_pps() {
+        let nal = RefNal::new(&pps_bytes, &[], true);
+        let pps = PicParameterSet::from_bits(&ctx, nal.rbsp_bits())
+            .map_err(|e| eyre!("bad PPS: {e:?}"))?;
+        ctx.put_pic_param_set(pps);
+    }
 
     let mut frames = Vec::new();
     for frame in src.iter() {
@@ -200,7 +230,32 @@ fn read_source(path: &Utf8PathBuf) -> Result<Vec<LoadedFrame>> {
             },
             other => bail!("expected H264-encoded frame data, got {other:?}"),
         };
+
+        // Feed any inline SPS/PPS (Annex B) so the parsing context is ready
+        // before the slice headers that reference them. For MP4 these were
+        // already seeded from the container and are absent from the samples.
+        for nal_bytes in &nals {
+            let nal = RefNal::new(nal_bytes, &[], true);
+            let Ok(header) = nal.header() else { continue };
+            match header.nal_unit_type() {
+                UnitType::SeqParameterSet => {
+                    let (sps, log2_max_poc_lsb) = parse_sps(&nal, path)?;
+                    poc_decoder.get_or_insert_with(|| PocDecoder::new(log2_max_poc_lsb));
+                    ctx.put_seq_param_set(sps);
+                }
+                UnitType::PicParameterSet => {
+                    let pps = PicParameterSet::from_bits(&ctx, nal.rbsp_bits())
+                        .map_err(|e| eyre!("bad PPS: {e:?}"))?;
+                    ctx.put_pic_param_set(pps);
+                }
+                _ => {}
+            }
+        }
+
         let (is_idr, nal_ref_idc, poc_lsb) = read_slice_poc_lsb(&ctx, &nals)?;
+        let poc_decoder = poc_decoder
+            .as_mut()
+            .ok_or_else(|| eyre!("\"{path}\": slice data appeared before any SPS"))?;
         let poc = poc_decoder.next_poc(is_idr, nal_ref_idc, poc_lsb);
         frames.push(LoadedFrame { pts_ns, poc });
     }

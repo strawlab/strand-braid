@@ -881,8 +881,19 @@ impl<H: SeekableH264Source> Iterator for RawH264Iter<'_, H> {
         self.frame_idx += 1;
 
         res.map(|nti| {
-            // create slice of all NAL units up and including NALU for the frame
-            let nal_locations = &self.parent.nal_locations[frame_number..=(nti.nal_location_index)];
+            // Slice of all NAL units belonging to this frame: everything after
+            // the previous frame's slice NAL up to and including this frame's.
+            // `nal_location_index` is indexed per NAL unit (Annex B) or per
+            // sample (MP4); for MP4 each frame is one location so this reduces
+            // to `[frame_number..=frame_number]`, but for Annex B a frame spans
+            // several NAL units (SEI/SPS/PPS + slice), so we must start after
+            // the previous slice rather than at `frame_number`.
+            let start = if frame_number == 0 {
+                0
+            } else {
+                self.parent.frame_time_info[frame_number - 1].nal_location_index + 1
+            };
+            let nal_locations = &self.parent.nal_locations[start..=(nti.nal_location_index)];
             let mp4_pts = self.parent.mp4_pts.as_ref().map(|x| x[frame_number]); // one per mp4 sample
             let fraction_done = frame_number as f32 / self.parent.nal_locations.len() as f32;
 

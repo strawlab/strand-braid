@@ -1,8 +1,8 @@
 # mp4-bframe-doctor
 
-Detect MP4 files whose per-frame precision-timestamp SEI data (as written by
-strand-cam / braid) is inconsistent with the true presentation order encoded
-in the H.264 bitstream itself.
+Detect MP4 or raw Annex B `.h264` files whose per-frame precision-timestamp
+SEI data (as written by strand-cam / braid) is inconsistent with the true
+presentation order encoded in the H.264 bitstream itself.
 
 A container's `stts`/`ctts` boxes are one place a recording can claim the
 wrong presentation order, but they aren't the only place: the SEI timestamp
@@ -54,7 +54,7 @@ cargo install --path .
 Usage: mp4-bframe-doctor <COMMAND>
 
 Commands:
-  check  Report whether the SEI precision timestamps in MP4 files are consistent with the true presentation order encoded in the H.264 bitstream (its picture order count, POC)
+  check  Report whether the SEI precision timestamps in MP4 or raw Annex B .h264 files are consistent with the true presentation order encoded in the H.264 bitstream (its picture order count, POC)
   help   Print this message or the help of the given subcommand(s)
 
 Options:
@@ -72,6 +72,12 @@ Scan a directory of recordings for the bug, exiting non-zero if any are found:
 
 ```bash
 mp4-bframe-doctor check /some_path/*.mp4
+```
+
+Both MP4 and raw Annex B `.h264` files are accepted (dispatched by extension):
+
+```bash
+mp4-bframe-doctor check recording.mp4 recording.h264
 ```
 
 ## Caveat

@@ -421,6 +421,18 @@ impl FrameSourceBuilder {
             Some(preparser),
         )
     }
+    /// Build a source for a raw "Annex B" `.h264` file.
+    pub fn build_h264_annexb_source(
+        self,
+    ) -> Result<h264_source::H264Source<h264_source::H264AnnexBSource>> {
+        h264_source::from_annexb_path_with_timestamp_source(
+            self.input,
+            self.do_decode_h264,
+            self.timestamp_source,
+            self.srt_file_path,
+            self.show_progress,
+        )
+    }
     pub fn build_mkv_source(
         self,
     ) -> Result<strand_cam_mkv_source::StrandCamMkvSource<std::io::BufReader<std::fs::File>>> {
