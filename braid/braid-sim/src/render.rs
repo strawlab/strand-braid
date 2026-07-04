@@ -45,6 +45,66 @@ pub fn render_mono8(
     buf
 }
 
+/// Render a `width` x `height` RGB8 image of the same neutral-gray scene as
+/// [`render_mono8`]: every pixel's three channels are set equal to the Mono8
+/// value, so the content (background plus Gaussian blobs) is identical, just
+/// carried in a color pixel format. Stride equals `width * 3`.
+///
+/// This lets the sim backend produce color frames so the color recording path
+/// (e.g. the ffmpeg MP4 writer) can be exercised without camera hardware.
+pub fn render_rgb8(
+    width: usize,
+    height: usize,
+    background: u8,
+    blobs: &[(f64, f64)],
+    peak: f64,
+    sigma: f64,
+) -> Vec<u8> {
+    let mono = render_mono8(width, height, background, blobs, peak, sigma);
+    let mut buf = vec![0u8; width * height * 3];
+    for (pixel, &v) in buf.chunks_exact_mut(3).zip(mono.iter()) {
+        pixel[0] = v;
+        pixel[1] = v;
+        pixel[2] = v;
+    }
+    buf
+}
+
+/// Neutral chroma value for the grayscale scene carried in a YUV format.
+const NEUTRAL_CHROMA: u8 = 128;
+
+/// Render a `width` x `height` YUV422 (UYVY-packed) image of the same
+/// neutral-gray scene as [`render_mono8`]: each pixel's luma (Y) is the Mono8
+/// value and the shared chroma (U, V) is neutral (128). The byte order is
+/// `[U, Y0, V, Y1]` per horizontal pixel pair, matching
+/// `machine_vision_formats::pixel_format::YUV422`. Stride equals `width * 2`.
+///
+/// `width` must be even (each 4-byte group encodes two pixels).
+pub fn render_yuv422_uyvy(
+    width: usize,
+    height: usize,
+    background: u8,
+    blobs: &[(f64, f64)],
+    peak: f64,
+    sigma: f64,
+) -> Vec<u8> {
+    assert!(width.is_multiple_of(2), "YUV422 requires an even width");
+    let mono = render_mono8(width, height, background, blobs, peak, sigma);
+    let mut buf = vec![0u8; width * height * 2];
+    for (out_row, in_row) in buf
+        .chunks_exact_mut(width * 2)
+        .zip(mono.chunks_exact(width))
+    {
+        for (group, pair) in out_row.chunks_exact_mut(4).zip(in_row.chunks_exact(2)) {
+            group[0] = NEUTRAL_CHROMA; // U
+            group[1] = pair[0]; // Y0
+            group[2] = NEUTRAL_CHROMA; // V
+            group[3] = pair[1]; // Y1
+        }
+    }
+    buf
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -66,5 +126,35 @@ mod tests {
     fn empty_blobs_yield_flat_background() {
         let buf = render_mono8(8, 8, 7, &[], 160.0, 1.5);
         assert!(buf.iter().all(|&v| v == 7));
+    }
+
+    #[test]
+    fn yuv422_carries_mono_luma_with_neutral_chroma() {
+        let (w, h) = (64usize, 48usize);
+        let blobs = [(20.0, 15.0)];
+        let mono = render_mono8(w, h, 3, &blobs, 160.0, 1.5);
+        let yuv = render_yuv422_uyvy(w, h, 3, &blobs, 160.0, 1.5);
+        assert_eq!(yuv.len(), w * h * 2);
+        // UYVY: [U, Y0, V, Y1] per pixel pair; chroma neutral, luma == mono.
+        for (group, pair) in yuv.chunks_exact(4).zip(mono.chunks_exact(2)) {
+            assert_eq!(group[0], 128); // U
+            assert_eq!(group[1], pair[0]); // Y0
+            assert_eq!(group[2], 128); // V
+            assert_eq!(group[3], pair[1]); // Y1
+        }
+    }
+
+    #[test]
+    fn rgb8_replicates_mono_into_three_equal_channels() {
+        let (w, h) = (64usize, 48usize);
+        let blobs = [(20.0, 15.0)];
+        let mono = render_mono8(w, h, 3, &blobs, 160.0, 1.5);
+        let rgb = render_rgb8(w, h, 3, &blobs, 160.0, 1.5);
+        assert_eq!(rgb.len(), w * h * 3);
+        for (i, &v) in mono.iter().enumerate() {
+            assert_eq!(rgb[i * 3], v);
+            assert_eq!(rgb[i * 3 + 1], v);
+            assert_eq!(rgb[i * 3 + 2], v);
+        }
     }
 }

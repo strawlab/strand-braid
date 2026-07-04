@@ -1,0 +1,241 @@
+name: Build strand-braid macOS package
+
+# Build the strand-braid macOS (Apple Silicon, aarch64) binaries and assemble a
+# portable .zip, so that release artifacts can be built and published directly
+# from GitHub.
+#
+# This mirrors the binary set and feature flags of the .deb / Windows builds but
+# produces a plain zip of self-contained binaries: there is no system package
+# manager to integrate with, and (per the maintainer's decision) the artifacts
+# are shipped UNSIGNED. Downloaded binaries are quarantined by Gatekeeper; the
+# bundled README documents the `xattr -dr com.apple.quarantine` workaround.
+#
+# The proprietary camera SDKs (Basler Pylon, Allied Vision Vimba) are loaded at
+# runtime via dlopen, so they are NOT needed to build these binaries. Unlike the
+# Windows build, the macOS Pylon C-ABI shim already exists, so it is bundled
+# unconditionally (see the "Bundle Pylon shim" step) and the Basler backend
+# works out of the box -- the Windows shim gating does not apply here.
+#
+# Target is Apple Silicon only (aarch64-apple-darwin). An Intel (x86_64) build
+# would need a separate x86_64 Pylon shim and its own runner (macos-13).
+
+on:
+  push:
+    branches: [main]
+    tags: ["*"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  strand-braid-macos:
+    # macos-14 (and macos-latest) are Apple Silicon (aarch64) runners.
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - uses: Swatinem/rust-cache@v2
+
+      # Let git operate on the checkout regardless of ownership, so the build
+      # scripts can run `git rev-parse HEAD` (via build-util) to embed the commit
+      # hash in the version string (see issue #27 and the .deb/Windows notes).
+      - name: Mark checkout as a safe git directory
+        shell: bash
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE" || true
+          git config --global --add safe.directory '*' || true
+
+      # On tag builds, guard against the release tag and the workspace version
+      # disagreeing (the zip name comes from the tag, the embedded version from
+      # Cargo.toml). Fail fast, before the long build. Mirrors the .deb/Windows.
+      - name: Verify tag matches workspace version (tag builds only)
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          ws_version="$(sed -nE '/^\[workspace\.package\]/,/^\[/ s/^version = "([^"]+)"/\1/p' Cargo.toml | head -1)"
+          if [ -z "$ws_version" ]; then
+            echo "Could not read [workspace.package] version from Cargo.toml." >&2
+            exit 1
+          fi
+          if [ "$ws_version" != "${{ github.ref_name }}" ]; then
+            echo "Release tag '${{ github.ref_name }}' does not match workspace version '$ws_version'." >&2
+            echo "Update [workspace.package] version and re-tag so they agree" >&2
+            echo "(see docs/developer-docs/making-releases.md)." >&2
+            exit 1
+          fi
+          echo "Tag matches workspace version: $ws_version"
+
+      # macos runners ship rustup + a stable toolchain; we only need to add the
+      # wasm target used by the Yew/WASM frontends. The aarch64-apple-darwin
+      # target has no entry in .cargo/config.toml (the sandybridge baseline is
+      # x86_64-only), so we deliberately do NOT set a RUSTFLAGS env var here.
+      - name: Install Rust wasm target
+        shell: bash
+        run: |
+          rustup target add wasm32-unknown-unknown
+          rustc --version
+
+      # trunk builds the Yew/WASM frontends from the strand-cam / braid-run build
+      # scripts. Download the prebuilt aarch64 macOS binary and put it on PATH
+      # ($HOME/.cargo/bin is already on PATH).
+      - name: Install trunk
+        shell: bash
+        run: |
+          curl --location --remote-name https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-aarch64-apple-darwin.tar.gz
+          tar xzf trunk-aarch64-apple-darwin.tar.gz
+          mv trunk "$HOME/.cargo/bin/"
+          trunk --version
+
+      # Populate the cargo cache with the FULL dependency graph BEFORE the build.
+      # The strand-cam and braid-run build scripts invoke `trunk`, whose nested
+      # cargo runs offline and first resolves the whole workspace graph via
+      # `cargo metadata` (for every platform), so a wasm32-only fetch is not
+      # enough. See the matching note in the .deb packaging action.
+      - name: Pre-fetch all dependencies (for the offline trunk frontend build)
+        shell: bash
+        run: |
+          cargo fetch
+
+      # All packaged binaries in a single cargo invocation so features resolve
+      # once and shared dependencies compile once. This mirrors the Windows
+      # build's -p/-features set.
+      #
+      # strand-cam-flydratrax is built in a separate step (below): it is
+      # strand-cam compiled with `flydratrax`, and Cargo unifies features across
+      # a single build, so including it here would force `flydratrax` into the
+      # standalone strand-cam binary.
+      - name: Build packaged binaries (single unified pass)
+        shell: bash
+        run: |
+          cargo build --release \
+            -p strand-cam \
+            -p braid \
+            -p braid-run \
+            -p braid-offline \
+            -p braid-process-video \
+            -p flytrax-csv-to-braidz \
+            -p braidz-mcsc \
+            -p fmf-cli \
+            -p gocal \
+            -p mvg-util \
+            -p braid-april-cal-cli \
+            -p braidz-export-rrd \
+            -p rerun-braidz-viewer \
+            -p braidz-cli \
+            -p strand-convert \
+            -p show-timestamps \
+            --features "strand-cam/checkercal,strand-cam/fiducial,braid-run/with-rerun,flytrax-csv-to-braidz/with_apriltags,braidz-mcsc/with-rerun,braid-april-cal-cli/with-rerun"
+          # Sanity-check the braid config tooling.
+          ./target/release/braid-default-config >/dev/null
+          ./target/release/braid-show-config braid/simple.toml >/dev/null
+
+      - name: Build strand-cam-flydratrax (flydratrax-enabled strand-cam)
+        shell: bash
+        run: |
+          cargo build --release -p strand-cam-gui --no-default-features \
+            --features "strand-cam/bundle_files,strand-cam/flydratrax,strand-cam/checkercal,strand-cam/fiducial,strand-cam/flydra_feat_detect"
+
+      - name: Collect binaries
+        shell: bash
+        run: |
+          mkdir -p build
+          for bin in \
+            strand-cam braid braid-run braid-show-config braid-default-config \
+            braid-offline-retrack compute-flydra1-compat braid-process-video \
+            flytrax-csv-to-braidz braidz-mcsc fmf gocal cal-to-xml \
+            align-calibration braid-april-cal-cli braidz-export-rrd \
+            rerun-braidz-viewer braidz-cli strand-convert show-timestamps; do
+            cp "target/release/$bin" build/
+          done
+          # The flydratrax GUI binary is renamed during packaging.
+          cp target/release/strand-cam-gui build/strand-cam-flydratrax
+
+      - name: Show binary versions
+        shell: bash
+        run: |
+          ./build/strand-cam --version
+          ./build/braid-run --version
+
+      # On tag (release) builds, insist that the embedded git hash is present.
+      # build-util falls back to a placeholder when git is unavailable, so a
+      # broken build no longer crashes at startup -- but a release with no real
+      # provenance is still a bug we want to catch here (guards against the issue
+      # #27 regression recurring).
+      - name: Verify release binaries embed a git hash (tag builds only)
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for bin in braid-run strand-cam; do
+            version_line="$(./build/$bin --version)"
+            echo "$bin: $version_line"
+            if ! printf '%s' "$version_line" | grep -qE '\+[0-9a-f]+'; then
+              echo "ERROR: $bin has no embedded git hash: '$version_line'" >&2
+              echo "The build could not run 'git rev-parse HEAD' in the checkout." >&2
+              exit 1
+            fi
+          done
+
+      - name: Generate THIRD-PARTY-LICENSES
+        shell: bash
+        run: |
+          cargo install cargo-bundle-licenses --locked
+          _packaging/gen-strand-braid-third-party-licenses.sh build/licenses
+          ls -lh build/licenses
+
+      # Bundle the macOS Pylon C-ABI shim so the Basler backend works out of the
+      # box. It is loaded at runtime via dlopen; unlike the Windows shim it
+      # already exists, so it is downloaded unconditionally (with --fail, so a
+      # broken URL fails the build rather than silently shipping without it).
+      - name: Bundle Pylon shim
+        shell: bash
+        env:
+          PYLON_CABI_SHIM: libpylon-cabi-v1-macos-aarch64-pylon_7.3.1.9.dylib
+          PYLON_CABI_URL: https://strawlab.org/assets/libpylon-cabi/precompiled/libpylon-cabi-v1-macos-aarch64-pylon_7.3.1.9.dylib
+        run: |
+          curl --fail --connect-timeout 30 --retry 3 --retry-connrefused \
+            -L -o "build/${PYLON_CABI_SHIM}" "${PYLON_CABI_URL}"
+
+      - name: Assemble release zip
+        id: assemble
+        shell: bash
+        run: |
+          VERSION="${{ github.ref_type == 'tag' && github.ref_name || github.sha }}"
+          OUTDIR="strand-braid-macos-aarch64-${VERSION}"
+          mkdir -p "$OUTDIR"
+          # Copy every regular file from build/ (the binaries have no extension
+          # on macOS) but not the licenses/ subdirectory, which is copied whole.
+          find build -maxdepth 1 -type f -exec cp -a {} "$OUTDIR/" \;
+          cp -a build/licenses "$OUTDIR/"
+          cp _packaging/macos-installer-zip-readme.txt "$OUTDIR/README.txt"
+          # A shim DLL is mandatory (it always exists for macOS); assert it made
+          # it into the zip so a release can never ship without Basler support.
+          if ! ls "$OUTDIR"/*.dylib >/dev/null 2>&1; then
+            echo "ERROR: build produced no Pylon shim dylib in $OUTDIR." >&2
+            exit 1
+          fi
+          ls -lh "$OUTDIR/"
+          zip -r "${OUTDIR}.zip" "$OUTDIR"
+          echo "outdir=$OUTDIR" >> "$GITHUB_OUTPUT"
+          echo "zip=${OUTDIR}.zip" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: strand-braid-macos-aarch64
+          path: ${{ steps.assemble.outputs.outdir }}
+
+      # On tag pushes, publish the .zip to the GitHub Release.
+      - name: Publish to GitHub Release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.assemble.outputs.zip }}

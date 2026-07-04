@@ -2,9 +2,15 @@ name: Build apriltag-track-movie app
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
+    tags: ["*"]
   pull_request:
     branches: ["**"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   apriltag-track-movie-ubuntu:

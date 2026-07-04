@@ -25,6 +25,32 @@ be changed to match the URL shown in your Strand Camera window. Modify the
 `time.sleep(5.0)` call to change the recording duration, or replace the fixed
 sleep with your own experimental logic between the start and stop commands.
 
+## Demo: recording a color video with the ffmpeg codec
+
+[`record-mp4-video-ffmpeg.py`](https://github.com/strawlab/strand-braid/blob/main/docs/user-docs/scripts/record-mp4-video-ffmpeg.py)
+records an MP4 using the **Ffmpeg** codec, which pipes frames to the system
+[`ffmpeg`](https://ffmpeg.org/) binary. Unlike the built-in H.264 encoders, the
+ffmpeg codec accepts color input, so this is the path to use for color
+recordings — for example on GPUs where the built-in NVENC encoder is
+unavailable. Start Strand Camera with a color pixel format:
+
+```sh
+strand-cam --camera-name my-camera --pixel-format RGB8
+```
+
+and then run:
+
+```sh
+python record-mp4-video-ffmpeg.py --strand-cam-url http://127.0.0.1:3440/ --codec libx264
+```
+
+The `--codec` argument selects the ffmpeg encoder (default `libx264`; other
+common choices are `h264_nvenc` and `h264_vaapi`) and must be available in your
+`ffmpeg` build. Pass `--verify-dir` with the directory Strand Camera writes to
+(its `--data-dir`) to have the script confirm that a non-empty `.mp4` was
+produced; this is how the script is exercised as an automated end-to-end test in
+the project's continuous integration, so it stays in sync with the software.
+
 ## Demo: recording multiple videos using Braid from a Python script
 
 [`record-mp4-video-braid-all-cams.py`](https://github.com/strawlab/strand-braid/blob/main/docs/user-docs/scripts/record-mp4-video-braid-all-cams.py)

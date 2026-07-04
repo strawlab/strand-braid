@@ -14,6 +14,69 @@ unit of release is the `strand-braid` Debian package, which bundles every
 shipped binary (`strand-cam`, `braid`, `braid-run`, the `braidz` tools, the
 calibration tools, the media utilities, etc.).
 
+## Platform status
+
+| Platform | Artifact | Release status |
+| :--- | :--- | :--- |
+| Ubuntu (20.04 / 22.04 / 24.04 / 26.04) | `.deb` inside a per-version `.zip` | **Published on tag** — fully automated. |
+| Windows (x86_64) | portable `.zip` of `.exe` files | **Blocked** — builds on every push, but tag/release publishing is gated (see below). |
+| macOS (Apple Silicon) | portable `.zip` of unsigned binaries | **Published on tag** — automated; unsigned (see below). |
+
+### Windows: release publishing is gated on the Pylon shim
+
+The Windows workflow
+([`build-strand-braid-windows.yml`](../../.github/workflows/build-strand-braid-windows.yml))
+builds a portable `.zip` on every push and PR, but **tag (release) builds are
+deliberately blocked** until a Windows build of the public Pylon C-ABI shim DLL
+exists.
+
+The Basler/Pylon backend loads that shim at runtime. On Linux the `.deb` bundles
+a precompiled `libpylon-cabi-*.so` (downloaded from `strawlab.org`); no
+equivalent Windows `.dll` has been built yet. Rather than publish a Windows
+release that silently lacks Basler support, the workflow's "Require Pylon shim
+on release builds" step fails the build on tags whenever the
+`PYLON_CABI_WIN_URL` repository variable is unset.
+
+**To unblock Windows releases:**
+
+1. Build the Windows `libpylon-cabi` DLL and host it alongside the Linux `.so`
+   under `https://strawlab.org/assets/libpylon-cabi/precompiled/`.
+2. Set the `PYLON_CABI_WIN_URL` repository variable (Settings → Secrets and
+   variables → Actions → Variables) to that URL.
+3. Remove the "Require Pylon shim on release builds" guard step (the "Bundle
+   Pylon shim" and "Assemble release zip" steps already pick the DLL up).
+
+Until then, Windows `.zip`s attached to a release would be incomplete, so no tag
+should be expected to publish one.
+
+### macOS: portable, unsigned .zip (Apple Silicon)
+
+The macOS workflow
+([`build-strand-braid-macos.yml`](../../.github/workflows/build-strand-braid-macos.yml))
+builds Apple-Silicon (`aarch64-apple-darwin`) binaries on a `macos-14` runner
+and, on tag pushes, publishes a portable `strand-braid-macos-aarch64-<version>.zip`
+to the GitHub Release — mirroring the Windows workflow.
+
+Unlike Windows, the macOS Pylon C-ABI shim already exists, so the Basler backend
+is not a blocker: the build bundles
+`libpylon-cabi-v1-macos-aarch64-pylon_7.3.1.9.dylib` (hosted next to the Linux
+`.so` under `https://strawlab.org/assets/libpylon-cabi/precompiled/`)
+unconditionally, exactly as the `.deb` bundles the Linux shim.
+
+The binaries are shipped **unsigned / un-notarized**. macOS Gatekeeper
+quarantines downloaded binaries, so the bundled
+[`_packaging/macos-installer-zip-readme.txt`](../../_packaging/macos-installer-zip-readme.txt)
+documents the one-time `xattr -dr com.apple.quarantine <dir>` workaround. Adding
+Developer-ID signing + notarization later (an Apple Developer account plus
+signing secrets) would remove that friction.
+
+Only Apple Silicon is built; an Intel (`x86_64`) build would need a `macos-13`
+runner and a separate `x86_64` Pylon shim.
+
+> Note: the auto-generated **Downloads** table (below) currently lists only the
+> Ubuntu `.zip`s. The Windows and macOS zips are attached to the same Release
+> but are not yet added to that table.
+
 ## How automated is it?
 
 The expensive part — building for every supported Ubuntu version and publishing

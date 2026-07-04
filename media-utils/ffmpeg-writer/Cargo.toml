@@ -7,13 +7,11 @@ description = "write video by piping raw frames through ffmpeg"
 
 [dependencies]
 machine-vision-formats.workspace = true
-convert-image.workspace = true
 thiserror.workspace = true
-y4m-writer.workspace = true
-y4m.workspace = true
 strand-dynamic-frame.workspace = true
 
 [dev-dependencies]
+convert-image.workspace = true
 eyre.workspace = true
 tracing.workspace = true
 env_logger.workspace = true

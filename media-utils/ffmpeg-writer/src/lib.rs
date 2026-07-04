@@ -3,8 +3,11 @@
 
 use std::{
     collections::VecDeque,
-    process::{Child, Command, Stdio},
+    io::Write,
+    process::{Child, ChildStdin, Command, Stdio},
 };
+
+use machine_vision_formats::pixel_format::PixFmt;
 
 const FFMPEG: &str = "ffmpeg";
 
@@ -12,27 +15,71 @@ const FFMPEG: &str = "ffmpeg";
 pub enum Error {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("y4m_writer error: {0}")]
-    Y4mWriter(#[from] y4m_writer::Error),
     #[error("ffmpeg error ({})", output.status)]
     FfmpegError { output: std::process::Output },
     #[error("string not valid UTF8")]
     FromUtf8Error(#[from] std::string::FromUtf8Error),
     #[error("unexpected ffmpeg output: {0}")]
     UnexpectedFfmpegOutput(String),
+    #[error("the frame format or size changed mid-stream")]
+    FormatOrSizeChanged,
+    // We deliberately do not (yet) convert unsupported pixel formats to a format
+    // ffmpeg accepts; such conversions belong in the `convert-image` crate. For
+    // now, formats without a direct raw-video equivalent are unimplemented.
+    #[error("no direct ffmpeg raw-video pixel format for {0}; conversion unimplemented")]
+    UnimplementedPixelFormat(PixFmt),
 }
 
 type Result<T> = std::result::Result<T, Error>;
 
+/// The ffmpeg raw-video (`-f rawvideo`) pixel-format name corresponding to a
+/// [`PixFmt`], if the bytes can be piped to ffmpeg without any conversion on
+/// our side (ffmpeg itself does any conversion the encoder needs).
+///
+/// Returns `Err(Error::UnimplementedPixelFormat)` for formats that would
+/// require us to convert first (e.g. 32-bit float or planar formats).
+pub fn ffmpeg_pixel_format(pixfmt: PixFmt) -> Result<&'static str> {
+    use PixFmt::*;
+    // The Bayer names differ between the machine-vision-formats convention
+    // (named by the first two pixels of the first row) and ffmpeg's (named by
+    // the top-left 2x2 block): e.g. `BayerRG8` (row0 = R,G; row1 = G,B) is
+    // ffmpeg's `bayer_rggb8`.
+    Ok(match pixfmt {
+        Mono8 => "gray",
+        RGB8 => "rgb24",
+        // machine-vision-formats YUV422 is UYVY-packed ([U, Y0, V, Y1]).
+        YUV422 => "uyvy422",
+        BayerRG8 => "bayer_rggb8",
+        BayerGR8 => "bayer_grbg8",
+        BayerGB8 => "bayer_gbrg8",
+        BayerBG8 => "bayer_bggr8",
+        other => return Err(Error::UnimplementedPixelFormat(other)),
+    })
+}
+
 /// Saves video frames to a video file using ffmpeg.
 ///
-/// This spawns an ffmpeg process and pipes the frames as y4m.
+/// This spawns an ffmpeg process and pipes the frames as raw video
+/// (`-f rawvideo`) with no intermediate format conversion on our side; ffmpeg
+/// performs whatever conversion the chosen encoder requires. The ffmpeg process
+/// is spawned lazily on the first frame, once the frame width, height and pixel
+/// format are known.
 pub struct FfmpegWriter {
-    wtr: y4m_writer::Y4MWriter,
-    ffmpeg_child: Option<Child>,
-    count: usize,
+    fname: String,
+    ffmpeg_codec_args: FfmpegCodecArgs,
     raten: usize,
     rated: usize,
+    count: usize,
+    running: Option<Running>,
+}
+
+/// State of the spawned ffmpeg process, created on the first frame.
+struct Running {
+    child: Child,
+    stdin: ChildStdin,
+    pixfmt: PixFmt,
+    width: u32,
+    height: u32,
 }
 
 type FfmpegCodecArgList = Option<Vec<(String, String)>>;
@@ -47,10 +94,6 @@ pub struct FfmpegCodecArgs {
 
 fn prefix() -> Vec<String> {
     zq(&["-nostats", "-hide_banner", "-nostdin", "-y"])
-}
-
-fn middle() -> Vec<String> {
-    zq(&["-i", "-"])
 }
 
 fn zq(x: &[&str]) -> Vec<String> {
@@ -68,26 +111,33 @@ fn zq2(opt_x: Option<&Vec<(String, String)>>) -> Vec<String> {
 }
 
 impl FfmpegCodecArgs {
-    fn to_args(&self) -> Vec<String> {
+    /// Build the full ffmpeg argument list.
+    ///
+    /// `input_args` are inserted immediately before `-i -` and describe the raw
+    /// video arriving on stdin (format, pixel format, size, frame rate, color
+    /// range). We also force full-range (`pc`) output so the full 0-255
+    /// intensity range is preserved rather than the limited "tv" range.
+    fn to_args(&self, input_args: &[String]) -> Vec<String> {
         const VIDEO_CODEC: &str = "-c:v";
-        {
-            {
-                if let Some(codec) = &self.codec {
-                    vec![
-                        prefix(),
-                        zq2(self.device_args.as_ref()),
-                        middle(),
-                        zq2(self.pre_codec_args.as_ref()),
-                        zq(&[VIDEO_CODEC, codec]),
-                        zq2(self.post_codec_args.as_ref()),
-                    ]
-                } else {
-                    assert_eq!(self.device_args, None);
-                    assert_eq!(self.pre_codec_args, None);
-                    assert_eq!(self.post_codec_args, None);
-                    vec![prefix(), middle()]
-                }
-            }
+        let output_color_range = zq(&["-color_range", "pc"]);
+        let input: Vec<String> = input_args.to_vec();
+        let stdin_input = zq(&["-i", "-"]);
+        if let Some(codec) = &self.codec {
+            vec![
+                prefix(),
+                zq2(self.device_args.as_ref()),
+                input,
+                stdin_input,
+                zq2(self.pre_codec_args.as_ref()),
+                zq(&[VIDEO_CODEC, codec]),
+                zq2(self.post_codec_args.as_ref()),
+                output_color_range,
+            ]
+        } else {
+            assert_eq!(self.device_args, None);
+            assert_eq!(self.pre_codec_args, None);
+            assert_eq!(self.post_codec_args, None);
+            vec![prefix(), input, stdin_input, output_color_range]
         }
         .into_iter()
         .flatten()
@@ -166,48 +216,69 @@ impl FfmpegWriter {
         rate: Option<(usize, usize)>,
     ) -> Result<Self> {
         let (raten, rated) = rate.unwrap_or((25, 1));
-        let y4m_opts = y4m_writer::Y4MOptions {
-            raten,
-            rated,
-            aspectn: 1,
-            aspectd: 1,
-        };
-        let (wtr, ffmpeg_child) = {
-            let mut args = ffmpeg_codec_args.to_args();
-            args.push(fname.into());
-
-            let show_ffmpeg = match std::env::var_os("FFMPEG_WRITER_SHOW") {
-                Some(v) => &v != "0",
-                None => false,
-            };
-
-            if show_ffmpeg {
-                println!("ffmpeg {}", args.join(" "));
-            }
-            let mut cmd0 = Command::new(FFMPEG);
-            let cmd = cmd0.args(args).stdin(Stdio::piped());
-
-            let cmd = if show_ffmpeg {
-                cmd
-            } else {
-                cmd.stdout(Stdio::piped()).stderr(Stdio::piped())
-            };
-
-            let mut ffmpeg_child = cmd.spawn()?;
-
-            let stdin = ffmpeg_child.stdin.take().expect("failed to get stdin");
-
-            let wtr = y4m_writer::Y4MWriter::from_writer(Box::new(stdin), y4m_opts);
-            (wtr, Some(ffmpeg_child))
-        };
-
+        // ffmpeg is spawned lazily on the first frame, once we know the frame
+        // width, height and pixel format needed for the raw-video input options.
         Ok(Self {
-            wtr,
-            ffmpeg_child,
-            count: 0,
+            fname: fname.to_string(),
+            ffmpeg_codec_args,
             raten,
             rated,
+            count: 0,
+            running: None,
         })
+    }
+
+    /// Spawn ffmpeg configured to read raw video of this frame's format.
+    fn start(&mut self, frame: &strand_dynamic_frame::DynamicFrame) -> Result<()> {
+        let pixfmt = frame.pixel_format();
+        let ff_pixfmt = ffmpeg_pixel_format(pixfmt)?;
+        let width = frame.width();
+        let height = frame.height();
+
+        // Raw-video input options, placed just before `-i -`. We tag the input
+        // as full range (`pc`) so ffmpeg preserves the full 0-255 range.
+        let input_args = vec![
+            "-f".to_string(),
+            "rawvideo".to_string(),
+            "-pixel_format".to_string(),
+            ff_pixfmt.to_string(),
+            "-video_size".to_string(),
+            format!("{width}x{height}"),
+            "-framerate".to_string(),
+            format!("{}/{}", self.raten, self.rated),
+            "-color_range".to_string(),
+            "pc".to_string(),
+        ];
+
+        let mut args = self.ffmpeg_codec_args.to_args(&input_args);
+        args.push(self.fname.clone());
+
+        let show_ffmpeg = match std::env::var_os("FFMPEG_WRITER_SHOW") {
+            Some(v) => &v != "0",
+            None => false,
+        };
+        if show_ffmpeg {
+            println!("ffmpeg {}", args.join(" "));
+        }
+
+        let mut cmd0 = Command::new(FFMPEG);
+        let cmd = cmd0.args(args).stdin(Stdio::piped());
+        let cmd = if show_ffmpeg {
+            cmd
+        } else {
+            cmd.stdout(Stdio::piped()).stderr(Stdio::piped())
+        };
+        let mut child = cmd.spawn()?;
+        let stdin = child.stdin.take().expect("failed to get stdin");
+
+        self.running = Some(Running {
+            child,
+            stdin,
+            pixfmt,
+            width,
+            height,
+        });
+        Ok(())
     }
 
     /// Write a frame. Return the presentation timestamp (PTS).
@@ -215,38 +286,46 @@ impl FfmpegWriter {
         &mut self,
         frame: &strand_dynamic_frame::DynamicFrame,
     ) -> Result<std::time::Duration> {
-        match self.wtr.write_dynamic_frame(frame) {
-            Ok(()) => {}
-            Err(y4m_writer::Error::Y4mError(y4m::Error::IoError(e)))
-                if e.kind() == std::io::ErrorKind::BrokenPipe =>
-            {
-                if let Some(ffmpeg_child) = &mut self.ffmpeg_child {
-                    // Apparently ffmpeg died.
-                    //
-                    // Should we call `self.ffmpeg_child.kill()` or assume ffmpeg
-                    // died?
-                    let status = ffmpeg_child.wait()?;
-                    use std::io::Read;
-                    let (mut stdout, mut stderr) = (Vec::new(), Vec::new());
-                    let mut out = ffmpeg_child.stdout.take().unwrap();
-                    let mut err = ffmpeg_child.stderr.take().unwrap();
-                    out.read_to_end(&mut stdout)?;
-                    err.read_to_end(&mut stderr)?;
-                    let output = std::process::Output {
-                        status,
-                        stdout,
-                        stderr,
-                    };
-                    return Err(Error::FfmpegError { output });
-                } else {
-                    todo!();
-                }
-            }
-            Err(e) => {
-                return Err(e.into());
-            }
+        if self.running.is_none() {
+            self.start(frame)?;
         }
-        self.wtr.flush()?;
+        let running = self.running.as_mut().unwrap();
+        if frame.pixel_format() != running.pixfmt
+            || frame.width() != running.width
+            || frame.height() != running.height
+        {
+            return Err(Error::FormatOrSizeChanged);
+        }
+
+        // Pipe the raw frame data row by row (stripping any stride padding).
+        let stdin = &mut running.stdin;
+        let io_result: std::io::Result<()> = strand_dynamic_frame::match_all_dynamic_fmts!(
+            frame,
+            x,
+            {
+                use machine_vision_formats::iter::HasRowChunksExact;
+                let mut res = Ok(());
+                for row in x.rowchunks_exact() {
+                    if let Err(e) = stdin.write_all(row) {
+                        res = Err(e);
+                        break;
+                    }
+                }
+                res
+            },
+            // Reached only for formats start() did not already reject.
+            Error::UnimplementedPixelFormat(frame.pixel_format())
+        );
+
+        match io_result {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
+                // ffmpeg apparently died; surface its output as the error.
+                return Err(self.collect_ffmpeg_error());
+            }
+            Err(e) => return Err(e.into()),
+        }
+
         let num = self.rated * self.count;
         let dur_sec = num as f64 / self.raten as f64;
         let pts = std::time::Duration::from_secs_f64(dur_sec);
@@ -254,21 +333,43 @@ impl FfmpegWriter {
         Ok(pts)
     }
 
-    pub fn close(self) -> Result<()> {
-        // Close the writer, telling ffmpeg also to end.
-        let wtr = self.wtr.into_inner();
-        std::mem::drop(wtr);
+    /// Wait for the (apparently dead) ffmpeg process and collect its output.
+    fn collect_ffmpeg_error(&mut self) -> Error {
+        let mut running = self.running.take().unwrap();
+        let status = match running.child.wait() {
+            Ok(status) => status,
+            Err(e) => return Error::Io(e),
+        };
+        use std::io::Read;
+        let (mut stdout, mut stderr) = (Vec::new(), Vec::new());
+        if let Some(mut out) = running.child.stdout.take() {
+            let _ = out.read_to_end(&mut stdout);
+        }
+        if let Some(mut err) = running.child.stderr.take() {
+            let _ = err.read_to_end(&mut stderr);
+        }
+        Error::FfmpegError {
+            output: std::process::Output {
+                status,
+                stdout,
+                stderr,
+            },
+        }
+    }
 
-        if let Some(ffmpeg_child) = self.ffmpeg_child {
-            // Wait for ffmpeg to end.
-            let output = ffmpeg_child.wait_with_output()?;
-            if output.status.success() {
-                Ok(())
-            } else {
-                Err(Error::FfmpegError { output })
-            }
-        } else {
+    pub fn close(self) -> Result<()> {
+        // Close ffmpeg's stdin (telling it to finish) by dropping it, then wait.
+        let Some(running) = self.running else {
+            // No frames were ever written, so ffmpeg was never spawned.
+            return Ok(());
+        };
+        let Running { child, stdin, .. } = running;
+        std::mem::drop(stdin);
+        let output = child.wait_with_output()?;
+        if output.status.success() {
             Ok(())
+        } else {
+            Err(Error::FfmpegError { output })
         }
     }
 }

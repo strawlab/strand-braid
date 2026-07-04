@@ -34,6 +34,21 @@ use braid_sim::world::World;
 /// The environment variable naming the `sim.toml` scenario file.
 pub const SIM_SPEC_ENV: &str = "STRAND_CAM_SIM_SPEC";
 
+/// Pixel formats the sim backend can render. The single deterministic gray
+/// scene is carried in each: RGB8 replicates the gray into three channels,
+/// YUV422 carries it as luma with neutral chroma, and the Bayer variants label
+/// the mono mosaic (1 byte/pixel) with the requested color-filter array. This
+/// lets the color recording paths be exercised without camera hardware.
+const SUPPORTED_PIXEL_FORMATS: [PixFmt; 7] = [
+    PixFmt::Mono8,
+    PixFmt::RGB8,
+    PixFmt::YUV422,
+    PixFmt::BayerRG8,
+    PixFmt::BayerGR8,
+    PixFmt::BayerGB8,
+    PixFmt::BayerBG8,
+];
+
 /// Load the scenario named by [`SIM_SPEC_ENV`].
 fn load_scenario() -> ci2::Result<Scenario> {
     let path = std::env::var_os(SIM_SPEC_ENV).ok_or_else(|| {
@@ -155,6 +170,10 @@ pub struct WrappedCamera {
     /// Whether acquisition is paced to `fps`. Braid's software frame-rate-limit
     /// enables this; it is on by default.
     frame_rate_enabled: bool,
+    /// The pixel format frames are rendered in. Defaults to Mono8; can be set
+    /// to RGB8 (e.g. via `--pixel-format RGB8`) to exercise the color
+    /// recording path.
+    pixel_format: PixFmt,
     /// When acquisition started (for pacing); `None` until `acquisition_start`.
     start: Option<Instant>,
     /// Wall-clock datetime captured at `acquisition_start`, used as the time of
@@ -207,6 +226,7 @@ impl WrappedCamera {
             bg_warmup_frames: scenario.bg_warmup_frames,
             fps: scenario.fps,
             frame_rate_enabled: true,
+            pixel_format: PixFmt::Mono8,
             start: None,
             start_datetime: None,
             next_fno: 0,
@@ -318,17 +338,20 @@ impl ci2::Camera for WrappedCamera {
     }
 
     fn pixel_format(&self) -> ci2::Result<PixFmt> {
-        Ok(PixFmt::Mono8)
+        Ok(self.pixel_format)
     }
     fn possible_pixel_formats(&self) -> ci2::Result<Vec<PixFmt>> {
-        Ok(vec![PixFmt::Mono8])
+        Ok(SUPPORTED_PIXEL_FORMATS.to_vec())
     }
     fn set_pixel_format(&mut self, pixel_format: PixFmt) -> ci2::Result<()> {
-        match pixel_format {
-            PixFmt::Mono8 => Ok(()),
-            other => Err(ci2::Error::from(format!(
-                "sim backend only supports Mono8, not {other}"
-            ))),
+        if SUPPORTED_PIXEL_FORMATS.contains(&pixel_format) {
+            self.pixel_format = pixel_format;
+            Ok(())
+        } else {
+            Err(ci2::Error::from(format!(
+                "sim backend does not support pixel format {pixel_format}; \
+                 supported: {SUPPORTED_PIXEL_FORMATS:?}"
+            )))
         }
     }
 
@@ -439,21 +462,37 @@ impl ci2::Camera for WrappedCamera {
         }
 
         let blobs = self.blobs_for_frame(fno);
-        let buf = braid_sim::render::render_mono8(
-            self.image_width,
-            self.image_height,
-            self.blob.background,
-            &blobs,
-            self.blob.peak as f64,
-            self.blob.sigma,
-        );
+        // Render in the selected pixel format, all carrying the same gray scene
+        // to exercise the various recording paths. RGB8 replicates the gray into
+        // three channels; YUV422 carries it as luma with neutral chroma; the
+        // Bayer variants use the mono mosaic (1 byte/pixel) labeled with the CFA.
+        let bg = self.blob.background;
+        let peak = self.blob.peak as f64;
+        let sigma = self.blob.sigma;
+        let (w, h) = (self.image_width, self.image_height);
+        let (buf, stride) = match self.pixel_format {
+            PixFmt::RGB8 => (
+                braid_sim::render::render_rgb8(w, h, bg, &blobs, peak, sigma),
+                w * 3,
+            ),
+            PixFmt::YUV422 => (
+                braid_sim::render::render_yuv422_uyvy(w, h, bg, &blobs, peak, sigma),
+                w * 2,
+            ),
+            // Mono8 and all Bayer variants are a single byte per pixel; the
+            // Bayer mosaic is simply the mono scene labeled with a CFA.
+            _ => (
+                braid_sim::render::render_mono8(w, h, bg, &blobs, peak, sigma),
+                w,
+            ),
+        };
 
         let image = DynamicFrameOwned::from_buf(
             self.image_width as u32,
             self.image_height as u32,
-            self.image_width, // stride == width for Mono8
+            stride,
             buf,
-            PixFmt::Mono8,
+            self.pixel_format,
         )
         .ok_or_else(|| ci2::Error::SingleFrameError("sim frame had invalid layout".into()))?;
 
