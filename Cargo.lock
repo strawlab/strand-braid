@@ -8453,7 +8453,7 @@ dependencies = [
 
 [[package]]
 name = "mp4-bframe-doctor"
-version = "0.1.0"
+version = "1.0.0-rc.4"
 dependencies = [
  "camino",
  "chrono",
