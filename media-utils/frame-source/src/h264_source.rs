@@ -1079,8 +1079,22 @@ impl<H: SeekableH264Source> Iterator for RawH264Iter<'_, H> {
                 .read_nal_units_at_locations(nal_locations)?;
 
             if let Some(decoder) = &mut self.openh264_decoder_state {
-                // copy into Annex B format for OpenH264
-                let annex_b = copy_nalus_to_annex_b(nal_units.as_slice());
+                // MP4 stores the SPS/PPS in the `avcC` box rather than inline in
+                // the sample data, so the NAL units for an IDR frame contain only
+                // the coded slice. Without parameter sets OpenH264 fails with
+                // `dsNoParamSets` (native error 16). Prepend the stream's SPS/PPS
+                // ahead of each IDR so the decoder is configured. Annex B sources
+                // carry SPS/PPS inline and return `None` here, so this is a no-op
+                // for them (their slice already includes the parameter sets).
+                let annex_b = if nti.is_idr {
+                    let mut prefix = Vec::with_capacity(nal_units.len() + 2);
+                    prefix.extend(self.parent.seekable_h264_source.first_sps());
+                    prefix.extend(self.parent.seekable_h264_source.first_pps());
+                    prefix.extend_from_slice(nal_units.as_slice());
+                    copy_nalus_to_annex_b(&prefix)
+                } else {
+                    copy_nalus_to_annex_b(nal_units.as_slice())
+                };
 
                 // Attempt the decode first, so that if OpenH264 ever gains
                 // 4:2:2 / 4:4:4 support the stream simply works. Only when the
