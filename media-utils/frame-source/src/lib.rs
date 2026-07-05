@@ -17,8 +17,6 @@ pub mod srt_reader;
 pub mod strand_cam_mkv_source;
 
 mod ntp_timestamp;
-#[cfg(test)]
-mod test_timestamps;
 
 #[derive(thiserror::Error, Debug)]
 pub enum Error {

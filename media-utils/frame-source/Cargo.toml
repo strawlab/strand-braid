@@ -31,5 +31,4 @@ fmf.workspace = true
 mkv-strand-reader.workspace = true
 
 [dev-dependencies]
-mp4-writer = { workspace = true, features = ["nv-encode"] }
 tempfile.workspace = true
