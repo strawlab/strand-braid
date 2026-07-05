@@ -48,8 +48,8 @@ fn feature_or<T>(result: ci2::Result<T>, fallback: T) -> ci2::Result<T> {
 #[cfg(feature = "flydra_feat_detect")]
 use strand_cam_remote_control::CsvSaveConfig;
 use strand_cam_remote_control::{
-    CamArg, CodecSelection, FfmpegRecordingConfig, Mp4Codec, Mp4RecordingConfig, NvidiaH264Options,
-    RecordingFrameRate,
+    CamArg, CodecSelection, FfmpegCodecArgs, FfmpegRecordingConfig, Mp4Codec, Mp4RecordingConfig,
+    NvidiaH264Options, RecordingFrameRate,
 };
 
 use braid_types::{BuiServerInfo, RawCamName, StartSoftwareFrameRateLimit, TriggerType};
@@ -2130,7 +2130,13 @@ where
 
     let mp4_codec = match is_nvenc_functioning {
         true => CodecSelection::H264Nvenc,
-        false => CodecSelection::H264OpenH264,
+        // Default to ffmpeg libx264 (shown in the browser as "ffmpeg -c:v
+        // libx264"). Must exactly match an entry in the `CodecSelection`
+        // `EnumIter` list so the frontend selects it as an available codec.
+        false => CodecSelection::Ffmpeg(FfmpegCodecArgs {
+            codec: Some("libx264".to_string()),
+            ..Default::default()
+        }),
     };
 
     #[cfg(target_os = "macos")]
