@@ -238,8 +238,18 @@ pub struct CliArgs {
     #[arg(long)]
     camera_settings_filename: Option<PathBuf>,
 
-    /// The socket address on which to serve the HTTP user interface.
-    #[arg(long)]
+    /// The socket address (`IP:PORT`) on which to serve the HTTP user
+    /// interface.
+    ///
+    /// Both IPv4 (e.g. `192.168.1.10:3440`) and IPv6 (e.g.
+    /// `[2001:db8::1]:3440`) addresses are accepted; an IPv6 address must be
+    /// enclosed in square brackets. Giving a non-localhost IP address makes
+    /// Strand Camera available remotely on the network. Remote clients must
+    /// present an access token to connect. Using the unspecified IP address
+    /// (`0.0.0.0:3440` for IPv4 or `[::]:3440` for IPv6) exposes the server on
+    /// all network interfaces. Using port `0` (e.g. `127.0.0.1:0`) lets the
+    /// operating system pick a free port.
+    #[arg(long, default_value = crate::STRAND_DEFAULT_HTTP_ADDR)]
     http_server_addr: Option<String>,
 
     /// The directory in which to save CSV data files.

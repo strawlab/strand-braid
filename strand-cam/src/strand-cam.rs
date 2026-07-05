@@ -34,6 +34,8 @@ use video_streaming::AnnotatedFrame;
 
 use std::{path::PathBuf, pin::Pin, result::Result as StdResult};
 
+const STRAND_DEFAULT_HTTP_ADDR: &str = "127.0.0.1:3440";
+
 /// Map [`ci2::Error::FeatureNotPresent`] to a fallback value, propagating any
 /// other error. Backends such as the webcam backend report controls they
 /// cannot provide this way; using a fallback lets the startup path degrade
@@ -1338,7 +1340,7 @@ where
             standalone_args
                 .http_server_addr
                 .clone()
-                .unwrap_or_else(|| "127.0.0.1:3440".to_string())
+                .unwrap_or_else(|| STRAND_DEFAULT_HTTP_ADDR.to_string())
         }
     };
     tracing::debug!("Strand Camera HTTP server: {strand_cam_bui_http_address_string}");

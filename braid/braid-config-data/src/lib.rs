@@ -129,6 +129,13 @@ pub struct MainbrainConfig {
     /// Set to `0.0.0.0:0` to be automatically assigned a public IP address with
     /// a dynamically assigned port.
     ///
+    /// Both IPv4 and IPv6 addresses are accepted (see the format details
+    /// above). Giving a non-localhost IP address makes Braid available remotely
+    /// on the network. Remote clients must present an access token to connect.
+    /// Using the unspecified IP address (`0.0.0.0` for IPv4 or `[::]` for IPv6)
+    /// exposes the server on all network interfaces. Using port `0` lets the
+    /// operating system pick a free port.
+    ///
     /// The default value is set to [DEFAULT_HTTP_API_SERVER_ADDR].
     #[serde(default = "default_http_api_server_addr")]
     pub http_api_server_addr: String,
