@@ -471,11 +471,15 @@ mod test {
     }
 
     /// Frame data piped raw to ffmpeg (see the crate docs / `ffmpeg_pixel_format`)
-    /// must survive a round trip byte-for-byte. Mono8/RGB8/YUV422 go through the
-    /// lossless FFV1 codec, which also interprets the colorspace and so catches
-    /// channel-order mistakes (e.g. RGB vs BGR, UYVY vs YUYV). Bayer has no
-    /// non-debayering codec, so it uses the verbatim `rawvideo` codec; that the
-    /// real (H.264) encoder accepts each format is covered by the sim smoke test.
+    /// must survive a round trip byte-for-byte. Mono8/RGB8 go through the lossless
+    /// FFV1 codec, which also interprets the colorspace and so catches
+    /// channel-order mistakes (e.g. RGB vs BGR). YUV422 and Bayer use the verbatim
+    /// `rawvideo` codec: FFV1 has no packed 4:2:2 format, so encoding uyvy422 with
+    /// it forces a chroma repack through swscale that is not bit-exact across
+    /// ffmpeg versions, and Bayer has no non-debayering codec at all. For those
+    /// two, the pixel-format mapping is instead guarded by the direct
+    /// `ffmpeg_pixel_format` assertion above; that the real (H.264) encoder accepts
+    /// each format is covered by the sim smoke test.
     #[test]
     fn frame_data_roundtrips_exactly_via_ffmpeg() {
         let cases = [
@@ -497,8 +501,8 @@ mod test {
                 pixfmt: PixFmt::YUV422,
                 ffmpeg_pixfmt: "uyvy422",
                 bytes_per_pixel: 2,
-                codec: "ffv1",
-                ext: "mkv",
+                codec: "rawvideo",
+                ext: "nut",
             },
             Case {
                 pixfmt: PixFmt::BayerRG8,

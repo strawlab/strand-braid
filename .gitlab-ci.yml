@@ -573,6 +573,9 @@ extra-programs:
     - cp ../../target/release/show-timestamps $CI_PROJECT_DIR/build
 
     - cd $CI_PROJECT_DIR
+    - cargo build --release -p mp4-bframe-doctor
+    - cp target/release/mp4-bframe-doctor $CI_PROJECT_DIR/build
+
     - cargo build --package flydra-feature-detector --release --example flydra-feature-detector-bench
     - cp target/release/examples/flydra-feature-detector-bench build/
 
