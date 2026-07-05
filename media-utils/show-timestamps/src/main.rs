@@ -161,7 +161,7 @@ fn main() -> Result<()> {
         }
 
         let mut pb: Option<ProgressBar> = if cli.progress {
-            let (lower_bound, _upper_bound) = src.iter().size_hint();
+            let (lower_bound, _upper_bound) = src.decode_order_iter().size_hint();
 
             // Custom progress bar with space at right end to prevent obscuring last
             // digit with cursor.
@@ -216,7 +216,7 @@ fn main() -> Result<()> {
         let mut prev_timestamp: Option<frame_source::Timestamp> = None;
 
         let mut count = 0;
-        for frame in src.iter() {
+        for frame in src.decode_order_iter() {
             let frame = frame?;
 
             if let Some(pb) = pb.as_mut() {

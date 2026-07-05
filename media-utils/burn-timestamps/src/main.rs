@@ -115,7 +115,7 @@ fn main() -> Result<()> {
         ffmpeg_rewriter::FfmpegReWriter::new(cli.output.as_str(), ffmpeg_codec_args, None, None)?;
 
     let mut pb: Option<ProgressBar> = if !cli.no_progress {
-        let (lower_bound, _upper_bound) = src.iter().size_hint();
+        let (lower_bound, _upper_bound) = src.decode_order_iter().size_hint();
 
         let lower_bound = if let Some(stop_frame) = cli.stop_frame {
             lower_bound.min(stop_frame.try_into().unwrap())
@@ -132,7 +132,7 @@ fn main() -> Result<()> {
         None
     };
 
-    for (idx, frame) in src.iter().enumerate() {
+    for (idx, frame) in src.decode_order_iter().enumerate() {
         let frame = frame?;
 
         if let Some(pb) = pb.as_mut() {

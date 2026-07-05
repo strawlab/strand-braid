@@ -205,7 +205,7 @@ fn main() -> eyre::Result<()> {
         (rec, Some(delete_if_dropped))
     };
 
-    let src_iter = src.iter();
+    let src_iter = src.decode_order_iter();
 
     let pb = if !opt.no_progress {
         let (_, max_size) = src_iter.size_hint();

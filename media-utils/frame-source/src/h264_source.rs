@@ -261,7 +261,7 @@ impl<H: SeekableH264Source> FrameDataSource for H264Source<H> {
     fn estimate_luminance_range(&mut self) -> Result<(u16, u16)> {
         Err(Error::NotImplemented("h264 luminance scanning"))
     }
-    fn iter<'a>(&'a mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a> {
+    fn decode_order_iter<'a>(&'a mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a> {
         self.create_iter_unchecked(0)
     }
     fn timestamp_source(&self) -> &str {
@@ -1187,7 +1187,7 @@ mod test {
             )?;
             assert_eq!(h264_src.width(), 15);
             assert_eq!(h264_src.height(), 14);
-            let frames: Vec<_> = h264_src.iter().collect();
+            let frames: Vec<_> = h264_src.decode_order_iter().collect();
             assert_eq!(frames.len(), 1);
         }
 
@@ -1205,7 +1205,7 @@ mod test {
             )?;
             assert_eq!(h264_src.width(), 16);
             assert_eq!(h264_src.height(), 16);
-            let frames: Vec<_> = h264_src.iter().collect();
+            let frames: Vec<_> = h264_src.decode_order_iter().collect();
             assert_eq!(frames.len(), 1);
         }
         Ok(())
