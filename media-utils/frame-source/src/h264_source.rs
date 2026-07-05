@@ -191,6 +191,15 @@ pub struct H264Source<H: SeekableH264Source> {
     /// the first SPS. Used only for diagnostics.
     #[cfg_attr(not(feature = "openh264"), allow(dead_code))]
     profile: String,
+    /// Whether the stream contains B-frames, inferred from the presentation
+    /// reordering (decode order differs from display order iff B-frames are
+    /// present). `None` when the order cannot be determined (no PTS and no
+    /// decodable POC). The built-in OpenH264 decoder cannot decode B-frame
+    /// streams (it fails with a "PrefetchPic ERROR" / `dsOutOfMemory`), so on a
+    /// decode failure this is used as a likely cause. Only read when compiled
+    /// with the `openh264` feature.
+    #[cfg_attr(not(feature = "openh264"), allow(dead_code))]
+    has_b_frames: Option<bool>,
 }
 
 impl<H: SeekableH264Source> H264Source<H> {
@@ -608,6 +617,13 @@ where
         // each coded video sequence so GOPs stay in order.
         let presentation_rank = compute_presentation_rank(mp4_pts.as_deref(), &frame_time_info);
 
+        // B-frames are exactly the frames that make display order differ from
+        // decode order, so a non-identity presentation rank means the stream has
+        // B-frames. `None` when the order is unknown.
+        let has_b_frames = presentation_rank
+            .as_ref()
+            .map(|rank| rank.iter().enumerate().any(|(i, &r)| i != r));
+
         let is_idr: Vec<bool> = frame_time_info.iter().map(|fti| fti.is_idr).collect();
 
         // SRT stanzas are in presentation order, so pair them with reordered
@@ -640,6 +656,7 @@ where
             average_fps,
             chroma_format,
             profile,
+            has_b_frames,
         })
     }
 }
@@ -1105,7 +1122,11 @@ impl<H: SeekableH264Source> Iterator for RawH264Iter<'_, H> {
                 #[cfg(feature = "openh264")]
                 let decode_result = decode_result.map_err(|source| Error::H264DecodeFailed {
                     frame: frame_number,
-                    hint: chroma_decode_hint(self.parent.chroma_format, &self.parent.profile),
+                    hint: decode_failure_hint(
+                        self.parent.chroma_format,
+                        &self.parent.profile,
+                        self.parent.has_b_frames,
+                    ),
                     source,
                 });
 
@@ -1253,24 +1274,38 @@ fn yuv2rgb(
     Err(Error::H264Error("No H264 decoder support at compile time"))
 }
 
-/// Build a likely-cause hint appended to an OpenH264 decode failure. Returns an
-/// empty string for 4:2:0 (which OpenH264 supports, so the failure lies
-/// elsewhere) and otherwise names the unsupported chroma subsampling, the
-/// profile, and how to re-encode to 4:2:0.
+/// Build a likely-cause hint appended to an OpenH264 decode failure. The
+/// built-in decoder handles only 4:2:0 (YUV420) chroma and cannot decode
+/// B-frames; either violated is a likely cause. Names whichever unsupported
+/// feature(s) the stream uses, the profile, and how to re-encode. Returns an
+/// empty string when the stream is 4:2:0 without B-frames (the failure lies
+/// elsewhere).
 #[cfg(feature = "openh264")]
-fn chroma_decode_hint(chroma: h264_reader::nal::sps::ChromaFormat, profile: &str) -> String {
+fn decode_failure_hint(
+    chroma: h264_reader::nal::sps::ChromaFormat,
+    profile: &str,
+    has_b_frames: Option<bool>,
+) -> String {
     use h264_reader::nal::sps::ChromaFormat::*;
-    let label = match chroma {
-        YUV420 => return String::new(),
-        Monochrome => "4:0:0 (monochrome)".to_string(),
-        YUV422 => "4:2:2".to_string(),
-        YUV444 => "4:4:4".to_string(),
-        Invalid(idc) => format!("unknown (chroma_format_idc={idc})"),
+    let mut features = Vec::new();
+    match chroma {
+        YUV420 => {}
+        Monochrome => features.push("4:0:0 (monochrome) chroma subsampling".to_string()),
+        YUV422 => features.push("4:2:2 chroma subsampling".to_string()),
+        YUV444 => features.push("4:4:4 chroma subsampling".to_string()),
+        Invalid(idc) => features.push(format!("unknown chroma subsampling (idc={idc})")),
     };
+    if has_b_frames == Some(true) {
+        features.push("B-frames".to_string());
+    }
+    if features.is_empty() {
+        return String::new();
+    }
+    let features = features.join(" and ");
     format!(
-        " This stream uses {label} chroma subsampling (profile {profile}), which the built-in \
-         OpenH264 decoder does not support — it decodes only 4:2:0 (YUV420). Re-encode to 4:2:0 \
-         first, e.g. `ffmpeg -i INPUT -pix_fmt yuv420p -c:v libx264 OUTPUT.mp4`."
+        " This stream uses {features} (profile {profile}), which the built-in OpenH264 decoder \
+         does not support — it decodes only 4:2:0 (YUV420) without B-frames. Re-encode first, \
+         e.g. `ffmpeg -i INPUT -c:v libx264 -pix_fmt yuv420p -bf 0 OUTPUT.mp4`."
     )
 }
 
@@ -1444,6 +1479,43 @@ struct FrameInfo {
 
 #[cfg(test)]
 mod test {
+    /// The decode-failure hint names each OpenH264-unsupported feature the stream
+    /// uses (non-4:2:0 chroma and/or B-frames), and is empty for a plain 4:2:0
+    /// no-B-frame stream (where the failure lies elsewhere).
+    #[cfg(feature = "openh264")]
+    #[test]
+    fn decode_failure_hint_flags_features() {
+        use super::decode_failure_hint;
+        use h264_reader::nal::sps::ChromaFormat::*;
+
+        // The list of unsupported features named in the "uses ... (profile" clause.
+        fn features(chroma: h264_reader::nal::sps::ChromaFormat, b: Option<bool>) -> String {
+            let h = decode_failure_hint(chroma, "P", b);
+            if h.is_empty() {
+                return String::new();
+            }
+            let start = h.find("uses ").unwrap() + "uses ".len();
+            let end = h.find(" (profile").unwrap();
+            h[start..end].to_string()
+        }
+
+        // 4:2:0 without B-frames: nothing to explain.
+        assert!(decode_failure_hint(YUV420, "High", Some(false)).is_empty());
+        assert!(decode_failure_hint(YUV420, "High", None).is_empty());
+
+        // 4:2:0 with B-frames (e.g. FaceTime): flag B-frames only.
+        assert_eq!(features(YUV420, Some(true)), "B-frames");
+
+        // Non-4:2:0 chroma: flag chroma only.
+        assert_eq!(features(YUV444, Some(false)), "4:4:4 chroma subsampling");
+
+        // Both unsupported features present: name both.
+        assert_eq!(
+            features(YUV422, Some(true)),
+            "4:2:2 chroma subsampling and B-frames"
+        );
+    }
+
     #[cfg(feature = "openh264")]
     #[test]
     fn parse_h264() -> crate::Result<()> {
