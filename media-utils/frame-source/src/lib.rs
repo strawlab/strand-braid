@@ -113,6 +113,17 @@ pub enum Error {
     #[cfg(feature = "openh264")]
     #[error("OpenH264Error: {0}")]
     OpenH264Error(#[from] openh264::Error),
+    #[cfg(feature = "openh264")]
+    #[error("OpenH264 failed to decode H.264 frame {frame}: {source}{hint}")]
+    H264DecodeFailed {
+        frame: usize,
+        /// Extra diagnostic context appended to the message, e.g. a note that
+        /// the stream's chroma subsampling is unsupported. Empty when there is
+        /// no likely-cause hint to offer.
+        hint: String,
+        #[source]
+        source: openh264::Error,
+    },
     #[error("Mp4Error: {0}")]
     Mp4Error(#[from] mp4::Error),
     #[error("PreParserError: {0}")]

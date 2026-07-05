@@ -180,6 +180,17 @@ pub struct H264Source<H: SeekableH264Source> {
     /// coded video sequence.
     is_idr: Vec<bool>,
     average_fps: Option<f64>,
+    /// Chroma subsampling of the stream, read from the first SPS. The built-in
+    /// OpenH264 decoder only handles 4:2:0, so on a decode failure this is used
+    /// to explain that a 4:2:2 / 4:4:4 stream (e.g. from a macOS / FaceTime
+    /// camera) is the likely cause, rather than surfacing only OpenH264's opaque
+    /// native error code. Only read when compiled with the `openh264` feature.
+    #[cfg_attr(not(feature = "openh264"), allow(dead_code))]
+    chroma_format: h264_reader::nal::sps::ChromaFormat,
+    /// Human-readable H.264 profile of the stream (e.g. "High444"), read from
+    /// the first SPS. Used only for diagnostics.
+    #[cfg_attr(not(feature = "openh264"), allow(dead_code))]
+    profile: String,
 }
 
 impl<H: SeekableH264Source> H264Source<H> {
@@ -493,10 +504,14 @@ where
         } = timing_data;
 
         let mut widthheight = None;
+        let mut chroma_format = h264_reader::nal::sps::ChromaFormat::YUV420;
+        let mut profile = "Unknown".to_string();
         for sps in parsing_ctx.sps() {
             if let Ok(wh) = sps.pixel_dimensions() {
                 widthheight = Some(wh);
             }
+            chroma_format = sps.chroma_info.chroma_format;
+            profile = format!("{:?}", sps.profile());
         }
 
         let (width, height) = widthheight.ok_or_else(|| crate::Error::ExpectedSpsNotFound)?;
@@ -623,6 +638,8 @@ where
             has_timestamps,
             srt_data,
             average_fps,
+            chroma_format,
+            profile,
         })
     }
 }
@@ -1065,7 +1082,20 @@ impl<H: SeekableH264Source> Iterator for RawH264Iter<'_, H> {
                 // copy into Annex B format for OpenH264
                 let annex_b = copy_nalus_to_annex_b(nal_units.as_slice());
 
-                match decoder.decode(&annex_b[..])? {
+                // Attempt the decode first, so that if OpenH264 ever gains
+                // 4:2:2 / 4:4:4 support the stream simply works. Only when the
+                // decode actually fails do we enrich its opaque native error
+                // with the stream's chroma/profile as the likely cause (the
+                // built-in decoder handles only 4:2:0).
+                let decode_result = decoder.decode(&annex_b[..]);
+                #[cfg(feature = "openh264")]
+                let decode_result = decode_result.map_err(|source| Error::H264DecodeFailed {
+                    frame: frame_number,
+                    hint: chroma_decode_hint(self.parent.chroma_format, &self.parent.profile),
+                    source,
+                });
+
+                match decode_result? {
                     Some(decoded_yuv) => yuv2rgb(
                         decoded_yuv,
                         frame_number,
@@ -1207,6 +1237,27 @@ fn yuv2rgb(
     _timestamp: Timestamp,
 ) -> Result<FrameData> {
     Err(Error::H264Error("No H264 decoder support at compile time"))
+}
+
+/// Build a likely-cause hint appended to an OpenH264 decode failure. Returns an
+/// empty string for 4:2:0 (which OpenH264 supports, so the failure lies
+/// elsewhere) and otherwise names the unsupported chroma subsampling, the
+/// profile, and how to re-encode to 4:2:0.
+#[cfg(feature = "openh264")]
+fn chroma_decode_hint(chroma: h264_reader::nal::sps::ChromaFormat, profile: &str) -> String {
+    use h264_reader::nal::sps::ChromaFormat::*;
+    let label = match chroma {
+        YUV420 => return String::new(),
+        Monochrome => "4:0:0 (monochrome)".to_string(),
+        YUV422 => "4:2:2".to_string(),
+        YUV444 => "4:4:4".to_string(),
+        Invalid(idc) => format!("unknown (chroma_format_idc={idc})"),
+    };
+    format!(
+        " This stream uses {label} chroma subsampling (profile {profile}), which the built-in \
+         OpenH264 decoder does not support — it decodes only 4:2:0 (YUV420). Re-encode to 4:2:0 \
+         first, e.g. `ffmpeg -i INPUT -pix_fmt yuv420p -c:v libx264 OUTPUT.mp4`."
+    )
 }
 
 #[cfg(feature = "openh264")]
