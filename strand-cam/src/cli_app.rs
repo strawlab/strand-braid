@@ -249,7 +249,11 @@ pub struct CliArgs {
     /// (`0.0.0.0:3440` for IPv4 or `[::]:3440` for IPv6) exposes the server on
     /// all network interfaces. Using port `0` (e.g. `127.0.0.1:0`) lets the
     /// operating system pick a free port.
-    #[arg(long, default_value = crate::STRAND_DEFAULT_HTTP_ADDR)]
+    ///
+    /// When not set, defaults to `127.0.0.1:3440`. This must not be set when
+    /// running under Braid, which supplies the address via its per-camera
+    /// configuration.
+    #[arg(long)]
     http_server_addr: Option<String>,
 
     /// The directory in which to save CSV data files.
