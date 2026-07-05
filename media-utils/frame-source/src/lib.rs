@@ -10,6 +10,7 @@ use pv_tiff_stack::TiffImage;
 use serde::{Deserialize, Serialize};
 pub mod fmf_source;
 mod h264_annexb_splitter;
+pub mod h264_poc;
 pub mod h264_source;
 pub mod mp4_source;
 mod opt_openh264_decoder;
@@ -63,6 +64,8 @@ pub enum Error {
     H264Pps(String),
     #[error("H264 timestamp error {0}")]
     H264TimestampError(String),
+    #[error("H264 POC error {0}")]
+    H264Poc(String),
     #[error("H264 UDU error {0}")]
     UduError(String),
     #[error("unexpected payload length")]
@@ -166,8 +169,34 @@ pub trait FrameDataSource {
     fn has_timestamps(&self) -> bool;
     /// A string describing the source of the timestamp data
     fn timestamp_source(&self) -> &str;
-    /// Get an iterator over all frames in decode order.
+    /// Get an iterator over all frames in **decode order** (the order samples
+    /// are stored in the stream).
+    ///
+    /// For streams with B-frames this is *not* presentation order: the reported
+    /// per-frame [`Timestamp`]s are not monotonic in this order. Decode order is
+    /// what you want when feeding an H.264 decoder or re-muxing an H.264
+    /// bitstream (where reordering is reconstructed from per-sample composition
+    /// offsets). If you want frames in display order, use
+    /// [`Self::presentation_order_iter`].
     fn decode_order_iter<'a>(&'a mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a>;
+
+    /// Get an iterator over all frames in **presentation (display) order**, with
+    /// monotonically non-decreasing timestamps.
+    ///
+    /// The default implementation is the identity over
+    /// [`Self::decode_order_iter`], which is correct for every source without
+    /// inter-frame reordering (FMF, TIFF, and H.264 without B-frames). Sources
+    /// that can reorder (H.264) override this to buffer and reorder frames.
+    ///
+    /// Returns an error up front when display order cannot be recovered (e.g. a
+    /// raw Annex B `.h264` stream carrying neither per-sample timestamps nor a
+    /// decodable picture order count), so callers fail loudly rather than
+    /// silently receiving decode order.
+    fn presentation_order_iter<'a>(
+        &'a mut self,
+    ) -> Result<Box<dyn Iterator<Item = Result<FrameData>> + 'a>> {
+        Ok(self.decode_order_iter())
+    }
 }
 
 /// A single frame of data, including `image` and `timestamp` fields.
@@ -177,10 +206,19 @@ pub struct FrameData {
     timestamp: Timestamp,
     image: ImageData,
     buf_len: usize,
-    /// The number of the frame in the source
+    /// The number of the frame in the source, in **decode order**.
     ///
-    /// Starts with 0
+    /// Starts with 0. For streams with B-frames, decode order differs from
+    /// presentation (display) order, so this is *not* the display position; see
+    /// [`FrameData::poc`] and [`FrameDataSource::presentation_order_iter`].
     idx: usize,
+    /// The frame's picture order count (POC) within its coded video sequence,
+    /// when known (H.264 sources only). This is the bitstream's own signal of
+    /// *display order*: within a coded video sequence, sorting frames by `poc`
+    /// yields presentation order. It is a relative rank, not a time value, and
+    /// resets at each IDR. `None` for sources without inter-frame reordering
+    /// (FMF, TIFF) or when it could not be reconstructed.
+    poc: Option<i64>,
 }
 
 #[derive(PartialEq, Debug, Clone, Copy)]
@@ -223,11 +261,20 @@ impl FrameData {
     pub fn num_bytes(&self) -> usize {
         self.buf_len
     }
-    /// Get the number of the frame in the source.
+    /// Get the number of the frame in the source, in decode order.
     ///
-    /// Starts with 0.
+    /// Starts with 0. See the field docs on [`FrameData`] for the decode- vs
+    /// presentation-order distinction.
     pub fn idx(&self) -> usize {
         self.idx
+    }
+
+    /// Get the frame's picture order count (POC), when known.
+    ///
+    /// See the [`FrameData::poc`] field docs. `None` for non-H.264 sources or
+    /// when POC could not be reconstructed.
+    pub fn poc(&self) -> Option<i64> {
+        self.poc
     }
 
     pub fn decoded<'a>(&'a self) -> Option<DynamicFrame<'a>> {

@@ -142,6 +142,102 @@ fn test_mp4_with_bframes_iterates_in_decode_order() -> Result<()> {
 }
 
 #[test]
+fn test_mp4_with_bframes_presentation_order_is_monotonic() -> Result<()> {
+    let tmpdir = tempfile::tempdir()?;
+    let path = tmpdir.path().join("bframes.mp4");
+    ffmpeg_encode(&path, &[])?;
+
+    let mut src = frame_source::FrameSourceBuilder::new(&path)
+        .do_decode_h264(false)
+        .timestamp_source(TimestampSource::Mp4Pts)
+        .build_source()?;
+
+    let frames: Vec<FrameData> = src.presentation_order_iter()?.collect::<Result<_, _>>()?;
+
+    assert!(
+        frames.len() > 2,
+        "expected several frames, got {}",
+        frames.len()
+    );
+
+    // Presentation order: the timestamps must be strictly increasing as yielded.
+    let pts: Vec<std::time::Duration> = frames
+        .iter()
+        .map(|f| match f.timestamp() {
+            Timestamp::Duration(d) => Ok(d),
+            Timestamp::Fraction(_) => eyre::bail!("expected duration timestamps for an MP4 source"),
+        })
+        .collect::<Result<_>>()?;
+    for w in pts.windows(2) {
+        assert!(
+            w[1] > w[0],
+            "presentation-order timestamps must strictly increase, got {:?} then {:?}",
+            w[0],
+            w[1]
+        );
+    }
+
+    // Every source frame appears exactly once: the decode indices are a
+    // permutation of 0..N. Since the fixture has B-frames, that permutation must
+    // not be the identity (otherwise reordering did nothing).
+    let decode_indices: Vec<usize> = frames.iter().map(|f| f.idx()).collect();
+    let mut sorted = decode_indices.clone();
+    sorted.sort_unstable();
+    let expected: Vec<usize> = (0..frames.len()).collect();
+    assert_eq!(sorted, expected, "frames must be a permutation of 0..N");
+    assert_ne!(
+        decode_indices, expected,
+        "expected B-frame reordering, but presentation order equals decode order"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_raw_h264_annexb_with_bframes_presentation_order_uses_poc() -> Result<()> {
+    let tmpdir = tempfile::tempdir()?;
+    let path = tmpdir.path().join("bframes.h264");
+    ffmpeg_encode(&path, &["-f", "h264"])?;
+
+    let mut src = frame_source::FrameSourceBuilder::new(&path)
+        .do_decode_h264(false)
+        .build_source()?;
+
+    // A raw Annex B stream carries no per-frame timestamps, so presentation
+    // order must be recovered from the bitstream POC. The restamped
+    // fraction-done "timestamp" must then increase monotonically, and the decode
+    // indices must be a non-identity permutation of 0..N.
+    let frames: Vec<FrameData> = src.presentation_order_iter()?.collect::<Result<_, _>>()?;
+    assert!(frames.len() > 2, "expected several frames");
+
+    let mut prev = -1.0f32;
+    for frame in &frames {
+        match frame.timestamp() {
+            Timestamp::Fraction(f) => {
+                assert!(
+                    f > prev,
+                    "fraction-done must increase in presentation order, got {f} after {prev}"
+                );
+                prev = f;
+            }
+            Timestamp::Duration(_) => eyre::bail!("expected fraction timestamps for raw Annex B"),
+        }
+    }
+
+    let decode_indices: Vec<usize> = frames.iter().map(|f| f.idx()).collect();
+    let mut sorted = decode_indices.clone();
+    sorted.sort_unstable();
+    let expected: Vec<usize> = (0..frames.len()).collect();
+    assert_eq!(sorted, expected, "frames must be a permutation of 0..N");
+    assert_ne!(
+        decode_indices, expected,
+        "expected B-frame reordering recovered from POC"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn test_raw_h264_annexb_with_bframes_iterates_in_decode_order() -> Result<()> {
     let tmpdir = tempfile::tempdir()?;
     let path = tmpdir.path().join("bframes.h264");

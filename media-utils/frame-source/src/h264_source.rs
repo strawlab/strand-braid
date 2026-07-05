@@ -25,6 +25,7 @@ use machine_vision_formats::owned::OImage;
 use crate::{
     EncodedH264, Error, FrameData, FrameDataSource, H264EncodingVariant, ImageData, MyAsStr,
     Result, Timestamp, TimestampSource,
+    h264_poc::{self, PocStrategy},
     ntp_timestamp::NtpTimestamp,
     srt_reader::{self, Stanza},
 };
@@ -167,6 +168,17 @@ pub struct H264Source<H: SeekableH264Source> {
     /// per-sample PTS are unavailable, in which case stanzas are consumed
     /// sequentially.
     srt_display_rank: Option<Vec<usize>>,
+    /// The display (presentation) rank of each decode-order frame:
+    /// `presentation_rank[decode_index]` is that frame's position in display
+    /// order. Derived from per-sample PTS (`mp4_pts`) when present, else from
+    /// the bitstream POC. `None` when presentation order cannot be recovered
+    /// (no PTS and no decodable POC), which makes [`Self::presentation_order_iter`]
+    /// fail loudly.
+    presentation_rank: Option<Vec<usize>>,
+    /// Whether each decode-order frame is an IDR (starts a new coded video
+    /// sequence). Used to bound the presentation-order reorder buffer to one
+    /// coded video sequence.
+    is_idr: Vec<bool>,
     average_fps: Option<f64>,
 }
 
@@ -209,6 +221,11 @@ pub struct FrameTimeInfo {
     nal_location_index: usize,
     precise_timestamp: Option<DateTime<Utc>>,
     frameinfo: Option<FrameInfo>,
+    /// Picture order count reconstructed from the bitstream, when available.
+    /// `None` if the POC could not be determined (e.g. `pic_order_cnt_type 1`).
+    poc: Option<i64>,
+    /// Whether this frame is an IDR picture (starts a new coded video sequence).
+    is_idr: bool,
 }
 
 impl<H: SeekableH264Source> FrameDataSource for H264Source<H> {
@@ -263,6 +280,31 @@ impl<H: SeekableH264Source> FrameDataSource for H264Source<H> {
     }
     fn decode_order_iter<'a>(&'a mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a> {
         self.create_iter_unchecked(0)
+    }
+    fn presentation_order_iter<'a>(
+        &'a mut self,
+    ) -> Result<Box<dyn Iterator<Item = Result<FrameData>> + 'a>> {
+        let rank = self.presentation_rank.clone().ok_or_else(|| {
+            Error::H264Poc(
+                "cannot recover presentation order: source has neither per-sample \
+                 timestamps nor a decodable picture order count"
+                    .to_string(),
+            )
+        })?;
+        let is_idr = self.is_idr.clone();
+        let total = rank.len();
+        // Decode/parse in decode order (required to feed a decoder and to
+        // reconstruct POC correctly), then reorder into display order.
+        let inner = self.create_iter_unchecked(0);
+        Ok(Box::new(PresentationReorderIter {
+            inner,
+            rank,
+            is_idr,
+            total,
+            pending: Vec::new(),
+            ready: std::collections::VecDeque::new(),
+            done: false,
+        }))
     }
     fn timestamp_source(&self) -> &str {
         self.timestamp_source.as_str()
@@ -544,21 +586,20 @@ where
             (other, _) => other,
         };
 
-        // Precompute the display rank of each decode-order frame from the
-        // per-sample presentation PTS, so SRT stanzas (which are in presentation
-        // order) can be paired with reordered (B-frame) streams. Ranking by PTS
-        // is robust to a constant encoder composition delay (unlike matching
-        // absolute PTS values against stanza timecodes).
+        // Precompute the display (presentation) rank of each decode-order frame.
+        // Ranking by per-sample PTS is robust to a constant encoder composition
+        // delay (unlike matching absolute PTS values against stanza timecodes);
+        // when there is no PTS we fall back to the bitstream POC, keyed within
+        // each coded video sequence so GOPs stay in order.
+        let presentation_rank = compute_presentation_rank(mp4_pts.as_deref(), &frame_time_info);
+
+        let is_idr: Vec<bool> = frame_time_info.iter().map(|fti| fti.is_idr).collect();
+
+        // SRT stanzas are in presentation order, so pair them with reordered
+        // (B-frame) streams by display rank. Fall back to sequential consumption
+        // when presentation order is unknown.
         let srt_display_rank = if srt_data.is_some() {
-            mp4_pts.as_ref().map(|pts| {
-                let mut order: Vec<usize> = (0..pts.len()).collect();
-                order.sort_by_key(|&i| pts[i]);
-                let mut rank = vec![0usize; pts.len()];
-                for (display_rank, &decode_index) in order.iter().enumerate() {
-                    rank[decode_index] = display_rank;
-                }
-                rank
-            })
+            presentation_rank.clone()
         } else {
             None
         };
@@ -569,6 +610,8 @@ where
             mp4_pts,
             mp4_sample_timing,
             srt_display_rank,
+            presentation_rank,
+            is_idr,
             frame_time_info,
             h264_metadata,
             frame0_precision_time,
@@ -582,6 +625,50 @@ where
             average_fps,
         })
     }
+}
+
+/// Compute the display (presentation) rank of each decode-order frame.
+///
+/// `presentation_rank[decode_index]` is that frame's position in presentation
+/// order. Ranking uses per-sample PTS when available (`mp4_pts`), else the
+/// bitstream POC keyed by coded video sequence (so GOPs stay ordered). Returns
+/// `None` when neither signal is available for every frame, i.e. presentation
+/// order cannot be recovered.
+fn compute_presentation_rank(
+    mp4_pts: Option<&[std::time::Duration]>,
+    frame_time_info: &[FrameTimeInfo],
+) -> Option<Vec<usize>> {
+    let n = frame_time_info.len();
+    if n == 0 {
+        return Some(Vec::new());
+    }
+    // Display sort key per decode index: (coded-video-sequence index, tie-break
+    // within that sequence). For PTS the whole stream is one global ordering; for
+    // POC we bump the sequence index at each IDR so GOPs stay contiguous and in
+    // order even though POC resets to 0 at every IDR.
+    let keys: Vec<(i64, i64)> = if let Some(pts) = mp4_pts {
+        pts.iter().map(|d| (0i64, d.as_nanos() as i64)).collect()
+    } else {
+        if !frame_time_info.iter().all(|fti| fti.poc.is_some()) {
+            return None;
+        }
+        let mut cvs = 0i64;
+        let mut keys = Vec::with_capacity(n);
+        for (i, fti) in frame_time_info.iter().enumerate() {
+            if fti.is_idr && i != 0 {
+                cvs += 1;
+            }
+            keys.push((cvs, fti.poc.unwrap()));
+        }
+        keys
+    };
+    let mut order: Vec<usize> = (0..n).collect();
+    order.sort_by_key(|&i| keys[i]);
+    let mut rank = vec![0usize; n];
+    for (display_rank, &decode_index) in order.iter().enumerate() {
+        rank[decode_index] = display_rank;
+    }
+    Some(rank)
 }
 
 fn calc_avg_fps(fti: &[FrameTimeInfo]) -> Option<f64> {
@@ -666,6 +753,11 @@ where
     let mut precise_timestamp = None;
     // Cached value of frame number as we accumluate data.
     let mut next_frame_num = 0;
+
+    // POC (picture order count) reconstruction. The strategy is fixed once the
+    // first SPS is seen; `None` means the POC could not be determined (e.g.
+    // `pic_order_cnt_type 1`), in which case per-frame `poc` stays `None`.
+    let mut poc_strategy: Option<PocStrategy> = None;
 
     // Cached value of FrameInfo time data for the frame whose data is being
     // accumulated.
@@ -800,6 +892,12 @@ where
                             .put_seq_param_set(&nal)
                             .map_err(Error::PreParserError)?;
                     }
+                    // Fix the POC strategy from the first SPS. `strategy_from_sps`
+                    // errors on the unsupported `pic_order_cnt_type 1`; treat that
+                    // as "POC unavailable" rather than a hard failure.
+                    if poc_strategy.is_none() {
+                        poc_strategy = h264_poc::strategy_from_sps(&isps).ok();
+                    }
                     parsing_ctx.put_seq_param_set(isps);
                 }
                 UnitType::PicParameterSet => {
@@ -834,12 +932,21 @@ where
                             .put_slice_layer_nalu(&nal, is_i_frame)
                             .map_err(Error::PreParserError)?;
                     }
+                    // Reconstruct this frame's picture order count from the
+                    // bitstream. Advancing the strategy is stateful and must
+                    // happen once per frame in decode order.
+                    let poc = poc_strategy.as_mut().and_then(|strategy| {
+                        h264_poc::advance_poc(strategy, parsing_ctx, std::slice::from_ref(nal_unit))
+                            .ok()
+                    });
                     // The NAL unit with the video frames comes after the
                     // timing into NAL unit(s) so we gather them now.
                     frame_time_info.push(FrameTimeInfo {
                         nal_location_index,
                         precise_timestamp,
                         frameinfo,
+                        poc,
+                        is_idr: is_i_frame,
                     });
                     // Reset temporary values.
                     precise_timestamp = None;
@@ -959,9 +1066,13 @@ impl<H: SeekableH264Source> Iterator for RawH264Iter<'_, H> {
                 let annex_b = copy_nalus_to_annex_b(nal_units.as_slice());
 
                 match decoder.decode(&annex_b[..])? {
-                    Some(decoded_yuv) => {
-                        yuv2rgb(decoded_yuv, frame_number, nal_units, frame_timestamp)
-                    }
+                    Some(decoded_yuv) => yuv2rgb(
+                        decoded_yuv,
+                        frame_number,
+                        nti.poc,
+                        nal_units,
+                        frame_timestamp,
+                    ),
                     None => Err(crate::Error::DecoderDidNotReturnImageData),
                 }
             } else {
@@ -978,14 +1089,112 @@ impl<H: SeekableH264Source> Iterator for RawH264Iter<'_, H> {
                     image,
                     buf_len,
                     idx,
+                    poc: nti.poc,
                 })
             }
         })
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.parent.frame_time_info.len() - self.frame_idx;
+        // `frame_idx` advances past the end once the iterator is exhausted, so
+        // saturate to avoid underflow.
+        let remaining = self
+            .parent
+            .frame_time_info
+            .len()
+            .saturating_sub(self.frame_idx);
         (remaining, Some(remaining))
+    }
+}
+
+/// Reorders a decode-order H.264 frame iterator into presentation (display)
+/// order by buffering one coded video sequence at a time.
+///
+/// Frames arrive from `inner` in decode order. Each coded video sequence
+/// (delimited by IDR pictures) is buffered in `pending`; when the next IDR
+/// arrives (or the stream ends) the buffered frames are sorted by their display
+/// rank and moved to `ready` for emission. Because coded video sequences are
+/// contiguous in display order for the closed GOPs produced by strand-cam /
+/// braid / ffmpeg, this yields globally correct presentation order with memory
+/// bounded by one GOP.
+///
+/// Open-GOP streams (leading pictures following a non-IDR recovery point) are
+/// not handled specially; the encode paths in this workspace use closed GOPs.
+struct PresentationReorderIter<'a> {
+    inner: Box<dyn Iterator<Item = Result<FrameData>> + 'a>,
+    /// `rank[decode_idx]` is the frame's position in display order.
+    rank: Vec<usize>,
+    /// `is_idr[decode_idx]` marks the start of a coded video sequence.
+    is_idr: Vec<bool>,
+    /// Total number of frames, used to restamp fraction-done timestamps.
+    total: usize,
+    /// Frames of the current coded video sequence, buffered in decode order.
+    pending: Vec<FrameData>,
+    /// Frames flushed and ready to emit, already in display order.
+    ready: std::collections::VecDeque<FrameData>,
+    /// Whether `inner` has been exhausted (or errored).
+    done: bool,
+}
+
+impl PresentationReorderIter<'_> {
+    /// Sort the buffered coded video sequence by display rank and move it to
+    /// `ready`, restamping fraction-done timestamps (which count decode
+    /// position) to display position so they stay monotonic.
+    fn flush(&mut self) {
+        let rank = &self.rank;
+        self.pending
+            .sort_by_key(|f| rank.get(f.idx()).copied().unwrap_or(usize::MAX));
+        let denom = self.total.max(1) as f32;
+        for mut frame in self.pending.drain(..).collect::<Vec<_>>() {
+            if let Timestamp::Fraction(_) = frame.timestamp {
+                let pos = self.rank.get(frame.idx()).copied().unwrap_or(0);
+                frame.timestamp = Timestamp::Fraction(pos as f32 / denom);
+            }
+            self.ready.push_back(frame);
+        }
+    }
+}
+
+impl Iterator for PresentationReorderIter<'_> {
+    type Item = Result<FrameData>;
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(frame) = self.ready.pop_front() {
+                return Some(Ok(frame));
+            }
+            if self.done {
+                return None;
+            }
+            match self.inner.next() {
+                Some(Ok(frame)) => {
+                    // A new coded video sequence begins: flush the previous one
+                    // (now complete) before buffering this IDR.
+                    if self.is_idr.get(frame.idx()).copied().unwrap_or(false)
+                        && !self.pending.is_empty()
+                    {
+                        self.flush();
+                    }
+                    self.pending.push(frame);
+                }
+                Some(Err(e)) => {
+                    self.done = true;
+                    self.pending.clear();
+                    return Some(Err(e));
+                }
+                None => {
+                    self.done = true;
+                    self.flush();
+                }
+            }
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        // Reordering neither adds nor drops frames, so the total is the inner
+        // iterator's remaining count plus whatever we are currently holding.
+        let (lo, hi) = self.inner.size_hint();
+        let buffered = self.ready.len() + self.pending.len();
+        (lo + buffered, hi.map(|h| h + buffered))
     }
 }
 
@@ -993,6 +1202,7 @@ impl<H: SeekableH264Source> Iterator for RawH264Iter<'_, H> {
 fn yuv2rgb(
     _decoded_yuv: (),
     _frame_number: usize,
+    _poc: Option<i64>,
     _nal_units: Vec<Vec<u8>>,
     _timestamp: Timestamp,
 ) -> Result<FrameData> {
@@ -1003,6 +1213,7 @@ fn yuv2rgb(
 fn yuv2rgb(
     decoded_yuv: openh264::decoder::DecodedYUV<'_>,
     frame_number: usize,
+    poc: Option<i64>,
     nal_units: Vec<Vec<u8>>,
     timestamp: Timestamp,
 ) -> Result<FrameData> {
@@ -1032,6 +1243,7 @@ fn yuv2rgb(
         image,
         buf_len,
         idx,
+        poc,
     })
 }
 
