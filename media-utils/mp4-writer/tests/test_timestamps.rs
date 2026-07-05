@@ -3,10 +3,11 @@
 
 use chrono::{DateTime, Duration, Utc};
 use machine_vision_formats::pixel_format::RGB8;
-use strand_dynamic_frame::DynamicFrameOwned;
 
-use crate::{FrameDataSource, Result, h264_source::SeekRead};
+use frame_source::h264_source::SeekRead;
+use frame_source::{FrameDataSource, Result};
 use strand_cam_remote_control::Mp4RecordingConfig;
+use strand_dynamic_frame::DynamicFrameOwned;
 
 #[test]
 fn test_h264_precision_timestamps() -> Result<()> {
@@ -26,8 +27,13 @@ fn test_h264_precision_timestamps() -> Result<()> {
     let mut mp4_buf = Vec::new();
     let mut ptss = Vec::new();
     {
-        let mut my_mp4_writer =
-            mp4_writer::Mp4Writer::new(std::io::Cursor::new(&mut mp4_buf), cfg, None).unwrap();
+        let mut my_mp4_writer = mp4_writer::Mp4Writer::new(
+            std::io::Cursor::new(&mut mp4_buf),
+            cfg,
+            #[cfg(feature = "nv-encode")]
+            None,
+        )
+        .unwrap();
 
         const STRIDE: usize = W as usize * 3;
         let image_data = vec![0u8; STRIDE * H as usize];
@@ -52,10 +58,10 @@ fn test_h264_precision_timestamps() -> Result<()> {
     let mp4_reader = mp4::Mp4Reader::read_header(buf_reader, size)?;
 
     let do_decode_h264 = false; // no need to decode h264 to get timestamps.
-    let mut src = crate::mp4_source::from_reader_with_timestamp_source(
+    let mut src = frame_source::mp4_source::from_reader_with_timestamp_source(
         mp4_reader,
         do_decode_h264,
-        crate::TimestampSource::BestGuess,
+        frame_source::TimestampSource::BestGuess,
         None,
         false,
         None,
@@ -65,10 +71,10 @@ fn test_h264_precision_timestamps() -> Result<()> {
     assert_eq!(src.height(), H);
     assert_eq!(src.frame0_time().unwrap(), start);
 
-    for (frame, expected_pts) in src.iter().zip(ptss.iter()) {
+    for (frame, expected_pts) in src.decode_order_iter().zip(ptss.iter()) {
         let frame = frame?;
         match frame.timestamp() {
-            crate::Timestamp::Duration(actual_pts) => {
+            frame_source::Timestamp::Duration(actual_pts) => {
                 assert_eq!(&actual_pts, expected_pts);
             }
             _ => {

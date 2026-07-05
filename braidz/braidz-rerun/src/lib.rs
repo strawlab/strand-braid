@@ -248,7 +248,9 @@ impl OfflineBraidzRerunLogger {
         let frametimes = self.frametimes.get(&cam_data.camn).unwrap();
         let (data2d_fnos, data2d_stamps): (Vec<i64>, Vec<f64>) = frametimes.iter().cloned().unzip();
 
-        for (framecount, frame) in src.iter().enumerate() {
+        // Read in presentation (display) order so any re-encoded MP4 output is
+        // written in playback order (decode order differs for B-frame streams).
+        for (framecount, frame) in src.presentation_order_iter()?.enumerate() {
             let frame = frame?;
             let pts = match frame.timestamp() {
                 Timestamp::Duration(pts) => pts,

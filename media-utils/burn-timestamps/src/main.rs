@@ -103,19 +103,15 @@ fn main() -> Result<()> {
         eprintln!("Done with initial open.");
     }
 
-    // We set ffmpeg args to disable B frames. This works around an issue where
-    // the resulting video plays out of order. This is surely a bug with our
-    // code, but so far I could not figure out the cause.
     let ffmpeg_codec_args = ffmpeg_writer::FfmpegCodecArgs {
         codec: Some("libx264".to_string()),
-        post_codec_args: Some(vec![("-bf".to_string(), "0".to_string())]),
         ..Default::default()
     };
     let mut ffmpeg_wtr =
         ffmpeg_rewriter::FfmpegReWriter::new(cli.output.as_str(), ffmpeg_codec_args, None, None)?;
 
     let mut pb: Option<ProgressBar> = if !cli.no_progress {
-        let (lower_bound, _upper_bound) = src.iter().size_hint();
+        let (lower_bound, _upper_bound) = src.decode_order_iter().size_hint();
 
         let lower_bound = if let Some(stop_frame) = cli.stop_frame {
             lower_bound.min(stop_frame.try_into().unwrap())
@@ -132,7 +128,7 @@ fn main() -> Result<()> {
         None
     };
 
-    for (idx, frame) in src.iter().enumerate() {
+    for (idx, frame) in src.presentation_order_iter()?.enumerate() {
         let frame = frame?;
 
         if let Some(pb) = pb.as_mut() {

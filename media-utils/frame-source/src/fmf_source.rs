@@ -41,6 +41,7 @@ impl Iterator for FmfSourceIter {
                     timestamp,
                     buf_len,
                     idx,
+                    poc: None,
                 })
             }
             Err(e) => Err(e.into()),
@@ -104,7 +105,7 @@ impl FrameDataSource for FmfSource {
         // FMF reader does not support seek because we may read .gz files.
         Err(crate::Error::UnsupportedForEsimatingLuminangeRange)
     }
-    fn iter(&mut self) -> Box<dyn Iterator<Item = Result<FrameData>>> {
+    fn decode_order_iter(&mut self) -> Box<dyn Iterator<Item = Result<FrameData>>> {
         Box::new(FmfSourceIter::new(self).unwrap())
     }
     fn timestamp_source(&self) -> &str {

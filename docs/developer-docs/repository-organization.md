@@ -91,6 +91,7 @@
  - less-avc-wrapper (media-utils/less-avc-wrapper) - encode video frames to H.264 using the less-avc library
  - mkv-parser-kit (media-utils/mkv-parser-kit) - Library for building Matroska (MKV) file parsers
  - mkv-strand-reader (media-utils/mkv-strand-reader) - read Strand Camera MKV video files with embedded metadata
+ - mp4-bframe-doctor (media-utils/mp4-bframe-doctor) - detect MP4 samples whose SEI timestamps are inconsistent with the bitstream's picture order count
  - mp4-writer (media-utils/mp4-writer) - write MP4 video files with H.264 encoding
  - nvenc (media-utils/nvenc) - GPU-accelerated H.264 video encoding using NVIDIA NVENC
  - show-timestamps (media-utils/show-timestamps) - display timestamps embedded in Strand Camera video files

@@ -1,0 +1,20 @@
+[package]
+name = "mp4-bframe-doctor"
+version.workspace = true
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "detect MP4 samples whose SEI timestamps are inconsistent with the bitstream's picture order count"
+
+[dependencies]
+clap.workspace = true
+eyre.workspace = true
+chrono.workspace = true
+camino.workspace = true
+tracing.workspace = true
+h264-reader.workspace = true
+
+frame-source.workspace = true
+env-tracing-logger.workspace = true
+# Used by the `fix` subcommand to rewrite corrected timing into a new MP4.
+mp4-writer = { workspace = true, features = ["nv-encode"] }
+strand-cam-remote-control.workspace = true

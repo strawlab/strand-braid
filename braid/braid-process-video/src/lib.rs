@@ -550,7 +550,10 @@ pub async fn run_config(
 
             let title: Option<String> = frame_source.camera_name().map(Into::into);
 
-            let reader = Some(Peek2::new(frame_source.iter()));
+            // Synchronization across cameras relies on monotonically increasing
+            // per-frame timestamps, so read frames in presentation (display)
+            // order rather than decode order (they differ for B-frame streams).
+            let reader = Some(Peek2::new(frame_source.presentation_order_iter()?));
 
             let full_path = std::path::PathBuf::from(&s.filename);
 

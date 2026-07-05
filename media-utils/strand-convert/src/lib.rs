@@ -544,8 +544,11 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         let desired_interval = if let Some(frame_interval_msec) = cli.frame_interval_msec {
             Duration::from_nanos((frame_interval_msec * 1_000_000.0) as u64)
         } else {
+            // Estimate the interval from consecutive frames in presentation
+            // (display) order, so the deltas are real frame intervals rather than
+            // the non-monotonic gaps that decode order gives for B-frame streams.
             let timestamps: Vec<Duration> = src
-                .iter()
+                .presentation_order_iter()?
                 .take(N_FRAMES_TO_COMPUTE_FPS)
                 .map(|frame_data| frame_data.map(|x| x.timestamp().unwrap_duration()))
                 .collect::<frame_source::Result<Vec<Duration>>>()?;
@@ -646,8 +649,6 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         hdr_lum_range = Some((min, max));
     }
 
-    let mut stack_iter = src.iter();
-
     h264_metadata.creation_time = frame0_time;
 
     let encoder = if cli.export_pngs {
@@ -682,6 +683,17 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             )
         }
     };
+
+    // Re-encoding paths consume frames as images, so read them in presentation
+    // (display) order. The "copy existing H.264" path instead passes the encoded
+    // bitstream through verbatim, which must stay in decode order (reordering
+    // encoded samples would produce an invalid stream).
+    let mut stack_iter: Box<dyn Iterator<Item = frame_source::Result<FrameData>>> =
+        if matches!(encoder, Encoder::NoneCopyExistingH264) {
+            src.decode_order_iter()
+        } else {
+            src.presentation_order_iter()?
+        };
 
     if let Some(take) = cli.take {
         tracing::info!("  limiting to {} input images", take);

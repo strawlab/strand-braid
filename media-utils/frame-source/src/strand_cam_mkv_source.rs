@@ -135,7 +135,7 @@ impl<R: Read + Seek> FrameDataSource for StrandCamMkvSource<R> {
     fn estimate_luminance_range(&mut self) -> Result<(u16, u16)> {
         Err(Error::UnsupportedForEsimatingLuminangeRange)
     }
-    fn iter<'a>(&'a mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a> {
+    fn decode_order_iter<'a>(&'a mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a> {
         Box::new(StrandCamMkvSourceIter {
             parent: self,
             idx: 0,
@@ -294,6 +294,9 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
             image,
             buf_len: bd.size,
             idx,
+            // The MKV reader does not reconstruct picture order count, so this
+            // source relies on the default (identity) `presentation_order_iter`.
+            poc: None,
         })
     }
 }
