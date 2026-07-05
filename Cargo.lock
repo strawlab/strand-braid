@@ -5551,7 +5551,6 @@ dependencies = [
  "memchr",
  "mkv-strand-reader",
  "mp4",
- "mp4-writer",
  "openh264",
  "serde",
  "serde_json",
