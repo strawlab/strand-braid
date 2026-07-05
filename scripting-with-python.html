@@ -185,6 +185,24 @@ recording, waits five seconds, then sends a command to stop. Run it like so:</p>
 be changed to match the URL shown in your Strand Camera window. Modify the
 <code>time.sleep(5.0)</code> call to change the recording duration, or replace the fixed
 sleep with your own experimental logic between the start and stop commands.</p>
+<h2><a class="header" href="#demo-recording-a-color-video-with-the-ffmpeg-codec" id="demo-recording-a-color-video-with-the-ffmpeg-codec">Demo: recording a color video with the ffmpeg codec</a></h2>
+<p><a href="https://github.com/strawlab/strand-braid/blob/main/docs/user-docs/scripts/record-mp4-video-ffmpeg.py"><code>record-mp4-video-ffmpeg.py</code></a>
+records an MP4 using the <strong>Ffmpeg</strong> codec, which pipes frames to the system
+<a href="https://ffmpeg.org/"><code>ffmpeg</code></a> binary. Unlike the built-in H.264 encoders, the
+ffmpeg codec accepts color input, so this is the path to use for color
+recordings — for example on GPUs where the built-in NVENC encoder is
+unavailable. Start Strand Camera with a color pixel format:</p>
+<pre><code class="language-sh">strand-cam --camera-name my-camera --pixel-format RGB8
+</code></pre>
+<p>and then run:</p>
+<pre><code class="language-sh">python record-mp4-video-ffmpeg.py --strand-cam-url http://127.0.0.1:3440/ --codec libx264
+</code></pre>
+<p>The <code>--codec</code> argument selects the ffmpeg encoder (default <code>libx264</code>; other
+common choices are <code>h264_nvenc</code> and <code>h264_vaapi</code>) and must be available in your
+<code>ffmpeg</code> build. Pass <code>--verify-dir</code> with the directory Strand Camera writes to
+(its <code>--data-dir</code>) to have the script confirm that a non-empty <code>.mp4</code> was
+produced; this is how the script is exercised as an automated end-to-end test in
+the project's continuous integration, so it stays in sync with the software.</p>
 <h2><a class="header" href="#demo-recording-multiple-videos-using-braid-from-a-python-script" id="demo-recording-multiple-videos-using-braid-from-a-python-script">Demo: recording multiple videos using Braid from a Python script</a></h2>
 <p><a href="https://github.com/strawlab/strand-braid/blob/main/docs/user-docs/scripts/record-mp4-video-braid-all-cams.py"><code>record-mp4-video-braid-all-cams.py</code></a>
 connects to a running Braid instance and sends a single command that starts MP4
