@@ -415,8 +415,29 @@ impl strand_cam_enum_iter::EnumIter for BitrateSelection {
 /// Type alias for optional ffmpeg codec argument lists.
 type FfmpegCodecArgList = Option<Vec<(String, String)>>;
 
+/// The default output pixel format. 4:2:0 chroma subsampling is the most widely
+/// decodable choice; in particular the built-in OpenH264 decoder only handles
+/// 4:2:0, so anything we might want to decode later must be encoded this way.
+/// Without forcing this, encoders like libx264 pick a format matching the input
+/// (e.g. `yuv444p` for RGB input), which OpenH264 cannot decode.
+const DEFAULT_OUTPUT_PIXFMT: &str = "yuv420p";
+
+/// The default maximum number of B-frames. OpenH264's decoder cannot decode
+/// streams containing B-frames (it exhausts its picture buffer with a
+/// "PrefetchPic ERROR"), so we disable them by default to keep our output
+/// decodable by OpenH264. 4:2:0 alone is not sufficient for that.
+const DEFAULT_MAX_BFRAMES: u32 = 0;
+
+fn default_output_pixfmt() -> Option<String> {
+    Some(DEFAULT_OUTPUT_PIXFMT.to_string())
+}
+
+fn default_max_bframes() -> Option<u32> {
+    Some(DEFAULT_MAX_BFRAMES)
+}
+
 /// Codec-specific arguments for ffmpeg.
-#[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
 pub struct FfmpegCodecArgs {
     /// Device-specific arguments
     pub device_args: FfmpegCodecArgList,
@@ -426,6 +447,32 @@ pub struct FfmpegCodecArgs {
     pub codec: Option<String>,
     /// Arguments after codec specification
     pub post_codec_args: FfmpegCodecArgList,
+    /// Output pixel format passed to ffmpeg as `-pix_fmt`. Defaults to
+    /// [`DEFAULT_OUTPUT_PIXFMT`] (`yuv420p`) so encoded video is decodable by
+    /// OpenH264. Set to `None` to let ffmpeg (or a `-vf`/`-pix_fmt` in the other
+    /// arg lists) decide, e.g. for hardware encoders whose filter chain already
+    /// fixes the format.
+    #[serde(default = "default_output_pixfmt")]
+    pub pixfmt: Option<String>,
+    /// Maximum number of B-frames passed to ffmpeg as `-bf`. Defaults to
+    /// [`DEFAULT_MAX_BFRAMES`] (`0`, i.e. disabled) so encoded video is decodable
+    /// by OpenH264. Set to `None` to let the encoder (or a `-bf` in the other arg
+    /// lists) decide.
+    #[serde(default = "default_max_bframes")]
+    pub max_bframes: Option<u32>,
+}
+
+impl Default for FfmpegCodecArgs {
+    fn default() -> Self {
+        Self {
+            device_args: None,
+            pre_codec_args: None,
+            codec: None,
+            post_codec_args: None,
+            pixfmt: default_output_pixfmt(),
+            max_bframes: default_max_bframes(),
+        }
+    }
 }
 
 impl std::fmt::Display for FfmpegCodecArgs {
@@ -446,8 +493,17 @@ impl std::fmt::Display for FfmpegCodecArgs {
             .as_ref()
             .map(|c| format!("-c:v {c}"))
             .unwrap_or_default();
+        let pixfmt = self
+            .pixfmt
+            .as_ref()
+            .map(|p| format!("-pix_fmt {p}"))
+            .unwrap_or_default();
+        let bframes = self
+            .max_bframes
+            .map(|n| format!("-bf {n}"))
+            .unwrap_or_default();
         let post = arg_fmt(self.post_codec_args.as_ref());
-        write!(f, "ffmpeg {pre} {codec} {post}")
+        write!(f, "ffmpeg {pre} {codec} {pixfmt} {bframes} {post}")
     }
 }
 
@@ -519,6 +575,11 @@ impl strand_cam_enum_iter::EnumIter for CodecSelection {
                 pre_codec_args: Some(vec![("-vf".into(), "format=nv12,hwupload".into())]),
                 codec: Some("h264_vaapi".to_string()),
                 post_codec_args: Some(vec![("-color_range".into(), "pc".into())]),
+                // The `format=nv12,hwupload` filter chain already fixes the
+                // format and the encoder works on hardware surfaces; forcing an
+                // output `-pix_fmt` here would conflict.
+                pixfmt: None,
+                max_bframes: Some(DEFAULT_MAX_BFRAMES),
             }),
             // x264 with defaults
             Ffmpeg(FfmpegCodecArgs {

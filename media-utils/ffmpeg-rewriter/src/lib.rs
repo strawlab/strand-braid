@@ -350,13 +350,17 @@ mod test {
                 pre_codec_args: None,
                 codec: Some("libx264".to_string()),
                 post_codec_args: Some(vec![
-                    ("-pix_fmt".to_string(), "yuv420p".to_string()),
                     ("-bf".to_string(), "3".to_string()),
                     (
                         "-x264-params".to_string(),
                         "b_adapt=0:scenecut=0:keyint=1000:min-keyint=1000".to_string(),
                     ),
                 ]),
+                pixfmt: Some("yuv420p".to_string()),
+                // This test deliberately forces B-frames via `-bf 3` in
+                // `post_codec_args` to exercise reordering, so do not emit the
+                // default `-bf 0`.
+                max_bframes: None,
             };
 
             let mut wtr = FfmpegReWriter::new(&mp4_fname, ffmpeg_codec_args, None, None)?;

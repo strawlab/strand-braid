@@ -62,6 +62,8 @@ impl MyFfmpegWriter {
             codec: args.codec.clone(),
             pre_codec_args: args.pre_codec_args.clone(),
             post_codec_args: args.post_codec_args.clone(),
+            pixfmt: args.pixfmt.clone(),
+            max_bframes: args.max_bframes,
         };
         use strand_cam_remote_control::RecordingFrameRate::*;
         let rate = match cfg.max_framerate {

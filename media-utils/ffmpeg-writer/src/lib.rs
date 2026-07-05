@@ -84,12 +84,48 @@ struct Running {
 
 type FfmpegCodecArgList = Option<Vec<(String, String)>>;
 
-#[derive(Debug, PartialEq, Clone, Default)]
+/// The default output pixel format. 4:2:0 chroma subsampling is the most widely
+/// decodable choice; in particular the built-in OpenH264 decoder only handles
+/// 4:2:0, so anything we might want to decode later must be encoded this way.
+/// Without forcing this, encoders like libx264 pick a format matching the input
+/// (e.g. `yuv444p` for RGB input), which OpenH264 cannot decode.
+const DEFAULT_OUTPUT_PIXFMT: &str = "yuv420p";
+
+/// The default maximum number of B-frames. OpenH264's decoder cannot decode
+/// streams containing B-frames (it exhausts its picture buffer with a
+/// "PrefetchPic ERROR"), so we disable them by default to keep our output
+/// decodable by OpenH264. 4:2:0 alone is not sufficient for that.
+const DEFAULT_MAX_BFRAMES: u32 = 0;
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct FfmpegCodecArgs {
     pub device_args: FfmpegCodecArgList,
     pub pre_codec_args: FfmpegCodecArgList,
     pub codec: Option<String>,
     pub post_codec_args: FfmpegCodecArgList,
+    /// Output pixel format passed to ffmpeg as `-pix_fmt`. Defaults to
+    /// [`DEFAULT_OUTPUT_PIXFMT`] (`yuv420p`). Set to `None` to let ffmpeg (or a
+    /// `-vf`/`-pix_fmt` in the other arg lists) decide, e.g. for hardware
+    /// encoders whose filter chain already fixes the format.
+    pub pixfmt: Option<String>,
+    /// Maximum number of B-frames passed to ffmpeg as `-bf`. Defaults to
+    /// [`DEFAULT_MAX_BFRAMES`] (`0`, i.e. disabled) so the output is decodable by
+    /// OpenH264. Set to `None` to let the encoder (or a `-bf` in the other arg
+    /// lists) decide.
+    pub max_bframes: Option<u32>,
+}
+
+impl Default for FfmpegCodecArgs {
+    fn default() -> Self {
+        Self {
+            device_args: None,
+            pre_codec_args: None,
+            codec: None,
+            post_codec_args: None,
+            pixfmt: Some(DEFAULT_OUTPUT_PIXFMT.to_string()),
+            max_bframes: Some(DEFAULT_MAX_BFRAMES),
+        }
+    }
 }
 
 fn prefix() -> Vec<String> {
@@ -122,6 +158,17 @@ impl FfmpegCodecArgs {
         let output_color_range = zq(&["-color_range", "pc"]);
         let input: Vec<String> = input_args.to_vec();
         let stdin_input = zq(&["-i", "-"]);
+        // Emit `-pix_fmt <fmt>` and `-bf <n>` for the output before
+        // `post_codec_args` so an explicit `-pix_fmt`/`-bf` in `post_codec_args`
+        // still takes precedence.
+        let output_pixfmt = match &self.pixfmt {
+            Some(pixfmt) => zq(&["-pix_fmt", pixfmt]),
+            None => vec![],
+        };
+        let output_bframes = match &self.max_bframes {
+            Some(max_bframes) => vec!["-bf".to_string(), max_bframes.to_string()],
+            None => vec![],
+        };
         if let Some(codec) = &self.codec {
             vec![
                 prefix(),
@@ -130,6 +177,8 @@ impl FfmpegCodecArgs {
                 stdin_input,
                 zq2(self.pre_codec_args.as_ref()),
                 zq(&[VIDEO_CODEC, codec]),
+                output_pixfmt,
+                output_bframes,
                 zq2(self.post_codec_args.as_ref()),
                 output_color_range,
             ]
@@ -137,7 +186,14 @@ impl FfmpegCodecArgs {
             assert_eq!(self.device_args, None);
             assert_eq!(self.pre_codec_args, None);
             assert_eq!(self.post_codec_args, None);
-            vec![prefix(), input, stdin_input, output_color_range]
+            vec![
+                prefix(),
+                input,
+                stdin_input,
+                output_pixfmt,
+                output_bframes,
+                output_color_range,
+            ]
         }
         .into_iter()
         .flatten()
@@ -152,6 +208,11 @@ impl FfmpegCodecArgs {
                 pre_codec_args: Some(vec![("-vf".into(), "format=nv12,hwupload".into())]),
                 codec: Some("h264_vaapi".to_string()),
                 post_codec_args: Some(vec![("-color_range".into(), "pc".into())]),
+                // The `format=nv12,hwupload` filter chain already fixes the
+                // format and the encoder works on hardware surfaces; forcing an
+                // output `-pix_fmt` here would conflict.
+                pixfmt: None,
+                max_bframes: Some(DEFAULT_MAX_BFRAMES),
             }),
             "videotoolbox" => Some(Self {
                 codec: Some("h264_videotoolbox".into()),
@@ -380,6 +441,48 @@ mod test {
     use machine_vision_formats::PixFmt;
     use strand_dynamic_frame::DynamicFrameOwned;
 
+    /// The default codec args force `-pix_fmt yuv420p` on the output (so the
+    /// result is decodable by OpenH264, which only supports 4:2:0), and that
+    /// pixel format appears after the codec but before `post_codec_args` so an
+    /// explicit `-pix_fmt` there can still override it. `None` omits it entirely.
+    #[test]
+    fn to_args_emits_output_pixfmt() {
+        let default_args = FfmpegCodecArgs {
+            codec: Some("libx264".to_string()),
+            ..Default::default()
+        };
+        let args = default_args.to_args(&[]);
+        let pixfmt_at = args.iter().position(|a| a == "-pix_fmt").unwrap();
+        assert_eq!(args[pixfmt_at + 1], "yuv420p");
+        let codec_at = args.iter().position(|a| a == "-c:v").unwrap();
+        assert!(codec_at < pixfmt_at, "pix_fmt must come after the codec");
+        // B-frames are disabled by default (OpenH264 cannot decode them).
+        let bf_at = args.iter().position(|a| a == "-bf").unwrap();
+        assert_eq!(args[bf_at + 1], "0");
+
+        // A `None` pixfmt/max_bframes emits no `-pix_fmt`/`-bf`.
+        let no_pixfmt = FfmpegCodecArgs {
+            codec: Some("libx264".to_string()),
+            pixfmt: None,
+            max_bframes: None,
+            ..Default::default()
+        };
+        let args = no_pixfmt.to_args(&[]);
+        assert!(!args.iter().any(|a| a == "-pix_fmt"));
+        assert!(!args.iter().any(|a| a == "-bf"));
+
+        // The struct pixfmt precedes post_codec_args, so an explicit `-pix_fmt`
+        // there is the last one and wins in ffmpeg.
+        let overridden = FfmpegCodecArgs {
+            codec: Some("libx264".to_string()),
+            post_codec_args: Some(vec![("-pix_fmt".into(), "yuv444p".into())]),
+            ..Default::default()
+        };
+        let args = overridden.to_args(&[]);
+        let last_pixfmt = args.iter().rposition(|a| a == "-pix_fmt").unwrap();
+        assert_eq!(args[last_pixfmt + 1], "yuv444p");
+    }
+
     /// One pixel format's lossless round-trip case.
     struct Case {
         pixfmt: PixFmt,
@@ -449,6 +552,12 @@ mod test {
         {
             let codec_args = FfmpegCodecArgs {
                 codec: Some(case.codec.to_string()),
+                // This test asserts a byte-exact lossless roundtrip in the
+                // frame's native pixel format, so we must NOT force an output
+                // `-pix_fmt` (which would convert the pixels) nor `-bf` (the
+                // rawvideo/ffv1 encoders reject it).
+                pixfmt: None,
+                max_bframes: None,
                 ..Default::default()
             };
             let mut wtr = FfmpegWriter::new(out_path.to_str().unwrap(), codec_args, None).unwrap();
