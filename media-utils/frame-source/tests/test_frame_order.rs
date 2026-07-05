@@ -1,76 +1,45 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Assert the ordering guarantee of the main iterator loop
-//! (`FrameDataSource::iter`) for H264 sources, including streams encoded with
-//! B-frames.
+//! Assert the ordering guarantees of the frame-source iterators for H264
+//! sources, including streams encoded with B-frames.
 //!
-//! ## What "in order" means here
+//! ## What the two iterators guarantee
 //!
-//! By design, `iter()` yields frames in **decode order** (the order the samples
-//! are stored in the stream), not presentation order. This is deliberate and
-//! relied upon downstream: e.g. `ffmpeg-rewriter` re-muxes by writing samples
-//! back in decode order and reconstructs presentation order itself from the
-//! per-sample composition offsets. Feeding an H264 decoder also requires decode
-//! order.
+//! `decode_order_iter()` yields frames in **decode order** (the order the
+//! samples are stored in the stream), not presentation order. This is
+//! deliberate and relied upon downstream: e.g. `ffmpeg-rewriter` re-muxes by
+//! writing samples back in decode order and reconstructs presentation order
+//! itself from the per-sample composition offsets, and feeding an H264 decoder
+//! also requires decode order. The concrete invariant is that frames come out
+//! in a strict, gap-free decode sequence -- `frame.idx()` is `0, 1, 2, ... N-1`
+//! in the order yielded. For B-frame streams the presentation timestamps (PTS)
+//! are *not* monotonic in this order (that is the whole point of B-frames).
 //!
-//! The concrete, testable invariant is therefore: frames come out in a strict,
-//! gap-free decode sequence -- `frame.idx()` is `0, 1, 2, ... N-1` in the order
-//! yielded, with none skipped, duplicated, or reordered. For B-frame streams the
-//! presentation timestamps (PTS) are *not* monotonic in this order (that is the
-//! whole point of B-frames); we assert instead that the reported PTS values form
-//! a valid presentation schedule -- distinct and, once sorted, strictly
-//! increasing -- and that the fixture genuinely exercises reordering.
+//! `presentation_order_iter()` yields frames in **presentation (display)
+//! order**, with monotonically increasing timestamps, recovered from the
+//! container PTS or the bitstream picture order count (POC).
 //!
-//! The fixtures are generated on the fly with `ffmpeg` (the same approach used
-//! by `mp4-writer`'s roundtrip test; CI installs ffmpeg for exactly this kind of
-//! test).
+//! ## Test fixtures
+//!
+//! The fixtures in `tests/data/` are short clips encoded with libx264 using
+//! B-frames (so decode order differs from presentation order). They are tiny
+//! (a few KB) and committed to the repo, so the tests need neither `ffmpeg` nor
+//! network access. They were generated with:
+//!
+//! ```text
+//! ffmpeg -y -v error -f lavfi -i testsrc=size=32x32:rate=10:duration=2 \
+//!     -c:v libx264 -bf 2 -g 10 -pix_fmt yuv420p \
+//!     -x264-params bframes=2:b-pyramid=normal tests/data/bframes.mp4
+//! ffmpeg <same args> -f h264 tests/data/bframes.h264
+//! ```
 
-use eyre::{Context, Result};
+use eyre::Result;
 
 use frame_source::{FrameData, Timestamp, TimestampSource};
 
-/// Run ffmpeg to encode a short, deterministic clip with B-frames, so decode
-/// order differs from presentation order. `extra_args` selects the container /
-/// bitstream format and output path.
-fn ffmpeg_encode(out_path: &std::path::Path, extra_args: &[&str]) -> Result<()> {
-    let out_str = format!("{}", out_path.display());
-    let mut args: Vec<&str> = vec![
-        "-y",
-        "-v",
-        "error",
-        "-f",
-        "lavfi",
-        "-i",
-        "testsrc=size=32x32:rate=10:duration=2",
-        "-c:v",
-        "libx264",
-        "-bf",
-        "2",
-        "-g",
-        "10",
-        "-pix_fmt",
-        "yuv420p",
-        "-x264-params",
-        "bframes=2:b-pyramid=normal",
-    ];
-    args.extend_from_slice(extra_args);
-    args.push(&out_str);
-
-    let output = std::process::Command::new("ffmpeg")
-        .args(&args)
-        .output()
-        .with_context(|| format!("When running: ffmpeg {:?}", args))?;
-    if !output.status.success() {
-        eyre::bail!(
-            "'ffmpeg {}' failed. stdout: {}, stderr: {}",
-            args.join(" "),
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
-    Ok(())
-}
+const MP4_FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data/bframes.mp4");
+const H264_FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data/bframes.h264");
 
 /// Assert the emitted frames form a strict, gap-free decode sequence: `idx()` is
 /// `0, 1, 2, ... N-1` in the order yielded.
@@ -91,13 +60,24 @@ fn assert_gap_free_decode_order(frames: &[FrameData]) {
     }
 }
 
+/// Assert the decode indices of `frames` are a permutation of `0..N`, and (since
+/// the fixtures use B-frames) that this permutation is not the identity -- i.e.
+/// reordering genuinely happened.
+fn assert_reordered_permutation(frames: &[FrameData]) {
+    let decode_indices: Vec<usize> = frames.iter().map(|f| f.idx()).collect();
+    let mut sorted = decode_indices.clone();
+    sorted.sort_unstable();
+    let expected: Vec<usize> = (0..frames.len()).collect();
+    assert_eq!(sorted, expected, "frames must be a permutation of 0..N");
+    assert_ne!(
+        decode_indices, expected,
+        "expected B-frame reordering, but presentation order equals decode order"
+    );
+}
+
 #[test]
 fn test_mp4_with_bframes_iterates_in_decode_order() -> Result<()> {
-    let tmpdir = tempfile::tempdir()?;
-    let path = tmpdir.path().join("bframes.mp4");
-    ffmpeg_encode(&path, &[])?;
-
-    let mut src = frame_source::FrameSourceBuilder::new(&path)
+    let mut src = frame_source::FrameSourceBuilder::new(MP4_FIXTURE)
         // We only care about frame ordering, not the decoded pixels.
         .do_decode_h264(false)
         .timestamp_source(TimestampSource::Mp4Pts)
@@ -143,11 +123,7 @@ fn test_mp4_with_bframes_iterates_in_decode_order() -> Result<()> {
 
 #[test]
 fn test_mp4_with_bframes_presentation_order_is_monotonic() -> Result<()> {
-    let tmpdir = tempfile::tempdir()?;
-    let path = tmpdir.path().join("bframes.mp4");
-    ffmpeg_encode(&path, &[])?;
-
-    let mut src = frame_source::FrameSourceBuilder::new(&path)
+    let mut src = frame_source::FrameSourceBuilder::new(MP4_FIXTURE)
         .do_decode_h264(false)
         .timestamp_source(TimestampSource::Mp4Pts)
         .build_source()?;
@@ -177,74 +153,15 @@ fn test_mp4_with_bframes_presentation_order_is_monotonic() -> Result<()> {
         );
     }
 
-    // Every source frame appears exactly once: the decode indices are a
-    // permutation of 0..N. Since the fixture has B-frames, that permutation must
-    // not be the identity (otherwise reordering did nothing).
-    let decode_indices: Vec<usize> = frames.iter().map(|f| f.idx()).collect();
-    let mut sorted = decode_indices.clone();
-    sorted.sort_unstable();
-    let expected: Vec<usize> = (0..frames.len()).collect();
-    assert_eq!(sorted, expected, "frames must be a permutation of 0..N");
-    assert_ne!(
-        decode_indices, expected,
-        "expected B-frame reordering, but presentation order equals decode order"
-    );
-
-    Ok(())
-}
-
-#[test]
-fn test_raw_h264_annexb_with_bframes_presentation_order_uses_poc() -> Result<()> {
-    let tmpdir = tempfile::tempdir()?;
-    let path = tmpdir.path().join("bframes.h264");
-    ffmpeg_encode(&path, &["-f", "h264"])?;
-
-    let mut src = frame_source::FrameSourceBuilder::new(&path)
-        .do_decode_h264(false)
-        .build_source()?;
-
-    // A raw Annex B stream carries no per-frame timestamps, so presentation
-    // order must be recovered from the bitstream POC. The restamped
-    // fraction-done "timestamp" must then increase monotonically, and the decode
-    // indices must be a non-identity permutation of 0..N.
-    let frames: Vec<FrameData> = src.presentation_order_iter()?.collect::<Result<_, _>>()?;
-    assert!(frames.len() > 2, "expected several frames");
-
-    let mut prev = -1.0f32;
-    for frame in &frames {
-        match frame.timestamp() {
-            Timestamp::Fraction(f) => {
-                assert!(
-                    f > prev,
-                    "fraction-done must increase in presentation order, got {f} after {prev}"
-                );
-                prev = f;
-            }
-            Timestamp::Duration(_) => eyre::bail!("expected fraction timestamps for raw Annex B"),
-        }
-    }
-
-    let decode_indices: Vec<usize> = frames.iter().map(|f| f.idx()).collect();
-    let mut sorted = decode_indices.clone();
-    sorted.sort_unstable();
-    let expected: Vec<usize> = (0..frames.len()).collect();
-    assert_eq!(sorted, expected, "frames must be a permutation of 0..N");
-    assert_ne!(
-        decode_indices, expected,
-        "expected B-frame reordering recovered from POC"
-    );
+    // Every source frame appears exactly once, in a non-identity permutation.
+    assert_reordered_permutation(&frames);
 
     Ok(())
 }
 
 #[test]
 fn test_raw_h264_annexb_with_bframes_iterates_in_decode_order() -> Result<()> {
-    let tmpdir = tempfile::tempdir()?;
-    let path = tmpdir.path().join("bframes.h264");
-    // Emit a raw Annex B elementary stream (no container).
-    ffmpeg_encode(&path, &["-f", "h264"])?;
-
-    let mut src = frame_source::FrameSourceBuilder::new(&path)
+    let mut src = frame_source::FrameSourceBuilder::new(H264_FIXTURE)
         .do_decode_h264(false)
         .build_source()?;
 
@@ -270,6 +187,38 @@ fn test_raw_h264_annexb_with_bframes_iterates_in_decode_order() -> Result<()> {
             }
         }
     }
+
+    Ok(())
+}
+
+#[test]
+fn test_raw_h264_annexb_with_bframes_presentation_order_uses_poc() -> Result<()> {
+    let mut src = frame_source::FrameSourceBuilder::new(H264_FIXTURE)
+        .do_decode_h264(false)
+        .build_source()?;
+
+    // A raw Annex B stream carries no per-frame timestamps, so presentation
+    // order must be recovered from the bitstream POC. The restamped
+    // fraction-done "timestamp" must then increase monotonically, and the decode
+    // indices must be a non-identity permutation of 0..N.
+    let frames: Vec<FrameData> = src.presentation_order_iter()?.collect::<Result<_, _>>()?;
+    assert!(frames.len() > 2, "expected several frames");
+
+    let mut prev = -1.0f32;
+    for frame in &frames {
+        match frame.timestamp() {
+            Timestamp::Fraction(f) => {
+                assert!(
+                    f > prev,
+                    "fraction-done must increase in presentation order, got {f} after {prev}"
+                );
+                prev = f;
+            }
+            Timestamp::Duration(_) => eyre::bail!("expected fraction timestamps for raw Annex B"),
+        }
+    }
+
+    assert_reordered_permutation(&frames);
 
     Ok(())
 }
