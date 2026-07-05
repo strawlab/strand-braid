@@ -1,3 +1,55 @@
+## 1.0.0-rc.5 - 2026-07-05
+
+### Added
+
+* Recording to ffmpeg (`ffmpeg -c:v libx264` and the other ffmpeg codecs) now
+  accepts color and Bayer input directly. Frames are piped to ffmpeg as raw
+  video in their native pixel format (Mono8, RGB8, YUV422, and the Bayer8
+  formats), letting ffmpeg do any conversion the encoder needs instead of
+  converting on our side. Previously RGB8/YUV422 were down-converted before
+  encoding and Bayer was rejected outright.
+* Added `mp4-bframe-doctor`, a command-line tool that inspects `.mp4` and raw
+  Annex B `.h264` files for B-frame timing problems. Its `check` command
+  diagnoses affected files using the bitstream picture order count (POC), and
+  its `fix` command repairs a file in place by reassigning the captured
+  timestamps to frames by display rank and writing correct `ctts` composition
+  offsets and a fresh SEI.
+
+### Changed
+
+* The default MP4 codec used when NVENC hardware encoding is unavailable is now
+  `ffmpeg -c:v libx264` instead of OpenH264.
+* ffmpeg H.264 output now defaults to 4:2:0 chroma (`-pix_fmt yuv420p`) with
+  B-frames disabled (`-bf 0`) so that the built-in OpenH264 decoder used across
+  the tools can play the resulting files. OpenH264's decoder supports neither
+  non-4:2:0 chroma nor B-frames; explicit codec-argument overrides still take
+  precedence.
+
+### Fixed
+
+* A failed MP4 recording (for example an unsupported pixel format, or an NVENC
+  session that fails to open on Blackwell GPUs) now aborts just the recording
+  instead of crashing the whole Strand Camera process
+  (https://github.com/strawlab/strand-braid/issues/29). The background
+  movie-writer error path no longer panics and poisons its error mutex on the
+  first error.
+* Reading H.264 out of MP4 files with the built-in OpenH264 decoder now works:
+  the SPS/PPS parameter sets stored in the MP4 `avcC` box are prepended ahead of
+  each IDR frame (they are not inline in the sample data as they are for Annex B
+  streams), which previously failed with `dsNoParamSets`. When a stream still
+  cannot be decoded, the failure hint now names the unsupported feature(s) —
+  non-4:2:0 chroma and/or B-frames — and recommends re-encoding with `-pix_fmt
+  yuv420p -bf 0`.
+* B-frame recordings written through the ffmpeg re-mux path now play back in the
+  correct order. `mp4-writer` can now carry per-sample decode durations and
+  composition offsets (`ctts`), so decode-order input is no longer scrambled
+  into an out-of-order presentation.
+* Entering fullscreen now fills the screen regardless of the selected video zoom
+  mode; previously a fixed zoom (e.g. 25%) kept the content at that pixel size
+  in fullscreen.
+* The keyboard focus ring on record/label widgets no longer appears when the
+  widget is clicked with the mouse (it now uses `:focus-visible`).
+
 ## 1.0.0-rc.4 - 2026-07-01
 
 ### Fixed
