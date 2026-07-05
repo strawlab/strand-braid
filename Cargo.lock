@@ -5551,7 +5551,6 @@ dependencies = [
  "memchr",
  "mkv-strand-reader",
  "mp4",
- "mp4-writer",
  "openh264",
  "serde",
  "serde_json",
@@ -8452,6 +8451,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "mp4-bframe-doctor"
+version = "1.0.0-rc.4"
+dependencies = [
+ "camino",
+ "chrono",
+ "clap",
+ "env-tracing-logger",
+ "eyre",
+ "frame-source",
+ "h264-reader",
+ "mp4-writer",
+ "strand-cam-remote-control",
+ "tracing",
+]
+
+[[package]]
 name = "mp4-writer"
 version = "0.1.0"
 dependencies = [
@@ -9537,9 +9552,9 @@ dependencies = [
 
 [[package]]
 name = "openh264"
-version = "0.8.1"
+version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fef0655e143954965073374f5390411131590d0bc793208aabf7c6785430fa00"
+checksum = "4a12b82c14f702c2cece4e0fc28896c6a6bed5317dc13448c86ac41df91a6f82"
 dependencies = [
  "openh264-sys2",
  "wide 0.7.33",
@@ -9547,9 +9562,9 @@ dependencies = [
 
 [[package]]
 name = "openh264-sys2"
-version = "0.8.1"
+version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ad97e73d98000c46623ec4719e4fd2d7f79076a75350af8ae3878abf682c071d"
+checksum = "fa9e072e9b270f3b291c80488dc160abc31ecc214ab3bfde937213cfd8c83b32"
 dependencies = [
  "cc",
  "nasm-rs",
