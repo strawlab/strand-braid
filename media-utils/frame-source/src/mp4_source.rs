@@ -67,7 +67,8 @@ impl SeekableH264Source for Mp4Source {
     }
 }
 
-pub(crate) fn from_reader_with_timestamp_source(
+/// Construct a frame source from an already-opened MP4 reader.
+pub fn from_reader_with_timestamp_source(
     mut mp4_reader: mp4::Mp4Reader<Box<dyn SeekRead + Send>>,
     do_decode_h264: bool,
     timestamp_source: crate::TimestampSource,
