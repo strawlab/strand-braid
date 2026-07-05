@@ -5557,6 +5557,7 @@ dependencies = [
  "serde_json",
  "strand-cam-remote-control",
  "strand-dynamic-frame",
+ "tempfile",
  "thiserror 2.0.18",
  "tiff 0.9.1",
  "tracing",
