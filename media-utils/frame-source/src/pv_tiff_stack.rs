@@ -66,7 +66,7 @@ impl FrameDataSource for PvTiffStack {
     fn height(&self) -> u32 {
         self.height
     }
-    fn iter<'a>(&'a mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a> {
+    fn decode_order_iter<'a>(&'a mut self) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a> {
         Box::new(ImageStackIter::new(self))
     }
     fn skip_n_frames(&mut self, n_frames: usize) -> Result<()> {
@@ -86,7 +86,7 @@ impl FrameDataSource for PvTiffStack {
         let n_images = self.paths.len().min(5);
         let step_size = self.paths.len() / n_images;
         let (mut low, mut high) = self.tiff_image0.luminance_range()?;
-        for this_frame in self.iter().step_by(step_size) {
+        for this_frame in self.decode_order_iter().step_by(step_size) {
             let image = match this_frame?.image {
                 ImageData::Tiff(image) => image,
                 _ => {

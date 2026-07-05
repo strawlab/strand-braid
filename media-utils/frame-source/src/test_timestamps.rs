@@ -65,7 +65,7 @@ fn test_h264_precision_timestamps() -> Result<()> {
     assert_eq!(src.height(), H);
     assert_eq!(src.frame0_time().unwrap(), start);
 
-    for (frame, expected_pts) in src.iter().zip(ptss.iter()) {
+    for (frame, expected_pts) in src.decode_order_iter().zip(ptss.iter()) {
         let frame = frame?;
         match frame.timestamp() {
             crate::Timestamp::Duration(actual_pts) => {

@@ -391,7 +391,7 @@ fn load_frames<H: SeekableH264Source>(
     reader.seed_from_container(src, path)?;
 
     let mut frames = Vec::new();
-    for frame in src.iter() {
+    for frame in src.decode_order_iter() {
         let frame = frame?;
         let pts_ns = frame.timestamp().unwrap_duration().as_nanos() as i64;
         let nals = frame_nals(frame)?;
@@ -564,7 +564,7 @@ fn load_for_fix<H: SeekableH264Source>(
     reader.seed_from_container(src, path)?;
 
     let mut frames = Vec::new();
-    for frame in src.iter() {
+    for frame in src.decode_order_iter() {
         let frame = frame?;
         let pts_ns = frame.timestamp().unwrap_duration().as_nanos() as i64;
         let nals = frame_nals(frame)?;

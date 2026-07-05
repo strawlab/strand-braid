@@ -103,7 +103,7 @@ fn test_mp4_with_bframes_iterates_in_decode_order() -> Result<()> {
         .timestamp_source(TimestampSource::Mp4Pts)
         .build_source()?;
 
-    let frames: Vec<FrameData> = src.iter().collect::<Result<_, _>>()?;
+    let frames: Vec<FrameData> = src.decode_order_iter().collect::<Result<_, _>>()?;
 
     // Core invariant: strict, gap-free decode order.
     assert_gap_free_decode_order(&frames);
@@ -152,7 +152,7 @@ fn test_raw_h264_annexb_with_bframes_iterates_in_decode_order() -> Result<()> {
         .do_decode_h264(false)
         .build_source()?;
 
-    let frames: Vec<FrameData> = src.iter().collect::<Result<_, _>>()?;
+    let frames: Vec<FrameData> = src.decode_order_iter().collect::<Result<_, _>>()?;
 
     // A raw Annex B stream carries no per-frame timestamps, so the only ordering
     // guarantee is the strict, gap-free decode sequence. The "timestamp" is a

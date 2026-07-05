@@ -545,7 +545,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             Duration::from_nanos((frame_interval_msec * 1_000_000.0) as u64)
         } else {
             let timestamps: Vec<Duration> = src
-                .iter()
+                .decode_order_iter()
                 .take(N_FRAMES_TO_COMPUTE_FPS)
                 .map(|frame_data| frame_data.map(|x| x.timestamp().unwrap_duration()))
                 .collect::<frame_source::Result<Vec<Duration>>>()?;
@@ -646,7 +646,7 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         hdr_lum_range = Some((min, max));
     }
 
-    let mut stack_iter = src.iter();
+    let mut stack_iter = src.decode_order_iter();
 
     h264_metadata.creation_time = frame0_time;
 

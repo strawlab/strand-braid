@@ -550,7 +550,7 @@ pub async fn run_config(
 
             let title: Option<String> = frame_source.camera_name().map(Into::into);
 
-            let reader = Some(Peek2::new(frame_source.iter()));
+            let reader = Some(Peek2::new(frame_source.decode_order_iter()));
 
             let full_path = std::path::PathBuf::from(&s.filename);
 

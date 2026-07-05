@@ -168,7 +168,7 @@ impl FfmpegReWriter {
         let sample_timing: Option<Vec<_>> = frame_src.mp4_sample_timing().map(|t| t.to_vec());
 
         let mut count = 0;
-        for frame in frame_src.iter() {
+        for frame in frame_src.decode_order_iter() {
             let frame = frame?;
             let timestamp = frame0_time + frame.timestamp().unwrap_duration();
             let idx = frame.idx();
@@ -290,7 +290,7 @@ mod test {
         // carries each frame's own capture time regardless of decode order.
         // (Correct playback *ordering* is covered by the end-to-end smoke test.)
         let mut got: Vec<_> = Vec::new();
-        for frame in frame_src.iter() {
+        for frame in frame_src.decode_order_iter() {
             let frame = frame?;
             got.push(frame0_time + frame.timestamp().unwrap_duration());
         }
@@ -408,7 +408,7 @@ mod test {
 
         // Collect the SEI capture time for each sample, in decode order.
         let mut sei_times = vec![None; n_frames];
-        for frame in frame_src.iter() {
+        for frame in frame_src.decode_order_iter() {
             let frame = frame?;
             sei_times[frame.idx()] = Some(frame0_time + frame.timestamp().unwrap_duration());
         }

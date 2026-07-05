@@ -32,7 +32,7 @@ fn main() -> Result<()> {
     let _height = frame_src.height();
 
     let mut count = 0;
-    for frame in frame_src.iter() {
+    for frame in frame_src.decode_order_iter() {
         let frame = frame?;
         let _data = match frame.image() {
             frame_source::ImageData::EncodedH264(data) => &data.data,
