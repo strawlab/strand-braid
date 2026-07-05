@@ -99,7 +99,7 @@ CSS custom properties defined in `_tokens.scss`. Components reference those
     .btn:focus-visible,
     input:focus-visible,
     textarea:focus-visible,
-    label:focus-within {
+    label:has(:focus-visible) {
         outline: 2px solid var(--accent);
         outline-offset: 1px;
     }
