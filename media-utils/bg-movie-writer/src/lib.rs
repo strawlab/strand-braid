@@ -34,6 +34,10 @@ pub enum Error {
     FilenameDoesNotEndWithMp4,
     #[error("ffmpeg rewriter error {0}")]
     FfmpegReWriterError(#[from] ffmpeg_rewriter::Error),
+    #[error("error loading CUDA or nvidia-encode: {0}")]
+    NvEncLoad(String),
+    #[error("error starting nvidia-encode: {0}")]
+    NvEncStart(String),
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -42,7 +46,9 @@ type Result<T> = std::result::Result<T, Error>;
 /// thread.
 macro_rules! poll_err {
     ($err_rx: expr_2021) => {{
-        if let Some(e) = $err_rx.lock().unwrap().take() {
+        // Recover from a poisoned lock rather than panicking: a panic here
+        // would propagate out of `write`/`finish` and take down the process.
+        if let Some(e) = $err_rx.lock().unwrap_or_else(|e| e.into_inner()).take() {
             return Err(e);
         }
     }};
@@ -132,8 +138,11 @@ impl BgMovieWriter {
         // block on sending, a full channel could cause the finish message to be
         // dropped.
         std::thread::spawn(move || {
-            // If the receiver has disconnected, this will panic.
-            tx.send(Msg::Finish).unwrap();
+            // If the receiver has disconnected (e.g. the writer thread already
+            // exited after an error), there is nothing to finish. Do not panic.
+            if tx.send(Msg::Finish).is_err() {
+                tracing::debug!("writer thread already gone; nothing to finish");
+            }
         });
         Ok(())
     }
@@ -142,4 +151,47 @@ impl BgMovieWriter {
 pub(crate) enum Msg {
     Write((Arc<DynamicFrameOwned>, chrono::DateTime<chrono::Local>)),
     Finish,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use machine_vision_formats::PixFmt;
+    use strand_dynamic_frame::DynamicFrameOwned;
+
+    /// Regression test: a writer error in the background thread must be
+    /// reported as an `Err` from the launcher-side methods, never as a panic.
+    ///
+    /// Previously the error-reporting path panicked on the first error (and
+    /// poisoned the shared error mutex), which propagated out and took down the
+    /// whole process. Here we force `create_writer` to fail inside the worker
+    /// thread by giving the ffmpeg writer a filename that does not end in
+    /// `.mp4` (this fails before any external `ffmpeg` process is spawned).
+    #[test]
+    fn writer_error_is_reported_without_panic() {
+        let cfg = strand_cam_remote_control::RecordingConfig::default();
+        let bad_path = std::env::temp_dir().join("bg_movie_writer_test.not_mp4");
+        let mut wtr = BgMovieWriter::new(cfg, 10, bad_path);
+
+        let frame =
+            Arc::new(DynamicFrameOwned::from_buf(4, 4, 4, vec![0u8; 16], PixFmt::Mono8).unwrap());
+        let ts = chrono::Local::now();
+
+        // Enqueue frames until the worker's error surfaces on the launcher
+        // side. This must arrive as an `Err`, never as a panic.
+        let mut got_err = false;
+        for _ in 0..200 {
+            if wtr.write(frame.clone(), ts).is_err() {
+                got_err = true;
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        assert!(got_err, "expected the writer error to be reported");
+
+        // Further calls must still behave gracefully (the mutex must not be
+        // poisoned) and must not panic.
+        let _ = wtr.write(frame, ts);
+        wtr.finish().unwrap();
+    }
 }

@@ -27,8 +27,11 @@ macro_rules! thread_try {
                 tracing::error!("{e}");
                 // Clarify type
                 let x: Arc<Mutex<Option<_>>> = $xx;
-                // Send error. Panic if lock fails or previous error not sent.
-                x.lock().unwrap().replace(e.into()).unwrap();
+                // Store the error so the launcher can poll it. Recover from a
+                // poisoned lock rather than panicking (a panic here would poison
+                // the mutex and take down the whole process); overwriting any
+                // previous unpolled error is fine, we only report the latest.
+                *x.lock().unwrap_or_else(|e| e.into_inner()) = Some(e.into());
                 return; // Exit the thread.
             }
         }
@@ -122,30 +125,20 @@ fn create_writer<'a>(
 
             let nv_enc = match &mp4_recording_config.codec {
                 strand_cam_remote_control::Mp4Codec::H264NvEnc(_opts) => {
-                    // Now we know nvidia-encode is wanted, so
-                    // here we panic if this is not possible. In
-                    // the UI, users should not be able to choose
-                    // nvidia h264 unless CUDA devices are
-                    // available, so the panic should actually never
-                    // happen.
+                    // Now we know nvidia-encode is wanted. In the UI, users
+                    // should not be able to choose nvidia h264 unless CUDA
+                    // devices are available, so failure here is unexpected -
+                    // but on some hardware (e.g. Blackwell GPUs with bindings
+                    // built against an older Video Codec SDK) opening the
+                    // encode session fails. Return an error rather than
+                    // panicking so the recording can be aborted gracefully
+                    // while the camera keeps running.
                     match &libs_result {
                         Ok(libs) => match nvenc::NvEnc::new(libs) {
                             Ok(nv_enc) => Some(nv_enc),
-                            Err(e) => {
-                                panic!(
-                                    "Error while starting \
-                                        nvidia-encode: {}",
-                                    e
-                                );
-                            }
+                            Err(e) => return Err(Error::NvEncStart(e.to_string())),
                         },
-                        Err(e) => {
-                            panic!(
-                                "Error while loading \
-                                CUDA or nvidia-encode: {}",
-                                e
-                            );
-                        }
+                        Err(e) => return Err(Error::NvEncLoad(e.to_string())),
                     }
                 }
                 _ => None,

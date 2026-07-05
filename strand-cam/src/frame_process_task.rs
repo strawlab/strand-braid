@@ -118,6 +118,22 @@ pub(crate) async fn frame_process_task<'a>(
     let mut apriltag_writer: Option<_> = None;
     let mut my_mp4_writer: Option<bg_movie_writer::BgMovieWriter> = None;
     let mut fmf_writer: Option<FmfWriteInfo<_>> = None;
+
+    // Abort an in-progress MP4 recording without taking down acquisition: log
+    // the error, drop the writer, and clear the recording state so the UI
+    // reflects that recording stopped. The camera keeps running.
+    macro_rules! abort_mp4_recording {
+        ($err:expr, $writer:expr, $store:expr) => {{
+            tracing::error!("aborting MP4 recording: {}", $err);
+            $writer = None;
+            if let Some(ref mut store) = $store {
+                let mut tracker = store.write().unwrap();
+                tracker.modify(|tracker| {
+                    tracker.is_recording_mp4 = None;
+                });
+            }
+        }};
+    }
     #[cfg(feature = "flydra_feat_detect")]
     let mut ufmf_state = Some(flydra_feature_detector::UfmfState::Stopped);
     #[cfg(feature = "flydra_feat_detect")]
@@ -541,6 +557,7 @@ pub(crate) async fn frame_process_task<'a>(
                     frames.len() + 100,
                     mp4_path,
                 );
+                let mut write_err = None;
                 for frame in frames.into_iter() {
                     let clipped = {
                         // Force frame width to be power of 2.
@@ -575,15 +592,26 @@ pub(crate) async fn frame_process_task<'a>(
                     let mp4_timestamp = braid_ts
                         .map(Into::into)
                         .unwrap_or(clipped.host_timing.datetime);
-                    raw.write(clipped.image, mp4_timestamp)?;
+                    if let Err(e) = raw.write(clipped.image, mp4_timestamp) {
+                        write_err = Some(e);
+                        break;
+                    }
                 }
-                my_mp4_writer = Some(raw);
 
-                if let Some(ref mut store) = shared_store_arc {
-                    let mut tracker = store.write().unwrap();
-                    tracker.modify(|tracker| {
-                        tracker.is_recording_mp4 = is_recording_mp4;
-                    });
+                if let Some(e) = write_err {
+                    // Writing the buffered frames failed (e.g. the codec could
+                    // not be initialized). Abort the recording but keep the
+                    // camera running.
+                    abort_mp4_recording!(e, my_mp4_writer, shared_store_arc);
+                } else {
+                    my_mp4_writer = Some(raw);
+
+                    if let Some(ref mut store) = shared_store_arc {
+                        let mut tracker = store.write().unwrap();
+                        tracker.modify(|tracker| {
+                            tracker.is_recording_mp4 = is_recording_mp4;
+                        });
+                    }
                 }
             }
             Msg::StartAprilTagRec(format_str_apriltags_csv) => {
@@ -1320,7 +1348,11 @@ pub(crate) async fn frame_process_task<'a>(
 
                 if let Some(ref mut inner) = my_mp4_writer {
                     let data = frame.image.clone(); // clones the Arc, not image data
-                    inner.write(data, save_mp4_fmf_stamp)?;
+                    if let Err(e) = inner.write(data, save_mp4_fmf_stamp) {
+                        // Drop the mutable borrow of `my_mp4_writer` before the
+                        // macro reassigns it.
+                        abort_mp4_recording!(e, my_mp4_writer, shared_store_arc);
+                    }
                 }
 
                 if let Some(ref mut inner) = fmf_writer {
@@ -1519,7 +1551,12 @@ pub(crate) async fn frame_process_task<'a>(
             }
             Msg::StopMp4 => {
                 if let Some(mut inner) = my_mp4_writer.take() {
-                    inner.finish()?;
+                    // Finishing may fail (e.g. a deferred writer error surfaces
+                    // here). Log it but keep the camera running; the recording
+                    // state is cleared below regardless.
+                    if let Err(e) = inner.finish() {
+                        tracing::error!("error finishing MP4 recording: {e}");
+                    }
                 }
                 if let Some(ref mut store) = shared_store_arc {
                     let mut tracker = store.write().unwrap();
