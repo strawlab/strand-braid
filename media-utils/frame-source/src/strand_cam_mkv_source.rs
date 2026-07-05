@@ -294,6 +294,9 @@ impl<R: Read + Seek> StrandCamMkvSource<R> {
             image,
             buf_len: bd.size,
             idx,
+            // The MKV reader does not reconstruct picture order count, so this
+            // source relies on the default (identity) `presentation_order_iter`.
+            poc: None,
         })
     }
 }

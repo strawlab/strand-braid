@@ -215,8 +215,11 @@ fn main() -> Result<()> {
 
         let mut prev_timestamp: Option<frame_source::Timestamp> = None;
 
+        // Report frames in presentation (display) order so timestamp deltas are
+        // meaningful and any SRT output has monotonic timings (decode order
+        // differs for B-frame streams).
         let mut count = 0;
-        for frame in src.decode_order_iter() {
+        for frame in src.presentation_order_iter()? {
             let frame = frame?;
 
             if let Some(pb) = pb.as_mut() {

@@ -41,6 +41,7 @@ impl Iterator for FmfSourceIter {
                     timestamp,
                     buf_len,
                     idx,
+                    poc: None,
                 })
             }
             Err(e) => Err(e.into()),

@@ -30,18 +30,12 @@
 use camino::Utf8PathBuf;
 use clap::{Parser, Subcommand};
 use eyre::{Context, Result, bail, eyre};
+use h264_reader::nal::{Nal, RefNal, UnitType};
+
 use frame_source::{
     FrameDataSource,
+    h264_poc::PocReader,
     h264_source::{H264Source, SeekableH264Source},
-};
-use h264_reader::{
-    Context as H264ParsingContext,
-    nal::{
-        Nal, RefNal, UnitType,
-        pps::PicParameterSet,
-        slice::{PicOrderCountLsb, SliceHeader},
-        sps::{PicOrderCntType, SeqParameterSet},
-    },
 };
 use strand_cam_remote_control::{Mp4Codec, Mp4RecordingConfig, RecordingFrameRate};
 
@@ -88,110 +82,6 @@ struct LoadedFrame {
     poc: i64,
 }
 
-/// Reconstructs picture order count (POC) for `pic_order_cnt_type == 0`
-/// streams (ITU-T H.264 §8.2.1.1), which covers essentially all cameras and
-/// software/hardware H.264 encoders in practice.
-struct PocDecoder {
-    max_poc_lsb: i64,
-    prev_poc_msb: i64,
-    prev_poc_lsb: i64,
-}
-
-impl PocDecoder {
-    fn new(log2_max_pic_order_cnt_lsb_minus4: u8) -> Self {
-        Self {
-            max_poc_lsb: 1i64 << (log2_max_pic_order_cnt_lsb_minus4 as i64 + 4),
-            prev_poc_msb: 0,
-            prev_poc_lsb: 0,
-        }
-    }
-
-    /// Feed the next sample's slice header info, in decode order, and get
-    /// back its POC.
-    fn next_poc(&mut self, is_idr: bool, nal_ref_idc: u8, poc_lsb: i64) -> i64 {
-        if is_idr {
-            self.prev_poc_msb = 0;
-            self.prev_poc_lsb = 0;
-        }
-
-        let half_max = self.max_poc_lsb / 2;
-        let poc_msb = if poc_lsb < self.prev_poc_lsb && (self.prev_poc_lsb - poc_lsb) >= half_max {
-            self.prev_poc_msb + self.max_poc_lsb
-        } else if poc_lsb > self.prev_poc_lsb && (poc_lsb - self.prev_poc_lsb) > half_max {
-            self.prev_poc_msb - self.max_poc_lsb
-        } else {
-            self.prev_poc_msb
-        };
-
-        let poc = poc_msb + poc_lsb;
-
-        // Only reference pictures participate in the prevPicOrderCnt chain.
-        if nal_ref_idc != 0 {
-            self.prev_poc_msb = poc_msb;
-            self.prev_poc_lsb = poc_lsb;
-        }
-
-        poc
-    }
-}
-
-/// How each frame's picture order count is obtained, selected from the SPS's
-/// `pic_order_cnt_type`.
-enum PocStrategy {
-    /// `pic_order_cnt_type == 0`: read `pic_order_cnt_lsb` from every slice and
-    /// unwrap it (this is the type that can carry B-frame reordering).
-    FromSliceLsb(PocDecoder),
-    /// `pic_order_cnt_type == 2`: the bitstream guarantees decode order equals
-    /// display order (ITU-T H.264 §8.2.1.3 — no reordering is possible), so the
-    /// POC simply follows decode order.
-    DecodeOrder { next: i64 },
-}
-
-/// Parse an SPS NAL and determine the POC strategy from its
-/// `pic_order_cnt_type`. Types 0 and 2 are supported; type 1 (rare, delta-based)
-/// is not.
-fn parse_sps(nal: &RefNal<'_>, path: &Utf8PathBuf) -> Result<(SeqParameterSet, PocStrategy)> {
-    let sps = SeqParameterSet::from_bits(nal.rbsp_bits()).map_err(|e| eyre!("bad SPS: {e:?}"))?;
-    let strategy = match sps.pic_order_cnt {
-        PicOrderCntType::TypeZero {
-            log2_max_pic_order_cnt_lsb_minus4,
-        } => PocStrategy::FromSliceLsb(PocDecoder::new(log2_max_pic_order_cnt_lsb_minus4)),
-        PicOrderCntType::TypeTwo => PocStrategy::DecodeOrder { next: 0 },
-        PicOrderCntType::TypeOne { .. } => {
-            bail!("\"{path}\" uses pic_order_cnt_type 1, which this tool doesn't support yet")
-        }
-    };
-    Ok((sps, strategy))
-}
-
-/// Extract (is_idr, nal_ref_idc, pic_order_cnt_lsb) from the first slice NAL
-/// unit in a decoded sample.
-fn read_slice_poc_lsb(ctx: &H264ParsingContext, nals: &[Vec<u8>]) -> Result<(bool, u8, i64)> {
-    for nal_bytes in nals {
-        let nal = RefNal::new(nal_bytes, &[], true);
-        let header = nal.header().map_err(|e| eyre!("bad NAL header: {e:?}"))?;
-        let unit_type = header.nal_unit_type();
-        if !matches!(
-            unit_type,
-            UnitType::SliceLayerWithoutPartitioningIdr
-                | UnitType::SliceLayerWithoutPartitioningNonIdr
-        ) {
-            continue;
-        }
-        let is_idr = unit_type == UnitType::SliceLayerWithoutPartitioningIdr;
-        let mut r = nal.rbsp_bits();
-        let (slice_header, _sps, _pps) = SliceHeader::from_bits(ctx, &mut r, header)
-            .map_err(|e| eyre!("bad slice header: {e:?}"))?;
-        let poc_lsb = match slice_header.pic_order_cnt_lsb {
-            Some(PicOrderCountLsb::Frame(lsb)) => lsb as i64,
-            Some(_) => bail!("field pictures are not supported"),
-            None => bail!("slice has no pic_order_cnt_lsb (unsupported pic_order_cnt_type)"),
-        };
-        return Ok((is_idr, header.nal_ref_idc(), poc_lsb));
-    }
-    bail!("sample has no slice NAL unit")
-}
-
 /// Failure loading a timing series for one timestamp source.
 enum LoadError {
     /// The file simply lacks the requested per-frame timestamps (e.g. a plain
@@ -217,11 +107,11 @@ fn load(
     match path.extension().map(|e| e.to_lowercase()).as_deref() {
         Some("mp4") => {
             let mut src = builder.build_h264_in_mp4_source().map_err(build_err)?;
-            load_frames(&mut src, path).map_err(LoadError::Other)
+            load_frames(&mut src).map_err(LoadError::Other)
         }
         Some("h264") => {
             let mut src = builder.build_h264_annexb_source().map_err(build_err)?;
-            load_frames(&mut src, path).map_err(LoadError::Other)
+            load_frames(&mut src).map_err(LoadError::Other)
         }
         _ => Err(LoadError::Other(eyre!(
             "\"{path}\": unsupported extension (expected .mp4 or .h264)"
@@ -287,89 +177,6 @@ fn check_file(path: &Utf8PathBuf) -> Result<Vec<SourceCheck>> {
     Ok(checks)
 }
 
-/// Accumulates the H.264 parsing context (SPS/PPS) and the POC decoder as
-/// samples are read, so both [`check`](cmd_check) and [`fix`](cmd_fix) can
-/// reconstruct each frame's picture order count the same way.
-struct PocReader {
-    ctx: H264ParsingContext,
-    // The POC strategy comes from the SPS's `pic_order_cnt_type`, so it can only
-    // be chosen once an SPS has been seen. MP4 keeps SPS/PPS in the container;
-    // Annex B streams carry them inline (picked up per-frame).
-    strategy: Option<PocStrategy>,
-}
-
-impl PocReader {
-    fn new() -> Self {
-        Self {
-            ctx: H264ParsingContext::default(),
-            strategy: None,
-        }
-    }
-
-    /// Record an SPS: feed it to the parsing context and, on the first one, fix
-    /// the POC strategy from its `pic_order_cnt_type`.
-    fn put_sps(&mut self, nal: &RefNal<'_>, path: &Utf8PathBuf) -> Result<()> {
-        let (sps, strategy) = parse_sps(nal, path)?;
-        if self.strategy.is_none() {
-            self.strategy = Some(strategy);
-        }
-        self.ctx.put_seq_param_set(sps);
-        Ok(())
-    }
-
-    /// Seed SPS/PPS from container-level metadata (MP4). No-op for Annex B,
-    /// which carries them inline (handled in [`Self::poc_for_frame`]).
-    fn seed_from_container<H: SeekableH264Source>(
-        &mut self,
-        src: &H264Source<H>,
-        path: &Utf8PathBuf,
-    ) -> Result<()> {
-        if let Some(sps_bytes) = src.as_seekable_h264_source().first_sps() {
-            let nal = RefNal::new(&sps_bytes, &[], true);
-            self.put_sps(&nal, path)?;
-        }
-        if let Some(pps_bytes) = src.as_seekable_h264_source().first_pps() {
-            let nal = RefNal::new(&pps_bytes, &[], true);
-            let pps = PicParameterSet::from_bits(&self.ctx, nal.rbsp_bits())
-                .map_err(|e| eyre!("bad PPS: {e:?}"))?;
-            self.ctx.put_pic_param_set(pps);
-        }
-        Ok(())
-    }
-
-    /// Feed any inline SPS/PPS (Annex B) carried with this frame, then return
-    /// the frame's POC.
-    fn poc_for_frame(&mut self, nals: &[Vec<u8>], path: &Utf8PathBuf) -> Result<i64> {
-        for nal_bytes in nals {
-            let nal = RefNal::new(nal_bytes, &[], true);
-            let Ok(header) = nal.header() else { continue };
-            match header.nal_unit_type() {
-                UnitType::SeqParameterSet => self.put_sps(&nal, path)?,
-                UnitType::PicParameterSet => {
-                    let pps = PicParameterSet::from_bits(&self.ctx, nal.rbsp_bits())
-                        .map_err(|e| eyre!("bad PPS: {e:?}"))?;
-                    self.ctx.put_pic_param_set(pps);
-                }
-                _ => {}
-            }
-        }
-        // `self.ctx` and `self.strategy` are disjoint fields, so the immutable
-        // borrow of the context and the mutable borrow of the decoder coexist.
-        match &mut self.strategy {
-            None => bail!("\"{path}\": slice data appeared before any SPS"),
-            Some(PocStrategy::FromSliceLsb(decoder)) => {
-                let (is_idr, nal_ref_idc, poc_lsb) = read_slice_poc_lsb(&self.ctx, nals)?;
-                Ok(decoder.next_poc(is_idr, nal_ref_idc, poc_lsb))
-            }
-            Some(PocStrategy::DecodeOrder { next }) => {
-                let poc = *next;
-                *next += 1;
-                Ok(poc)
-            }
-        }
-    }
-}
-
 /// Extract the raw-EBSP NAL units of one decoded (non-decoded) H.264 sample.
 fn frame_nals(frame: frame_source::FrameData) -> Result<Vec<Vec<u8>>> {
     match frame.into_image() {
@@ -383,19 +190,16 @@ fn frame_nals(frame: frame_source::FrameData) -> Result<Vec<Vec<u8>>> {
 
 /// Reconstruct picture order count (POC) and read the SEI capture time for
 /// every sample of an already-opened H.264 source.
-fn load_frames<H: SeekableH264Source>(
-    src: &mut H264Source<H>,
-    path: &Utf8PathBuf,
-) -> Result<Vec<LoadedFrame>> {
+fn load_frames<H: SeekableH264Source>(src: &mut H264Source<H>) -> Result<Vec<LoadedFrame>> {
     let mut reader = PocReader::new();
-    reader.seed_from_container(src, path)?;
+    reader.seed_from_container(src)?;
 
     let mut frames = Vec::new();
     for frame in src.decode_order_iter() {
         let frame = frame?;
         let pts_ns = frame.timestamp().unwrap_duration().as_nanos() as i64;
         let nals = frame_nals(frame)?;
-        let poc = reader.poc_for_frame(&nals, path)?;
+        let poc = reader.poc_for_frame(&nals)?;
         frames.push(LoadedFrame { pts_ns, poc });
     }
 
@@ -561,14 +365,14 @@ fn load_for_fix<H: SeekableH264Source>(
         .ok_or_else(|| eyre!("\"{path}\": source has no frame0 time"))?;
 
     let mut reader = PocReader::new();
-    reader.seed_from_container(src, path)?;
+    reader.seed_from_container(src)?;
 
     let mut frames = Vec::new();
     for frame in src.decode_order_iter() {
         let frame = frame?;
         let pts_ns = frame.timestamp().unwrap_duration().as_nanos() as i64;
         let nals = frame_nals(frame)?;
-        let poc = reader.poc_for_frame(&nals, path)?;
+        let poc = reader.poc_for_frame(&nals)?;
         frames.push(FixFrame { pts_ns, poc, nals });
     }
 
@@ -773,32 +577,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_sps_selects_strategy_by_pic_order_cnt_type() {
-        // Real SPS NAL units (EBSP, including the NAL header byte) captured from
-        // sample recordings. `pic_order_cnt_type == 0` (explicit poc_lsb, can
-        // carry B-frame reordering) vs `== 2` (decode order == display order).
-        const SPS_TYPE0: &[u8] = &[
-            0x67, 0xf4, 0x00, 0x28, 0x91, 0x9b, 0x28, 0x0f, 0x00, 0x44, 0xfc, 0x4c, 0xd9, 0x00,
-            0x00, 0x03, 0x00, 0x01, 0x00, 0x00, 0x03, 0x00, 0x32, 0x0f, 0x18, 0x31, 0x96,
-        ];
-        const SPS_TYPE2: &[u8] = &[
-            0x67, 0x64, 0x44, 0x28, 0xac, 0x4d, 0x00, 0xf0, 0x04, 0x4f, 0xcb, 0x34, 0xb7, 0x00,
-            0x00, 0x03, 0x00, 0x01, 0x00, 0x00, 0x03, 0x00, 0x3c, 0x0f, 0x08, 0x84, 0x6a,
-        ];
-        let path = Utf8PathBuf::from("test.mp4");
-        let (_, s0) = parse_sps(&RefNal::new(SPS_TYPE0, &[], true), &path).unwrap();
-        assert!(
-            matches!(s0, PocStrategy::FromSliceLsb(_)),
-            "pic_order_cnt_type 0 should read poc_lsb from slices"
-        );
-        let (_, s2) = parse_sps(&RefNal::new(SPS_TYPE2, &[], true), &path).unwrap();
-        assert!(
-            matches!(s2, PocStrategy::DecodeOrder { .. }),
-            "pic_order_cnt_type 2 should fall back to decode order"
-        );
-    }
-
-    #[test]
     fn analyze_flags_sei_inconsistent_with_poc() {
         // Bitstream POC says the true display order is 0,2,3,1 (by index),
         // but the SEI timestamps just increase in decode order regardless -
@@ -831,36 +609,6 @@ mod tests {
         ];
         let analysis = analyze(&frames);
         assert!(!analysis.is_broken());
-    }
-
-    #[test]
-    fn poc_decoder_handles_simple_ipbb_gop() {
-        let mut dec = PocDecoder::new(4); // MaxPicOrderCntLsb = 256
-        // I(ref), P(ref), B(non-ref), B(non-ref), repeating POC pattern
-        // typical of an IBBP-style GOP with POC step 2 per displayed frame.
-        assert_eq!(dec.next_poc(true, 1, 0), 0); // I, poc 0
-        assert_eq!(dec.next_poc(false, 1, 6), 6); // P, poc 6
-        assert_eq!(dec.next_poc(false, 0, 2), 2); // B, poc 2
-        assert_eq!(dec.next_poc(false, 0, 4), 4); // B, poc 4
-    }
-
-    #[test]
-    fn poc_decoder_unwraps_lsb_wraparound() {
-        let mut dec = PocDecoder::new(0); // MaxPicOrderCntLsb = 16
-        // Step by 2 each reference frame, staying well under
-        // MaxPicOrderCntLsb/2 (8) per step so no wrap is triggered yet.
-        assert_eq!(dec.next_poc(true, 1, 0), 0);
-        assert_eq!(dec.next_poc(false, 1, 2), 2);
-        assert_eq!(dec.next_poc(false, 1, 4), 4);
-        assert_eq!(dec.next_poc(false, 1, 6), 6);
-        assert_eq!(dec.next_poc(false, 1, 8), 8);
-        assert_eq!(dec.next_poc(false, 1, 10), 10);
-        assert_eq!(dec.next_poc(false, 1, 12), 12);
-        assert_eq!(dec.next_poc(false, 1, 14), 14);
-        // lsb wraps from 14 back down to 0. The raw backward delta (14)
-        // meets MaxPicOrderCntLsb/2, so this is really a forward step to
-        // poc 16, not a jump back near zero.
-        assert_eq!(dec.next_poc(false, 1, 0), 16);
     }
 
     fn fix_frame(pts_ns: i64, poc: i64) -> FixFrame {

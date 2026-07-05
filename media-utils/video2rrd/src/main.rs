@@ -205,7 +205,10 @@ fn main() -> eyre::Result<()> {
         (rec, Some(delete_if_dropped))
     };
 
-    let src_iter = src.decode_order_iter();
+    // Read in presentation (display) order so wall-clock timestamps line up with
+    // the video frames and a forced framerate maps to display position (decode
+    // order differs for B-frame streams).
+    let src_iter = src.presentation_order_iter()?;
 
     let pb = if !opt.no_progress {
         let (_, max_size) = src_iter.size_hint();

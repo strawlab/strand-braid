@@ -316,6 +316,7 @@ fn path_to_tiff(
         timestamp,
         buf_len,
         idx: assign_idx,
+        poc: None,
     })
 }
 
