@@ -28,7 +28,7 @@ new movies should not be written in this format.
 
 A **Rust** implementation to read and write `.fmf` files can be found in the
 [`github.com/strawlab/strand-braid`
-repository](https://github.com/strawlab/strand-braid/tree/main/fmf).
+repository](https://github.com/strawlab/strand-braid/tree/main/media-utils/fmf).
 
 Documentation for the file type and reading/writing `.fmf` files in **Python**
 can be found at the [documentation of
@@ -44,7 +44,7 @@ repository](https://github.com/jefferis/fmfio).
 ## Converting movies to and from FMF format with the `fmf` command line program
 
 The `fmf` command line program from
-[https://github.com/strawlab/strand-braid/tree/main/fmf/fmf-cli](https://github.com/strawlab/strand-braid/tree/main/fmf/fmf-cli)
+[https://github.com/strawlab/strand-braid/tree/main/media-utils/fmf/fmf-cli](https://github.com/strawlab/strand-braid/tree/main/media-utils/fmf/fmf-cli)
 can be used for a variety of tasks with `.fmf` files, especially converting to
 and from other formats.
 
