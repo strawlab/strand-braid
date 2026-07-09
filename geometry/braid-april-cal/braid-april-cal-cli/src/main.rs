@@ -315,7 +315,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
 
     if per_camera_2d.is_empty() {
         eyre::bail!(
-            "No April Tag detections loaded from directory \"{apriltags_2d_detections_dir}\"."
+            "No AprilTag detections loaded from directory \"{apriltags_2d_detections_dir}\"."
         );
     }
     let mut lines = LineBuf::default();

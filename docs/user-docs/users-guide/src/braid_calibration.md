@@ -29,7 +29,7 @@ calibration parameters are conventional and could be obtained via other
 workflows than that described here. For example, the "traditional" calibration
 method from [flydra](https://github.com/strawlab/flydra) uses the
 [MultiCamSelfCal (MCSC) library](https://github.com/strawlab/MultiCamSelfCal).
-There is also the simple [Braid April Tag Calibration
+There is also the simple [Braid AprilTag Calibration
 Tool](https://strawlab.org/braid-april-cal-webapp/) tool. There is [a tutorial
 Jupyter
 notebook](https://github.com/strawlab/dlt-april-cal/blob/main/tutorial.ipynb)
@@ -106,13 +106,13 @@ id,x,y,z
 22,-0.501,1.025,1.388
 ```
 
-This is a CSV file giving the April Tag ID number and the X, Y and Z coordinates
+This is a CSV file giving the AprilTag ID number and the X, Y and Z coordinates
 of each marker. The coordinate system must be right-handed and the units of each
 coordinate are meters.
 
 ## Step 3: record detections of April Tags from each camera
 
-For each camera, you will record a CSV file of its April Tag detections. Repeat
+For each camera, you will record a CSV file of its AprilTag detections. Repeat
 the following steps for each camera individually before proceeding.
 
 1. Access the camera's Strand Camera instance, either via Braid or by launching
@@ -128,7 +128,7 @@ the following steps for each camera individually before proceeding.
    minimum, more is better — aim to maximize the number of tags each camera
    can see.
 
-   > **Note:** April Tag detection is computationally demanding. If you
+   > **Note:** AprilTag detection is computationally demanding. If you
    > encounter frame-drop errors, try running Strand Camera in a separate
    > instance (not via Braid) or reduce the camera frame rate to around 10 FPS
    > for this step. See the troubleshooting section for more details.
@@ -189,7 +189,7 @@ The `--bundle-adjustment` flag enables an optimization of all calibration
 parameters. By default `braid-april-cal-cli` does not alter camera intrinsic
 parameters, and the additional flag
 `--bundle-adjustment-world-points-remain-fixed` prevents bundle adjustment from
-moving the April Tag 3D coordinates. Bundle adjustment is therefore restricted
+moving the AprilTag 3D coordinates. Bundle adjustment is therefore restricted
 to the extrinsic (pose) parameters of each camera.
 
 > **Note:** The bundle adjustment options can be altered or removed. Run
@@ -218,7 +218,7 @@ verify the following:
    are also listed but were not adjusted and can be ignored.)
 
 4. **reprojection distance** — a table reports the reprojection distance (in
-   pixels) for each April Tag visible to each camera. The rightmost column
+   pixels) for each AprilTag visible to each camera. The rightmost column
    gives the mean per tag across all cameras that see it; the bottom row gives
    the mean per camera across all tags it sees; and the bottom-right cell gives
    the overall mean across the whole system. Verify that the overall mean is
@@ -243,7 +243,7 @@ rerun <rerun_save.rrd>
 ```
 
 Rerun displays a 3D reconstruction of the calibration: numbered tags mark the
-centre of each April Tag and pyramid shapes show the camera positions. Each
+centre of each AprilTag and pyramid shapes show the camera positions. Each
 camera's field of view is also shown, with detected April Tags labelled. Using
 the time-series slider at the bottom you can step from the beginning to the
 end of bundle adjustment. Verify that the arrangement of cameras and tags

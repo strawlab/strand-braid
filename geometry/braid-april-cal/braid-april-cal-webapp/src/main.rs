@@ -116,16 +116,16 @@ impl Component for Model {
         html! {
             <div id="page-container">
             <div id="content-wrap">
-            <h1>{"Braid April Tag Calibration Tool"}</h1>
+            <h1>{"Braid AprilTag Calibration Tool"}</h1>
             <h3>{"by Andrew Straw, Straw Lab, University of Freiburg, Germany"}</h3>
             <p>{"This page computes a "}<a href="https://strawlab.org/braid/">{"Braid"}</a>
-               {" calibration based on April Tag fiducial marker detection data. "}
+               {" calibration based on AprilTag fiducial marker detection data. "}
                {"The source code for this page may be found "}
                <a href="https://github.com/strawlab/strand-braid/tree/main/braid-april-cal/braid-april-cal-webapp">
                {"here"}</a>{". A related "}
                <a href="https://github.com/strawlab/dlt-april-cal/blob/main/tutorial.ipynb">
                {"tutorial"}</a>{" may also be interesting."}</p>
-            <h2>{"Input: 3D coordinates of April Tag fiducial markers"}</h2>
+            <h2>{"Input: 3D coordinates of AprilTag fiducial markers"}</h2>
             <p>{"The file must be a CSV file with columns: id, x, y, z."}</p>
             <CsvDataField<Fiducial3DCoords>
                 button_text={"Upload a 3D coordinate CSV file."}
@@ -135,8 +135,8 @@ impl Component for Model {
                 { &fiducial_3d_coords_file_state }
             </p>
 
-            <h2>{"Input: Automatically detected camera coordinates of April Tag fiducial markers"}</h2>
-            <p>{"The file must be a CSV file saved by the April Tag detector of Strand Cam. (Required \
+            <h2>{"Input: Automatically detected camera coordinates of AprilTag fiducial markers"}</h2>
+            <p>{"The file must be a CSV file saved by the AprilTag detector of Strand Cam. (Required \
                  columns: id, h02, h12 where (h02,h12) is tag center.)"}</p>
             <CsvDataField<braid_apriltag_types::AprilTagCoords2D>
                 button_text={"Upload a camera coordinate CSV file."}

@@ -129,7 +129,7 @@ pub struct BundleAdjuster<F: na::RealField + Float> {
     /// in [Self::observed].
     pt_idx: Vec<usize>,
 
-    /// A label for each 3D point, for example an April Tag ID number.
+    /// A label for each 3D point, for example an AprilTag ID number.
     ///
     /// This has the same length as the number of columns in [Self::points].
     labels3d: Vec<String>,

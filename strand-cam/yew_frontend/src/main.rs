@@ -1057,7 +1057,7 @@ impl Model {
                 html! {
                     <div class="wrap-collapsible">
 
-                        <CheckboxLabel label="April Tag Detection" initially_checked=true />
+                        <CheckboxLabel label="AprilTag Detection" initially_checked=true />
                         <div>
                             <h5>{"Tag Family"}</h5>
                             <EnumToggle<TagFamily>
