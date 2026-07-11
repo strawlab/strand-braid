@@ -1191,9 +1191,18 @@ pub(crate) async fn do_run_forever(
             let (synced_frame, trigger_timestamp) = match synced_frame {
                 Some(synced_frame) => {
                     let trigger_timestamp = match &trigger_cfg {
-                        TriggerType::TriggerboxV1(_) | TriggerType::FakeSync(_) => {
+                        TriggerType::TriggerboxV1(_) => {
                             let time_model = time_model_arc.read().unwrap();
                             compute_trigger_timestamp(&time_model, synced_frame)
+                        }
+                        TriggerType::FakeSync(_) => {
+                            // There is no trigger clock. The camera host clock
+                            // is the best available approximation of the
+                            // acquisition time (and, with fake sync, plays the
+                            // role the triggerbox clock model otherwise would).
+                            Some(FlydraFloatTimestampLocal::from_f64(
+                                packet.cam_received_time.as_f64(),
+                            ))
                         }
                         TriggerType::PtpSync(_) => {
                             // In case where we trust camera sync data, use
