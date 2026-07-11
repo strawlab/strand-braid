@@ -1,3 +1,29 @@
+## Unreleased
+
+### Added
+
+* Added a latency measurement harness (`braid/braid-sim/latency/`) that runs
+  Braid live tracking on simulated cameras and reports end-to-end latency
+  percentiles from both the model-server event stream and the recorded
+  `.braidz`. Baseline on an idle machine: ~1 ms typical, <4 ms worst case.
+
+### Fixed
+
+* The `reconstruct_latency_usec.hlog` histogram now measures the latency until
+  the tracker produces each estimate rather than until the disk writer dequeues
+  it, eliminating a spurious 20–100 ms tail caused by the writer's periodic
+  flush. Also, under fake synchronization (simulated and emulated cameras),
+  trigger timestamps are now populated at all, so this histogram is no longer
+  empty in such runs.
+* Fake synchronization now anchors each camera's frame numbering to a common
+  clock epoch instead of packet arrival order, fixing a race in which some
+  cameras could synchronize one frame late (adding a one-frame-period latency
+  floor and pairing observations captured 10 ms apart).
+* The machine-wide lock serializing `trunk build` invocations now records the
+  holder's PID and is stolen as soon as that process is gone, instead of
+  stalling every build on the machine for up to 30 minutes when a build script
+  was killed while holding it (as rust-analyzer routinely does on file save).
+
 ## 1.0.0-rc.5 - 2026-07-05
 
 ### Added
