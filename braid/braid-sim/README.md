@@ -20,6 +20,11 @@ There are two ways to drive the tracker:
   fast and deterministic, so it is ideal for regression tests and for the
   **timing benchmark** below.
 
+There is also a **latency measurement harness** built on the image-level path:
+see [`latency/`](latency/README.md). It records a run while capturing the
+model-server SSE `latency` field and analyzes the `.braidz` latency histogram,
+separating true tracking latency from writer-side measurement artifacts.
+
 ## Scaling / timing benchmark
 
 `braid-sim-bench` measures realistic end-to-end **tracking** performance and
