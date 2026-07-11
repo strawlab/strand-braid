@@ -425,6 +425,7 @@ impl LivingModel<ModelFramePosteriors> {
                         record: no_obs_record,
                         data_assoc_rows: vec![],
                         mean_reproj_dist_100x: None,
+                        production_timestamp: None,
                     });
                     result_save_msgs.push(msg);
                 }
@@ -435,6 +436,7 @@ impl LivingModel<ModelFramePosteriors> {
                     record,
                     data_assoc_rows,
                     mean_reproj_dist_100x,
+                    production_timestamp: Some(chrono::Utc::now()),
                 }));
             }
             self.last_observation_offset = self.posteriors.len();

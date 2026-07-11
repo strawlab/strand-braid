@@ -459,6 +459,12 @@ pub struct KalmanEstimateRecord {
     pub record: KalmanEstimatesRow,
     pub data_assoc_rows: Vec<DataAssocRow>,
     pub mean_reproj_dist_100x: Option<u64>,
+    /// When the tracker produced this estimate. Used (together with the
+    /// trigger timestamp) for the reconstruction-latency histogram, so that
+    /// the histogram measures tracking latency rather than the delay until
+    /// the disk writer dequeues the row. `None` for backlog rows of earlier
+    /// frames saved after the fact, which are excluded from the histogram.
+    pub production_timestamp: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[derive(Debug)]

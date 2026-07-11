@@ -541,6 +541,7 @@ pub(crate) fn writer_task_main(
                     record,
                     data_assoc_rows,
                     mean_reproj_dist_100x,
+                    production_timestamp,
                 } = ke;
                 let trigger_timestamp = record.timestamp.clone();
 
@@ -559,16 +560,21 @@ pub(crate) fn writer_task_main(
                     }
 
                     if !ignore_latency {
-                        // Log reconstruction latency to histogram.
-                        if let Some(trigger_timestamp) = trigger_timestamp {
+                        // Log reconstruction latency to histogram. The latency
+                        // is measured from frame acquisition to when the
+                        // tracker produced the estimate (NOT to now: this
+                        // writer dequeues rows behind a channel and a periodic
+                        // flush, and that delay is not tracking latency).
+                        if let (Some(trigger_timestamp), Some(produced_at)) =
+                            (trigger_timestamp, production_timestamp)
+                        {
                             // `trigger_timestamp` is when this frame was acquired.
                             // It may be None if it cannot be inferred while the
                             // triggerbox clock model is first initializing.
                             use chrono::{DateTime, Utc};
                             let then: DateTime<Utc> = trigger_timestamp.into();
-                            let now = Utc::now();
-                            let elapsed = now.signed_duration_since(then);
-                            let now_system: std::time::SystemTime = now.into();
+                            let elapsed = produced_at.signed_duration_since(then);
+                            let now_system: std::time::SystemTime = produced_at.into();
 
                             if let Some(latency_usec) = elapsed.num_microseconds()
                                 && latency_usec >= 0
