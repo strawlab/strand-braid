@@ -91,10 +91,11 @@ type FfmpegCodecArgList = Option<Vec<(String, String)>>;
 /// (e.g. `yuv444p` for RGB input), which OpenH264 cannot decode.
 const DEFAULT_OUTPUT_PIXFMT: &str = "yuv420p";
 
-/// The default maximum number of B-frames. OpenH264's decoder cannot decode
-/// streams containing B-frames (it exhausts its picture buffer with a
-/// "PrefetchPic ERROR"), so we disable them by default to keep our output
-/// decodable by OpenH264. 4:2:0 alone is not sufficient for that.
+/// The default maximum number of B-frames. B-frames are disabled by default:
+/// they make decode order differ from display order, which complicates
+/// per-frame timestamping (see `mp4-bframe-doctor`), and files without them
+/// remain playable by the built-in OpenH264 decoder of older strand-braid
+/// releases (whose decoder driving could not handle the picture reordering).
 const DEFAULT_MAX_BFRAMES: u32 = 0;
 
 #[derive(Debug, PartialEq, Clone)]
@@ -109,9 +110,8 @@ pub struct FfmpegCodecArgs {
     /// encoders whose filter chain already fixes the format.
     pub pixfmt: Option<String>,
     /// Maximum number of B-frames passed to ffmpeg as `-bf`. Defaults to
-    /// [`DEFAULT_MAX_BFRAMES`] (`0`, i.e. disabled) so the output is decodable by
-    /// OpenH264. Set to `None` to let the encoder (or a `-bf` in the other arg
-    /// lists) decide.
+    /// [`DEFAULT_MAX_BFRAMES`] (`0`, i.e. disabled); see there for why. Set to
+    /// `None` to let the encoder (or a `-bf` in the other arg lists) decide.
     pub max_bframes: Option<u32>,
 }
 
@@ -456,7 +456,7 @@ mod test {
         assert_eq!(args[pixfmt_at + 1], "yuv420p");
         let codec_at = args.iter().position(|a| a == "-c:v").unwrap();
         assert!(codec_at < pixfmt_at, "pix_fmt must come after the codec");
-        // B-frames are disabled by default (OpenH264 cannot decode them).
+        // B-frames are disabled by default (see DEFAULT_MAX_BFRAMES).
         let bf_at = args.iter().position(|a| a == "-bf").unwrap();
         assert_eq!(args[bf_at + 1], "0");
 

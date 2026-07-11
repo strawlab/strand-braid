@@ -191,15 +191,6 @@ pub struct H264Source<H: SeekableH264Source> {
     /// the first SPS. Used only for diagnostics.
     #[cfg_attr(not(feature = "openh264"), allow(dead_code))]
     profile: String,
-    /// Whether the stream contains B-frames, inferred from the presentation
-    /// reordering (decode order differs from display order iff B-frames are
-    /// present). `None` when the order cannot be determined (no PTS and no
-    /// decodable POC). The built-in OpenH264 decoder cannot decode B-frame
-    /// streams (it fails with a "PrefetchPic ERROR" / `dsOutOfMemory`), so on a
-    /// decode failure this is used as a likely cause. Only read when compiled
-    /// with the `openh264` feature.
-    #[cfg_attr(not(feature = "openh264"), allow(dead_code))]
-    has_b_frames: Option<bool>,
 }
 
 impl<H: SeekableH264Source> H264Source<H> {
@@ -219,14 +210,31 @@ impl<H: SeekableH264Source> H264Source<H> {
         frame_idx: usize,
     ) -> Box<dyn Iterator<Item = Result<FrameData>> + 'a> {
         let openh264_decoder_state = if self.do_decode_h264 {
-            Some(crate::opt_openh264_decoder::DecoderType::new().unwrap())
+            Some(crate::opt_openh264_decoder::new_stream_decoder().unwrap())
         } else {
             None
         };
+        // Invert `presentation_rank` to get the decode index of each
+        // display-order position, used to pair decoder output pictures (which
+        // emerge in display order) with the input frames they decode.
+        let display_order = self.presentation_rank.as_ref().map(|rank| {
+            let mut order = vec![0usize; rank.len()];
+            for (decode_idx, &r) in rank.iter().enumerate() {
+                order[r] = decode_idx;
+            }
+            order
+        });
         Box::new(RawH264Iter {
             parent: self,
             frame_idx,
             openh264_decoder_state,
+            display_order,
+            n_pictures_out: 0,
+            pending_meta: std::collections::HashMap::new(),
+            decoded_ready: std::collections::BTreeMap::new(),
+            next_emit: frame_idx,
+            flushed: false,
+            poisoned: false,
         })
     }
 }
@@ -617,13 +625,6 @@ where
         // each coded video sequence so GOPs stay in order.
         let presentation_rank = compute_presentation_rank(mp4_pts.as_deref(), &frame_time_info);
 
-        // B-frames are exactly the frames that make display order differ from
-        // decode order, so a non-identity presentation rank means the stream has
-        // B-frames. `None` when the order is unknown.
-        let has_b_frames = presentation_rank
-            .as_ref()
-            .map(|rank| rank.iter().enumerate().any(|(i, &r)| i != r));
-
         let is_idr: Vec<bool> = frame_time_info.iter().map(|fti| fti.is_idr).collect();
 
         // SRT stanzas are in presentation order, so pair them with reordered
@@ -656,7 +657,6 @@ where
             average_fps,
             chroma_format,
             profile,
-            has_b_frames,
         })
     }
 }
@@ -1012,164 +1012,356 @@ struct RawH264Iter<'parent, H: SeekableH264Source> {
     /// frame index (not NAL unit index)
     frame_idx: usize,
     openh264_decoder_state: Option<crate::opt_openh264_decoder::DecoderType>,
+    /// `display_order[k]` is the decode index of the k-th frame in display
+    /// order (the inverse of `parent.presentation_rank`). The decoder outputs
+    /// pictures in display order, so this pairs each output picture with the
+    /// input frame it decodes. `None` when presentation order is unknown, in
+    /// which case output order is assumed to equal decode order (true for
+    /// streams without B-frames). Only used when decoding.
+    display_order: Option<Vec<usize>>,
+    /// Number of pictures the decoder has output so far, i.e. the display rank
+    /// of the next picture it will output. Only used when decoding.
+    n_pictures_out: usize,
+    /// Metadata of frames already fed to the decoder whose picture has not yet
+    /// been output, keyed by decode index. Bounded by the stream's reorder
+    /// depth (the decoded picture buffer, at most 16 frames). Only used when
+    /// decoding.
+    pending_meta: std::collections::HashMap<usize, PendingMeta>,
+    /// Decoded frames awaiting emission in decode order, keyed by decode
+    /// index. Bounded by the stream's reorder depth. Only used when decoding.
+    decoded_ready: std::collections::BTreeMap<usize, FrameData>,
+    /// Decode index of the next frame to emit. Only used when decoding.
+    next_emit: usize,
+    /// Whether the end-of-stream drain of the decoder has run.
+    flushed: bool,
+    /// Set after a decode error: the picture↔frame pairing may be lost, so
+    /// stop iterating rather than emit frames with wrong timestamps.
+    poisoned: bool,
+}
+
+/// Metadata of an input frame fed to the decoder, held until the decoder
+/// outputs the corresponding picture.
+#[cfg_attr(not(feature = "openh264"), allow(dead_code))]
+struct PendingMeta {
+    timestamp: Timestamp,
+    poc: Option<i64>,
+    buf_len: usize,
+}
+
+/// One frame read from the source in decode order: its raw NAL units plus
+/// timestamp and POC metadata.
+struct InputFrame {
+    nal_units: Vec<Vec<u8>>,
+    timestamp: Timestamp,
+    poc: Option<i64>,
+    is_idr: bool,
+}
+
+impl<H: SeekableH264Source> RawH264Iter<'_, H> {
+    /// Read input frame `frame_number` (decode order).
+    fn read_input_frame(&mut self, frame_number: usize) -> Result<InputFrame> {
+        let nti = &self.parent.frame_time_info[frame_number];
+        // Slice of all NAL units belonging to this frame: everything after
+        // the previous frame's slice NAL up to and including this frame's.
+        // `nal_location_index` is indexed per NAL unit (Annex B) or per
+        // sample (MP4); for MP4 each frame is one location so this reduces
+        // to `[frame_number..=frame_number]`, but for Annex B a frame spans
+        // several NAL units (SEI/SPS/PPS + slice), so we must start after
+        // the previous slice rather than at `frame_number`.
+        let start = if frame_number == 0 {
+            0
+        } else {
+            self.parent.frame_time_info[frame_number - 1].nal_location_index + 1
+        };
+        let nal_locations = &self.parent.nal_locations[start..=(nti.nal_location_index)];
+        let mp4_pts = self.parent.mp4_pts.as_ref().map(|x| x[frame_number]); // one per mp4 sample
+        let fraction_done = frame_number as f32 / self.parent.nal_locations.len() as f32;
+
+        let frame_timestamp = match self.parent.timestamp_source {
+            Some(TimestampSource::BestGuess) => unreachable!(),
+            Some(TimestampSource::MispMicrosectime) => {
+                let f0 = self.parent.frame0_precision_time.as_ref().unwrap();
+                Timestamp::Duration(
+                    nti.precise_timestamp
+                        .unwrap()
+                        .signed_duration_since(*f0)
+                        .to_std()
+                        .unwrap(),
+                )
+            }
+            Some(TimestampSource::FrameInfoRecvTime) => {
+                let t0 = self.parent.frame0_frameinfo.as_ref().unwrap().recv;
+                let t0: chrono::DateTime<chrono::Utc> = t0.into();
+                let this_frame: chrono::DateTime<chrono::Utc> =
+                    nti.frameinfo.as_ref().unwrap().recv.into();
+                Timestamp::Duration(this_frame.signed_duration_since(t0).to_std().unwrap())
+            }
+            Some(TimestampSource::FrameInfoRtp) => {
+                let fi0 = self.parent.frame0_frameinfo.as_ref().unwrap();
+                let rtp0 = fi0.rtp;
+                let rtp_now = nti.frameinfo.as_ref().unwrap().rtp;
+                let rtp_dur = rtp_now.wrapping_sub(rtp0);
+                let rtp_dur_secs = rtp_dur as f64 / 90000.0; // nominally 90 kHz
+                Timestamp::Duration(std::time::Duration::from_secs_f64(rtp_dur_secs))
+            }
+            Some(TimestampSource::FixedFramerate) => {
+                let dur_secs = nti.nal_location_index as f64 / self.parent.average_fps.unwrap();
+                Timestamp::Duration(std::time::Duration::from_secs_f64(dur_secs))
+            }
+            Some(TimestampSource::Mp4Pts) => Timestamp::Duration(mp4_pts.unwrap()),
+            Some(TimestampSource::SrtFile) => {
+                // Pair this decode-order frame with the SRT stanza at its
+                // display rank, so B-frame reordering (decode order !=
+                // presentation order) does not misassign timestamps. For raw
+                // Annex B (no per-sample PTS) fall back to sequential order.
+                let rank_idx = self
+                    .parent
+                    .srt_display_rank
+                    .as_ref()
+                    .map(|rank| rank[frame_number]);
+                let srt_data = self.parent.srt_data.as_mut().unwrap();
+                let pts = match rank_idx {
+                    Some(idx) => srt_data.time_at(idx).unwrap(),
+                    None => srt_data.next_pts().unwrap(),
+                };
+                Timestamp::Duration(pts)
+            }
+            None => Timestamp::Fraction(fraction_done),
+        };
+
+        let nal_units = self
+            .parent
+            .seekable_h264_source
+            .read_nal_units_at_locations(nal_locations)?;
+
+        Ok(InputFrame {
+            nal_units,
+            timestamp: frame_timestamp,
+            poc: nti.poc,
+            is_idr: nti.is_idr,
+        })
+    }
+
+    /// Feed input frame `frame_number` to the decoder and, if a picture comes
+    /// out, pair it with its input frame and store it in `decoded_ready`.
+    fn feed_decoder(&mut self, frame_number: usize) -> Result<()> {
+        let InputFrame {
+            nal_units,
+            timestamp,
+            poc,
+            is_idr,
+        } = self.read_input_frame(frame_number)?;
+
+        // MP4 stores the SPS/PPS in the `avcC` box rather than inline in
+        // the sample data, so the NAL units for an IDR frame contain only
+        // the coded slice. Without parameter sets OpenH264 fails with
+        // `dsNoParamSets` (native error 16). Prepend the stream's SPS/PPS
+        // ahead of each IDR so the decoder is configured. Annex B sources
+        // carry SPS/PPS inline and return `None` here, so this is a no-op
+        // for them (their slice already includes the parameter sets).
+        let annex_b = if is_idr {
+            let mut prefix = Vec::with_capacity(nal_units.len() + 2);
+            prefix.extend(self.parent.seekable_h264_source.first_sps());
+            prefix.extend(self.parent.seekable_h264_source.first_pps());
+            prefix.extend_from_slice(nal_units.as_slice());
+            copy_nalus_to_annex_b(&prefix)
+        } else {
+            copy_nalus_to_annex_b(nal_units.as_slice())
+        };
+
+        let buf_len = nal_units.iter().map(|x| x.len()).sum();
+        self.pending_meta.insert(
+            frame_number,
+            PendingMeta {
+                timestamp,
+                poc,
+                buf_len,
+            },
+        );
+
+        // Attempt the decode first, so that if OpenH264 ever gains
+        // 4:2:2 / 4:4:4 support the stream simply works. Only when the
+        // decode actually fails do we enrich its opaque native error
+        // with the stream's chroma/profile as the likely cause (the
+        // built-in decoder handles only 4:2:0).
+        let decoder = self.openh264_decoder_state.as_mut().unwrap();
+        let decode_result = decoder.decode(&annex_b[..]);
+        #[cfg(feature = "openh264")]
+        let decode_result = decode_result.map_err(|source| Error::H264DecodeFailed {
+            frame: frame_number,
+            hint: decode_failure_hint(self.parent.chroma_format, &self.parent.profile),
+            source,
+        });
+
+        // A decode call returning no picture is not an error: the decoder
+        // buffers frames to reorder streams with B-frames into display order,
+        // and the picture comes out on a later call (or the end-of-stream
+        // drain).
+        if let Some(decoded_yuv) = decode_result? {
+            accept_decoded_picture(
+                decoded_yuv,
+                self.display_order.as_deref(),
+                &mut self.n_pictures_out,
+                &mut self.pending_meta,
+                &mut self.decoded_ready,
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Drain the pictures still buffered in the decoder at end of stream (for
+    /// B-frame streams the decoder holds back frames to reorder them).
+    fn drain_decoder(&mut self) -> Result<()> {
+        let decoder = self.openh264_decoder_state.as_mut().unwrap();
+        let pictures = decoder.flush_remaining();
+        #[cfg(feature = "openh264")]
+        let pictures = pictures.map_err(|source| Error::H264DecodeFailed {
+            frame: self.next_emit,
+            hint: decode_failure_hint(self.parent.chroma_format, &self.parent.profile),
+            source,
+        });
+        for decoded_yuv in pictures? {
+            accept_decoded_picture(
+                decoded_yuv,
+                self.display_order.as_deref(),
+                &mut self.n_pictures_out,
+                &mut self.pending_meta,
+                &mut self.decoded_ready,
+            )?;
+        }
+        Ok(())
+    }
+
+    /// `next()` for the decoding path: feed input frames (decode order) until
+    /// the frame with the next decode index has been decoded, draining the
+    /// decoder at end of stream.
+    fn next_decoded(&mut self) -> Option<Result<FrameData>> {
+        loop {
+            if let Some(frame_data) = self.decoded_ready.remove(&self.next_emit) {
+                self.next_emit += 1;
+                return Some(Ok(frame_data));
+            }
+            if self.poisoned {
+                return None;
+            }
+            if self.frame_idx < self.parent.frame_time_info.len() {
+                let frame_number = self.frame_idx;
+                self.frame_idx += 1;
+                if let Err(e) = self.feed_decoder(frame_number) {
+                    self.poisoned = true;
+                    return Some(Err(e));
+                }
+            } else if !self.flushed {
+                self.flushed = true;
+                if let Err(e) = self.drain_decoder() {
+                    self.poisoned = true;
+                    return Some(Err(e));
+                }
+            } else {
+                if !self.pending_meta.is_empty() {
+                    self.poisoned = true;
+                    return Some(Err(Error::H264Error(
+                        "decoder produced fewer pictures than input frames",
+                    )));
+                }
+                return None;
+            }
+        }
+    }
 }
 
 impl<H: SeekableH264Source> Iterator for RawH264Iter<'_, H> {
     type Item = Result<FrameData>;
     fn next(&mut self) -> Option<Self::Item> {
+        if self.openh264_decoder_state.is_some() {
+            return self.next_decoded();
+        }
         let frame_number = self.frame_idx;
-        let res = self.parent.frame_time_info.get(self.frame_idx);
+        if frame_number >= self.parent.frame_time_info.len() {
+            return None;
+        }
         self.frame_idx += 1;
 
-        res.map(|nti| {
-            // Slice of all NAL units belonging to this frame: everything after
-            // the previous frame's slice NAL up to and including this frame's.
-            // `nal_location_index` is indexed per NAL unit (Annex B) or per
-            // sample (MP4); for MP4 each frame is one location so this reduces
-            // to `[frame_number..=frame_number]`, but for Annex B a frame spans
-            // several NAL units (SEI/SPS/PPS + slice), so we must start after
-            // the previous slice rather than at `frame_number`.
-            let start = if frame_number == 0 {
-                0
-            } else {
-                self.parent.frame_time_info[frame_number - 1].nal_location_index + 1
+        Some(self.read_input_frame(frame_number).map(|input| {
+            let buf_len = input.nal_units.iter().map(|x| x.len()).sum();
+            let buf = EncodedH264 {
+                data: H264EncodingVariant::RawEbsp(input.nal_units),
+                has_precision_timestamp: self.parent.frame0_precision_time.is_some(),
             };
-            let nal_locations = &self.parent.nal_locations[start..=(nti.nal_location_index)];
-            let mp4_pts = self.parent.mp4_pts.as_ref().map(|x| x[frame_number]); // one per mp4 sample
-            let fraction_done = frame_number as f32 / self.parent.nal_locations.len() as f32;
-
-            let frame_timestamp = match self.parent.timestamp_source {
-                Some(TimestampSource::BestGuess) => unreachable!(),
-                Some(TimestampSource::MispMicrosectime) => {
-                    let f0 = self.parent.frame0_precision_time.as_ref().unwrap();
-                    Timestamp::Duration(
-                        nti.precise_timestamp
-                            .unwrap()
-                            .signed_duration_since(*f0)
-                            .to_std()
-                            .unwrap(),
-                    )
-                }
-                Some(TimestampSource::FrameInfoRecvTime) => {
-                    let t0 = self.parent.frame0_frameinfo.as_ref().unwrap().recv;
-                    let t0: chrono::DateTime<chrono::Utc> = t0.into();
-                    let this_frame: chrono::DateTime<chrono::Utc> =
-                        nti.frameinfo.as_ref().unwrap().recv.into();
-                    Timestamp::Duration(this_frame.signed_duration_since(t0).to_std().unwrap())
-                }
-                Some(TimestampSource::FrameInfoRtp) => {
-                    let fi0 = self.parent.frame0_frameinfo.as_ref().unwrap();
-                    let rtp0 = fi0.rtp;
-                    let rtp_now = nti.frameinfo.as_ref().unwrap().rtp;
-                    let rtp_dur = rtp_now.wrapping_sub(rtp0);
-                    let rtp_dur_secs = rtp_dur as f64 / 90000.0; // nominally 90 kHz
-                    Timestamp::Duration(std::time::Duration::from_secs_f64(rtp_dur_secs))
-                }
-                Some(TimestampSource::FixedFramerate) => {
-                    let dur_secs = nti.nal_location_index as f64 / self.parent.average_fps.unwrap();
-                    Timestamp::Duration(std::time::Duration::from_secs_f64(dur_secs))
-                }
-                Some(TimestampSource::Mp4Pts) => Timestamp::Duration(mp4_pts.unwrap()),
-                Some(TimestampSource::SrtFile) => {
-                    // Pair this decode-order frame with the SRT stanza at its
-                    // display rank, so B-frame reordering (decode order !=
-                    // presentation order) does not misassign timestamps. For raw
-                    // Annex B (no per-sample PTS) fall back to sequential order.
-                    let rank_idx = self
-                        .parent
-                        .srt_display_rank
-                        .as_ref()
-                        .map(|rank| rank[frame_number]);
-                    let srt_data = self.parent.srt_data.as_mut().unwrap();
-                    let pts = match rank_idx {
-                        Some(idx) => srt_data.time_at(idx).unwrap(),
-                        None => srt_data.next_pts().unwrap(),
-                    };
-                    Timestamp::Duration(pts)
-                }
-                None => Timestamp::Fraction(fraction_done),
-            };
-
-            let nal_units = self
-                .parent
-                .seekable_h264_source
-                .read_nal_units_at_locations(nal_locations)?;
-
-            if let Some(decoder) = &mut self.openh264_decoder_state {
-                // MP4 stores the SPS/PPS in the `avcC` box rather than inline in
-                // the sample data, so the NAL units for an IDR frame contain only
-                // the coded slice. Without parameter sets OpenH264 fails with
-                // `dsNoParamSets` (native error 16). Prepend the stream's SPS/PPS
-                // ahead of each IDR so the decoder is configured. Annex B sources
-                // carry SPS/PPS inline and return `None` here, so this is a no-op
-                // for them (their slice already includes the parameter sets).
-                let annex_b = if nti.is_idr {
-                    let mut prefix = Vec::with_capacity(nal_units.len() + 2);
-                    prefix.extend(self.parent.seekable_h264_source.first_sps());
-                    prefix.extend(self.parent.seekable_h264_source.first_pps());
-                    prefix.extend_from_slice(nal_units.as_slice());
-                    copy_nalus_to_annex_b(&prefix)
-                } else {
-                    copy_nalus_to_annex_b(nal_units.as_slice())
-                };
-
-                // Attempt the decode first, so that if OpenH264 ever gains
-                // 4:2:2 / 4:4:4 support the stream simply works. Only when the
-                // decode actually fails do we enrich its opaque native error
-                // with the stream's chroma/profile as the likely cause (the
-                // built-in decoder handles only 4:2:0).
-                let decode_result = decoder.decode(&annex_b[..]);
-                #[cfg(feature = "openh264")]
-                let decode_result = decode_result.map_err(|source| Error::H264DecodeFailed {
-                    frame: frame_number,
-                    hint: decode_failure_hint(
-                        self.parent.chroma_format,
-                        &self.parent.profile,
-                        self.parent.has_b_frames,
-                    ),
-                    source,
-                });
-
-                match decode_result? {
-                    Some(decoded_yuv) => yuv2rgb(
-                        decoded_yuv,
-                        frame_number,
-                        nti.poc,
-                        nal_units,
-                        frame_timestamp,
-                    ),
-                    None => Err(crate::Error::DecoderDidNotReturnImageData),
-                }
-            } else {
-                let buf_len = nal_units.iter().map(|x| x.len()).sum();
-                // let buf_len = avcc_data.len();
-                let idx = frame_number;
-                let buf = EncodedH264 {
-                    data: H264EncodingVariant::RawEbsp(nal_units.to_vec()),
-                    has_precision_timestamp: self.parent.frame0_precision_time.is_some(),
-                };
-                let image = ImageData::EncodedH264(buf);
-                Ok(FrameData {
-                    timestamp: frame_timestamp,
-                    image,
-                    buf_len,
-                    idx,
-                    poc: nti.poc,
-                })
+            FrameData {
+                timestamp: input.timestamp,
+                image: ImageData::EncodedH264(buf),
+                buf_len,
+                idx: frame_number,
+                poc: input.poc,
             }
-        })
+        }))
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        // `frame_idx` advances past the end once the iterator is exhausted, so
-        // saturate to avoid underflow.
-        let remaining = self
-            .parent
-            .frame_time_info
-            .len()
-            .saturating_sub(self.frame_idx);
+        let total = self.parent.frame_time_info.len();
+        // The cursor advances past the end once the iterator is exhausted, so
+        // saturate to avoid underflow. When decoding, frames are emitted by
+        // `next_emit` (input frames can be consumed ahead of emission while
+        // the decoder reorders); otherwise by `frame_idx`.
+        let remaining = if self.openh264_decoder_state.is_some() {
+            if self.poisoned {
+                0
+            } else {
+                total.saturating_sub(self.next_emit)
+            }
+        } else {
+            total.saturating_sub(self.frame_idx)
+        };
         (remaining, Some(remaining))
     }
+}
+
+/// Pair a picture output by the decoder with the input frame it decodes and
+/// queue the resulting [`FrameData`] for emission.
+///
+/// The decoder outputs pictures in display order, so the picture's display
+/// rank (`n_pictures_out`) is mapped back to a decode index via
+/// `display_order`.
+#[cfg(feature = "openh264")]
+fn accept_decoded_picture(
+    decoded_yuv: openh264::decoder::DecodedYUV<'_>,
+    display_order: Option<&[usize]>,
+    n_pictures_out: &mut usize,
+    pending_meta: &mut std::collections::HashMap<usize, PendingMeta>,
+    decoded_ready: &mut std::collections::BTreeMap<usize, FrameData>,
+) -> Result<()> {
+    let display_rank = *n_pictures_out;
+    *n_pictures_out += 1;
+    let decode_idx = match display_order {
+        Some(order) => *order.get(display_rank).ok_or(Error::H264Error(
+            "decoder produced more pictures than input frames",
+        ))?,
+        None => display_rank,
+    };
+    let meta = pending_meta.remove(&decode_idx).ok_or(Error::H264Error(
+        "decoder output picture does not correspond to a pending input frame",
+    ))?;
+    let frame_data = yuv2rgb(
+        decoded_yuv,
+        decode_idx,
+        meta.poc,
+        meta.buf_len,
+        meta.timestamp,
+    )?;
+    decoded_ready.insert(decode_idx, frame_data);
+    Ok(())
+}
+
+#[cfg(not(feature = "openh264"))]
+fn accept_decoded_picture(
+    _decoded_yuv: (),
+    _display_order: Option<&[usize]>,
+    _n_pictures_out: &mut usize,
+    _pending_meta: &mut std::collections::HashMap<usize, PendingMeta>,
+    _decoded_ready: &mut std::collections::BTreeMap<usize, FrameData>,
+) -> Result<()> {
+    Err(Error::H264Error("No H264 decoder support at compile time"))
 }
 
 /// Reorders a decode-order H.264 frame iterator into presentation (display)
@@ -1263,49 +1455,25 @@ impl Iterator for PresentationReorderIter<'_> {
     }
 }
 
-#[cfg(not(feature = "openh264"))]
-fn yuv2rgb(
-    _decoded_yuv: (),
-    _frame_number: usize,
-    _poc: Option<i64>,
-    _nal_units: Vec<Vec<u8>>,
-    _timestamp: Timestamp,
-) -> Result<FrameData> {
-    Err(Error::H264Error("No H264 decoder support at compile time"))
-}
-
 /// Build a likely-cause hint appended to an OpenH264 decode failure. The
-/// built-in decoder handles only 4:2:0 (YUV420) chroma and cannot decode
-/// B-frames; either violated is a likely cause. Names whichever unsupported
-/// feature(s) the stream uses, the profile, and how to re-encode. Returns an
-/// empty string when the stream is 4:2:0 without B-frames (the failure lies
-/// elsewhere).
+/// built-in decoder handles only 4:2:0 (YUV420) chroma, so a stream with any
+/// other chroma subsampling is a likely cause. Names the unsupported chroma
+/// the stream uses, the profile, and how to re-encode. Returns an empty
+/// string when the stream is 4:2:0 (the failure lies elsewhere).
 #[cfg(feature = "openh264")]
-fn decode_failure_hint(
-    chroma: h264_reader::nal::sps::ChromaFormat,
-    profile: &str,
-    has_b_frames: Option<bool>,
-) -> String {
+fn decode_failure_hint(chroma: h264_reader::nal::sps::ChromaFormat, profile: &str) -> String {
     use h264_reader::nal::sps::ChromaFormat::*;
-    let mut features = Vec::new();
-    match chroma {
-        YUV420 => {}
-        Monochrome => features.push("4:0:0 (monochrome) chroma subsampling".to_string()),
-        YUV422 => features.push("4:2:2 chroma subsampling".to_string()),
-        YUV444 => features.push("4:4:4 chroma subsampling".to_string()),
-        Invalid(idc) => features.push(format!("unknown chroma subsampling (idc={idc})")),
+    let feature = match chroma {
+        YUV420 => return String::new(),
+        Monochrome => "4:0:0 (monochrome) chroma subsampling".to_string(),
+        YUV422 => "4:2:2 chroma subsampling".to_string(),
+        YUV444 => "4:4:4 chroma subsampling".to_string(),
+        Invalid(idc) => format!("unknown chroma subsampling (idc={idc})"),
     };
-    if has_b_frames == Some(true) {
-        features.push("B-frames".to_string());
-    }
-    if features.is_empty() {
-        return String::new();
-    }
-    let features = features.join(" and ");
     format!(
-        " This stream uses {features} (profile {profile}), which the built-in OpenH264 decoder \
-         does not support — it decodes only 4:2:0 (YUV420) without B-frames. Re-encode first, \
-         e.g. `ffmpeg -i INPUT -c:v libx264 -pix_fmt yuv420p -bf 0 OUTPUT.mp4`."
+        " This stream uses {feature} (profile {profile}), which the built-in OpenH264 decoder \
+         does not support — it decodes only 4:2:0 (YUV420). Re-encode first, \
+         e.g. `ffmpeg -i INPUT -c:v libx264 -pix_fmt yuv420p OUTPUT.mp4`."
     )
 }
 
@@ -1314,7 +1482,7 @@ fn yuv2rgb(
     decoded_yuv: openh264::decoder::DecodedYUV<'_>,
     frame_number: usize,
     poc: Option<i64>,
-    nal_units: Vec<Vec<u8>>,
+    buf_len: usize,
     timestamp: Timestamp,
 ) -> Result<FrameData> {
     use openh264::formats::YUVSource;
@@ -1334,8 +1502,6 @@ fn yuv2rgb(
         .unwrap(),
     );
 
-    let buf_len = nal_units.iter().map(|x| x.len()).sum();
-    // let buf_len = avcc_data.len();
     let idx = frame_number;
     let image = ImageData::Decoded(dynamic_frame);
     Ok(FrameData {
@@ -1479,18 +1645,18 @@ struct FrameInfo {
 
 #[cfg(test)]
 mod test {
-    /// The decode-failure hint names each OpenH264-unsupported feature the stream
-    /// uses (non-4:2:0 chroma and/or B-frames), and is empty for a plain 4:2:0
-    /// no-B-frame stream (where the failure lies elsewhere).
+    /// The decode-failure hint names the OpenH264-unsupported chroma the
+    /// stream uses, and is empty for a 4:2:0 stream (where the failure lies
+    /// elsewhere).
     #[cfg(feature = "openh264")]
     #[test]
     fn decode_failure_hint_flags_features() {
         use super::decode_failure_hint;
         use h264_reader::nal::sps::ChromaFormat::*;
 
-        // The list of unsupported features named in the "uses ... (profile" clause.
-        fn features(chroma: h264_reader::nal::sps::ChromaFormat, b: Option<bool>) -> String {
-            let h = decode_failure_hint(chroma, "P", b);
+        // The unsupported feature named in the "uses ... (profile" clause.
+        fn features(chroma: h264_reader::nal::sps::ChromaFormat) -> String {
+            let h = decode_failure_hint(chroma, "P");
             if h.is_empty() {
                 return String::new();
             }
@@ -1499,21 +1665,12 @@ mod test {
             h[start..end].to_string()
         }
 
-        // 4:2:0 without B-frames: nothing to explain.
-        assert!(decode_failure_hint(YUV420, "High", Some(false)).is_empty());
-        assert!(decode_failure_hint(YUV420, "High", None).is_empty());
+        // 4:2:0: nothing to explain.
+        assert!(decode_failure_hint(YUV420, "High").is_empty());
 
-        // 4:2:0 with B-frames (e.g. FaceTime): flag B-frames only.
-        assert_eq!(features(YUV420, Some(true)), "B-frames");
-
-        // Non-4:2:0 chroma: flag chroma only.
-        assert_eq!(features(YUV444, Some(false)), "4:4:4 chroma subsampling");
-
-        // Both unsupported features present: name both.
-        assert_eq!(
-            features(YUV422, Some(true)),
-            "4:2:2 chroma subsampling and B-frames"
-        );
+        // Non-4:2:0 chroma: flag it.
+        assert_eq!(features(YUV444), "4:4:4 chroma subsampling");
+        assert_eq!(features(YUV422), "4:2:2 chroma subsampling");
     }
 
     #[cfg(feature = "openh264")]

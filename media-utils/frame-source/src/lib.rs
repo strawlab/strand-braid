@@ -25,8 +25,6 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("SRT parse error")]
     SrtParseError,
-    #[error("decoder unexpectedly did not return image data")]
-    DecoderDidNotReturnImageData,
     #[error("expected SPS not found")]
     ExpectedSpsNotFound,
     #[error("expected PPS not found")]

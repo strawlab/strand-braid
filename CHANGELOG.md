@@ -9,6 +9,20 @@
 
 ### Fixed
 
+* The built-in OpenH264 decoder now decodes H.264 streams containing B-frames
+  (rc.5 claimed the decoder cannot decode them, but OpenH264 has supported
+  B-frame decoding since v2.2 in 2022; the vendored copy is v2.6). The failure
+  was in how we drove the decoder: with B-frames it buffers pictures to reorder
+  them into display order, and our decode loop force-flushed it whenever a call
+  returned no picture, evicting reference frames mid-stream (`dsOutOfMemory` /
+  `dsNoParamSets` errors on every B-frame). The decoder now runs without
+  mid-stream flushing, each output picture is paired back with its frame (and
+  its timestamp) by display rank, and pictures still buffered at end of stream
+  are drained. Decoded pixel content and frame order are pinned by tests
+  validated bit-exactly against ffmpeg. Decode-failure hints no longer blame
+  B-frames or recommend `-bf 0`; non-4:2:0 chroma remains unsupported. ffmpeg
+  H.264 recording still defaults to `-bf 0`, now only because B-frames
+  complicate per-frame timestamping, not for playback compatibility.
 * The `reconstruct_latency_usec.hlog` histogram now measures the latency until
   the tracker produces each estimate rather than until the disk writer dequeues
   it, eliminating a spurious 20–100 ms tail caused by the writer's periodic
