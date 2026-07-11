@@ -257,30 +257,40 @@ fn has_trunk_0_21_x(version_output: &str) -> bool {
 /// A machine-wide, cross-process advisory lock that serializes `trunk build`
 /// invocations.
 ///
-/// It is implemented with a lock file created atomically via
-/// `create_new`. The lock is released when the guard is dropped (which removes
-/// the file). To recover from a build script that crashed while holding the
-/// lock, a lock file older than [`Self::STALE_AFTER`] is considered abandoned
-/// and is stolen.
+/// It is implemented with a lock file created atomically via `create_new`;
+/// the holder records its PID in the file. The lock is released when the
+/// guard is dropped (which removes the file).
+///
+/// Holders regularly die without dropping the guard: rust-analyzer kills the
+/// build scripts of an in-flight `cargo check` whenever a file save cancels
+/// it, and SIGKILL runs no destructors. Waiters therefore treat the lock as
+/// abandoned as soon as the recorded holder process no longer exists (checked
+/// via `/proc`; on platforms without `/proc`, or for a lock file without a
+/// readable PID, a file older than [`Self::STALE_AFTER`] is used as the
+/// fallback rule) and steal it.
 struct TrunkBuildLock {
     path: std::path::PathBuf,
 }
 
 impl TrunkBuildLock {
-    /// A lock file older than this is treated as abandoned by a crashed
-    /// process. It is generous: it only needs to exceed the longest plausible
-    /// trunk build, never a normal wait.
+    /// Fallback when holder liveness cannot be determined: a lock file older
+    /// than this is treated as abandoned by a crashed process. It is
+    /// generous: it only needs to exceed the longest plausible trunk build,
+    /// never a normal wait.
     const STALE_AFTER: std::time::Duration = std::time::Duration::from_secs(30 * 60);
     /// Give up rather than block a build forever if something is wrong.
     const ACQUIRE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30 * 60);
     const POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
 
     fn acquire() -> Result<Self, Box<dyn std::error::Error>> {
-        use std::io::ErrorKind;
-
         // A fixed, well-known path so every trunk build script on this machine
         // contends on the same lock.
-        let path = std::env::temp_dir().join("strand-braid-trunk-build.lock");
+        Self::acquire_at(std::env::temp_dir().join("strand-braid-trunk-build.lock"))
+    }
+
+    fn acquire_at(path: std::path::PathBuf) -> Result<Self, Box<dyn std::error::Error>> {
+        use std::io::{ErrorKind, Write};
+
         let start = std::time::Instant::now();
 
         loop {
@@ -289,11 +299,22 @@ impl TrunkBuildLock {
                 .create_new(true)
                 .open(&path)
             {
-                Ok(_file) => return Ok(Self { path }),
+                Ok(mut file) => {
+                    // Record our PID so waiters can detect a holder that died
+                    // without cleaning up (see `is_stale`). If this write
+                    // fails, waiters simply fall back to the age-based rule.
+                    let _ = write!(file, "{}", std::process::id());
+                    return Ok(Self { path });
+                }
                 Err(err) if err.kind() == ErrorKind::AlreadyExists => {
                     // Someone else holds the lock. Steal it if it is stale,
                     // otherwise wait and retry.
                     if Self::is_stale(&path) {
+                        println!(
+                            "cargo:warning=removing stale trunk build lock at {} \
+                             (holder is gone)",
+                            path.display()
+                        );
                         // Best effort: if the steal races with the holder
                         // releasing it, we simply retry on the next iteration.
                         let _ = std::fs::remove_file(&path);
@@ -321,6 +342,19 @@ impl TrunkBuildLock {
     }
 
     fn is_stale(path: &std::path::Path) -> bool {
+        // Preferred rule: the holder recorded its PID; the lock is stale
+        // exactly when that process no longer exists. (A recycled PID makes
+        // the lock look held; the holder's death then ends the wait, and
+        // ACQUIRE_TIMEOUT bounds the pathological case.)
+        if let Ok(contents) = std::fs::read_to_string(path)
+            && let Ok(pid) = contents.trim().parse::<u32>()
+            && let Some(alive) = pid_is_alive(pid)
+        {
+            return !alive;
+        }
+
+        // Fallback rule (no readable PID — a mid-write race or a pre-PID
+        // lock file — or no way to probe liveness on this platform): age.
         match std::fs::metadata(path).and_then(|meta| meta.modified()) {
             Ok(modified) => modified.elapsed().unwrap_or_default() > Self::STALE_AFTER,
             // If the file vanished between our open attempt and this check, it is
@@ -330,9 +364,29 @@ impl TrunkBuildLock {
     }
 }
 
+/// Best-effort check whether a process with the given PID exists, without any
+/// dependencies: on systems with `/proc` (Linux), a live process has an
+/// entry there. Returns `None` where liveness cannot be determined (e.g.
+/// macOS, Windows), in which case the caller falls back to an age-based rule.
+fn pid_is_alive(pid: u32) -> Option<bool> {
+    if std::path::Path::new("/proc/self").exists() {
+        Some(std::path::Path::new(&format!("/proc/{pid}")).exists())
+    } else {
+        None
+    }
+}
+
 impl Drop for TrunkBuildLock {
     fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.path);
+        // Only remove the lock if it is still ours: if it was deemed stale,
+        // stolen, and re-acquired by another process, removing it here would
+        // release that process's lock out from under it.
+        let is_ours = std::fs::read_to_string(&self.path)
+            .map(|contents| contents.trim() == std::process::id().to_string())
+            .unwrap_or(false);
+        if is_ours {
+            let _ = std::fs::remove_file(&self.path);
+        }
     }
 }
 
@@ -369,5 +423,85 @@ mod tests {
         assert!(validate_build_metadata("has space").is_err());
         assert!(validate_build_metadata("plus+sign").is_err());
         assert!(validate_build_metadata("under_score").is_err());
+    }
+
+    mod trunk_build_lock {
+        use super::super::TrunkBuildLock;
+
+        /// A unique lock path per test so tests neither collide with each
+        /// other nor with the real machine-wide lock.
+        fn test_lock_path(name: &str) -> std::path::PathBuf {
+            std::env::temp_dir().join(format!(
+                "build-util-test-{name}-{}.lock",
+                std::process::id()
+            ))
+        }
+
+        /// A PID that is certain not to exist: spawn a short-lived process
+        /// and reap it. (The PID could in principle be recycled before the
+        /// test reads it, but the window is microseconds.)
+        #[cfg(target_os = "linux")]
+        fn dead_pid() -> u32 {
+            let mut child = std::process::Command::new("true").spawn().unwrap();
+            let pid = child.id();
+            child.wait().unwrap();
+            pid
+        }
+
+        #[test]
+        fn acquire_records_pid_and_drop_removes() {
+            let path = test_lock_path("acquire");
+            let lock = TrunkBuildLock::acquire_at(path.clone()).unwrap();
+            let contents = std::fs::read_to_string(&path).unwrap();
+            assert_eq!(contents, std::process::id().to_string());
+            drop(lock);
+            assert!(!path.exists(), "drop must remove the lock file");
+        }
+
+        #[test]
+        fn drop_leaves_a_lock_that_is_not_ours() {
+            let path = test_lock_path("not-ours");
+            let lock = TrunkBuildLock::acquire_at(path.clone()).unwrap();
+            // Simulate the lock having been stolen and re-acquired by
+            // another process.
+            std::fs::write(&path, "0").unwrap();
+            drop(lock);
+            assert!(path.exists(), "drop must not remove another holder's lock");
+            std::fs::remove_file(&path).unwrap();
+        }
+
+        #[cfg(target_os = "linux")]
+        #[test]
+        fn lock_of_live_holder_is_not_stale() {
+            let path = test_lock_path("live");
+            std::fs::write(&path, std::process::id().to_string()).unwrap();
+            assert!(!TrunkBuildLock::is_stale(&path));
+            std::fs::remove_file(&path).unwrap();
+        }
+
+        #[cfg(target_os = "linux")]
+        #[test]
+        fn lock_of_dead_holder_is_stale_and_stolen() {
+            let path = test_lock_path("dead");
+            std::fs::write(&path, dead_pid().to_string()).unwrap();
+            assert!(TrunkBuildLock::is_stale(&path));
+
+            // A fresh acquire must steal it promptly (well under the 30 min
+            // age rule) and record its own PID.
+            let lock = TrunkBuildLock::acquire_at(path.clone()).unwrap();
+            let contents = std::fs::read_to_string(&path).unwrap();
+            assert_eq!(contents, std::process::id().to_string());
+            drop(lock);
+        }
+
+        #[test]
+        fn unreadable_pid_falls_back_to_age_rule() {
+            let path = test_lock_path("no-pid");
+            // An empty, freshly-created lock file (e.g. the moment between
+            // create_new and the PID write): recent mtime, so held.
+            std::fs::write(&path, "").unwrap();
+            assert!(!TrunkBuildLock::is_stale(&path));
+            std::fs::remove_file(&path).unwrap();
+        }
     }
 }
