@@ -680,7 +680,7 @@ pub(crate) async fn do_run_forever(
         TriggerType::PtpSync(_) | TriggerType::DeviceTimestamp => false,
     };
 
-    let sync_pulse_pause_started: Option<std::time::Instant> = None;
+    let sync_pulse_pause_started: Option<flydra2::SyncStart> = None;
     let sync_pulse_pause_started_arc = Arc::new(RwLock::new(sync_pulse_pause_started));
 
     let flydra_app_name = "Braid".to_string();
@@ -1468,7 +1468,7 @@ pub(crate) async fn toggle_saving_csv_tables(
 async fn synchronize_cameras(
     triggerbox_cmd: Option<tokio::sync::mpsc::Sender<braid_triggerbox::Cmd>>,
     fake_sync: bool,
-    sync_pulse_pause_started_arc: Arc<RwLock<Option<std::time::Instant>>>,
+    sync_pulse_pause_started_arc: Arc<RwLock<Option<flydra2::SyncStart>>>,
     mut cam_manager: flydra2::ConnectedCamerasManager,
     time_model_arc: Arc<RwLock<Option<strand_cam_bui_types::ClockModel>>>,
 ) -> Result<()> {
@@ -1477,7 +1477,7 @@ async fn synchronize_cameras(
     // This time must be prior to actually resetting sync data.
     {
         let mut sync_pulse_pause_started = sync_pulse_pause_started_arc.write().unwrap();
-        *sync_pulse_pause_started = Some(std::time::Instant::now());
+        *sync_pulse_pause_started = Some(flydra2::SyncStart::now());
     }
 
     // Now we can reset the sync data.

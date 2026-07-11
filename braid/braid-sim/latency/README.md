@@ -58,13 +58,17 @@ tail was entirely the writer-flush artifact described above. Camera-side frame
 production was synchronized to ≤0.5 ms across cameras with ≤0.8 ms cadence
 jitter, and no packet drops or backpressure occurred.
 
-Caveat observed once in ~7 runs: cameras can synchronize with an off-by-one
-frame offset under FakeSync (a subset of cameras' synced frame numbers lag one
-frame period). The run then reports a consistent ~1-frame-period latency floor
-(bundling waits for the lagging cameras) and `decompose_latency.py` shows a
-cross-camera spread with P50 of one frame period. Discard such runs when
-measuring pipeline latency — or investigate them: it is a real sync race, and
-it also degrades data association (cameras observe instants 10 ms apart).
+Historical caveat (fixed): FakeSync used to synchronize each camera on its
+first packet to *arrive* after synchronization began, which raced with the
+frame clock — roughly 1 run in 7, a subset of cameras synchronized one frame
+late, producing a hard one-frame-period latency floor and pairing
+observations captured 10 ms apart. Since commit "fix(flydra2): anchor fake
+sync to the frame clock, not packet arrival order", each camera's frame
+numbering is anchored to a common wall-clock epoch via the frame acquisition
+timestamps, which pairs the frames nearest in time. Residual cross-camera
+spread reported by `decompose_latency.py` now reflects genuine phase offsets
+between free-running cameras (bounded by half a frame period), not a sync
+artifact.
 
 To hunt for a real tail, increase load: more insects/cameras in the scenario,
 higher fps, or run with the machine's cores contended (e.g. `stress-ng`).

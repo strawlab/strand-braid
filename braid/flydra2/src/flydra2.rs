@@ -34,7 +34,7 @@ use braid_types::{
 };
 
 mod connected_camera_manager;
-pub use connected_camera_manager::{ConnectedCamCallback, ConnectedCamerasManager};
+pub use connected_camera_manager::{ConnectedCamCallback, ConnectedCamerasManager, SyncStart};
 
 mod write_data;
 pub use write_data::BraidMetadataBuilder;

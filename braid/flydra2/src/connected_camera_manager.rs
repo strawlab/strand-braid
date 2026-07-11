@@ -14,6 +14,26 @@ use braid_types::{
     RecentStats, SyncFno, TRIGGERBOX_SYNC_SECONDS, TriggerType,
 };
 
+/// The moment camera synchronization began, captured on both clocks.
+#[derive(Debug, Clone, Copy)]
+pub struct SyncStart {
+    /// Monotonic clock, used to bound the synchronization window.
+    pub instant: std::time::Instant,
+    /// Wall clock at the same moment. With fake sync, each camera's frame
+    /// numbering is anchored to this common epoch via the frame timestamps,
+    /// so that synchronization does not depend on packet arrival order.
+    pub wallclock: chrono::DateTime<chrono::Utc>,
+}
+
+impl SyncStart {
+    pub fn now() -> Self {
+        Self {
+            instant: std::time::Instant::now(),
+            wallclock: chrono::Utc::now(),
+        }
+    }
+}
+
 pub(crate) trait HasCameraList {
     fn camera_list(&self) -> CameraList;
 }
@@ -395,7 +415,7 @@ impl ConnectedCamerasManager {
     pub fn got_new_frame_live<F>(
         &self,
         packet: &braid_types::FlydraRawUdpPacket,
-        sync_pulse_pause_started_arc: &Arc<RwLock<Option<std::time::Instant>>>,
+        sync_pulse_pause_started_arc: &Arc<RwLock<Option<SyncStart>>>,
         send_new_frame_offset: F,
         trigger_cfg: &TriggerType,
     ) -> Option<SyncFno>
@@ -407,10 +427,14 @@ impl ConnectedCamerasManager {
                 packet,
                 sync_pulse_pause_started_arc,
                 TRIGGERBOX_SYNC_SECONDS,
+                None,
             ),
-            TriggerType::FakeSync(_) => {
-                self.got_new_frame_live_triggerbox(packet, sync_pulse_pause_started_arc, 0)
-            }
+            TriggerType::FakeSync(cfg) => self.got_new_frame_live_triggerbox(
+                packet,
+                sync_pulse_pause_started_arc,
+                0,
+                Some(cfg.framerate),
+            ),
             TriggerType::PtpSync(ptpcfg) => self.got_new_frame_live_ptp(packet, ptpcfg)?,
             TriggerType::DeviceTimestamp => {
                 todo!();
@@ -420,11 +444,23 @@ impl ConnectedCamerasManager {
     }
 
     /// Register that a new frame was received if we are using the triggerbox (or fake sync).
+    ///
+    /// With a real triggerbox (`fake_sync_fps` is `None`), trigger pulses are
+    /// paused during synchronization, so the first frame each camera delivers
+    /// after the pause is unambiguously the same pulse for all cameras. With
+    /// fake sync (`fake_sync_fps` is `Some(fps)`), cameras free-run and a
+    /// frame from every camera is in flight at any moment, so anchoring on
+    /// "first packet to arrive after synchronization began" would race with
+    /// the frame clock: cameras whose in-flight packet arrived just before
+    /// the sync epoch would synchronize one frame later than the rest. To
+    /// avoid this, fake sync anchors each camera's frame numbering to the
+    /// common wall-clock epoch using the frame's acquisition timestamp.
     fn got_new_frame_live_triggerbox(
         &self,
         packet: &braid_types::FlydraRawUdpPacket,
-        sync_pulse_pause_started_arc: &Arc<RwLock<Option<std::time::Instant>>>,
+        sync_pulse_pause_started_arc: &Arc<RwLock<Option<SyncStart>>>,
         sync_time_min_sec: u64,
+        fake_sync_fps: Option<f64>,
     ) -> SyncData {
         assert!(packet.framenumber >= 0);
 
@@ -447,16 +483,66 @@ impl ConnectedCamerasManager {
                     Unsynchronized => {
                         do_check_if_all_cameras_present = true;
                         let sync_pulse_pause_started = sync_pulse_pause_started_arc.read().unwrap();
-                        if let Some(pulse_time) = *sync_pulse_pause_started {
-                            let elapsed = pulse_time.elapsed();
+                        if let Some(sync_start) = *sync_pulse_pause_started {
+                            let elapsed = sync_start.instant.elapsed();
                             if sync_time_min < elapsed && elapsed < sync_time_max {
-                                // Camera is not synchronized, but we are
-                                // expecting a sync pulse. Therefore,
-                                // synchronize the camera now.
-                                new_frame0 = Some(cam_frame - crate::TRIGGERBOX_FIRST_PULSE);
+                                match fake_sync_fps {
+                                    None => {
+                                        // Camera is not synchronized, but we are
+                                        // expecting a sync pulse. Therefore,
+                                        // synchronize the camera now.
+                                        new_frame0 =
+                                            Some(cam_frame - crate::TRIGGERBOX_FIRST_PULSE);
 
-                                // // `synced_frame` is the first pulsenumber.
-                                synced_frame = Some(crate::TRIGGERBOX_FIRST_PULSE);
+                                        // // `synced_frame` is the first pulsenumber.
+                                        synced_frame = Some(crate::TRIGGERBOX_FIRST_PULSE);
+                                    }
+                                    Some(fps) => {
+                                        // Fake sync: anchor to the wall-clock
+                                        // epoch via the frame's acquisition
+                                        // timestamp (see method docs). Round
+                                        // the elapsed time to whole frame
+                                        // periods.
+                                        let elapsed_wall = packet.cam_received_time.as_f64()
+                                            - strand_datetime_conversion::datetime_to_f64(
+                                                &sync_start.wallclock,
+                                            );
+                                        let k = (elapsed_wall * fps).round();
+                                        let k_max = (sync_time_max.as_secs_f64() * fps).ceil();
+                                        if (0.0..=k_max).contains(&k) {
+                                            let this_synced =
+                                                k as u64 + crate::TRIGGERBOX_FIRST_PULSE;
+                                            if let Some(frame0) = cam_frame.checked_sub(this_synced)
+                                            {
+                                                new_frame0 = Some(frame0);
+                                                synced_frame = Some(this_synced);
+                                            }
+                                            // else: the camera's own frame
+                                            // counter is still too low; a later
+                                            // frame will synchronize it.
+                                        } else if k > k_max {
+                                            // The frame timestamp disagrees
+                                            // wildly with our clock (e.g. a
+                                            // remote camera with unsynchronized
+                                            // host clock). Warn and fall back to
+                                            // first-packet anchoring rather than
+                                            // never synchronizing.
+                                            tracing::warn!(
+                                                "fake sync: frame timestamp of camera \"{}\" is \
+                                                 {elapsed_wall:.3} s from the sync epoch; falling \
+                                                 back to arrival-order synchronization. Are the \
+                                                 host clocks synchronized?",
+                                                raw_cam_name.as_str()
+                                            );
+                                            new_frame0 =
+                                                Some(cam_frame - crate::TRIGGERBOX_FIRST_PULSE);
+                                            synced_frame = Some(crate::TRIGGERBOX_FIRST_PULSE);
+                                        }
+                                        // else (k < 0): frame was acquired
+                                        // before the sync epoch; the next
+                                        // frame will synchronize the camera.
+                                    }
+                                }
                             } else if std::time::Duration::from_millis(50) < elapsed {
                                 // If we are 50 msec into the pause but we get a
                                 // frame but it hasn't get been sync_time_min,
