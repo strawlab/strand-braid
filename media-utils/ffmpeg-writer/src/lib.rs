@@ -91,13 +91,6 @@ type FfmpegCodecArgList = Option<Vec<(String, String)>>;
 /// (e.g. `yuv444p` for RGB input), which OpenH264 cannot decode.
 const DEFAULT_OUTPUT_PIXFMT: &str = "yuv420p";
 
-/// The default maximum number of B-frames. B-frames are disabled by default:
-/// they make decode order differ from display order, which complicates
-/// per-frame timestamping (see `mp4-bframe-doctor`), and files without them
-/// remain playable by the built-in OpenH264 decoder of older strand-braid
-/// releases (whose decoder driving could not handle the picture reordering).
-const DEFAULT_MAX_BFRAMES: u32 = 0;
-
 #[derive(Debug, PartialEq, Clone)]
 pub struct FfmpegCodecArgs {
     pub device_args: FfmpegCodecArgList,
@@ -109,9 +102,8 @@ pub struct FfmpegCodecArgs {
     /// `-vf`/`-pix_fmt` in the other arg lists) decide, e.g. for hardware
     /// encoders whose filter chain already fixes the format.
     pub pixfmt: Option<String>,
-    /// Maximum number of B-frames passed to ffmpeg as `-bf`. Defaults to
-    /// [`DEFAULT_MAX_BFRAMES`] (`0`, i.e. disabled); see there for why. Set to
-    /// `None` to let the encoder (or a `-bf` in the other arg lists) decide.
+    /// Maximum number of B-frames passed to ffmpeg as `-bf`. `None`, the
+    /// default, lets the encoder (or a `-bf` in the other arg lists) decide.
     pub max_bframes: Option<u32>,
 }
 
@@ -123,7 +115,7 @@ impl Default for FfmpegCodecArgs {
             codec: None,
             post_codec_args: None,
             pixfmt: Some(DEFAULT_OUTPUT_PIXFMT.to_string()),
-            max_bframes: Some(DEFAULT_MAX_BFRAMES),
+            max_bframes: None,
         }
     }
 }
@@ -212,7 +204,7 @@ impl FfmpegCodecArgs {
                 // format and the encoder works on hardware surfaces; forcing an
                 // output `-pix_fmt` here would conflict.
                 pixfmt: None,
-                max_bframes: Some(DEFAULT_MAX_BFRAMES),
+                ..Default::default()
             }),
             "videotoolbox" => Some(Self {
                 codec: Some("h264_videotoolbox".into()),
@@ -456,9 +448,6 @@ mod test {
         assert_eq!(args[pixfmt_at + 1], "yuv420p");
         let codec_at = args.iter().position(|a| a == "-c:v").unwrap();
         assert!(codec_at < pixfmt_at, "pix_fmt must come after the codec");
-        // B-frames are disabled by default (see DEFAULT_MAX_BFRAMES).
-        let bf_at = args.iter().position(|a| a == "-bf").unwrap();
-        assert_eq!(args[bf_at + 1], "0");
 
         // A `None` pixfmt/max_bframes emits no `-pix_fmt`/`-bf`.
         let no_pixfmt = FfmpegCodecArgs {

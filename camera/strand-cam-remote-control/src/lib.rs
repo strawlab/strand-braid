@@ -422,18 +422,8 @@ type FfmpegCodecArgList = Option<Vec<(String, String)>>;
 /// (e.g. `yuv444p` for RGB input), which OpenH264 cannot decode.
 const DEFAULT_OUTPUT_PIXFMT: &str = "yuv420p";
 
-/// The default maximum number of B-frames. OpenH264's decoder cannot decode
-/// streams containing B-frames (it exhausts its picture buffer with a
-/// "PrefetchPic ERROR"), so we disable them by default to keep our output
-/// decodable by OpenH264. 4:2:0 alone is not sufficient for that.
-const DEFAULT_MAX_BFRAMES: u32 = 0;
-
 fn default_output_pixfmt() -> Option<String> {
     Some(DEFAULT_OUTPUT_PIXFMT.to_string())
-}
-
-fn default_max_bframes() -> Option<u32> {
-    Some(DEFAULT_MAX_BFRAMES)
 }
 
 /// Codec-specific arguments for ffmpeg.
@@ -454,11 +444,8 @@ pub struct FfmpegCodecArgs {
     /// fixes the format.
     #[serde(default = "default_output_pixfmt")]
     pub pixfmt: Option<String>,
-    /// Maximum number of B-frames passed to ffmpeg as `-bf`. Defaults to
-    /// [`DEFAULT_MAX_BFRAMES`] (`0`, i.e. disabled) so encoded video is decodable
-    /// by OpenH264. Set to `None` to let the encoder (or a `-bf` in the other arg
-    /// lists) decide.
-    #[serde(default = "default_max_bframes")]
+    /// Maximum number of B-frames passed to ffmpeg as `-bf`. `None`, the
+    /// default, lets the encoder (or a `-bf` in the other arg lists) decide.
     pub max_bframes: Option<u32>,
 }
 
@@ -470,7 +457,7 @@ impl Default for FfmpegCodecArgs {
             codec: None,
             post_codec_args: None,
             pixfmt: default_output_pixfmt(),
-            max_bframes: default_max_bframes(),
+            max_bframes: None,
         }
     }
 }
@@ -579,7 +566,7 @@ impl strand_cam_enum_iter::EnumIter for CodecSelection {
                 // format and the encoder works on hardware surfaces; forcing an
                 // output `-pix_fmt` here would conflict.
                 pixfmt: None,
-                max_bframes: Some(DEFAULT_MAX_BFRAMES),
+                ..Default::default()
             }),
             // x264 with defaults
             Ffmpeg(FfmpegCodecArgs {
