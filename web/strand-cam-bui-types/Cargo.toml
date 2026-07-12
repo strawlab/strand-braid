@@ -10,5 +10,5 @@ keywords = ["bui", "browser", "session"]
 categories = ["web-programming", "data-structures", "network-programming"]
 
 [dependencies]
-serde.workspace = true
+serde = { workspace = true, features = ["std"] }
 chrono.workspace = true
