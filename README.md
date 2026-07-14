@@ -32,7 +32,6 @@ analysis.
 | User | Main | [README.md](README.md) | Repository entry point |
 | Dev | Architecture | [docs/developer-docs/repository-organization.md](docs/developer-docs/repository-organization.md) | Monorepo structure and components |
 | Dev | Component | Various `README.md` | Library APIs and build instructions |
-| Dev | Notes | [scratch/*.md](scratch/) | Technical investigations and brainstorming |
 | Dev | History | [CHANGELOG.md](CHANGELOG.md) | Versioning and change history |
 | Dev | Schema versioning | [braid/braid-types/braidz-schema-versioning.md](braid/braid-types/braidz-schema-versioning.md) | `braidz` schema versioning policy and history |
 | Dev | Legal | [COPYRIGHT](COPYRIGHT), [LICENSE-APACHE](LICENSE-APACHE), [LICENSE-MIT](LICENSE-MIT), [code_of_conduct.md](code_of_conduct.md) | Licensing and contribution guidelines |
