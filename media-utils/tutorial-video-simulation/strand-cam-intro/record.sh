@@ -4,9 +4,10 @@
 # video against the current repo, using the hardware-free `sim` camera
 # backend (see ../README.md for what this replaces and why).
 #
-# Requires a Linux host with Xvfb, openbox, xterm, Firefox, ffmpeg, xdotool,
-# and uv installed -- see ../README.md for prerequisites and how to review
-# the output.
+# Requires a Linux host with ffmpeg and xdotool (hard requirements), plus
+# either a running desktop session or Xvfb+openbox as a fallback, and either
+# an existing terminal/browser or xterm/firefox as a fallback -- see
+# ../README.md for the full story and how to review the output.
 #
 # Usage:
 #   ./record.sh [OUTPUT_DIR]
@@ -55,23 +56,23 @@ start_display
 start_capture "$OUT_DIR/raw.mp4"
 
 echo "=== Opening terminal and browser windows ==="
-XTERM_WIN=$(open_xterm)
+TERM_WIN=$(open_terminal)
 
 echo "=== Command 1: launch with no --camera-name (auto-selects the first camera) ==="
-type_in "$XTERM_WIN" "strand-cam --camera-backend sim"
+type_in "$TERM_WIN" "strand-cam --camera-backend sim"
 wait_for_url "$BUI_URL" || { echo "ERROR: strand-cam BUI did not come up"; exit 1; }
-BROWSER_WIN=$(open_browser "$BUI_URL")
+BROWSER_WIN=$(open_browser "$BUI_URL" "$TERM_WIN")
 
 echo "=== Watching the live view ==="
 sleep 10
 
 echo "=== Ctrl+C ==="
 log_event "Ctrl+C" 1.5
-send_keys "$XTERM_WIN" ctrl+c
+send_keys "$TERM_WIN" ctrl+c
 sleep 2
 
 echo "=== Command 2: relaunch with an explicit --camera-name ==="
-type_in "$XTERM_WIN" "strand-cam --camera-backend sim --camera-name simcam0"
+type_in "$TERM_WIN" "strand-cam --camera-backend sim --camera-name simcam0"
 wait_for_url "$BUI_URL" || { echo "ERROR: strand-cam BUI did not come back up"; exit 1; }
 
 echo "=== Watching the live view again ==="
@@ -81,10 +82,10 @@ echo "=== Stopping capture ==="
 stop_capture
 
 echo "=== Burning in captions ==="
-( cd "$SCRIPT_DIR/../lib" && uv run --no-project burn_captions.py \
+python3 "$SCRIPT_DIR/../lib/burn_captions.py" \
     --events "$SESSION_EVENTS_FILE" \
     --input "$OUT_DIR/raw.mp4" \
-    --output "$OUT_DIR/strand-cam-intro.mp4" )
+    --output "$OUT_DIR/strand-cam-intro.mp4"
 
 echo "=== Done: $OUT_DIR/strand-cam-intro.mp4 ==="
 echo "Compare it against the original before deciding it's ready; adjust the"
