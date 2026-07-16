@@ -121,6 +121,37 @@ two terminal points are NOT equally hard to make robust:
   log positions somehow, which is out of scope). Revisit only if the tuned
   constant turns out to drift badly in practice.
 
+## Alternative for Command 1's point: a browser-based terminal
+
+Discussed with the user 2026-07-16, not yet decided on. Instead of (or
+alongside) estimating log-output position, replace `xterm` itself with a
+*web-based* terminal — e.g. `ttyd` (or similar) bridging a real PTY to
+`xterm.js` running in the browser, specifically in its **DOM render mode**
+(not the default canvas/WebGL renderer) so each line/character is a real
+DOM element. That would make the terminal just another Chrome tab, and
+`cdp_locate.py` could query it exactly the same way it already queries the
+BUI — fully solving *both* terminal-pointing cases, including Command 1's
+log-output point, which has no equivalent solution otherwise (see above).
+
+Tradeoffs vs. the char-grid plan:
+- Solves the harder problem (log output, not just typed text) that
+  char-grid calibration *can't* touch.
+- But: replaces `xterm` entirely (undoes some of the earlier
+  x-terminal-emulator/gnome-terminal work, though `xterm`'s own isolation
+  story was already solid, so this is about pointing precision, not fixing
+  a bug); adds a new dependency (`ttyd` or equivalent); needs the
+  terminal's purple theme/font restyled in CSS/JS to match what's already
+  tuned for `xterm`; means two Chrome windows total, each needing its own
+  `--remote-debugging-port` and its own window placement/margin handling;
+  `cdp_locate.py`'s target-picking (`find_page_ws_url`, currently "first
+  `type: page` target") would need to pick the *right* one by URL when two
+  page targets exist.
+- Net: meaningfully bigger lift than char-grid calibration, but the only
+  route to full robustness on both terminal points, not just one.
+
+**Not decided** whether to pursue this instead of, or in addition to, the
+char-grid plan above -- revisit next session.
+
 ## Other loose ends noted along the way
 
 - `BROWSER_CAMNAME_X/Y` are now only a fallback (used if CDP fails or
