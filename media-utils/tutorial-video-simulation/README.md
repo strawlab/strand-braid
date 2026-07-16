@@ -80,17 +80,78 @@ strand-cam-intro/
                         # `--camera-name simcam0` explicit.
 ```
 
-## Running a tutorial
+## Running instructions
+
+### 1. Get the code
 
 ```sh
-cd strand-cam-intro
-./record.sh          # writes ./out/strand-cam-intro.mp4 (and raw.mp4, events.jsonl)
+git clone git@github.com:Mharrap/strand-braid.git
+cd strand-braid
+git checkout wip/tutorial-video-simulation
 ```
 
-`out/` is a local working directory — it is not, and should not be,
-committed. Compare the result against the original tutorial video, tweak
-timings, and hand the final `.mp4` off manually once you're satisfied (the
-generated video files themselves are not part of this repo).
+### 2. Install the two hard requirements
+
+```sh
+sudo apt-get update
+sudo apt-get install -y ffmpeg xdotool
+```
+
+On a normal Linux desktop that's everything — see Prerequisites above for
+when the terminal/browser/display fallbacks (`xterm`, `firefox`, `Xvfb` +
+`openbox`) kick in and need installing too.
+
+### 3. Point at a `strand-cam` build
+
+**If `strand-cam` is already installed** (e.g. via the `.deb` package), skip
+building it entirely — just tell `record.sh` where to find it:
+
+```sh
+export STRAND_CAM_SIM_SPEC="$(pwd)/braid/braid-sim/example-sim.toml"
+strand-cam --camera-backend sim --list-cameras   # sanity check: should list simcam0..simcam4
+```
+
+If that errors, the installed build doesn't have the `sim` backend compiled
+in and you'll need to build from source instead (below).
+
+**Building from source**: `record.sh` does this automatically if it can't
+find a binary — see Prerequisites above for the `trunk`/Rust-toolchain/
+`cargo fetch` requirements that build needs.
+
+### 4. Run it
+
+```sh
+cd media-utils/tutorial-video-simulation/strand-cam-intro
+
+# Using an already-installed strand-cam:
+STRAND_BRAID_TARGET_DIR=$(dirname "$(which strand-cam)") ./record.sh
+
+# Or, to build from source (target/release):
+./record.sh
+```
+
+`STRAND_BRAID_TARGET_DIR` tells `record.sh` where the `strand-cam` binary
+lives, scoped to just this one invocation. Internally it does:
+```sh
+TARGET_DIR="${STRAND_BRAID_TARGET_DIR:-$REPO_ROOT/target/release}"
+if [ ! -x "$TARGET_DIR/strand-cam" ]; then
+    # cargo build --release -p strand-cam
+fi
+export PATH="$TARGET_DIR:$PATH"   # so the terminal shows plain "strand-cam ...", not a full path
+```
+so pointing it at an existing install (e.g. via `dirname "$(which
+strand-cam)"`) skips the build step; leaving it unset builds from source
+into `target/release` the first time and reuses that binary after.
+
+### 5. Output
+
+`out/strand-cam-intro.mp4` (plus `out/raw.mp4`, the pre-caption capture, and
+`out/events.jsonl`, the caption log) next to `record.sh`. `out/` is a local
+working directory — it is not, and should not be, committed. Compare the
+result against the original tutorial video, tweak `sleep` durations/captions
+in `record.sh` and rerun if needed, and hand the final `.mp4` off manually
+once you're satisfied (the generated video files themselves are not part of
+this repo).
 
 ## A note on `--camera-backend sim`
 
