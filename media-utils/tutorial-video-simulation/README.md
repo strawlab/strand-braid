@@ -18,26 +18,47 @@ today.
 
 Camera-dependent tutorials use the hardware-free `sim` camera backend
 (`ci2-sim`, driven by `braid/braid-sim/example-sim.toml`) instead of real
-camera hardware, so these scripts run on any Linux box, including CI runners,
-with no camera attached.
+camera hardware, so these scripts run on any Linux box with no camera
+attached.
 
 ## Prerequisites (Linux only)
 
-- `Xvfb`, `openbox`, `xterm`, a browser (Firefox), `ffmpeg`, `xdotool`
-- [`uv`](https://docs.astral.sh/uv/getting-started/installation/) (runs the
-  Python caption-burning helper with a pinned Python + dependencies, same as
-  `docs/user-docs/scripts/record-mp4-video-ffmpeg.py`)
-- A `cargo build --release` of whatever binary the tutorial launches (each
-  script builds it automatically if missing). For `strand-cam`, that build
-  needs everything in
-  [`docs/developer-docs/building-for-development.md`](../../docs/developer-docs/building-for-development.md)
-  (a recent enough Rust toolchain, `trunk`, and the `wasm32-unknown-unknown`
-  target, since the default `bundle_files` feature compiles the browser
-  frontend). If the very first build of the day is offline (e.g. `trunk`'s
-  nested `cargo metadata` call), run `cargo fetch` once first.
+Only two packages are hard requirements:
 
-These scripts were developed and syntax-checked on macOS (where `Xvfb`/
-`xdotool`/`x11grab` aren't available) but are meant to run on Linux. The first
+- `ffmpeg` — screen capture and caption burn-in
+- `xdotool` — window placement, simulated typing, and keypresses
+
+Everything else uses what's already on a normal Linux desktop instead of
+requiring anything new, falling back to installing its own minimal version
+only if nothing usable is found:
+
+- **display**: reuses the desktop's existing X11 session (this is the
+  expected case — these scripts are meant to run on a real Linux desktop,
+  the same kind the original videos were recorded on; it assumes X11 or an
+  XWayland-compatible session, not pure Wayland). Falls back to a disposable
+  `Xvfb` + `openbox` only if there's no usable display (e.g. a headless box
+  or CI).
+- **terminal**: prefers `x-terminal-emulator` (already set up via
+  update-alternatives on any Debian/Ubuntu desktop) over requiring `xterm`.
+- **browser**: uses whichever of `firefox`/`google-chrome`/`chromium` is
+  already installed, rather than requiring a specific one.
+- **caption burn-in**: `burn_captions.py` has no third-party Python
+  dependencies (unlike `docs/user-docs/scripts/record-mp4-video-ffmpeg.py`,
+  which needs `requests` and so uses `uv`), so plain `python3` is enough —
+  no `uv`/venv needed.
+
+A `cargo build --release` of whatever binary the tutorial launches, unless
+you point `STRAND_BRAID_TARGET_DIR` at an already-installed binary (each
+script builds it automatically if missing otherwise). For `strand-cam` built
+from source, that build needs everything in
+[`docs/developer-docs/building-for-development.md`](../../docs/developer-docs/building-for-development.md)
+(a recent enough Rust toolchain, `trunk`, and the `wasm32-unknown-unknown`
+target, since the default `bundle_files` feature compiles the browser
+frontend). If the very first build of the day is offline (e.g. `trunk`'s
+nested `cargo metadata` call), run `cargo fetch` once first.
+
+These scripts were developed and syntax-checked on macOS (where `x11grab`/
+a real X11 session aren't available) but are meant to run on Linux. The first
 full run of each script should be treated as a test: watch the resulting
 video, adjust `sleep` durations/captions in that tutorial's `record.sh` as
 needed, and only then treat the output as final.
@@ -46,11 +67,12 @@ needed, and only then treat the output as final.
 
 ```
 lib/
-  session.sh          # shared bash helpers: virtual display, tiled
-                       # terminal+browser windows, simulated typing/keys,
-                       # screen capture, and a timestamped caption log
+  session.sh          # shared bash helpers: display (existing desktop or a
+                       # virtual fallback), tiled terminal+browser windows,
+                       # simulated typing/keys, screen capture, and a
+                       # timestamped caption log
   burn_captions.py     # overlays lib/session.sh's caption log onto the
-                       # captured video (uv script, run via `uv run --no-project`)
+                       # captured video (no dependencies, run with python3)
 strand-cam-intro/
   record.sh            # regenerates Video_1.mp4 (launching Strand Camera
                         # from the command line): `strand-cam --camera-backend

@@ -6,8 +6,10 @@
 # regenerates (e.g. a "Ctrl+C" label at the moment that key was sent, rather
 # than narration audio).
 #
+# No third-party dependencies -- run with plain python3.
+#
 # Usage:
-#   uv run --no-project lib/burn_captions.py \
+#   python3 lib/burn_captions.py \
 #       --events events.jsonl --input raw.mp4 --output final.mp4
 
 import argparse
