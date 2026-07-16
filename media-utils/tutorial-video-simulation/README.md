@@ -159,7 +159,15 @@ step 2 above).
 ```sh
 cd media-utils/tutorial-video-simulation/strand-cam-intro
 ./record.sh
+
+# Or, against real camera hardware attached to this machine instead of the
+# hardware-free sim backend:
+CAMERA_BACKEND=pylon ./record.sh
 ```
+
+`CAMERA_BACKEND` (default `sim`) selects which `strand-cam --camera-backend`
+actually runs; see "A note on `--camera-backend sim`" below for how the
+on-screen commands stay clean regardless of which one you pick.
 
 Internally, step 3's binary selection does:
 ```sh
@@ -195,11 +203,26 @@ build a given output came from.
 
 ## A note on `--camera-backend sim`
 
-The tutorials here use `--camera-backend sim` purely so the recording needs
+The tutorials here default to `--camera-backend sim` so the recording needs
 no camera hardware. If you have a real Basler camera, the equivalent of the
 old `strand-cam-pylon` command is simply `strand-cam` on its own — `pylon` is
 still the default backend (`strand-cam/src/cli_app.rs`), it's just no longer
-baked into the binary's name.
+baked into the binary's name. Set `CAMERA_BACKEND=pylon` (or `vimba`/
+`webcam`) to record against that real hardware instead — see step 4 above.
+
+`strand-cam` has no environment variable for `--camera-backend`; it's
+CLI-only, and always defaults to Pylon if omitted. So the terminal always
+needs to show *some* version of the true command a real user with that
+hardware would type — never a `--camera-backend` flag that's only an
+artifact of this recording setup. `record.sh` handles this by generating a
+tiny wrapper script named `strand-cam` (earlier on `PATH` than the real
+binary, scoped to that one run only) that silently injects
+`--camera-backend $CAMERA_BACKEND` while forwarding everything else — except
+for `CAMERA_BACKEND=pylon`, where no wrapper is needed at all, since the
+bare command is already exactly correct. Command 2's `--camera-name` is
+`simcam0` for the sim backend, or auto-detected via `--list-cameras` for a
+real one (so it always points at whichever real camera is actually
+attached, not a hardcoded name).
 
 ## Adding another tutorial
 
