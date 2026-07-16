@@ -23,25 +23,53 @@ attached.
 
 ## Prerequisites (Linux only)
 
-Only two packages are hard requirements:
+Five packages are hard requirements:
 
 - `ffmpeg` — screen capture and caption burn-in
 - `xdotool` — window placement, simulated typing, and keypresses
+- `Xvfb` + `openbox` — a disposable virtual display and window manager
+- `xterm` — the terminal window `record.sh` types into
 
-Everything else uses what's already on a normal Linux desktop instead of
-requiring anything new, falling back to installing its own minimal version
-only if nothing usable is found:
+**Recording always happens on its own isolated `Xvfb` display, never your
+real desktop session.** This is deliberate: an earlier version reused
+whatever real X11 session was already running (to avoid the extra
+dependencies), but that made simulated typing/window automation a
+window-targeting footgun — get it wrong and it can move, type into, or kill
+a window on your *actual* desktop instead of the throwaway one it meant to
+target. Isolation is worth the extra packages.
 
-- **display**: reuses the desktop's existing X11 session (this is the
-  expected case — these scripts are meant to run on a real Linux desktop,
-  the same kind the original videos were recorded on; it assumes X11 or an
-  XWayland-compatible session, not pure Wayland). Falls back to a disposable
-  `Xvfb` + `openbox` only if there's no usable display (e.g. a headless box
-  or CI).
-- **terminal**: prefers `x-terminal-emulator` (already set up via
-  update-alternatives on any Debian/Ubuntu desktop) over requiring `xterm`.
-- **browser**: uses whichever of `firefox`/`google-chrome`/`chromium` is
-  already installed, rather than requiring a specific one.
+`xterm` specifically (not `x-terminal-emulator`) is a hard requirement, not
+a "use whatever's installed" fallback, because on a stock Debian/Ubuntu
+desktop `x-terminal-emulator` resolves to `gnome-terminal`, which isn't a
+self-contained X client — it asks an already-running `gnome-terminal-server`
+daemon (started once, at login, bound to your *real* desktop) to open a
+window over D-Bus. That daemon ignores whatever `DISPLAY` this script
+exports, so the window opens on your real screen instead of the isolated
+one — the exact failure mode isolation was added to prevent. `xterm` has no
+such daemon; it always opens directly on `$DISPLAY`.
+
+Everything else uses what's already installed instead of requiring anything
+new, falling back to installing its own minimal version only if nothing
+usable is found:
+
+- **browser**: prefers `google-chrome`/`chromium` over `firefox`, launched
+  with an isolated profile and remote-control disabled (`--user-data-dir`/
+  `-no-remote`) so it can't hand off to — or get confused with — an instance
+  already running on your real desktop. `firefox` is tried last and only as
+  a fallback: on stock Ubuntu it's a snap package, and snap's confinement
+  sandbox blocks it from reading/writing the isolated profile dir under
+  `/tmp`, so it fails with "Your Firefox profile cannot be loaded" instead
+  of actually isolating — a known limitation of that packaging, not
+  something this script works around. Chrome/Chromium variants also get
+  `--ozone-platform=x11 --disable-gpu`: on a Wayland desktop, Chrome
+  otherwise auto-detects `$WAYLAND_DISPLAY` and renders natively there,
+  completely bypassing the isolated `$DISPLAY` (Wayland connections don't go
+  through `$DISPLAY` at all) and opening a real, visible window on your
+  actual desktop instead — `--ozone-platform=x11` forces it onto X11/XWayland
+  so it actually honors the isolation. `--disable-gpu` is separately needed
+  because Xvfb has no real GPU, and Chrome's default GPU-accelerated
+  compositing path fails silently there, leaving the window blank/black
+  instead of falling back to software rendering on its own.
 - **caption burn-in**: `burn_captions.py` has no third-party Python
   dependencies (unlike `docs/user-docs/scripts/record-mp4-video-ffmpeg.py`,
   which needs `requests` and so uses `uv`), so plain `python3` is enough —
@@ -67,10 +95,9 @@ needed, and only then treat the output as final.
 
 ```
 lib/
-  session.sh          # shared bash helpers: display (existing desktop or a
-                       # virtual fallback), tiled terminal+browser windows,
-                       # simulated typing/keys, screen capture, and a
-                       # timestamped caption log
+  session.sh          # shared bash helpers: isolated virtual display, tiled
+                       # terminal+browser windows, simulated typing/keys,
+                       # screen capture, and a timestamped caption log
   burn_captions.py     # overlays lib/session.sh's caption log onto the
                        # captured video (no dependencies, run with python3)
 strand-cam-intro/
@@ -87,61 +114,68 @@ strand-cam-intro/
 ```sh
 git clone git@github.com:Mharrap/strand-braid.git
 cd strand-braid
-git checkout wip/tutorial-video-simulation
 ```
 
-### 2. Install the two hard requirements
+Everything is on `main` — no branch to check out.
+
+### 2. Install the hard requirements
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y ffmpeg xdotool
+sudo apt-get install -y ffmpeg xdotool xvfb openbox xterm
 ```
 
-On a normal Linux desktop that's everything — see Prerequisites above for
-when the terminal/browser/display fallbacks (`xterm`, `firefox`, `Xvfb` +
-`openbox`) kick in and need installing too.
+That's everything needed for the display/terminal/capture side. See
+Prerequisites above for when the browser fallback (`firefox`, if no Chrome/
+Chromium variant is installed) needs installing too.
 
 ### 3. Point at a `strand-cam` build
 
-**If `strand-cam` is already installed** (e.g. via the `.deb` package), skip
-building it entirely — just tell `record.sh` where to find it:
+`record.sh` picks a `strand-cam` binary itself, in this order:
+
+1. `STRAND_BRAID_TARGET_DIR`, if you set it — an explicit override.
+2. Otherwise, whatever `strand-cam` is already on `PATH` (e.g. installed via
+   the `.deb` package) — the common case, and the fastest, since it skips
+   building entirely.
+3. Otherwise, `target/release`, building from source there first if it's
+   empty — see Prerequisites above for the `trunk`/Rust-toolchain/
+   `cargo fetch` requirements that build needs.
+
+**If `strand-cam` is already installed**, sanity-check the `sim` backend is
+compiled in before running the full script:
 
 ```sh
 export STRAND_CAM_SIM_SPEC="$(pwd)/braid/braid-sim/example-sim.toml"
-strand-cam --camera-backend sim --list-cameras   # sanity check: should list simcam0..simcam4
+strand-cam --camera-backend sim --list-cameras   # should list simcam0..simcam4
 ```
 
-If that errors, the installed build doesn't have the `sim` backend compiled
-in and you'll need to build from source instead (below).
-
-**Building from source**: `record.sh` does this automatically if it can't
-find a binary — see Prerequisites above for the `trunk`/Rust-toolchain/
-`cargo fetch` requirements that build needs.
+If that errors, the installed build doesn't have `sim` compiled in — build
+from source instead by setting `STRAND_BRAID_TARGET_DIR` to somewhere other
+than that install (or uninstalling it isn't necessary; just don't rely on
+step 2 above).
 
 ### 4. Run it
 
 ```sh
 cd media-utils/tutorial-video-simulation/strand-cam-intro
-
-# Using an already-installed strand-cam:
-STRAND_BRAID_TARGET_DIR=$(dirname "$(which strand-cam)") ./record.sh
-
-# Or, to build from source (target/release):
 ./record.sh
 ```
 
-`STRAND_BRAID_TARGET_DIR` tells `record.sh` where the `strand-cam` binary
-lives, scoped to just this one invocation. Internally it does:
+Internally, step 3's binary selection does:
 ```sh
-TARGET_DIR="${STRAND_BRAID_TARGET_DIR:-$REPO_ROOT/target/release}"
-if [ ! -x "$TARGET_DIR/strand-cam" ]; then
-    # cargo build --release -p strand-cam
+if [ -n "${STRAND_BRAID_TARGET_DIR:-}" ]; then
+    TARGET_DIR="$STRAND_BRAID_TARGET_DIR"
+elif command -v strand-cam >/dev/null 2>&1; then
+    TARGET_DIR=$(dirname "$(command -v strand-cam)")
+else
+    TARGET_DIR="$REPO_ROOT/target/release"
 fi
+# ...build there if $TARGET_DIR/strand-cam doesn't exist yet...
 export PATH="$TARGET_DIR:$PATH"   # so the terminal shows plain "strand-cam ...", not a full path
 ```
-so pointing it at an existing install (e.g. via `dirname "$(which
-strand-cam)"`) skips the build step; leaving it unset builds from source
-into `target/release` the first time and reuses that binary after.
+To force a from-source build even with a package installed (e.g. to test an
+uncommitted change), point `STRAND_BRAID_TARGET_DIR` at `target/release`
+explicitly: `STRAND_BRAID_TARGET_DIR="$(pwd)/../../../target/release" ./record.sh`.
 
 ### 5. Output
 
@@ -152,6 +186,12 @@ result against the original tutorial video, tweak `sleep` durations/captions
 in `record.sh` and rerun if needed, and hand the final `.mp4` off manually
 once you're satisfied (the generated video files themselves are not part of
 this repo).
+
+The exact `strand-cam --version` output used to generate the video is
+written into `strand-cam-intro.mp4`'s `comment` metadata tag (not burned
+into the picture) -- check it with `ffprobe -v quiet -show_entries
+format_tags=comment out/strand-cam-intro.mp4` if you need to know which
+build a given output came from.
 
 ## A note on `--camera-backend sim`
 

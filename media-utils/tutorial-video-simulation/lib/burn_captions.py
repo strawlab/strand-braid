@@ -44,6 +44,10 @@ def main():
     parser.add_argument("--events", required=True, help="events.jsonl from session.sh's log_event")
     parser.add_argument("--input", required=True, help="raw screen-capture .mp4 from start_capture")
     parser.add_argument("--output", required=True, help="captioned .mp4 to write")
+    parser.add_argument(
+        "--comment",
+        help="written into the output mp4's 'comment' metadata tag (e.g. the strand-cam version used)",
+    )
     args = parser.parse_args()
 
     events = []
@@ -56,6 +60,8 @@ def main():
     cmd = ["ffmpeg", "-y", "-i", args.input]
     if events:
         cmd += ["-vf", build_filter(events)]
+    if args.comment:
+        cmd += ["-metadata", f"comment={args.comment}"]
     cmd += ["-c:a", "copy", args.output]
 
     print("+", " ".join(cmd), file=sys.stderr)

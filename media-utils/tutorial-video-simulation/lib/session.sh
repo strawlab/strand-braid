@@ -1,20 +1,26 @@
-# Shared helpers for recording tutorial videos on a Linux X11 host: a
-# terminal and a browser window tiled side by side, simulated
-# typing/keypresses via xdotool, and an ffmpeg screen capture with a
-# timestamped event log for caption burn-in (see burn_captions.py).
+# Shared helpers for recording tutorial videos on a Linux host: a terminal
+# and a browser window tiled side by side, simulated typing/keypresses via
+# xdotool, and an ffmpeg screen capture with a timestamped event log for
+# caption burn-in (see burn_captions.py).
 #
-# Only two packages are hard requirements: ffmpeg (capture + caption
-# burn-in) and xdotool (window/keyboard automation). Everything else is
-# used if already present and otherwise falls back to installing its own
-# minimal version:
-#   - display: reuses the desktop's existing X11 session (assumes X11 or an
-#     XWayland-compatible one -- this doesn't work under pure Wayland). Only
-#     starts a virtual one (Xvfb + openbox) if no display is usable, e.g. on
-#     a headless box or in CI.
-#   - terminal: prefers `x-terminal-emulator` (already set up on any Debian/
-#     Ubuntu desktop) over requiring `xterm` specifically.
-#   - browser: uses whichever of firefox/chrome/chromium is already
-#     installed, rather than requiring one specifically.
+# Runs entirely on its own disposable Xvfb + openbox display -- it never
+# touches whatever real desktop session you're actually working in.
+# xdotool automation and process cleanup are scoped to that virtual display,
+# so there's no way for this to grab or kill a window that belongs to your
+# real session (see git history for why that matters: an earlier version
+# reused the real desktop when one was usable, and a window-targeting bug
+# in that mode ended up killing an unrelated terminal on the real desktop).
+#
+# Hard requirements: ffmpeg (capture + caption burn-in), xdotool
+# (window/keyboard automation), Xvfb + openbox (the virtual display + window
+# manager), xterm (the terminal -- see open_terminal for why this can't be
+# "whatever's installed" the way the others can be). Everything else is used
+# if already present and otherwise falls back to installing its own minimal
+# version:
+#   - browser: prefers google-chrome/chromium over firefox (see open_browser
+#     for why), launched with an isolated profile/`-no-remote` so it can't
+#     hand off to (or get confused with) an instance already running on your
+#     real desktop.
 #   - caption burn-in: burn_captions.py has no third-party dependencies, so
 #     it just needs `python3` (already present on essentially every Linux
 #     install) -- no `uv`/venv needed.
@@ -39,32 +45,48 @@ SESSION_CAPTURE_START_EPOCH=""
 : > "$SESSION_EVENTS_FILE"
 
 session_cleanup() {
-    local pid
+    local pid i
     for ((i = ${#SESSION_PIDS[@]} - 1; i >= 0; i--)); do
         pid="${SESSION_PIDS[$i]}"
         kill -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true
     done
-    sleep 1
+
+    # SIGTERM alone often isn't enough: a multi-process browser (zygote/GPU/
+    # renderer/utility helpers) can take a couple of seconds to tear itself
+    # down, longer than a token sleep -- so poll for actual exit first, and
+    # only escalate to SIGKILL for anything still alive after that.
+    for _ in $(seq 1 10); do
+        local any_alive=0
+        for pid in "${SESSION_PIDS[@]}"; do
+            kill -0 -- "-$pid" 2>/dev/null && any_alive=1
+        done
+        [ "$any_alive" -eq 0 ] && break
+        sleep 0.5
+    done
+    for pid in "${SESSION_PIDS[@]}"; do
+        kill -s KILL -- "-$pid" 2>/dev/null || kill -s KILL "$pid" 2>/dev/null || true
+    done
+
+    # Everything under here (logs, the browser profile, the strand-cam
+    # wrapper if a tutorial made one) is disposable once all our processes
+    # are confirmed dead -- remove it so temp dirs don't pile up in /tmp
+    # across repeated runs.
+    rm -rf "$SESSION_WORK_DIR"
 }
 trap session_cleanup EXIT
 
-# start_display: uses the current desktop session if one is usable (the
-# common case -- this is meant to run on a real Linux desktop), only
-# starting a disposable Xvfb + openbox if there's no display to reuse (e.g.
-# a headless box or CI runner). Only ever kills what it itself started, so
-# it never touches a real desktop's X server or window manager.
+# start_display: always starts a disposable Xvfb + openbox display of our
+# own -- deliberately never reuses whatever real desktop session is already
+# running, so this can't ever grab, move, type into, or kill a window that
+# belongs to your actual session. Only ever kills what it itself started.
 start_display() {
-    if [ -n "${DISPLAY:-}" ] && xdpyinfo >/dev/null 2>&1; then
-        echo "Using the existing display $DISPLAY" >&2
-        local dims
-        dims=$(xdpyinfo | awk '/dimensions:/ { print $2; exit }')
-        SESSION_WIDTH="${dims%x*}"
-        SESSION_HEIGHT="${dims#*x}"
-        return
-    fi
+    local n=99
+    while [ -e "/tmp/.X${n}-lock" ]; do
+        n=$((n + 1))
+    done
+    export DISPLAY=":${n}"
 
-    echo "No usable display found; starting a virtual one (Xvfb + openbox)" >&2
-    export DISPLAY=":99"
+    echo "Starting an isolated virtual display on $DISPLAY (Xvfb + openbox)" >&2
     setsid Xvfb "$DISPLAY" -screen 0 "${SESSION_WIDTH}x${SESSION_HEIGHT}x24" \
         >"$SESSION_WORK_DIR/xvfb.log" 2>&1 &
     SESSION_PIDS+=("$!")
@@ -108,17 +130,23 @@ stop_capture() {
     sleep 2
 }
 
-# open_terminal: launches on the left half of the screen, using whatever
-# terminal emulator is already available. Prints the X window id on stdout;
-# capture it, e.g. TERM_WIN=$(open_terminal).
+# open_terminal: launches on the left half of the screen. Prints the X
+# window id on stdout; capture it, e.g. TERM_WIN=$(open_terminal).
+#
+# Deliberately always xterm, never x-terminal-emulator: on a stock Debian/
+# Ubuntu desktop that alternative resolves to gnome-terminal, which isn't a
+# self-contained X client -- it just asks an already-running
+# gnome-terminal-server daemon (started once, at login, bound to your real
+# desktop) to open a window over D-Bus. That daemon ignores our exported
+# DISPLAY, so the window opens on your real screen instead of the isolated
+# virtual display, silently defeating start_display's whole point. xterm has
+# no such daemon; it always opens directly on $DISPLAY.
 open_terminal() {
-    local term_cmd
-    term_cmd=$(command -v x-terminal-emulator || command -v xterm || true)
-    [ -n "$term_cmd" ] || {
-        echo "ERROR: no terminal emulator found (looked for x-terminal-emulator, xterm)" >&2
+    command -v xterm >/dev/null 2>&1 || {
+        echo "ERROR: xterm not found (required; do not substitute x-terminal-emulator -- see comment above)" >&2
         exit 1
     }
-    setsid "$term_cmd" >"$SESSION_WORK_DIR/terminal.log" 2>&1 &
+    setsid xterm >"$SESSION_WORK_DIR/terminal.log" 2>&1 &
     SESSION_PIDS+=("$!")
     sleep 1.5
     local win
@@ -129,21 +157,60 @@ open_terminal() {
 }
 
 # open_browser URL TERM_WIN: launches on the right half of the screen, using
-# whichever of firefox/chrome/chromium is already installed, and moves
+# whichever of chrome/chromium/firefox is already installed, and moves
 # TERM_WIN (from open_terminal) back onto the left half in case opening the
 # browser disturbed it. Prints the browser's X window id on stdout.
+#
+# Launched with an isolated profile and remote-control disabled: without
+# that, Firefox/Chrome notice an instance already running on your real
+# desktop (same user, default profile) and just forward "open a new window"
+# to it over there instead of actually opening one on our virtual display --
+# silently defeating the isolation start_display worked to set up.
+#
+# Chrome/Chromium variants are tried before Firefox on purpose: on a stock
+# Ubuntu desktop, `firefox` is a snap package, and snap's confinement
+# sandbox blocks it from reading/writing our temp profile dir under /tmp
+# (outside its allow-list), so `-no-remote -profile <tmp>` fails with "Your
+# Firefox profile cannot be loaded" instead of actually isolating it. Only
+# falls back to firefox if no Chrome/Chromium variant is installed, in which
+# case that failure mode is a known limitation, not a bug to chase here.
 open_browser() {
     local url="$1" term_win="$2"
     local browser_cmd candidate
-    for candidate in firefox google-chrome google-chrome-stable chromium-browser chromium; do
+    for candidate in google-chrome google-chrome-stable chromium-browser chromium firefox; do
         if command -v "$candidate" >/dev/null 2>&1; then
             browser_cmd="$candidate"
             break
         fi
     done
-    : "${browser_cmd:?ERROR: no browser found (looked for firefox, chrome, chromium)}"
+    : "${browser_cmd:?ERROR: no browser found (looked for google-chrome, chromium, firefox)}"
 
-    setsid "$browser_cmd" --new-window "$url" >"$SESSION_WORK_DIR/browser.log" 2>&1 &
+    local profile_dir="$SESSION_WORK_DIR/browser-profile"
+    mkdir -p "$profile_dir"
+    local isolation_args=()
+    case "$browser_cmd" in
+    firefox)
+        isolation_args=(-no-remote -profile "$profile_dir")
+        export MOZ_NO_REMOTE=1
+        ;;
+    *)
+        # chrome/chromium variants. Two flags, both required:
+        #   --ozone-platform=x11: on a Wayland desktop, Chrome auto-detects
+        #     $WAYLAND_DISPLAY and renders natively there, completely
+        #     bypassing our isolated $DISPLAY (Wayland connections don't go
+        #     through $DISPLAY at all) -- so without this it silently opens
+        #     on the real desktop instead of the virtual one. This forces it
+        #     onto X11/XWayland, which does honor $DISPLAY.
+        #   --disable-gpu: with no real GPU under Xvfb, Chrome's default
+        #     GPU-accelerated compositing path fails silently, leaving the
+        #     window blank/black instead of falling back to software
+        #     rendering on its own.
+        isolation_args=(--user-data-dir="$profile_dir" --no-first-run --ozone-platform=x11 --disable-gpu)
+        ;;
+    esac
+
+    setsid "$browser_cmd" "${isolation_args[@]}" --new-window "$url" \
+        >"$SESSION_WORK_DIR/browser.log" 2>&1 &
     SESSION_PIDS+=("$!")
     sleep 2
 
@@ -157,16 +224,26 @@ open_browser() {
 }
 
 # type_in WINDOW_ID TEXT: simulates character-by-character typing, then Enter.
+#
+# Explicitly activates the target window first, then types with no --window
+# (global XTEST input, delivered to whichever window currently has focus).
+# `xdotool type/key --window WIN` sends via XSendEvent directly to that
+# window id regardless of focus, but that isn't reliably honored once
+# another window (e.g. the browser) has taken focus in the meantime --
+# windowactivate first guarantees our target is the one that's focused when
+# the global XTEST input actually lands.
 type_in() {
     local win="$1" text="$2"
-    xdotool type --window "$win" --delay 60 -- "$text"
-    xdotool key --window "$win" Return
+    xdotool windowactivate --sync "$win"
+    xdotool type --delay 60 -- "$text"
+    xdotool key Return
 }
 
 # send_keys WINDOW_ID KEYS: e.g. send_keys "$TERM_WIN" ctrl+c
 send_keys() {
     local win="$1" keys="$2"
-    xdotool key --window "$win" "$keys"
+    xdotool windowactivate --sync "$win"
+    xdotool key "$keys"
 }
 
 # wait_for_url URL [TIMEOUT_TRIES]
