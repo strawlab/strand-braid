@@ -38,6 +38,18 @@ set -o pipefail
 
 SESSION_WIDTH=1280
 SESSION_HEIGHT=800
+# Gap between/around the two windows and the screen edge. Real desktops
+# never tile windows perfectly edge-to-edge with zero gap -- doing that here
+# was one of the more obvious tells that this wasn't a real desktop.
+SESSION_MARGIN=48
+SESSION_PANE_WIDTH=$(((SESSION_WIDTH - 3 * SESSION_MARGIN) / 2))
+SESSION_PANE_HEIGHT=$((SESSION_HEIGHT - 2 * SESSION_MARGIN))
+# burn_captions.py draws caption text bottom-left of the *whole frame*
+# (x=40, y=h-th-40), which lands within the terminal's horizontal span --
+# so the terminal specifically (not the browser, which sits well to the
+# right of x=40) needs to stop short of that zone vertically, or captions
+# would get drawn on top of its bottom few lines.
+SESSION_TERM_HEIGHT=$((SESSION_PANE_HEIGHT - 140))
 SESSION_PIDS=()
 SESSION_WORK_DIR=$(mktemp -d -t "${SCRIPT_NAME}-XXXXXX")
 SESSION_EVENTS_FILE="$SESSION_WORK_DIR/events.jsonl"
@@ -138,7 +150,9 @@ stop_capture() {
     sleep 2
 }
 
-# open_terminal: launches on the left half of the screen. Prints the X
+# open_terminal: launches as a floating window on the left, sized to
+# SESSION_PANE_WIDTH/HEIGHT with SESSION_MARGIN of space around it (real
+# desktops never tile windows edge-to-edge with zero gap). Prints the X
 # window id on stdout; capture it, e.g. TERM_WIN=$(open_terminal).
 #
 # Deliberately always xterm, never x-terminal-emulator: on a stock Debian/
@@ -164,14 +178,15 @@ open_terminal() {
     sleep 1.5
     local win
     win=$(xdotool getactivewindow)
-    xdotool windowmove "$win" 0 0
-    xdotool windowsize "$win" $((SESSION_WIDTH / 2)) "$SESSION_HEIGHT"
+    xdotool windowmove "$win" "$SESSION_MARGIN" "$SESSION_MARGIN"
+    xdotool windowsize "$win" "$SESSION_PANE_WIDTH" "$SESSION_TERM_HEIGHT"
     echo "$win"
 }
 
-# open_browser URL TERM_WIN: launches on the right half of the screen, using
-# whichever of chrome/chromium/firefox is already installed, and moves
-# TERM_WIN (from open_terminal) back onto the left half in case opening the
+# open_browser URL TERM_WIN: launches as a floating window on the right
+# (same SESSION_MARGIN gap/sizing as open_terminal), using whichever of
+# chrome/chromium/firefox is already installed, and moves TERM_WIN (from
+# open_terminal) back onto the left in case opening the
 # browser disturbed it. Prints the browser's X window id on stdout.
 #
 # Launched with an isolated profile and remote-control disabled: without
@@ -201,13 +216,14 @@ open_browser() {
     local profile_dir="$SESSION_WORK_DIR/browser-profile"
     mkdir -p "$profile_dir"
     local isolation_args=()
+    BROWSER_CDP_PORT=""
     case "$browser_cmd" in
     firefox)
         isolation_args=(-no-remote -profile "$profile_dir")
         export MOZ_NO_REMOTE=1
         ;;
     *)
-        # chrome/chromium variants. Two flags, both required:
+        # chrome/chromium variants. Three flags:
         #   --ozone-platform=x11: on a Wayland desktop, Chrome auto-detects
         #     $WAYLAND_DISPLAY and renders natively there, completely
         #     bypassing our isolated $DISPLAY (Wayland connections don't go
@@ -218,7 +234,14 @@ open_browser() {
         #     GPU-accelerated compositing path fails silently, leaving the
         #     window blank/black instead of falling back to software
         #     rendering on its own.
-        isolation_args=(--user-data-dir="$profile_dir" --no-first-run --ozone-platform=x11 --disable-gpu)
+        #   --remote-debugging-port: lets point_at_browser_text() (below)
+        #     query the real DOM for exact text positions via the Chrome
+        #     DevTools Protocol, instead of guessing tuned pixel offsets
+        #     that break whenever the page layout changes. A free port is
+        #     picked per run to avoid colliding with anything else on this
+        #     machine (this is a real, non-virtual-display-scoped TCP port).
+        BROWSER_CDP_PORT=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
+        isolation_args=(--user-data-dir="$profile_dir" --no-first-run --ozone-platform=x11 --disable-gpu --remote-debugging-port="$BROWSER_CDP_PORT")
         ;;
     esac
 
@@ -227,17 +250,28 @@ open_browser() {
     SESSION_PIDS+=("$!")
     sleep 2
 
-    local win
+    local win right_x
+    right_x=$((SESSION_MARGIN * 2 + SESSION_PANE_WIDTH))
     win=$(xdotool getactivewindow)
-    xdotool windowmove "$win" $((SESSION_WIDTH / 2)) 0
-    xdotool windowsize "$win" $((SESSION_WIDTH / 2)) "$SESSION_HEIGHT"
-    xdotool windowmove "$term_win" 0 0
-    xdotool windowsize "$term_win" $((SESSION_WIDTH / 2)) "$SESSION_HEIGHT"
+    xdotool windowmove "$win" "$right_x" "$SESSION_MARGIN"
+    xdotool windowsize "$win" "$SESSION_PANE_WIDTH" "$SESSION_PANE_HEIGHT"
+    xdotool windowmove "$term_win" "$SESSION_MARGIN" "$SESSION_MARGIN"
+    xdotool windowsize "$term_win" "$SESSION_PANE_WIDTH" "$SESSION_TERM_HEIGHT"
     echo "$win"
 }
 
-# type_in WINDOW_ID TEXT: simulates character-by-character typing, then Enter.
-#
+# move_mouse_to WINDOW_ID X Y: moves the mouse pointer to a specific pixel
+# offset within the given window (top-left origin) -- e.g. to point at a
+# particular piece of text, like a camera name, rather than just "somewhere
+# in this window." No --sync: unlike windowactivate (which really must be
+# confirmed before typing), nothing downstream depends on confirming the
+# pointer physically arrived, and --sync here measurably slowed the whole
+# recording down for a purely cosmetic move.
+move_mouse_to() {
+    local win="$1" x="$2" y="$3"
+    xdotool mousemove --window "$win" "$x" "$y"
+}
+
 # move_mouse_into WINDOW_ID: moves the mouse pointer to roughly the center
 # of the given window. Purely cosmetic, but a cursor frozen in one spot for
 # the entire recording is an obvious tell that nobody's really at the
@@ -248,13 +282,108 @@ move_mouse_into() {
     geom=$(xdotool getwindowgeometry --shell "$win")
     w=$(echo "$geom" | sed -n 's/^WIDTH=//p')
     h=$(echo "$geom" | sed -n 's/^HEIGHT=//p')
-    # No --sync: unlike windowactivate (which really must be confirmed
-    # before typing), nothing downstream depends on confirming the pointer
-    # physically arrived, and --sync here measurably slowed the whole
-    # recording down for a purely cosmetic move.
-    xdotool mousemove --window "$win" $((w / 2)) $((h / 2))
+    move_mouse_to "$win" $((w / 2)) $((h / 2))
 }
 
+# move_mouse_gradual TARGET_X TARGET_Y [STEPS] [STEP_DELAY]: moves the mouse
+# from its current position to an absolute screen position in small
+# interpolated steps, so the motion reads as someone actually dragging the
+# mouse across the screen (including across window boundaries) rather than
+# teleporting there in one jump.
+move_mouse_gradual() {
+    local target_x="$1" target_y="$2" steps="${3:-20}" step_delay="${4:-0.05}"
+    local cur cur_x cur_y i x y
+    cur=$(xdotool getmouselocation --shell)
+    cur_x=$(echo "$cur" | sed -n 's/^X=//p')
+    cur_y=$(echo "$cur" | sed -n 's/^Y=//p')
+    for ((i = 1; i <= steps; i++)); do
+        x=$((cur_x + (target_x - cur_x) * i / steps))
+        y=$((cur_y + (target_y - cur_y) * i / steps))
+        xdotool mousemove "$x" "$y"
+        sleep "$step_delay"
+    done
+}
+
+# point_at WINDOW_ID REL_X REL_Y [SWEEP_WIDTH]: gradually moves the mouse to
+# a point within WINDOW_ID (top-left origin) and then slowly sweeps it left
+# and right under that point a couple of times, e.g. to indicate a specific
+# piece of text (a camera name) without covering it up -- REL_Y should
+# already be offset a little *below* the text's baseline by the caller.
+point_at() {
+    local win="$1" rel_x="$2" rel_y="$3" sweep_width="${4:-50}"
+    local geom win_x win_y abs_x abs_y half
+    geom=$(xdotool getwindowgeometry --shell "$win")
+    win_x=$(echo "$geom" | sed -n 's/^X=//p')
+    win_y=$(echo "$geom" | sed -n 's/^Y=//p')
+    abs_x=$((win_x + rel_x))
+    abs_y=$((win_y + rel_y))
+    half=$((sweep_width / 2))
+    move_mouse_gradual "$abs_x" "$abs_y"
+    move_mouse_gradual $((abs_x + half)) "$abs_y" 12 0.08
+    move_mouse_gradual $((abs_x - half)) "$abs_y" 12 0.08
+    move_mouse_gradual $((abs_x + half)) "$abs_y" 12 0.08
+    move_mouse_gradual "$abs_x" "$abs_y" 8 0.08
+}
+
+# point_at_browser_text WINDOW_ID NEEDLE [FALLBACK_X] [FALLBACK_Y]: finds
+# the on-screen text containing NEEDLE via the Chrome DevTools Protocol
+# (cdp_locate.py, using BROWSER_CDP_PORT set by open_browser) and points at
+# it precisely instead of a tuned pixel guess -- falls back to point_at
+# with FALLBACK_X/FALLBACK_Y if CDP isn't available (e.g. the firefox
+# fallback browser doesn't speak this protocol) or the lookup fails for any
+# reason, so a rerun degrades gracefully rather than erroring out.
+point_at_browser_text() {
+    local win="$1" needle="$2" fallback_x="${3:-}" fallback_y="${4:-}"
+    local lib_dir result rel_x rel_y
+    lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+    if [ -n "${BROWSER_CDP_PORT:-}" ]; then
+        result=$(python3 "$lib_dir/cdp_locate.py" --port "$BROWSER_CDP_PORT" --contains "$needle" 2>"$SESSION_WORK_DIR/cdp_locate.log") || result=""
+    fi
+
+    if [ -n "${result:-}" ]; then
+        rel_x=$(echo "$result" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(int(d["x"]+d["width"]/2))')
+        rel_y=$(echo "$result" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(int(d["chromeY"]+d["y"]+d["height"]+15))')
+        point_at "$win" "$rel_x" "$rel_y"
+    elif [ -n "$fallback_x" ]; then
+        echo "WARNING: CDP text lookup for '$needle' failed, using fallback coordinates (see $SESSION_WORK_DIR/cdp_locate.log)" >&2
+        point_at "$win" "$fallback_x" "$fallback_y"
+    else
+        echo "WARNING: CDP text lookup for '$needle' failed and no fallback coordinates given; skipping" >&2
+    fi
+}
+
+# scroll_page WINDOW_ID: slowly scrolls the page down then back up over
+# about 10s (20 clicks each direction, 0.25s apart), so a "watching the live
+# view" pause shows something happening instead of a completely static
+# window -- and incidentally shows off the whole page, not just whatever
+# was in view when it opened. Scroll-wheel clicks (buttons 4/5), not
+# --window-targeted, matching the windowactivate-then-global-input pattern
+# type_in/send_keys use, since XSendEvent-style --window targeting isn't
+# reliably honored by every app.
+scroll_page() {
+    local win="$1" i
+    xdotool windowactivate --sync "$win"
+    move_mouse_into "$win"
+    for ((i = 0; i < 20; i++)); do
+        xdotool click 5
+        sleep 0.25
+    done
+    for ((i = 0; i < 20; i++)); do
+        xdotool click 4
+        sleep 0.25
+    done
+    # Brief hold once back at the top, rather than immediately cutting to
+    # the next action.
+    sleep 3
+}
+
+# type_only WINDOW_ID TEXT: like type_in, but stops after typing -- no
+# pause, no Enter. Use this (plus a separate `xdotool key Return`) instead
+# of type_in when something else needs to happen in between, e.g.
+# point_at()-ing a piece of on-screen text while the command sits typed but
+# not yet run.
+#
 # Explicitly activates the target window first, then types with no --window
 # (global XTEST input, delivered to whichever window currently has focus).
 # `xdotool type/key --window WIN` sends via XSendEvent directly to that
@@ -262,11 +391,18 @@ move_mouse_into() {
 # another window (e.g. the browser) has taken focus in the meantime --
 # windowactivate first guarantees our target is the one that's focused when
 # the global XTEST input actually lands.
-type_in() {
+type_only() {
     local win="$1" text="$2"
     move_mouse_into "$win"
     xdotool windowactivate --sync "$win"
     xdotool type --delay 120 -- "$text"
+}
+
+# type_in WINDOW_ID TEXT: simulates character-by-character typing, then a
+# pause, then Enter.
+type_in() {
+    local win="$1" text="$2"
+    type_only "$win" "$text"
     # Leave the typed command visible and unexecuted for a beat before
     # hitting Enter, so a viewer has time to actually read it.
     sleep 3
