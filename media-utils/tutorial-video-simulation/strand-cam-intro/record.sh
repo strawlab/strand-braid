@@ -98,6 +98,7 @@ echo "=== Command 1: launch with no --camera-name (auto-selects the first camera
 type_in "$TERM_WIN" "strand-cam"
 wait_for_url "$BUI_URL" || { echo "ERROR: strand-cam BUI did not come up"; exit 1; }
 BROWSER_WIN=$(open_browser "$BUI_URL" "$TERM_WIN")
+move_mouse_into "$BROWSER_WIN"
 
 echo "=== Watching the live view ==="
 sleep 10
@@ -110,6 +111,7 @@ sleep 2
 echo "=== Command 2: relaunch with an explicit --camera-name ==="
 type_in "$TERM_WIN" "strand-cam --camera-name simcam0"
 wait_for_url "$BUI_URL" || { echo "ERROR: strand-cam BUI did not come back up"; exit 1; }
+move_mouse_into "$BROWSER_WIN"
 
 echo "=== Watching the live view again ==="
 sleep 10

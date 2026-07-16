@@ -105,6 +105,14 @@ start_display() {
     setsid openbox >"$SESSION_WORK_DIR/openbox.log" 2>&1 &
     SESSION_PIDS+=("$!")
     sleep 1
+
+    # Plain black is a dead giveaway this isn't a real desktop; a solid
+    # dark color (roughly matching this lab's actual desktop background)
+    # reads much less obviously synthetic without needing a real desktop
+    # shell running underneath. Must run after openbox starts -- openbox
+    # sets its own root background on startup, which would otherwise
+    # overwrite this.
+    xsetroot -solid "#3d0b24" 2>/dev/null || true
 }
 
 # start_capture OUT_MP4
@@ -146,7 +154,12 @@ open_terminal() {
         echo "ERROR: xterm not found (required; do not substitute x-terminal-emulator -- see comment above)" >&2
         exit 1
     }
-    setsid xterm >"$SESSION_WORK_DIR/terminal.log" 2>&1 &
+    # Colors approximate Ubuntu's default terminal profile (dark purple/
+    # aubergine background, plain white foreground) rather than xterm's
+    # own stark black-on-white/black defaults, since that default is one of
+    # the more obvious tells that this isn't a real desktop terminal.
+    setsid xterm -bg '#300A24' -fg '#FFFFFF' -fa 'Monospace' -fs 11 \
+        >"$SESSION_WORK_DIR/terminal.log" 2>&1 &
     SESSION_PIDS+=("$!")
     sleep 1.5
     local win
@@ -225,6 +238,23 @@ open_browser() {
 
 # type_in WINDOW_ID TEXT: simulates character-by-character typing, then Enter.
 #
+# move_mouse_into WINDOW_ID: moves the mouse pointer to roughly the center
+# of the given window. Purely cosmetic, but a cursor frozen in one spot for
+# the entire recording is an obvious tell that nobody's really at the
+# keyboard -- type_in/send_keys call this automatically before sending
+# input, so every action reads as someone actually reaching for that window.
+move_mouse_into() {
+    local win="$1" geom w h
+    geom=$(xdotool getwindowgeometry --shell "$win")
+    w=$(echo "$geom" | sed -n 's/^WIDTH=//p')
+    h=$(echo "$geom" | sed -n 's/^HEIGHT=//p')
+    # No --sync: unlike windowactivate (which really must be confirmed
+    # before typing), nothing downstream depends on confirming the pointer
+    # physically arrived, and --sync here measurably slowed the whole
+    # recording down for a purely cosmetic move.
+    xdotool mousemove --window "$win" $((w / 2)) $((h / 2))
+}
+
 # Explicitly activates the target window first, then types with no --window
 # (global XTEST input, delivered to whichever window currently has focus).
 # `xdotool type/key --window WIN` sends via XSendEvent directly to that
@@ -234,14 +264,19 @@ open_browser() {
 # the global XTEST input actually lands.
 type_in() {
     local win="$1" text="$2"
+    move_mouse_into "$win"
     xdotool windowactivate --sync "$win"
-    xdotool type --delay 60 -- "$text"
+    xdotool type --delay 120 -- "$text"
+    # Leave the typed command visible and unexecuted for a beat before
+    # hitting Enter, so a viewer has time to actually read it.
+    sleep 3
     xdotool key Return
 }
 
 # send_keys WINDOW_ID KEYS: e.g. send_keys "$TERM_WIN" ctrl+c
 send_keys() {
     local win="$1" keys="$2"
+    move_mouse_into "$win"
     xdotool windowactivate --sync "$win"
     xdotool key "$keys"
 }
