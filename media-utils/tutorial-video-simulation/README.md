@@ -28,7 +28,8 @@ Five packages are hard requirements:
 - `ffmpeg` — screen capture and caption burn-in
 - `xdotool` — window placement, simulated typing, and keypresses
 - `Xvfb` + `openbox` — a disposable virtual display and window manager
-- `xterm` — the terminal window `record.sh` types into
+- `ttyd` — bridges the terminal's real PTY into a browser window instead of
+  a native terminal emulator (see below for why)
 
 **Recording always happens on its own isolated `Xvfb` display, never your
 real desktop session.** This is deliberate: an earlier version reused
@@ -38,15 +39,17 @@ window-targeting footgun — get it wrong and it can move, type into, or kill
 a window on your *actual* desktop instead of the throwaway one it meant to
 target. Isolation is worth the extra packages.
 
-`xterm` specifically (not `x-terminal-emulator`) is a hard requirement, not
-a "use whatever's installed" fallback, because on a stock Debian/Ubuntu
-desktop `x-terminal-emulator` resolves to `gnome-terminal`, which isn't a
-self-contained X client — it asks an already-running `gnome-terminal-server`
-daemon (started once, at login, bound to your *real* desktop) to open a
-window over D-Bus. That daemon ignores whatever `DISPLAY` this script
-exports, so the window opens on your real screen instead of the isolated
-one — the exact failure mode isolation was added to prevent. `xterm` has no
-such daemon; it always opens directly on `$DISPLAY`.
+`ttyd` (not a native terminal emulator like `xterm`) is what `record.sh`
+actually types into: it bridges a real PTY/shell into a browser tab, running
+xterm.js in its **DOM render mode** rather than the default canvas/WebGL
+one, so every line of terminal text becomes a real, queryable DOM element.
+That's what lets `record.sh` point the mouse at real on-screen text (e.g. a
+camera name in the terminal's own log output) via the Chrome DevTools
+Protocol (`lib/cdp_locate.py`) the exact same way it already does for BUI
+text, instead of a tuned pixel guess with no way to verify it. A native
+terminal emulator has no DOM to query, so this only works because the
+terminal is *also* just a browser page — see
+`strand-cam-intro/POINTING-NOTES.md` for the full history of that decision.
 
 Everything else uses what's already installed instead of requiring anything
 new, falling back to installing its own minimal version only if nothing
@@ -55,21 +58,26 @@ usable is found:
 - **browser**: prefers `google-chrome`/`chromium` over `firefox`, launched
   with an isolated profile and remote-control disabled (`--user-data-dir`/
   `-no-remote`) so it can't hand off to — or get confused with — an instance
-  already running on your real desktop. `firefox` is tried last and only as
-  a fallback: on stock Ubuntu it's a snap package, and snap's confinement
-  sandbox blocks it from reading/writing the isolated profile dir under
-  `/tmp`, so it fails with "Your Firefox profile cannot be loaded" instead
-  of actually isolating — a known limitation of that packaging, not
-  something this script works around. Chrome/Chromium variants also get
-  `--ozone-platform=x11 --disable-gpu`: on a Wayland desktop, Chrome
-  otherwise auto-detects `$WAYLAND_DISPLAY` and renders natively there,
-  completely bypassing the isolated `$DISPLAY` (Wayland connections don't go
-  through `$DISPLAY` at all) and opening a real, visible window on your
-  actual desktop instead — `--ozone-platform=x11` forces it onto X11/XWayland
-  so it actually honors the isolation. `--disable-gpu` is separately needed
-  because Xvfb has no real GPU, and Chrome's default GPU-accelerated
-  compositing path fails silently there, leaving the window blank/black
-  instead of falling back to software rendering on its own.
+  already running on your real desktop. Used for *two* windows now: the BUI,
+  and (via `ttyd`, above) the terminal itself — each gets its own isolated
+  profile and, for Chrome/Chromium, its own `--remote-debugging-port` for
+  CDP text lookups. `firefox` is tried last and only as a fallback: on stock
+  Ubuntu it's a snap package, and snap's confinement sandbox blocks it from
+  reading/writing the isolated profile dir under `/tmp`, so it fails with
+  "Your Firefox profile cannot be loaded" instead of actually isolating — a
+  known limitation of that packaging, not something this script works
+  around (it also means CDP-based pointing silently falls back to a tuned
+  pixel guess whenever firefox is the only browser available, since firefox
+  doesn't speak CDP). Chrome/Chromium variants also get `--ozone-platform=x11
+  --disable-gpu`: on a Wayland desktop, Chrome otherwise auto-detects
+  `$WAYLAND_DISPLAY` and renders natively there, completely bypassing the
+  isolated `$DISPLAY` (Wayland connections don't go through `$DISPLAY` at
+  all) and opening a real, visible window on your actual desktop instead —
+  `--ozone-platform=x11` forces it onto X11/XWayland so it actually honors
+  the isolation. `--disable-gpu` is separately needed because Xvfb has no
+  real GPU, and Chrome's default GPU-accelerated compositing path fails
+  silently there, leaving the window blank/black instead of falling back to
+  software rendering on its own.
 - **caption burn-in**: `burn_captions.py` has no third-party Python
   dependencies (unlike `docs/user-docs/scripts/record-mp4-video-ffmpeg.py`,
   which needs `requests` and so uses `uv`), so plain `python3` is enough —
@@ -122,7 +130,7 @@ Everything is on `main` — no branch to check out.
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y ffmpeg xdotool xvfb openbox xterm
+sudo apt-get install -y ffmpeg xdotool xvfb openbox ttyd
 ```
 
 That's everything needed for the display/terminal/capture side. See
