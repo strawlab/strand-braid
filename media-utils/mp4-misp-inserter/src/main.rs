@@ -41,6 +41,13 @@ struct Cli {
     /// Overwrite the output file if it already exists.
     #[arg(long)]
     force: bool,
+
+    /// Exit successfully (code 0) even if an error partway through forced the
+    /// output to be truncated (e.g. a malformed SRT file, or a source frame
+    /// that failed to decode). Without this flag, a truncated output is
+    /// still written to `output`, but the process exits non-zero.
+    #[arg(long)]
+    allow_truncated: bool,
 }
 
 #[derive(Default, Debug, Clone, Copy, ValueEnum, PartialEq)]
@@ -68,17 +75,35 @@ fn default_output_path(input: &Utf8PathBuf) -> Utf8PathBuf {
     input.with_file_name(format!("{stem}-misp.mp4"))
 }
 
+/// Outcome of a (possibly truncated) [`insert_misp`] run.
+struct InsertMispOutcome {
+    /// Number of frames actually written to `output`.
+    frames_written: usize,
+    /// Number of frames in the source container.
+    total_frames: usize,
+    /// Set when `frames_written < total_frames`, explaining why.
+    truncated_reason: Option<String>,
+}
+
 /// Remux `input` into `output`, inserting a MISP precision-timestamp SEI NAL
 /// unit ahead of every H.264 sample using timestamps from `timestamp_source`
 /// (reading `srt_file_path` when that source is [`TimestampSource::SrtFile`]).
 /// Samples and the container's original per-sample timing are copied through
-/// unchanged. Returns the number of frames written.
+/// unchanged.
+///
+/// If an error occurs after at least one frame has been written -- e.g. the
+/// SRT file ran out of usable timestamps, or a later source frame failed to
+/// decode -- `output` is still finished as a valid, truncated MP4 covering
+/// the frames written so far, and the reason is reported in the returned
+/// [`InsertMispOutcome`] rather than as an `Err`. Only a failure before any
+/// frame could be written is a hard error (in which case `output` is not
+/// left behind).
 fn insert_misp(
     input: &Utf8PathBuf,
     output: &Utf8PathBuf,
     timestamp_source: frame_source::TimestampSource,
     srt_file_path: Option<std::path::PathBuf>,
-) -> Result<usize> {
+) -> Result<InsertMispOutcome> {
     let mut frame_src = frame_source::FrameSourceBuilder::new(input)
         .do_decode_h264(false)
         .timestamp_source(timestamp_source)
@@ -96,15 +121,36 @@ fn insert_misp(
     let first_sps = h264_src.first_sps();
     let first_pps = h264_src.first_pps();
 
+    let srt_truncation_reason = frame_src
+        .srt_truncation()
+        .map(|t| match t.malformed_at_line {
+            Some(line) => format!(
+                "SRT file is malformed starting around line {line}; only {} of {} frames in the \
+             source have usable timestamps (rounded down to the last complete group of \
+             pictures)",
+                t.usable_stanzas, t.total_frames
+            ),
+            None => format!(
+                "SRT file only has {} timestamp entries for {} frames in the source (rounded down \
+             to the last complete group of pictures)",
+                t.usable_stanzas, t.total_frames
+            ),
+        });
+
     // Snapshot the source's per-sample timing (stts + ctts) before iterating
     // (which borrows `frame_src` mutably). Preserving this timing verbatim is
     // what keeps reordered (B-frame) streams correct: the container ordering
     // comes from the source, while the precise capture time is carried
-    // per-frame in the precision-timestamp SEI.
+    // per-frame in the precision-timestamp SEI. Its length already reflects
+    // any SRT-driven truncation above.
     let sample_timing = frame_src
         .mp4_sample_timing()
         .ok_or_else(|| eyre::eyre!("\"{input}\": source has no per-sample timing"))?
         .to_vec();
+    let total_frames = frame_src
+        .srt_truncation()
+        .map(|t| t.total_frames)
+        .unwrap_or(sample_timing.len());
 
     let fd = std::fs::File::create(output)
         .with_context(|| format!("creating output file \"{output}\""))?;
@@ -117,18 +163,29 @@ fn insert_misp(
     new_mp4.set_first_sps_pps(first_sps, first_pps);
 
     let mut count = 0;
+    let mut loop_error = None;
     for frame in frame_src.decode_order_iter() {
-        let frame = frame?;
+        let frame = match frame {
+            Ok(frame) => frame,
+            Err(e) => {
+                loop_error = Some(format!("frame {count}: {e}"));
+                break;
+            }
+        };
         let idx = frame.idx();
         let timestamp = frame0_time + frame.timestamp().unwrap_duration();
         let data = match frame.image() {
             frame_source::ImageData::EncodedH264(data) => &data.data,
-            _ => bail!("\"{input}\": expected H264-encoded frame data"),
+            _ => {
+                loop_error = Some(format!("frame {idx}: expected H264-encoded frame data"));
+                break;
+            }
         };
-        let timing = sample_timing
-            .get(idx)
-            .ok_or_else(|| eyre::eyre!("\"{input}\": missing sample timing for frame {idx}"))?;
-        new_mp4.write_h264_buf_passthrough(
+        let Some(timing) = sample_timing.get(idx) else {
+            loop_error = Some(format!("frame {idx}: missing sample timing"));
+            break;
+        };
+        if let Err(e) = new_mp4.write_h264_buf_passthrough(
             data,
             width,
             height,
@@ -136,13 +193,37 @@ fn insert_misp(
             timing.composition_offset,
             timestamp,
             true,
-        )?;
+        ) {
+            loop_error = Some(format!("frame {idx}: {e}"));
+            break;
+        }
         count += 1;
     }
 
-    new_mp4.finish()?;
+    if count == 0 {
+        drop(new_mp4);
+        let _ = std::fs::remove_file(output);
+        let reason = loop_error
+            .or(srt_truncation_reason)
+            .unwrap_or_else(|| "no frames available".to_string());
+        bail!("\"{input}\": failed before any frame could be written: {reason}");
+    }
 
-    Ok(count)
+    new_mp4
+        .finish()
+        .with_context(|| format!("finishing truncated output \"{output}\" after {count} frames"))?;
+
+    let truncated_reason = match (srt_truncation_reason, loop_error) {
+        (Some(srt_reason), Some(loop_reason)) => Some(format!("{srt_reason}; {loop_reason}")),
+        (Some(reason), None) | (None, Some(reason)) => Some(reason),
+        (None, None) => None,
+    };
+
+    Ok(InsertMispOutcome {
+        frames_written: count,
+        total_frames,
+        truncated_reason,
+    })
 }
 
 fn main() -> Result<()> {
@@ -174,14 +255,35 @@ fn main() -> Result<()> {
         _ => None,
     };
 
-    let count = insert_misp(
+    let outcome = insert_misp(
         &cli.input,
         &output,
         cli.timestamp_source.into(),
         srt_file_path,
     )?;
 
-    println!("Wrote {count} frames with MISP precision timestamps to \"{output}\".");
+    match &outcome.truncated_reason {
+        Some(reason) => {
+            tracing::error!(
+                "\"{output}\" was truncated: wrote {} of {} frames from \"{}\". Reason: {reason}",
+                outcome.frames_written,
+                outcome.total_frames,
+                cli.input,
+            );
+            if !cli.allow_truncated {
+                bail!(
+                    "output was truncated (see error above). Pass --allow-truncated to accept \
+                    a truncated output and exit successfully."
+                );
+            }
+        }
+        None => {
+            println!(
+                "Wrote {} frames with MISP precision timestamps to \"{output}\".",
+                outcome.frames_written
+            );
+        }
+    }
 
     Ok(())
 }
@@ -276,13 +378,15 @@ mod test {
         };
         write_test_video_with_srt(&mp4_path, &srt_path, ffmpeg_codec_args, 64, 48, &timestamps)?;
 
-        let count = insert_misp(
+        let outcome = insert_misp(
             &mp4_path,
             &out_path,
             frame_source::TimestampSource::SrtFile,
             Some(srt_path.into()),
         )?;
-        assert_eq!(count, timestamps.len());
+        assert_eq!(outcome.frames_written, timestamps.len());
+        assert_eq!(outcome.total_frames, timestamps.len());
+        assert!(outcome.truncated_reason.is_none());
 
         let mut frame_src = frame_source::FrameSourceBuilder::new(&out_path)
             .do_decode_h264(false)
@@ -344,13 +448,14 @@ mod test {
         };
         write_test_video_with_srt(&mp4_path, &srt_path, ffmpeg_codec_args, 64, 48, &timestamps)?;
 
-        let count = insert_misp(
+        let outcome = insert_misp(
             &mp4_path,
             &out_path,
             frame_source::TimestampSource::SrtFile,
             Some(srt_path.into()),
         )?;
-        assert_eq!(count, n_frames);
+        assert_eq!(outcome.frames_written, n_frames);
+        assert!(outcome.truncated_reason.is_none());
 
         // Read the re-muxed file back, keeping the H264 in decode order and
         // recovering the container timing so we can reconstruct presentation
@@ -408,6 +513,80 @@ mod test {
         presentation.sort_by_key(|(pts, _)| *pts);
         let ordered_sei: Vec<_> = presentation.iter().map(|(_, sei)| *sei).collect();
         assert_eq!(ordered_sei, timestamps);
+
+        Ok(())
+    }
+
+    /// When the SRT file becomes malformed partway through, `insert_misp`
+    /// must still produce a valid, truncated output rather than fail
+    /// outright: it keeps only whole groups of pictures (GOPs) fully covered
+    /// by a usable stanza, dropping the incomplete trailing GOP, and reports
+    /// the truncation via [`InsertMispOutcome::truncated_reason`] instead of
+    /// an `Err`.
+    #[test]
+    fn test_insert_misp_truncates_on_malformed_srt() -> Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let (mp4_path, srt_path, out_path) = test_paths(tempdir.path());
+        let n_frames = 24;
+        let timestamps = test_timestamps(n_frames);
+
+        // Force short (5-frame) GOPs with B-frames, so the video has several
+        // GOP boundaries to round down to rather than just one.
+        let ffmpeg_codec_args = FfmpegCodecArgs {
+            device_args: None,
+            pre_codec_args: None,
+            codec: Some("libx264".to_string()),
+            post_codec_args: Some(vec![
+                ("-bf".to_string(), "3".to_string()),
+                (
+                    "-x264-params".to_string(),
+                    "b_adapt=0:scenecut=0:keyint=5:min-keyint=5".to_string(),
+                ),
+            ]),
+            pixfmt: Some("yuv420p".to_string()),
+            max_bframes: None,
+        };
+        write_test_video_with_srt(&mp4_path, &srt_path, ffmpeg_codec_args, 64, 48, &timestamps)?;
+
+        // Corrupt the SRT: keep the first 13 stanzas intact, then append
+        // content that won't parse as a stanza, simulating a truncated or
+        // corrupted timestamp log.
+        let srt_text = std::fs::read_to_string(&srt_path)?;
+        let stanzas: Vec<&str> = srt_text.split("\n\n").collect();
+        assert!(
+            stanzas.len() > 13,
+            "test fixture must have more than 13 stanzas"
+        );
+        let corrupted = format!("{}\n\nNOT A VALID STANZA\n", stanzas[..13].join("\n\n"));
+        std::fs::write(&srt_path, corrupted)?;
+
+        let outcome = insert_misp(
+            &mp4_path,
+            &out_path,
+            frame_source::TimestampSource::SrtFile,
+            Some(srt_path.into()),
+        )?;
+
+        // 13 usable stanzas; GOPs of size 5 (boundaries at presentation ranks
+        // 0, 5, 10, 15, 20) round down to the last complete GOP at or before
+        // 13, i.e. 10 frames.
+        assert_eq!(outcome.frames_written, 10);
+        assert_eq!(outcome.total_frames, n_frames);
+        let reason = outcome.truncated_reason.expect("must report truncation");
+        assert!(reason.contains("malformed"), "reason: {reason}");
+
+        // The output must still be a valid, playable MP4 with exactly the
+        // kept frames.
+        let mut frame_src = frame_source::FrameSourceBuilder::new(&out_path)
+            .do_decode_h264(false)
+            .timestamp_source(frame_source::TimestampSource::MispMicrosectime)
+            .build_h264_in_mp4_source()?;
+        let mut got = 0;
+        for frame in frame_src.decode_order_iter() {
+            frame?;
+            got += 1;
+        }
+        assert_eq!(got, 10);
 
         Ok(())
     }

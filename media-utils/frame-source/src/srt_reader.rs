@@ -106,43 +106,60 @@ fn parse_stanza(input: &mut &BStr) -> ModalResult<Stanza> {
     .parse_next(input)
 }
 
-fn parse_stanzas(input: &mut &BStr) -> ModalResult<Vec<Stanza>> {
-    trace("parse_stanzas", move |input: &mut &BStr| {
-        let mut result = vec![];
-        loop {
-            if opt(eof).parse_next(input)?.is_some() {
-                break;
-            } else {
-                let x = parse_stanza.parse_next(input)?;
-                result.push(x);
-                if opt(eof).parse_next(input)?.is_some() {
-                    break;
-                } else {
-                    line_ending.parse_next(input)?;
-                }
-            }
+/// Parse as many stanzas as possible from `input`, stopping early (without
+/// erroring) at the first stanza that fails to parse. Whatever stanzas parsed
+/// cleanly are returned; the caller can tell whether parsing stopped early by
+/// checking if `input` still has bytes left afterwards.
+fn parse_stanzas(input: &mut &BStr) -> Vec<Stanza> {
+    let mut result = vec![];
+    loop {
+        match opt(eof::<_, ContextError>).parse_next(input) {
+            Ok(Some(_)) | Err(_) => break,
+            Ok(None) => {}
         }
-        Ok(result)
-    })
-    .parse_next(input)
+        match parse_stanza.parse_next(input) {
+            Ok(x) => result.push(x),
+            Err(_) => break,
+        }
+        match opt(eof::<_, ContextError>).parse_next(input) {
+            Ok(Some(_)) | Err(_) => break,
+            Ok(None) => {}
+        }
+        if line_ending::<_, ContextError>.parse_next(input).is_err() {
+            break;
+        }
+    }
+    result
 }
 
-pub fn read_srt_file(p: &std::path::Path) -> Result<Vec<Stanza>> {
+/// Result of parsing an SRT file: whatever stanzas parsed cleanly, plus the
+/// line at which parsing stopped early if the file wasn't fully consumed.
+pub struct SrtParseOutcome {
+    pub stanzas: Vec<Stanza>,
+    /// Line at which parsing stopped early because what followed didn't
+    /// parse as a valid stanza. `None` if every byte of the file was consumed
+    /// (a clean parse, or a cleanly empty stanza list).
+    pub truncated_at_line: Option<usize>,
+}
+
+pub fn read_srt_file(p: &std::path::Path) -> Result<SrtParseOutcome> {
     let mut fd = std::fs::File::open(p)?;
     let mut buf = Vec::new();
     fd.read_to_end(&mut buf)?;
     let mut buf_bstr: &BStr = buf.as_slice().into();
 
-    let stanzas: Vec<Stanza> = parse_stanzas.parse_next(&mut buf_bstr).map_err(|_e| {
+    let stanzas = parse_stanzas(&mut buf_bstr);
+    let truncated_at_line = if buf_bstr.is_empty() {
+        None
+    } else {
         let offset = buf.len() - buf_bstr.len();
-        let line = buf[..offset].iter().filter(|&&b| b == b'\n').count() + 1;
-        crate::Error::SrtParseError {
-            path: p.to_path_buf(),
-            line,
-        }
-    })?;
+        Some(buf[..offset].iter().filter(|&&b| b == b'\n').count() + 1)
+    };
 
-    Ok(stanzas)
+    Ok(SrtParseOutcome {
+        stanzas,
+        truncated_at_line,
+    })
 }
 
 #[cfg(test)]
@@ -206,7 +223,7 @@ mod test {
                 "testing size {sz} with value:\n{:?}",
                 String::from_utf8_lossy(in_b3)
             );
-            let b3 = parse_stanzas.parse_next(&mut in_b3.into()).unwrap();
+            let b3 = parse_stanzas(&mut in_b3.into());
             assert_eq!(b3.len(), sz);
         }
     }

@@ -178,6 +178,14 @@ pub trait FrameDataSource {
     fn has_timestamps(&self) -> bool;
     /// A string describing the source of the timestamp data
     fn timestamp_source(&self) -> &str;
+    /// Set when an SRT-file timestamp source ran out of usable stanzas
+    /// before covering every frame in the container, in which case the
+    /// source was truncated to the last complete group of pictures a stanza
+    /// is available for every frame of. `None` for sources not using an SRT
+    /// file, or when the SRT covered every frame.
+    fn srt_truncation(&self) -> Option<h264_source::SrtTruncation> {
+        None
+    }
     /// Get an iterator over all frames in **decode order** (the order samples
     /// are stored in the stream).
     ///

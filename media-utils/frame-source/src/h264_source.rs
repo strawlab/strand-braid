@@ -34,6 +34,30 @@ struct SrtData {
     stanzas: Vec<Stanza>,
     frame0_time: DateTime<FixedOffset>,
     idx: usize,
+    /// Line at which the SRT file's parse stopped early (see
+    /// [`srt_reader::SrtParseOutcome::truncated_at_line`]), if that's why
+    /// `stanzas` might be shorter than the video's frame count.
+    truncated_at_line: Option<usize>,
+}
+
+/// Reports that an [`H264Source`] built from an SRT-file timestamp source
+/// covers fewer frames than the underlying container, because the SRT ran
+/// out of usable stanzas partway through. The source is truncated to the last
+/// complete group of pictures (GOP) that a stanza is available for every
+/// frame of, so reordered (B-frame) streams remain fully resolvable.
+#[derive(Debug, Clone)]
+pub struct SrtTruncation {
+    /// Number of frames retained (a prefix, rounded down to the last
+    /// complete GOP boundary at or before `usable_stanzas`).
+    pub kept_frames: usize,
+    /// Total number of frames in the underlying container.
+    pub total_frames: usize,
+    /// Number of stanzas the SRT file yielded successfully.
+    pub usable_stanzas: usize,
+    /// Line in the SRT file where parsing stopped due to malformed content.
+    /// `None` if the SRT file simply had fewer stanzas than the video has
+    /// frames (no parse error, just ran out).
+    pub malformed_at_line: Option<usize>,
 }
 
 #[derive(serde::Deserialize)]
@@ -179,6 +203,10 @@ pub struct H264Source<H: SeekableH264Source> {
     /// sequence). Used to bound the presentation-order reorder buffer to one
     /// coded video sequence.
     is_idr: Vec<bool>,
+    /// Set when an SRT-file timestamp source ran out of usable stanzas
+    /// before covering every frame, and the source was truncated to the last
+    /// complete GOP a stanza is available for every frame of.
+    srt_truncation: Option<SrtTruncation>,
     average_fps: Option<f64>,
     /// Chroma subsampling of the stream, read from the first SPS. The built-in
     /// OpenH264 decoder only handles 4:2:0, so on a decode failure this is used
@@ -203,6 +231,12 @@ impl<H: SeekableH264Source> H264Source<H> {
     /// non-MP4 sources.
     pub fn mp4_sample_timing(&self) -> Option<&[Mp4SampleTiming]> {
         self.mp4_sample_timing.as_deref()
+    }
+
+    /// Set when an SRT-file timestamp source ran out of usable stanzas
+    /// before covering every frame in the container; `None` otherwise.
+    pub fn srt_truncation(&self) -> Option<&SrtTruncation> {
+        self.srt_truncation.as_ref()
     }
 
     fn create_iter_unchecked<'a>(
@@ -340,6 +374,9 @@ impl<H: SeekableH264Source> FrameDataSource for H264Source<H> {
     fn has_timestamps(&self) -> bool {
         self.has_timestamps
     }
+    fn srt_truncation(&self) -> Option<SrtTruncation> {
+        self.srt_truncation.clone()
+    }
 }
 
 pub(crate) struct FromMp4Track {
@@ -433,8 +470,8 @@ where
     pub(crate) fn from_seekable_h264_source_with_timestamp_source(
         mut seekable_h264_source: H,
         do_decode_h264: bool,
-        mp4_pts: Option<Vec<std::time::Duration>>,
-        mp4_sample_timing: Option<Vec<Mp4SampleTiming>>,
+        mut mp4_pts: Option<Vec<std::time::Duration>>,
+        mut mp4_sample_timing: Option<Vec<Mp4SampleTiming>>,
         data_from_mp4_track: Option<FromMp4Track>,
         timestamp_source: crate::TimestampSource,
         srt_file_path: Option<std::path::PathBuf>,
@@ -450,13 +487,20 @@ where
             return Err(Error::NoSrtPathGiven);
         }
 
-        let srt_data = if let Some(srt_file_path) = srt_file_path {
-            let stanzas = srt_reader::read_srt_file(&srt_file_path)?;
-            let frame0_time = SrtData::parse_time(&stanzas[0]);
+        let mut srt_data = if let Some(srt_file_path) = srt_file_path {
+            let outcome = srt_reader::read_srt_file(&srt_file_path)?;
+            if outcome.stanzas.is_empty() {
+                return Err(Error::SrtParseError {
+                    path: srt_file_path,
+                    line: outcome.truncated_at_line.unwrap_or(1),
+                });
+            }
+            let frame0_time = SrtData::parse_time(&outcome.stanzas[0]);
             Some(SrtData {
-                stanzas,
+                stanzas: outcome.stanzas,
                 idx: 0,
                 frame0_time,
+                truncated_at_line: outcome.truncated_at_line,
             })
         } else {
             None
@@ -513,7 +557,7 @@ where
         )?;
 
         let TimingData {
-            frame_time_info,
+            mut frame_time_info,
             frame0_precision_time,
             frame0_frameinfo,
             h264_metadata,
@@ -590,6 +634,77 @@ where
                 frame_time_info.len()
             )));
         }
+        // Precompute the display (presentation) rank of each decode-order frame.
+        // Ranking by per-sample PTS is robust to a constant encoder composition
+        // delay (unlike matching absolute PTS values against stanza timecodes);
+        // when there is no PTS we fall back to the bitstream POC, keyed within
+        // each coded video sequence so GOPs stay in order.
+        let mut presentation_rank = compute_presentation_rank(mp4_pts.as_deref(), &frame_time_info);
+
+        let mut is_idr: Vec<bool> = frame_time_info.iter().map(|fti| fti.is_idr).collect();
+
+        // If the SRT ran out before covering every frame -- either it was
+        // malformed partway through, or it simply has fewer stanzas than the
+        // video has frames -- salvage what we can rather than failing
+        // outright: keep only whole GOPs fully covered by a usable stanza,
+        // dropping the incomplete tail. SRT stanzas are handed to frames by
+        // *presentation* rank, so a partial trailing GOP can't be resolved
+        // for reordered (B-frame) streams; rounding down to the last
+        // complete GOP boundary keeps every kept frame's timing intact.
+        let mut srt_truncation = None;
+        if let Some(srt) = srt_data.as_mut() {
+            let total_frames = frame_time_info.len();
+            let usable_stanzas = srt.stanzas.len();
+            if usable_stanzas < total_frames {
+                let rank = presentation_rank.as_ref().ok_or_else(|| {
+                    Error::H264TimestampError(
+                        "SRT file has fewer entries than the video has frames, and \
+                         presentation order cannot be recovered to safely truncate \
+                         (no per-sample PTS and no decodable picture order count)."
+                            .to_string(),
+                    )
+                })?;
+                let mut gop_starts: Vec<usize> = std::iter::once(0)
+                    .chain((0..total_frames).filter(|&i| is_idr[i]).map(|i| rank[i]))
+                    .collect();
+                gop_starts.sort_unstable();
+                gop_starts.dedup();
+                let kept_frames = gop_starts
+                    .into_iter()
+                    .filter(|&g| g <= usable_stanzas)
+                    .max()
+                    .unwrap_or(0);
+
+                if kept_frames == 0 {
+                    return Err(Error::H264TimestampError(format!(
+                        "SRT file only has usable timestamps for {usable_stanzas} of \
+                         {total_frames} frames, not even one complete group of pictures."
+                    )));
+                }
+
+                let keep: Vec<bool> = (0..total_frames).map(|i| rank[i] < kept_frames).collect();
+                retain_by_mask(&mut frame_time_info, &keep);
+                if let Some(pts) = mp4_pts.as_mut() {
+                    retain_by_mask(pts, &keep);
+                }
+                if let Some(timing) = mp4_sample_timing.as_mut() {
+                    retain_by_mask(timing, &keep);
+                }
+                retain_by_mask(&mut is_idr, &keep);
+                if let Some(rank) = presentation_rank.as_mut() {
+                    retain_by_mask(rank, &keep);
+                }
+                srt.stanzas.truncate(kept_frames);
+
+                srt_truncation = Some(SrtTruncation {
+                    kept_frames,
+                    total_frames,
+                    usable_stanzas,
+                    malformed_at_line: srt.truncated_at_line,
+                });
+            }
+        }
+
         let average_fps = calc_avg_fps(&frame_time_info[..]);
 
         // Rescale the source's per-sample timing (stts/ctts) to the real
@@ -618,15 +733,6 @@ where
             (other, _) => other,
         };
 
-        // Precompute the display (presentation) rank of each decode-order frame.
-        // Ranking by per-sample PTS is robust to a constant encoder composition
-        // delay (unlike matching absolute PTS values against stanza timecodes);
-        // when there is no PTS we fall back to the bitstream POC, keyed within
-        // each coded video sequence so GOPs stay in order.
-        let presentation_rank = compute_presentation_rank(mp4_pts.as_deref(), &frame_time_info);
-
-        let is_idr: Vec<bool> = frame_time_info.iter().map(|fti| fti.is_idr).collect();
-
         // SRT stanzas are in presentation order, so pair them with reordered
         // (B-frame) streams by display rank. Fall back to sequential consumption
         // when presentation order is unknown.
@@ -654,11 +760,19 @@ where
             timestamp_source,
             has_timestamps,
             srt_data,
+            srt_truncation,
             average_fps,
             chroma_format,
             profile,
         })
     }
+}
+
+/// Keep only the elements of `items` at positions where `keep` is `true`,
+/// preserving order. `keep` must be the same length as `items`.
+fn retain_by_mask<T>(items: &mut Vec<T>, keep: &[bool]) {
+    let mut keep = keep.iter();
+    items.retain(|_| *keep.next().unwrap());
 }
 
 /// Compute the display (presentation) rank of each decode-order frame.
