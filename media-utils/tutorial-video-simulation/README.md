@@ -162,6 +162,33 @@ from source instead by setting `STRAND_BRAID_TARGET_DIR` to somewhere other
 than that install (or uninstalling it isn't necessary; just don't rely on
 step 2 above).
 
+**Running against real camera hardware instead** (`CAMERA_BACKEND=pylon`/
+`vimba`/`webcam` — see step 4 and "A note on `--camera-backend sim`" below)?
+Sanity-check the camera is actually detected first, the same way:
+
+```sh
+strand-cam --camera-backend pylon --list-cameras   # should list your camera(s)
+```
+
+If that lists nothing (or errors), `record.sh` will fail the same way once
+it gets to actually launching `strand-cam` — fix connectivity/drivers first
+rather than debugging it through a full recording run.
+
+Also worth checking before a real-hardware run, especially on a shared
+machine: is a *different* `strand-cam` process already running against a
+camera?
+
+```sh
+ss -ltnp | grep 3440
+```
+
+If something's already listening on port 3440, `record.sh`'s own instance
+fails to bind it — but silently, not with an error: `wait_for_url` and the
+browser both succeed anyway, just showing that *other* process's live feed
+instead of the one this run actually launched. That looks like a
+successful recording but isn't testing what this script did. Confirm the
+port is free first.
+
 ### 4. Run it
 
 ```sh
