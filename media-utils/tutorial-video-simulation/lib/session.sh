@@ -36,20 +36,29 @@ set -o pipefail
 
 : "${SCRIPT_NAME:?session.sh: set SCRIPT_NAME before sourcing}"
 
-SESSION_WIDTH=1280
-SESSION_HEIGHT=800
+SESSION_WIDTH=1920
+SESSION_HEIGHT=1200
+# Matches the original tutorial videos this harness regenerates
+# (1920x1200) -- raised from 1280x800 on request, since strand-cam's BUI
+# looked cramped (wrapping/tight spacing) at the smaller size. Every
+# other pixel-based constant in this file and in each tutorial's
+# record.sh was scaled by the same 1.5x factor (1920/1280 ==
+# 1200/800 == 1.5) to keep proportions consistent -- rescale all of them
+# together if this ever changes again, not just these two.
+#
 # Gap between/around the two windows and the screen edge. Real desktops
 # never tile windows perfectly edge-to-edge with zero gap -- doing that here
 # was one of the more obvious tells that this wasn't a real desktop.
-SESSION_MARGIN=48
+SESSION_MARGIN=72
 SESSION_PANE_WIDTH=$(((SESSION_WIDTH - 3 * SESSION_MARGIN) / 2))
 SESSION_PANE_HEIGHT=$((SESSION_HEIGHT - 2 * SESSION_MARGIN))
 # burn_captions.py draws caption text bottom-left of the *whole frame*
-# (x=40, y=h-th-40), which lands within the terminal's horizontal span --
-# so the terminal specifically (not the browser, which sits well to the
-# right of x=40) needs to stop short of that zone vertically, or captions
-# would get drawn on top of its bottom few lines.
-SESSION_TERM_HEIGHT=$((SESSION_PANE_HEIGHT - 140))
+# (x=60, y=h-th-60 -- scaled 1.5x along with everything else, see above),
+# which lands within the terminal's horizontal span -- so the terminal
+# specifically (not the browser, which sits well to the right of x=60)
+# needs to stop short of that zone vertically, or captions would get drawn
+# on top of its bottom few lines.
+SESSION_TERM_HEIGHT=$((SESSION_PANE_HEIGHT - 210))
 SESSION_PIDS=()
 SESSION_WORK_DIR=$(mktemp -d -t "${SCRIPT_NAME}-XXXXXX")
 SESSION_EVENTS_FILE="$SESSION_WORK_DIR/events.jsonl"
@@ -400,9 +409,9 @@ point_at() {
 # CSS pixels from Chrome's getBoundingClientRect(), which equal physical
 # screen pixels on this Xvfb display (no device-pixel-ratio/scale-factor
 # set anywhere), at the fixed resolution start_display sets up
-# (SESSION_WIDTH/SESSION_HEIGHT). Same units as point_at's FALLBACK_X/Y.
-# Defaults match "centered horizontally, just below the baseline" (see
-# below for why +6 specifically).
+# (SESSION_WIDTH/SESSION_HEIGHT, 1920x1200 as of this writing). Same units
+# as point_at's FALLBACK_X/Y. Defaults match "centered horizontally, just
+# below the baseline" (see below for why +6 specifically).
 #
 # SWEEP_WIDTH is forwarded to point_at as-is (default 50, its own default;
 # pass 0 to disable the sweep entirely -- see point_at).
