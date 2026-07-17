@@ -143,8 +143,12 @@ impl FfmpegCodecArgs {
     ///
     /// `input_args` are inserted immediately before `-i -` and describe the raw
     /// video arriving on stdin (format, pixel format, size, frame rate, color
-    /// range). We also force full-range (`pc`) output so the full 0-255
-    /// intensity range is preserved rather than the limited "tv" range.
+    /// range). We also unconditionally force full-range (`pc`) output, appended
+    /// after `post_codec_args`, so the full 0-255 intensity range is always
+    /// preserved rather than the limited "tv" range: unlike `-pix_fmt`/`-bf`
+    /// above, this is not meant to be overridable, so codec presets (see
+    /// `from_str` below) must not also set `-color_range` in their own args —
+    /// it would just be redundant.
     fn to_args(&self, input_args: &[String]) -> Vec<String> {
         const VIDEO_CODEC: &str = "-c:v";
         let output_color_range = zq(&["-color_range", "pc"]);
@@ -199,7 +203,8 @@ impl FfmpegCodecArgs {
                 device_args: Some(vec![("-vaapi_device".into(), "/dev/dri/renderD128".into())]),
                 pre_codec_args: Some(vec![("-vf".into(), "format=nv12,hwupload".into())]),
                 codec: Some("h264_vaapi".to_string()),
-                post_codec_args: Some(vec![("-color_range".into(), "pc".into())]),
+                // `to_args` already appends `-color_range pc` unconditionally,
+                // so no need to set it here too.
                 // The `format=nv12,hwupload` filter chain already fixes the
                 // format and the encoder works on hardware surfaces; forcing an
                 // output `-pix_fmt` here would conflict.
@@ -288,8 +293,10 @@ impl FfmpegWriter {
         let width = frame.width();
         let height = frame.height();
 
-        // Raw-video input options, placed just before `-i -`. We tag the input
-        // as full range (`pc`) so ffmpeg preserves the full 0-255 range.
+        // Raw-video input options, placed just before `-i -`. We unconditionally
+        // tag the input as full range (`pc`) so ffmpeg preserves the full 0-255
+        // range; paired with the unconditional `-color_range pc` output tag in
+        // `FfmpegCodecArgs::to_args`, this is not meant to be overridable.
         let input_args = vec![
             "-f".to_string(),
             "rawvideo".to_string(),
