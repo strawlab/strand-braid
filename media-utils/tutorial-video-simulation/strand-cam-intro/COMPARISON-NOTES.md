@@ -32,14 +32,22 @@ around and between them instead of exact zero-gap half-screen splits.
 Verified visually -- background is now visible around and between both
 windows.
 
-## 2. Window decorations (accepted gap, not pursuing per earlier decision)
+## 2. Window decorations (partially addressed 2026-07-17)
 
 The original has GNOME's rounded title bar with search/hamburger icons;
-ours is plain `xterm`'s rectangular bar. This is the residual gap from an
-earlier explicit call ("theme colors only, not full GNOME desktop
+ours was plain `xterm`'s rectangular bar. This was the residual gap from
+an earlier explicit call ("theme colors only, not full GNOME desktop
 replication" -- full GNOME Shell replication inside Xvfb was judged not
-worth the effort/risk). Just flagging it's the most visible thing left if
-that decision ever gets revisited.
+worth the effort/risk).
+
+Since then, `xterm` was replaced entirely by a `ttyd`-bridged terminal
+running in Chrome's `--app` mode (see project memory / git log from
+`8c4b51c3` onward), which removes the terminal's browser-tab look (no tab
+strip/address bar/back-forward buttons) -- openbox still adds its own
+plain title bar on top (since Chrome no longer draws one itself in app
+mode), so the GNOME-vs-plain-titlebar gap noted here still exists, just on
+a different underlying window than before. Still not pursuing full GNOME
+Shell replication; flagging only if that decision ever gets revisited.
 
 ## 3. Copy-paste camera name (optional, low priority)
 
@@ -61,10 +69,17 @@ the system's default browser opener on every launch, not something
 meaningful to the tutorial -- recommend keeping our current single-tab
 behavior rather than chasing this.
 
-## 5. Recording resolution (low priority)
+## 5. Recording resolution (DONE 2026-07-17)
 
-Original is 1920x1200; ours is 1280x800. Same-ish aspect ratio (1.6:1 vs
-1.6:1), so low priority to change.
+Original is 1920x1200; ours was 1280x800. Raised on request (strand-cam's
+BUI looked cramped at the smaller size -- view-control buttons wrapping to
+a second row, etc.), matching the original exactly now. `session.sh`'s
+`SESSION_WIDTH`/`SESSION_HEIGHT` and every dependent pixel constant
+(margins, caption font/position, fallback pointing constants) were scaled
+by the same 1.5x factor -- see project memory / git log (`cb760afb`) for
+the full list of what got rescaled and the one thing (`BROWSER_CLOSE_X`)
+that's computed from window size rather than scaled, since it tracks a
+fixed OS-chrome button offset, not page content.
 
 ## 6. Realistic Basler-style camera names (deferred, not pursuing for now)
 
