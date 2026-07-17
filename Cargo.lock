@@ -8467,6 +8467,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "mp4-misp-inserter"
+version = "1.0.0-rc.5"
+dependencies = [
+ "camino",
+ "chrono",
+ "clap",
+ "env-tracing-logger",
+ "eyre",
+ "ffmpeg-writer",
+ "frame-source",
+ "machine-vision-formats",
+ "mp4-writer",
+ "serde",
+ "serde_json",
+ "srt-writer",
+ "strand-cam-remote-control",
+ "strand-dynamic-frame",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "mp4-writer"
 version = "0.1.0"
 dependencies = [
