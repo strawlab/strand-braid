@@ -1,5 +1,23 @@
 # Mouse-pointing feature: status and next steps
 
+**STATUS as of 2026-07-17: superseded / historical.** Everything this file
+originally tracked as "not yet decided" or "next steps" has since been
+decided and implemented -- most importantly, the "alternative: a
+browser-based terminal" section below (`ttyd` running xterm.js in DOM
+mode, replacing `xterm` entirely) was built, not just discussed. The
+`cdp_locate.py` description below is also stale: it was rewritten from
+"smallest matching DOM element" to a `Range` over the exact matching
+text-node substring (fixed real bugs the old approach had -- see
+`lib/session.sh`/`lib/cdp_locate.py` themselves and project memory for
+the details). The "record.sh wiring" constants below are old values from
+before a 1.5x resolution bump (1280x800 -> 1920x1200) and the later
+addition of per-point `OFFSET_X`/`OFFSET_Y` tuning. **Treat `lib/session.sh`
+and `strand-cam-intro/record.sh` as the source of truth, not this file** --
+kept below only as a historical record of the reasoning that led there,
+not a live TODO list.
+
+---
+
 Context: the tutorial video shows the mouse moving to and pointing at the
 camera name on screen (browser heading, terminal log/typed text), rather
 than sitting frozen or teleporting. This file tracks what's built, what's
@@ -149,8 +167,17 @@ Tradeoffs vs. the char-grid plan:
 - Net: meaningfully bigger lift than char-grid calibration, but the only
   route to full robustness on both terminal points, not just one.
 
-**Not decided** whether to pursue this instead of, or in addition to, the
-char-grid plan above -- revisit next session.
+**Update 2026-07-17: decided and implemented.** Went with this option
+(not the char-grid plan) -- `open_terminal` in `lib/session.sh` now
+launches `ttyd -t rendererType=dom` bridged into an isolated Chrome
+window instead of `xterm`, solving both terminal-pointing cases via CDP.
+See project memory / git log (commit `8c4b51c3` onward) for the full
+implementation history, including a couple of real bugs found and fixed
+along the way (a subshell bug that meant `BROWSER_CDP_PORT` was never
+actually reaching the caller, and `cdp_locate.py`'s original "smallest
+element" matching breaking on both a heading with no snug wrapper and a
+terminal command wrapping across two DOM rows -- rewritten to measure an
+exact text-node `Range` instead).
 
 ## Other loose ends noted along the way
 
