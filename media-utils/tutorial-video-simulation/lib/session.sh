@@ -319,6 +319,22 @@ move_mouse_into() {
     move_mouse_to "$win" $((w / 2)) $((h / 2))
 }
 
+# move_mouse_gradual_into WINDOW_ID: like move_mouse_into (moves to roughly
+# the center of WINDOW_ID), but travels there via move_mouse_gradual
+# (visible, interpolated motion across the screen) instead of an instant
+# jump -- use when the mouse is already visible somewhere else (e.g. just
+# finished pointing at something) and the transition itself should read as
+# someone moving the mouse there, not teleporting.
+move_mouse_gradual_into() {
+    local win="$1" geom win_x win_y w h
+    geom=$(xdotool getwindowgeometry --shell "$win")
+    win_x=$(echo "$geom" | sed -n 's/^X=//p')
+    win_y=$(echo "$geom" | sed -n 's/^Y=//p')
+    w=$(echo "$geom" | sed -n 's/^WIDTH=//p')
+    h=$(echo "$geom" | sed -n 's/^HEIGHT=//p')
+    move_mouse_gradual $((win_x + w / 2)) $((win_y + h / 2))
+}
+
 # move_mouse_gradual TARGET_X TARGET_Y [STEPS] [STEP_DELAY]: moves the mouse
 # from its current position to an absolute screen position in small
 # interpolated steps, so the motion reads as someone actually dragging the
@@ -343,6 +359,10 @@ move_mouse_gradual() {
 # and right under that point a couple of times, e.g. to indicate a specific
 # piece of text (a camera name) without covering it up -- REL_Y should
 # already be offset a little *below* the text's baseline by the caller.
+# SWEEP_WIDTH=0 skips the sweep entirely (just the move, then done) -- use
+# that for a simulated click on a specific spot (e.g. a close button, a
+# link), where the wiggle reads as "pointing at something" rather than
+# "about to click it."
 point_at() {
     local win="$1" rel_x="$2" rel_y="$3" sweep_width="${4:-50}"
     local geom win_x win_y abs_x abs_y half
@@ -351,23 +371,26 @@ point_at() {
     win_y=$(echo "$geom" | sed -n 's/^Y=//p')
     abs_x=$((win_x + rel_x))
     abs_y=$((win_y + rel_y))
-    half=$((sweep_width / 2))
     move_mouse_gradual "$abs_x" "$abs_y"
-    move_mouse_gradual $((abs_x + half)) "$abs_y" 12 0.08
-    move_mouse_gradual $((abs_x - half)) "$abs_y" 12 0.08
-    move_mouse_gradual $((abs_x + half)) "$abs_y" 12 0.08
-    move_mouse_gradual "$abs_x" "$abs_y" 8 0.08
+    if [ "$sweep_width" -gt 0 ]; then
+        half=$((sweep_width / 2))
+        move_mouse_gradual $((abs_x + half)) "$abs_y" 12 0.08
+        move_mouse_gradual $((abs_x - half)) "$abs_y" 12 0.08
+        move_mouse_gradual $((abs_x + half)) "$abs_y" 12 0.08
+        move_mouse_gradual "$abs_x" "$abs_y" 8 0.08
+    fi
 }
 
 # point_at_browser_text WINDOW_ID CDP_PORT NEEDLE [FALLBACK_X] [FALLBACK_Y]
-# [OFFSET_X] [OFFSET_Y]: finds the on-screen text containing NEEDLE via the
-# Chrome DevTools Protocol (cdp_locate.py, against CDP_PORT -- e.g.
-# BROWSER_CDP_PORT for the BUI window or TERM_CDP_PORT for the ttyd
-# terminal window, both set by _open_isolated_browser_window) and points at
-# it precisely instead of a tuned pixel guess -- falls back to point_at with
-# FALLBACK_X/FALLBACK_Y if CDP isn't available (e.g. CDP_PORT is empty
-# because firefox ended up as the fallback browser) or the lookup fails for
-# any reason, so a rerun degrades gracefully rather than erroring out.
+# [OFFSET_X] [OFFSET_Y] [SWEEP_WIDTH]: finds the on-screen text containing
+# NEEDLE via the Chrome DevTools Protocol (cdp_locate.py, against CDP_PORT
+# -- e.g. BROWSER_CDP_PORT for the BUI window or TERM_CDP_PORT for the
+# ttyd terminal window, both set by _open_isolated_browser_window) and
+# points at it precisely instead of a tuned pixel guess -- falls back to
+# point_at with FALLBACK_X/FALLBACK_Y if CDP isn't available (e.g.
+# CDP_PORT is empty because firefox ended up as the fallback browser) or
+# the lookup fails for any reason, so a rerun degrades gracefully rather
+# than erroring out.
 #
 # OFFSET_X/OFFSET_Y (default 0, 6) are added to the located text's own
 # center-x/bottom-y, per call site -- e.g. a caller can pass a larger
@@ -380,9 +403,12 @@ point_at() {
 # (SESSION_WIDTH/SESSION_HEIGHT). Same units as point_at's FALLBACK_X/Y.
 # Defaults match "centered horizontally, just below the baseline" (see
 # below for why +6 specifically).
+#
+# SWEEP_WIDTH is forwarded to point_at as-is (default 50, its own default;
+# pass 0 to disable the sweep entirely -- see point_at).
 point_at_browser_text() {
     local win="$1" cdp_port="$2" needle="$3" fallback_x="${4:-}" fallback_y="${5:-}"
-    local offset_x="${6:-0}" offset_y="${7:-6}"
+    local offset_x="${6:-0}" offset_y="${7:-6}" sweep_width="${8:-50}"
     local lib_dir result rel_x rel_y
     lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
@@ -401,10 +427,10 @@ point_at_browser_text() {
         rel_y=$(echo "$result" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(int(d["chromeY"]+d["y"]+d["height"]+6))')
         rel_x=$((rel_x + offset_x))
         rel_y=$((rel_y + offset_y))
-        point_at "$win" "$rel_x" "$rel_y"
+        point_at "$win" "$rel_x" "$rel_y" "$sweep_width"
     elif [ -n "$fallback_x" ]; then
         echo "WARNING: CDP text lookup for '$needle' failed, using fallback coordinates (see $SESSION_WORK_DIR/cdp_locate.log)" >&2
-        point_at "$win" "$fallback_x" "$fallback_y"
+        point_at "$win" "$fallback_x" "$fallback_y" "$sweep_width"
     else
         echo "WARNING: CDP text lookup for '$needle' failed and no fallback coordinates given; skipping" >&2
     fi
