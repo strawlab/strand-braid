@@ -191,6 +191,7 @@ mod test {
     use super::*;
     use chrono::{DateTime, Local};
     use ffmpeg_writer::{FfmpegCodecArgs, FfmpegWriter};
+    use frame_source::h264_source::Mp4SampleTiming;
     use machine_vision_formats::{owned::OImage, pixel_format::RGB8};
     use serde::Serialize;
 
@@ -199,53 +200,81 @@ mod test {
         timestamp: DateTime<Local>,
     }
 
+    /// `<dir>/in.mp4`, `<dir>/in.srt`, `<dir>/in.out.mp4` for a test.
+    fn test_paths(dir: &std::path::Path) -> (Utf8PathBuf, Utf8PathBuf, Utf8PathBuf) {
+        let mp4_path = Utf8PathBuf::from_path_buf(dir.join("in.mp4")).unwrap();
+        let srt_path = mp4_path.with_extension("srt");
+        let out_path = mp4_path.with_extension("out.mp4");
+        (mp4_path, srt_path, out_path)
+    }
+
+    /// Encode `timestamps.len()` frames of varying content (so an encoder
+    /// forcing B-frames has real motion to reorder around) to `mp4_path`
+    /// using `ffmpeg_codec_args`, writing each frame's SRT stanza (keyed by
+    /// its mp4 PTS) with the corresponding capture time to `srt_path`.
+    fn write_test_video_with_srt(
+        mp4_path: &Utf8PathBuf,
+        srt_path: &Utf8PathBuf,
+        ffmpeg_codec_args: FfmpegCodecArgs,
+        w: u32,
+        h: u32,
+        timestamps: &[DateTime<Local>],
+    ) -> Result<()> {
+        let mut ffmpeg_wtr = FfmpegWriter::new(mp4_path.as_str(), ffmpeg_codec_args, None)?;
+        let srt_fd = std::fs::File::create(srt_path)?;
+        let mut srt_wtr = srt_writer::BufferingSrtFrameWriter::new(Box::new(srt_fd));
+
+        for (i, ts) in timestamps.iter().enumerate() {
+            let mut data = vec![0u8; w as usize * h as usize * 3];
+            for (px, chunk) in data.chunks_exact_mut(3).enumerate() {
+                let v = ((px + i * 7) % 256) as u8;
+                chunk[0] = v;
+                chunk[1] = v.wrapping_mul(3);
+                chunk[2] = v.wrapping_add(i as u8 * 11);
+            }
+            let frame: OImage<RGB8> = OImage::new(w, h, w as usize * 3, data).unwrap();
+            let frame = strand_dynamic_frame::DynamicFrameOwned::from_static(frame);
+            let pts = ffmpeg_wtr.write_dynamic_frame(&frame.borrow())?;
+            let msg = serde_json::to_string(&SrtMsg { timestamp: *ts }).unwrap();
+            srt_wtr.add_frame(pts, msg)?;
+            srt_wtr.flush()?;
+        }
+        ffmpeg_wtr.close()?;
+        srt_wtr.close()?;
+        Ok(())
+    }
+
+    fn test_timestamps(n: usize) -> Vec<DateTime<Local>> {
+        let timestamp_micros: i64 = 1_662_921_288_000_000; // Sun, 11 Sep 2022 18:34:48 UTC
+        let frame_interval_micros = 40_000i64; // 25 fps
+        (0..n)
+            .map(|i| {
+                DateTime::from_timestamp_micros(timestamp_micros + i as i64 * frame_interval_micros)
+                    .unwrap()
+                    .with_timezone(&Local)
+            })
+            .collect()
+    }
+
     /// Round-trip test: write a plain (no MISP) MP4 plus an external `.srt`
     /// giving each frame its capture time, run [`insert_misp`] against that
     /// pair as `mp4-misp-inserter` itself does, then read the result back and
     /// check the embedded MISP timestamps match what the `.srt` specified.
+    ///
+    /// B-frames are explicitly disabled (`max_bframes: Some(0)`) so decode
+    /// order matches presentation order here; the reordered case is covered
+    /// separately by [`test_insert_misp_from_srt_with_bframes`].
     #[test]
     fn test_insert_misp_from_srt() -> Result<()> {
         let tempdir = tempfile::tempdir()?;
-        let mp4_path: Utf8PathBuf =
-            Utf8PathBuf::from_path_buf(tempdir.path().join("in.mp4")).unwrap();
-        let srt_path = mp4_path.with_extension("srt");
-        let out_path = mp4_path.with_extension("out.mp4");
+        let (mp4_path, srt_path, out_path) = test_paths(tempdir.path());
+        let timestamps = test_timestamps(5);
 
-        let timestamp_micros: i64 = 1_662_921_288_000_000; // Sun, 11 Sep 2022 18:34:48 UTC
-        let timestamps: Vec<DateTime<Local>> = (0..5)
-            .map(|i| {
-                DateTime::from_timestamp_micros(timestamp_micros + i * 40_000)
-                    .unwrap()
-                    .with_timezone(&Local)
-            })
-            .collect();
-
-        let w = 64;
-        let h = 48;
-        {
-            let mut ffmpeg_wtr =
-                FfmpegWriter::new(mp4_path.as_str(), FfmpegCodecArgs::default(), None)?;
-            let srt_fd = std::fs::File::create(&srt_path)?;
-            let mut srt_wtr = srt_writer::BufferingSrtFrameWriter::new(Box::new(srt_fd));
-
-            for (i, ts) in timestamps.iter().enumerate() {
-                let value = (i % 255) as u8;
-                let frame: OImage<RGB8> = OImage::new(
-                    w,
-                    h,
-                    w as usize * 3,
-                    vec![value; w as usize * h as usize * 3],
-                )
-                .unwrap();
-                let frame = strand_dynamic_frame::DynamicFrameOwned::from_static(frame);
-                let pts = ffmpeg_wtr.write_dynamic_frame(&frame.borrow())?;
-                let msg = serde_json::to_string(&SrtMsg { timestamp: *ts }).unwrap();
-                srt_wtr.add_frame(pts, msg)?;
-                srt_wtr.flush()?;
-            }
-            ffmpeg_wtr.close()?;
-            srt_wtr.close()?;
-        }
+        let ffmpeg_codec_args = FfmpegCodecArgs {
+            max_bframes: Some(0),
+            ..Default::default()
+        };
+        write_test_video_with_srt(&mp4_path, &srt_path, ffmpeg_codec_args, 64, 48, &timestamps)?;
 
         let count = insert_misp(
             &mp4_path,
@@ -274,6 +303,111 @@ mod test {
         let mut expected = timestamps.clone();
         expected.sort();
         assert_eq!(got, expected);
+
+        Ok(())
+    }
+
+    /// Same round-trip as [`test_insert_misp_from_srt`], but the source MP4
+    /// is deliberately encoded with B-frames (reordered decode order, `ctts`
+    /// composition offsets), which exercises the `write_h264_buf_passthrough`
+    /// path rather than the sequential-timestamp fallback. Verifies that
+    /// after `insert_misp` remuxes the file, walking samples in
+    /// *presentation* order (reconstructed from the container's `stts` +
+    /// `ctts`) still yields exactly the capture times given in the `.srt`,
+    /// in the order they were written.
+    #[test]
+    fn test_insert_misp_from_srt_with_bframes() -> Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let (mp4_path, srt_path, out_path) = test_paths(tempdir.path());
+        let n_frames = 24;
+        let timestamps = test_timestamps(n_frames);
+
+        // Force libx264 to insert a fixed pattern of B-frames (b_adapt=0
+        // takes the content out of the decision) so the remux definitely
+        // exercises the reordered path. A single keyframe keeps one GOP.
+        let ffmpeg_codec_args = FfmpegCodecArgs {
+            device_args: None,
+            pre_codec_args: None,
+            codec: Some("libx264".to_string()),
+            post_codec_args: Some(vec![
+                ("-bf".to_string(), "3".to_string()),
+                (
+                    "-x264-params".to_string(),
+                    "b_adapt=0:scenecut=0:keyint=1000:min-keyint=1000".to_string(),
+                ),
+            ]),
+            pixfmt: Some("yuv420p".to_string()),
+            // This test deliberately forces B-frames via `-bf 3` in
+            // `post_codec_args` to exercise reordering, so do not emit the
+            // default `-bf 0`.
+            max_bframes: None,
+        };
+        write_test_video_with_srt(&mp4_path, &srt_path, ffmpeg_codec_args, 64, 48, &timestamps)?;
+
+        let count = insert_misp(
+            &mp4_path,
+            &out_path,
+            frame_source::TimestampSource::SrtFile,
+            Some(srt_path.into()),
+        )?;
+        assert_eq!(count, n_frames);
+
+        // Read the re-muxed file back, keeping the H264 in decode order and
+        // recovering the container timing so we can reconstruct presentation
+        // order.
+        let mut frame_src = frame_source::FrameSourceBuilder::new(&out_path)
+            .do_decode_h264(false)
+            .timestamp_source(frame_source::TimestampSource::MispMicrosectime)
+            .build_h264_in_mp4_source()?;
+
+        let frame0_time = frame_src.frame0_time().unwrap();
+        assert_eq!(frame0_time, timestamps[0]);
+
+        // Snapshot per-sample timing (stts + ctts) before iterating (which
+        // borrows the source mutably).
+        let sample_timing: Vec<Mp4SampleTiming> = frame_src
+            .mp4_sample_timing()
+            .expect("MP4 source must expose per-sample timing")
+            .to_vec();
+        assert_eq!(sample_timing.len(), n_frames);
+
+        // The remux is only meaningful as a reordering test if the encoder
+        // actually produced B-frames (non-zero composition offsets).
+        let has_reordering = sample_timing
+            .iter()
+            .any(|t| t.composition_offset != chrono::Duration::zero());
+        assert!(
+            has_reordering,
+            "expected libx264 to emit B-frames (non-zero ctts); test would be vacuous otherwise"
+        );
+
+        // Collect the SEI capture time for each sample, in decode order.
+        let mut sei_times = vec![None; n_frames];
+        for frame in frame_src.decode_order_iter() {
+            let frame = frame?;
+            sei_times[frame.idx()] = Some(frame0_time + frame.timestamp().unwrap_duration());
+        }
+
+        // Reconstruct each sample's presentation time: presentation = decode +
+        // composition_offset, where the decode time is the running sum of the
+        // per-sample decode durations (stts), all in decode order.
+        let mut decode_time = chrono::Duration::zero();
+        let mut presentation = Vec::with_capacity(n_frames);
+        for (i, timing) in sample_timing.iter().enumerate() {
+            let pts = decode_time
+                + chrono::Duration::from_std(timing.decode_duration).unwrap()
+                + timing.composition_offset;
+            let sei = sei_times[i].expect("every sample must carry a SEI timestamp");
+            presentation.push((pts, sei));
+            decode_time += chrono::Duration::from_std(timing.decode_duration).unwrap();
+        }
+
+        // Walk samples in presentation order and assert the SEI capture times
+        // match exactly what was written, in that order: the remuxed file
+        // plays back with the correct capture time on every frame.
+        presentation.sort_by_key(|(pts, _)| *pts);
+        let ordered_sei: Vec<_> = presentation.iter().map(|(_, sei)| *sei).collect();
+        assert_eq!(ordered_sei, timestamps);
 
         Ok(())
     }
