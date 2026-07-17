@@ -1,8 +1,9 @@
 #!/bin/bash
 #
 # Regenerates the "launching Strand Camera from the command line" tutorial
-# video against the current repo, by default using the hardware-free `sim`
-# camera backend (see ../README.md for what this replaces and why).
+# video against the current repo, against real Basler (pylon) camera
+# hardware if any is attached to this machine, or the hardware-free `sim`
+# backend otherwise (see ../README.md for what this replaces and why).
 #
 # Requires a Linux host with ffmpeg, xdotool, Xvfb, openbox, and ttyd (hard
 # requirements -- this always records on its own isolated virtual display,
@@ -14,20 +15,24 @@
 #
 # Usage:
 #   ./record.sh [OUTPUT_DIR]
+#   CAMERA_BACKEND=sim ./record.sh [OUTPUT_DIR]
 #   CAMERA_BACKEND=pylon ./record.sh [OUTPUT_DIR]
 #
 # OUTPUT_DIR defaults to a directory named 'out' next to this script. It is
 # created if missing and is not, and should not be, committed to the repo.
 #
-# CAMERA_BACKEND selects which strand-cam --camera-backend to actually run
-# (defaults to "sim"). Set it to "pylon"/"vimba"/"webcam" to record against
-# real camera hardware attached to this machine instead -- useful for
-# regenerating the tutorial from an actual camera when one's available,
-# rather than the hardware-free stand-in. Whichever backend is chosen, the
-# on-screen commands always show the plain, unqualified form ("strand-cam",
-# "strand-cam --camera-name <name>") a real user would type; see the
-# CAMERA_BACKEND handling below for how that's kept true for non-default
-# backends too.
+# CAMERA_BACKEND selects which strand-cam --camera-backend to actually run.
+# Left unset, record.sh auto-detects: real Basler (pylon) hardware if any
+# is attached and responds to --list-cameras, otherwise the hardware-free
+# `sim` backend -- see the auto-detection below for exactly how. Set it
+# explicitly ("sim"/"pylon"/"vimba"/"webcam") to skip auto-detection and
+# force one or the other regardless of what's attached -- e.g.
+# CAMERA_BACKEND=sim to regenerate the hardware-free version even on a
+# machine that does have a real camera. Whichever backend ends up in use,
+# the on-screen commands always show the plain, unqualified form
+# ("strand-cam", "strand-cam --camera-name <name>") a real user would
+# type; see the CAMERA_BACKEND handling below for how that's kept true for
+# non-default backends too.
 
 # Rough pixel offsets (relative to each window's top-left), used only as a
 # fallback for point_at_browser_text if its CDP text lookup fails (e.g.
@@ -113,12 +118,12 @@ source "$SCRIPT_DIR/../lib/session.sh"
 BROWSER_CLOSE_X=$((SESSION_PANE_WIDTH - 23))
 BROWSER_CLOSE_Y=23
 
-CAMERA_BACKEND="${CAMERA_BACKEND:-sim}"
-
 # Prefer, in order: an explicit override, an already-installed strand-cam
 # (e.g. via the .deb package) found on PATH, then finally a from-source
 # build -- so a normal desktop with the package installed never triggers an
-# unnecessary cargo build.
+# unnecessary cargo build. Resolved before CAMERA_BACKEND's own
+# auto-detection below, since that needs a real strand-cam binary to probe
+# for hardware with.
 if [ -n "${STRAND_BRAID_TARGET_DIR:-}" ]; then
     TARGET_DIR="$STRAND_BRAID_TARGET_DIR"
 elif command -v strand-cam >/dev/null 2>&1; then
@@ -142,6 +147,24 @@ echo "=== $STRAND_CAM_VERSION ==="
 
 export DISABLE_VERSION_CHECK=1
 export RUST_LOG=info
+
+# An explicit CAMERA_BACKEND (including "sim") always wins outright, even
+# if real hardware happens to be attached -- auto-detection only runs when
+# it's unset. Auto-detect by actually probing for real (pylon) hardware
+# via --list-cameras, the same check the Prerequisites section of
+# ../README.md recommends running by hand -- not by, say, checking for a
+# Basler udev/USB device file, since --list-cameras is the one check that
+# also confirms strand-cam's own pylon backend can actually talk to it.
+if [ -n "${CAMERA_BACKEND:-}" ]; then
+    echo "=== CAMERA_BACKEND=$CAMERA_BACKEND (explicit) ==="
+elif "$TARGET_DIR/strand-cam" --camera-backend pylon --list-cameras 2>/dev/null \
+    | grep -qE '^  [^ ]+  \(model:'; then
+    CAMERA_BACKEND=pylon
+    echo "=== Real camera hardware detected -- defaulting to CAMERA_BACKEND=pylon ==="
+else
+    CAMERA_BACKEND=sim
+    echo "=== No real camera hardware detected -- defaulting to CAMERA_BACKEND=sim ==="
+fi
 
 if [ "$CAMERA_BACKEND" = "sim" ]; then
     export STRAND_CAM_SIM_SPEC="$REPO_ROOT/braid/braid-sim/example-sim.toml"

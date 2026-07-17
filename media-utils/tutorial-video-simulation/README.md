@@ -16,10 +16,14 @@ a throwaway virtual display, and captures the result. Re-running a script
 after a GUI/CLI change regenerates the video against whatever the repo does
 today.
 
-Camera-dependent tutorials use the hardware-free `sim` camera backend
-(`ci2-sim`, driven by `braid/braid-sim/example-sim.toml`) instead of real
-camera hardware, so these scripts run on any Linux box with no camera
-attached.
+Camera-dependent tutorials record against real camera hardware by default
+if any is attached to the machine they're run on, falling back to the
+hardware-free `sim` backend (`ci2-sim`, driven by
+`braid/braid-sim/example-sim.toml`) otherwise — so the same command
+records the most realistic possible version on a lab machine with a
+camera plugged in, and still just works with no hardware at all (e.g. CI,
+a laptop). See `CAMERA_BACKEND` in step 4 of Running instructions to force
+one or the other explicitly.
 
 ## Prerequisites (Linux only)
 
@@ -162,17 +166,20 @@ from source instead by setting `STRAND_BRAID_TARGET_DIR` to somewhere other
 than that install (or uninstalling it isn't necessary; just don't rely on
 step 2 above).
 
-**Running against real camera hardware instead** (`CAMERA_BACKEND=pylon`/
-`vimba`/`webcam` — see step 4 and "A note on `--camera-backend sim`" below)?
-Sanity-check the camera is actually detected first, the same way:
+**Forcing real camera hardware explicitly** (`CAMERA_BACKEND=pylon`/
+`vimba`/`webcam` — see step 4 and "A note on `--camera-backend sim`"
+below)? Sanity-check the camera is actually detected first, the same way:
 
 ```sh
 strand-cam --camera-backend pylon --list-cameras   # should list your camera(s)
 ```
 
-If that lists nothing (or errors), `record.sh` will fail the same way once
-it gets to actually launching `strand-cam` — fix connectivity/drivers first
-rather than debugging it through a full recording run.
+If that lists nothing (or errors), an *explicit* `CAMERA_BACKEND=pylon`
+will fail the same way once `record.sh` gets to actually launching
+`strand-cam` — fix connectivity/drivers first rather than debugging it
+through a full recording run. Left unset instead, `record.sh` runs this
+same check itself to auto-detect: no camera found just means it quietly
+falls back to `sim`, not an error.
 
 Also worth checking before a real-hardware run, especially on a shared
 machine: is a *different* `strand-cam` process already running against a
@@ -195,14 +202,22 @@ port is free first.
 cd media-utils/tutorial-video-simulation/strand-cam-intro
 ./record.sh
 
-# Or, against real camera hardware attached to this machine instead of the
-# hardware-free sim backend:
-CAMERA_BACKEND=pylon ./record.sh
+# Force one backend explicitly instead of auto-detecting:
+CAMERA_BACKEND=sim ./record.sh    # hardware-free, even if a real camera is attached
+CAMERA_BACKEND=pylon ./record.sh  # real Basler hardware, erroring out if none is found
 ```
 
-`CAMERA_BACKEND` (default `sim`) selects which `strand-cam --camera-backend`
-actually runs; see "A note on `--camera-backend sim`" below for how the
-on-screen commands stay clean regardless of which one you pick.
+`CAMERA_BACKEND` selects which `strand-cam --camera-backend` actually
+runs. Left unset, `record.sh` auto-detects: real Basler (`pylon`) hardware
+if `--list-cameras` finds any attached and responding, otherwise the
+hardware-free `sim` backend — printed on stdout either way (`=== Real
+camera hardware detected -- defaulting to CAMERA_BACKEND=pylon ===` or the
+`sim` equivalent), so it's always obvious after the fact which one a given
+run actually used. An explicit `CAMERA_BACKEND` always wins over
+auto-detection, including `CAMERA_BACKEND=sim` on a machine that does have
+a camera attached. See "A note on `--camera-backend sim`" below for how
+the on-screen commands stay clean regardless of which backend ends up in
+use.
 
 Internally, step 3's binary selection does:
 ```sh
@@ -238,12 +253,17 @@ build a given output came from.
 
 ## A note on `--camera-backend sim`
 
-The tutorials here default to `--camera-backend sim` so the recording needs
-no camera hardware. If you have a real Basler camera, the equivalent of the
-old `strand-cam-pylon` command is simply `strand-cam` on its own — `pylon` is
-still the default backend (`strand-cam/src/cli_app.rs`), it's just no longer
-baked into the binary's name. Set `CAMERA_BACKEND=pylon` (or `vimba`/
-`webcam`) to record against that real hardware instead — see step 4 above.
+The tutorials here auto-detect real Basler camera hardware and prefer it
+over `--camera-backend sim` when it's available (see step 4), so the
+recording is as realistic as possible on a machine that has one, while
+still needing no camera hardware at all on one that doesn't. If you have a
+real Basler camera, the equivalent of the old `strand-cam-pylon` command is
+simply `strand-cam` on its own — `pylon` is still the default backend
+(`strand-cam/src/cli_app.rs`), it's just no longer baked into the binary's
+name. Set `CAMERA_BACKEND=vimba`/`webcam` to record against that kind of
+hardware instead (auto-detection only ever probes for `pylon`), or
+`CAMERA_BACKEND=sim`/`pylon` to force one of those explicitly rather than
+auto-detecting — see step 4 above.
 
 `strand-cam` has no environment variable for `--camera-backend`; it's
 CLI-only, and always defaults to Pylon if omitted. So the terminal always
