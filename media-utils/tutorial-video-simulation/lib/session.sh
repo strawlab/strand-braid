@@ -13,14 +13,14 @@
 #
 # Hard requirements: ffmpeg (capture + caption burn-in), xdotool
 # (window/keyboard automation), Xvfb + openbox (the virtual display + window
-# manager), xterm (the terminal -- see open_terminal for why this can't be
-# "whatever's installed" the way the others can be). Everything else is used
-# if already present and otherwise falls back to installing its own minimal
-# version:
-#   - browser: prefers google-chrome/chromium over firefox (see open_browser
-#     for why), launched with an isolated profile/`-no-remote` so it can't
-#     hand off to (or get confused with) an instance already running on your
-#     real desktop.
+# manager), ttyd (bridges the terminal's real PTY into a browser window --
+# see open_terminal for why). Everything else is used if already present and
+# otherwise falls back to installing its own minimal version:
+#   - browser: prefers google-chrome/chromium over firefox (see
+#     _open_isolated_browser_window for why), launched with an isolated
+#     profile/`-no-remote` so it can't hand off to (or get confused with) an
+#     instance already running on your real desktop. Used for both the BUI
+#     window and (via ttyd) the terminal window.
 #   - caption burn-in: burn_captions.py has no third-party dependencies, so
 #     it just needs `python3` (already present on essentially every Linux
 #     install) -- no `uv`/venv needed.
@@ -150,50 +150,19 @@ stop_capture() {
     sleep 2
 }
 
-# open_terminal: launches as a floating window on the left, sized to
-# SESSION_PANE_WIDTH/HEIGHT with SESSION_MARGIN of space around it (real
-# desktops never tile windows edge-to-edge with zero gap). Prints the X
-# window id on stdout; capture it, e.g. TERM_WIN=$(open_terminal).
-#
-# Deliberately always xterm, never x-terminal-emulator: on a stock Debian/
-# Ubuntu desktop that alternative resolves to gnome-terminal, which isn't a
-# self-contained X client -- it just asks an already-running
-# gnome-terminal-server daemon (started once, at login, bound to your real
-# desktop) to open a window over D-Bus. That daemon ignores our exported
-# DISPLAY, so the window opens on your real screen instead of the isolated
-# virtual display, silently defeating start_display's whole point. xterm has
-# no such daemon; it always opens directly on $DISPLAY.
-open_terminal() {
-    command -v xterm >/dev/null 2>&1 || {
-        echo "ERROR: xterm not found (required; do not substitute x-terminal-emulator -- see comment above)" >&2
-        exit 1
-    }
-    # Colors approximate Ubuntu's default terminal profile (dark purple/
-    # aubergine background, plain white foreground) rather than xterm's
-    # own stark black-on-white/black defaults, since that default is one of
-    # the more obvious tells that this isn't a real desktop terminal.
-    setsid xterm -bg '#300A24' -fg '#FFFFFF' -fa 'Monospace' -fs 11 \
-        >"$SESSION_WORK_DIR/terminal.log" 2>&1 &
-    SESSION_PIDS+=("$!")
-    sleep 1.5
-    local win
-    win=$(xdotool getactivewindow)
-    xdotool windowmove "$win" "$SESSION_MARGIN" "$SESSION_MARGIN"
-    xdotool windowsize "$win" "$SESSION_PANE_WIDTH" "$SESSION_TERM_HEIGHT"
-    echo "$win"
-}
-
-# open_browser URL TERM_WIN: launches as a floating window on the right
-# (same SESSION_MARGIN gap/sizing as open_terminal), using whichever of
-# chrome/chromium/firefox is already installed, and moves TERM_WIN (from
-# open_terminal) back onto the left in case opening the
-# browser disturbed it. Prints the browser's X window id on stdout.
+# _open_isolated_browser_window URL: launches an isolated chrome/chromium/
+# firefox window pointed at URL and prints "WINDOW_ID CDP_PORT" on stdout
+# (CDP_PORT empty for firefox). Shared by open_terminal (pointed at ttyd)
+# and open_browser (pointed at the BUI) -- both need the same isolation
+# story, just against different URLs.
 #
 # Launched with an isolated profile and remote-control disabled: without
 # that, Firefox/Chrome notice an instance already running on your real
 # desktop (same user, default profile) and just forward "open a new window"
 # to it over there instead of actually opening one on our virtual display --
-# silently defeating the isolation start_display worked to set up.
+# silently defeating the isolation start_display worked to set up. Each call
+# gets its own profile dir (mktemp'd under SESSION_WORK_DIR), since two of
+# these now run at once (terminal + BUI) and must not collide or share state.
 #
 # Chrome/Chromium variants are tried before Firefox on purpose: on a stock
 # Ubuntu desktop, `firefox` is a snap package, and snap's confinement
@@ -202,8 +171,8 @@ open_terminal() {
 # Firefox profile cannot be loaded" instead of actually isolating it. Only
 # falls back to firefox if no Chrome/Chromium variant is installed, in which
 # case that failure mode is a known limitation, not a bug to chase here.
-open_browser() {
-    local url="$1" term_win="$2"
+_open_isolated_browser_window() {
+    local url="$1"
     local browser_cmd candidate
     for candidate in google-chrome google-chrome-stable chromium-browser chromium firefox; do
         if command -v "$candidate" >/dev/null 2>&1; then
@@ -213,10 +182,9 @@ open_browser() {
     done
     : "${browser_cmd:?ERROR: no browser found (looked for google-chrome, chromium, firefox)}"
 
-    local profile_dir="$SESSION_WORK_DIR/browser-profile"
-    mkdir -p "$profile_dir"
+    local profile_dir cdp_port=""
+    profile_dir=$(mktemp -d "$SESSION_WORK_DIR/browser-profile-XXXXXX")
     local isolation_args=()
-    BROWSER_CDP_PORT=""
     case "$browser_cmd" in
     firefox)
         isolation_args=(-no-remote -profile "$profile_dir")
@@ -238,26 +206,92 @@ open_browser() {
         #     query the real DOM for exact text positions via the Chrome
         #     DevTools Protocol, instead of guessing tuned pixel offsets
         #     that break whenever the page layout changes. A free port is
-        #     picked per run to avoid colliding with anything else on this
-        #     machine (this is a real, non-virtual-display-scoped TCP port).
-        BROWSER_CDP_PORT=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
-        isolation_args=(--user-data-dir="$profile_dir" --no-first-run --ozone-platform=x11 --disable-gpu --remote-debugging-port="$BROWSER_CDP_PORT")
+        #     picked per call to avoid colliding with anything else on this
+        #     machine, including the other isolated browser window from this
+        #     same run (this is a real, non-virtual-display-scoped TCP port).
+        cdp_port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
+        isolation_args=(--user-data-dir="$profile_dir" --no-first-run --ozone-platform=x11 --disable-gpu --remote-debugging-port="$cdp_port")
         ;;
     esac
 
     setsid "$browser_cmd" "${isolation_args[@]}" --new-window "$url" \
-        >"$SESSION_WORK_DIR/browser.log" 2>&1 &
+        >"$SESSION_WORK_DIR/$(basename "$profile_dir").log" 2>&1 &
     SESSION_PIDS+=("$!")
     sleep 2
 
-    local win right_x
-    right_x=$((SESSION_MARGIN * 2 + SESSION_PANE_WIDTH))
+    local win
     win=$(xdotool getactivewindow)
-    xdotool windowmove "$win" "$right_x" "$SESSION_MARGIN"
-    xdotool windowsize "$win" "$SESSION_PANE_WIDTH" "$SESSION_PANE_HEIGHT"
+    echo "$win $cdp_port"
+}
+
+# open_terminal: launches a browser-based terminal as a floating window on
+# the left, sized to SESSION_PANE_WIDTH/HEIGHT with SESSION_MARGIN of space
+# around it (real desktops never tile windows edge-to-edge with zero gap).
+# Sets the globals TERM_WIN (the window id), TERM_SESSION_PID (ttyd's own
+# pid), and TERM_CDP_PORT (empty if firefox ended up as the fallback
+# browser -- see _open_isolated_browser_window).
+#
+# Deliberately NOT called via command substitution (TERM_WIN=$(open_terminal)
+# -- that would run this whole function in a subshell, silently discarding
+# every global it sets, including TERM_WIN itself, once the subshell exits).
+# Call it as a plain statement instead.
+#
+# Why a browser instead of a real terminal emulator (xterm): a real
+# terminal has no DOM to query, so pointing at its own log output (e.g.
+# strand-cam's "run{cam=...}" line) needed a tuned pixel guess with no way
+# to verify it -- see strand-cam-intro/POINTING-NOTES.md. Bridging the
+# terminal's real PTY into a browser tab via ttyd, using xterm.js's DOM
+# renderer (each line/character becomes a real DOM element, unlike its
+# default canvas/WebGL renderer), lets point_at_browser_text() query
+# terminal text exactly the same way it already queries the BUI.
+open_terminal() {
+    command -v ttyd >/dev/null 2>&1 || {
+        echo "ERROR: ttyd not found (required; bridges the terminal's PTY into a browser window -- see comment above)" >&2
+        exit 1
+    }
+    local ttyd_port
+    ttyd_port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
+
+    # -i 127.0.0.1: never reachable beyond localhost. -W: writable -- ttyd
+    # defaults to a read-only display, which would silently swallow every
+    # xdotool keystroke typed into this window. rendererType=dom: forces
+    # xterm.js's DOM renderer (see open_terminal's comment above).
+    setsid ttyd -p "$ttyd_port" -i 127.0.0.1 -W -t rendererType=dom bash \
+        >"$SESSION_WORK_DIR/ttyd.log" 2>&1 &
+    TERM_SESSION_PID="$!"
+    SESSION_PIDS+=("$TERM_SESSION_PID")
+    sleep 1
+
+    local win_and_port
+    win_and_port=$(_open_isolated_browser_window "http://127.0.0.1:$ttyd_port/")
+    TERM_WIN=$(echo "$win_and_port" | awk '{print $1}')
+    TERM_CDP_PORT=$(echo "$win_and_port" | awk '{print $2}')
+    sleep 1
+
+    xdotool windowmove "$TERM_WIN" "$SESSION_MARGIN" "$SESSION_MARGIN"
+    xdotool windowsize "$TERM_WIN" "$SESSION_PANE_WIDTH" "$SESSION_TERM_HEIGHT"
+}
+
+# open_browser URL TERM_WIN: launches as a floating window on the right
+# (same SESSION_MARGIN gap/sizing as open_terminal), and moves TERM_WIN
+# (from open_terminal) back onto the left in case opening this window
+# disturbed it. Sets the globals BROWSER_WIN (the window id) and
+# BROWSER_CDP_PORT (empty if firefox -- see _open_isolated_browser_window).
+#
+# Deliberately NOT called via command substitution -- see open_terminal's
+# comment above; the same subshell problem applies here.
+open_browser() {
+    local url="$1" term_win="$2"
+    local win_and_port right_x
+    win_and_port=$(_open_isolated_browser_window "$url")
+    BROWSER_WIN=$(echo "$win_and_port" | awk '{print $1}')
+    BROWSER_CDP_PORT=$(echo "$win_and_port" | awk '{print $2}')
+
+    right_x=$((SESSION_MARGIN * 2 + SESSION_PANE_WIDTH))
+    xdotool windowmove "$BROWSER_WIN" "$right_x" "$SESSION_MARGIN"
+    xdotool windowsize "$BROWSER_WIN" "$SESSION_PANE_WIDTH" "$SESSION_PANE_HEIGHT"
     xdotool windowmove "$term_win" "$SESSION_MARGIN" "$SESSION_MARGIN"
     xdotool windowsize "$term_win" "$SESSION_PANE_WIDTH" "$SESSION_TERM_HEIGHT"
-    echo "$win"
 }
 
 # move_mouse_to WINDOW_ID X Y: moves the mouse pointer to a specific pixel
@@ -325,25 +359,48 @@ point_at() {
     move_mouse_gradual "$abs_x" "$abs_y" 8 0.08
 }
 
-# point_at_browser_text WINDOW_ID NEEDLE [FALLBACK_X] [FALLBACK_Y]: finds
-# the on-screen text containing NEEDLE via the Chrome DevTools Protocol
-# (cdp_locate.py, using BROWSER_CDP_PORT set by open_browser) and points at
-# it precisely instead of a tuned pixel guess -- falls back to point_at
-# with FALLBACK_X/FALLBACK_Y if CDP isn't available (e.g. the firefox
-# fallback browser doesn't speak this protocol) or the lookup fails for any
-# reason, so a rerun degrades gracefully rather than erroring out.
+# point_at_browser_text WINDOW_ID CDP_PORT NEEDLE [FALLBACK_X] [FALLBACK_Y]
+# [OFFSET_X] [OFFSET_Y]: finds the on-screen text containing NEEDLE via the
+# Chrome DevTools Protocol (cdp_locate.py, against CDP_PORT -- e.g.
+# BROWSER_CDP_PORT for the BUI window or TERM_CDP_PORT for the ttyd
+# terminal window, both set by _open_isolated_browser_window) and points at
+# it precisely instead of a tuned pixel guess -- falls back to point_at with
+# FALLBACK_X/FALLBACK_Y if CDP isn't available (e.g. CDP_PORT is empty
+# because firefox ended up as the fallback browser) or the lookup fails for
+# any reason, so a rerun degrades gracefully rather than erroring out.
+#
+# OFFSET_X/OFFSET_Y (default 0, 6) are added to the located text's own
+# center-x/bottom-y, per call site -- e.g. a caller can pass a larger
+# OFFSET_Y to point further below a tall heading, or a nonzero OFFSET_X to
+# favor one side of a long matched string instead of its exact center.
+# Units: pixels, top-left-origin screen coordinates (+X right, +Y down) --
+# CSS pixels from Chrome's getBoundingClientRect(), which equal physical
+# screen pixels on this Xvfb display (no device-pixel-ratio/scale-factor
+# set anywhere), at the fixed resolution start_display sets up
+# (SESSION_WIDTH/SESSION_HEIGHT). Same units as point_at's FALLBACK_X/Y.
+# Defaults match "centered horizontally, just below the baseline" (see
+# below for why +6 specifically).
 point_at_browser_text() {
-    local win="$1" needle="$2" fallback_x="${3:-}" fallback_y="${4:-}"
+    local win="$1" cdp_port="$2" needle="$3" fallback_x="${4:-}" fallback_y="${5:-}"
+    local offset_x="${6:-0}" offset_y="${7:-6}"
     local lib_dir result rel_x rel_y
     lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
-    if [ -n "${BROWSER_CDP_PORT:-}" ]; then
-        result=$(python3 "$lib_dir/cdp_locate.py" --port "$BROWSER_CDP_PORT" --contains "$needle" 2>"$SESSION_WORK_DIR/cdp_locate.log") || result=""
+    if [ -n "$cdp_port" ]; then
+        result=$(python3 "$lib_dir/cdp_locate.py" --port "$cdp_port" --contains "$needle" 2>"$SESSION_WORK_DIR/cdp_locate.log") || result=""
     fi
 
     if [ -n "${result:-}" ]; then
         rel_x=$(echo "$result" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(int(d["x"]+d["width"]/2))')
-        rel_y=$(echo "$result" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(int(d["chromeY"]+d["y"]+d["height"]+15))')
+        # +6 base (not the old +15): now that cdp_locate.py measures the
+        # exact text substring (a Range) rather than a whole enclosing
+        # element, the returned height is already just the text's own line
+        # height, so a smaller "below the baseline" buffer is enough to
+        # clear the text without the sweep covering it. OFFSET_Y adds to
+        # this base per call site, OFFSET_X to the horizontal center.
+        rel_y=$(echo "$result" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(int(d["chromeY"]+d["y"]+d["height"]+6))')
+        rel_x=$((rel_x + offset_x))
+        rel_y=$((rel_y + offset_y))
         point_at "$win" "$rel_x" "$rel_y"
     elif [ -n "$fallback_x" ]; then
         echo "WARNING: CDP text lookup for '$needle' failed, using fallback coordinates (see $SESSION_WORK_DIR/cdp_locate.log)" >&2
@@ -379,8 +436,8 @@ scroll_page() {
 }
 
 # type_only WINDOW_ID TEXT: like type_in, but stops after typing -- no
-# pause, no Enter. Use this (plus a separate `xdotool key Return`) instead
-# of type_in when something else needs to happen in between, e.g.
+# pause, no Enter. Use this (plus a separate `press_return`) instead of
+# type_in when something else needs to happen in between, e.g.
 # point_at()-ing a piece of on-screen text while the command sits typed but
 # not yet run.
 #
@@ -391,25 +448,48 @@ scroll_page() {
 # another window (e.g. the browser) has taken focus in the meantime --
 # windowactivate first guarantees our target is the one that's focused when
 # the global XTEST input actually lands.
+#
+# Also logs a caption event of the typed text itself, the same yellow
+# burned-in style Ctrl+C already gets -- the original tutorial videos this
+# harness reproduces caption keystrokes this way too, not just untyped
+# actions. (The terminal's own on-screen echo of the typed characters isn't
+# a substitute for this: it's easy to miss against a busy log, and it's
+# xterm.js/ttyd rendering, not a caption -- this is a second, deliberately
+# redundant indicator.) Fixed 3s, matching type_in's own dwell before
+# Return; a caller that does something longer before pressing Return (e.g.
+# point_at_browser_text) will just see the caption disappear a bit early.
 type_only() {
     local win="$1" text="$2"
     move_mouse_into "$win"
     xdotool windowactivate --sync "$win"
     xdotool type --delay 120 -- "$text"
+    log_event "$text" 3
 }
 
 # type_in WINDOW_ID TEXT: simulates character-by-character typing, then a
-# pause, then Enter.
+# pause, then Enter (via press_return, below).
 type_in() {
     local win="$1" text="$2"
     type_only "$win" "$text"
     # Leave the typed command visible and unexecuted for a beat before
     # hitting Enter, so a viewer has time to actually read it.
     sleep 3
+    press_return "$win"
+}
+
+# press_return WINDOW_ID: sends Return, captioned "Enter" the same way
+# Ctrl+C is captioned in record.sh -- both are discrete, momentary
+# keypresses with no letter-by-letter on-screen trace of their own.
+press_return() {
+    local win="$1"
+    log_event "Enter" 1.5
     xdotool key Return
 }
 
-# send_keys WINDOW_ID KEYS: e.g. send_keys "$TERM_WIN" ctrl+c
+# send_keys WINDOW_ID KEYS: e.g. send_keys "$TERM_WIN" ctrl+c. Does NOT log
+# a caption event itself (unlike type_only/press_return) -- callers vary too
+# much in what a given key combo means on screen (record.sh's Ctrl+C use
+# logs its own caption right before calling this).
 send_keys() {
     local win="$1" keys="$2"
     move_mouse_into "$win"
@@ -430,9 +510,10 @@ wait_for_url() {
 }
 
 # log_event TEXT DURATION_SECONDS: records an on-screen caption event, timed
-# relative to start_capture, for burn_captions.py to overlay afterward. Only
-# use this for actions that leave no visible trace on screen (e.g. Ctrl+C) --
-# typed commands are already visible as terminal text and don't need one.
+# relative to start_capture, for burn_captions.py to overlay afterward.
+# Called by type_only/press_return for keystrokes, and directly by callers
+# for other discrete actions with no on-screen trace of their own (e.g.
+# record.sh's Ctrl+C).
 log_event() {
     local text="$1" duration="$2"
     python3 -c '

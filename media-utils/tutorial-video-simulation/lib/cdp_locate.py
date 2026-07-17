@@ -16,11 +16,12 @@
 #
 # Prints a JSON object on stdout: {"x":.., "y":.., "width":.., "height":..,
 # "chromeY":..} where x/y/width/height are the CSS-pixel bounding box (in
-# page/viewport coordinates) of the smallest element whose text contains
-# the given substring, and chromeY is the browser's own chrome height
+# page/viewport coordinates) of the substring itself (found in a single DOM
+# text node and measured via a Range, not the enclosing element -- see
+# below for why), and chromeY is the browser's own chrome height
 # (window.outerHeight - window.innerHeight) needed to convert a viewport
 # coordinate into a window-relative one. Exits non-zero with a message on
-# stderr if the tab can't be reached or no matching element is found.
+# stderr if the tab can't be reached or no matching text node is found.
 
 import argparse
 import base64
@@ -150,20 +151,53 @@ def main():
     args = parser.parse_args()
 
     needle = json.dumps(args.contains)
+    # Walks individual TEXT NODES (not elements) via TreeWalker, and measures
+    # the needle's own Range within a matching node -- not
+    # el.getBoundingClientRect() on whatever element happens to contain it.
+    # An earlier version matched on element.textContent and took the
+    # smallest matching element's whole box; that broke two ways in
+    # practice: (1) if the enclosing element has no snug wrapper (e.g. a
+    # wide clickable header bar with an icon + short heading text as its
+    # only child), "smallest matching element" is still that whole wide
+    # bar, not the text -- confirmed live against the BUI: a "Live view - "
+    # lookup returned a 501x47 box (the entire panel header), centering the
+    # point on a button several hundred px to the right of the actual
+    # heading. (2) if the needle spans two elements (e.g. a terminal
+    # command that visually wraps across two row divs), no single element's
+    # own textContent contains it whole, so the smallest MATCHING ancestor
+    # ends up being something huge (confirmed: a spanning terminal needle
+    # returned a ~530x540 box, essentially the whole pane). Measuring a
+    # Range within one text node fixes both: it's always exactly the
+    # rendered glyphs of the substring, and a needle split across DOM
+    # elements/text nodes simply finds no match at all (falls through to
+    # point_at_browser_text's tuned-pixel fallback) instead of silently
+    # returning a wildly wrong box.
+    #
+    # Overwrites `best` on every match rather than comparing -- so if the
+    # needle appears in more than one text node (e.g. a short, repeated
+    # camera name), the LAST one in document order wins. For a DOM-rendered
+    # terminal, document order for row elements tracks visual top-to-bottom
+    # order, so "last" reliably means "bottom-most / most recently
+    # written," which is almost always the occurrence a caller wants.
     expression = (
         "(function(){"
-        "var all=document.querySelectorAll('*');"
-        "var best=null,bestArea=Infinity;"
-        "for(var i=0;i<all.length;i++){"
-        "var el=all[i];"
-        f"if(el.textContent&&el.textContent.indexOf({needle})!==-1){{"
-        "var r=el.getBoundingClientRect();"
-        "var area=r.width*r.height;"
-        "if(area>0&&area<bestArea){bestArea=area;best=r;}"
-        "}}"
+        f"var needle={needle};"
+        "var walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);"
+        "var node,best=null;"
+        "while(node=walker.nextNode()){"
+        "var idx=node.nodeValue.lastIndexOf(needle);"
+        "if(idx===-1)continue;"
+        "var range=document.createRange();"
+        "range.setStart(node,idx);"
+        "range.setEnd(node,idx+needle.length);"
+        "var rects=range.getClientRects();"
+        "if(!rects.length)continue;"
+        "var r=rects[rects.length-1];"
+        "if(r.width>0&&r.height>0){best={x:r.x,y:r.y,width:r.width,height:r.height};}"
+        "}"
         "if(!best)return null;"
-        "return {x:best.x,y:best.y,width:best.width,height:best.height,"
-        "chromeY:window.outerHeight-window.innerHeight};"
+        "best.chromeY=window.outerHeight-window.innerHeight;"
+        "return best;"
         "})()"
     )
 

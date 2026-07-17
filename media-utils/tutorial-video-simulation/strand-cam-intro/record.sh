@@ -4,11 +4,13 @@
 # video against the current repo, by default using the hardware-free `sim`
 # camera backend (see ../README.md for what this replaces and why).
 #
-# Requires a Linux host with ffmpeg, xdotool, Xvfb, openbox, and xterm (hard
+# Requires a Linux host with ffmpeg, xdotool, Xvfb, openbox, and ttyd (hard
 # requirements -- this always records on its own isolated virtual display,
 # never your real desktop session), plus a browser (prefers an installed
-# google-chrome/chromium, falls back to firefox) -- see ../README.md for the
-# full story and how to review the output.
+# google-chrome/chromium, falls back to firefox) -- the terminal itself is a
+# ttyd-bridged PTY running inside a browser window, not a native terminal
+# emulator, so its on-screen text can be located the same way as the BUI's
+# (see ../README.md for the full story and how to review the output).
 #
 # Usage:
 #   ./record.sh [OUTPUT_DIR]
@@ -27,20 +29,50 @@
 # CAMERA_BACKEND handling below for how that's kept true for non-default
 # backends too.
 
-# Rough pixel offsets (relative to each window's top-left) for pointing at
-# on-screen camera-name text with point_at -- the browser's "Live view -
-# <name>" heading, and a "run{cam=\"<name>\"}" occurrence in the terminal's
-# log output. Tuned by eye from observed recordings at this window layout
-# (see lib/session.sh's SESSION_MARGIN/SESSION_PANE_WIDTH); nudge these if a
-# rerun shows the mouse missing the mark.
+# Rough pixel offsets (relative to each window's top-left), used only as a
+# fallback for point_at_browser_text if its CDP text lookup fails (e.g.
+# firefox ended up as the fallback browser, which doesn't speak CDP) --
+# see lib/session.sh's point_at_browser_text/_open_isolated_browser_window.
+# Tuned by eye from observed recordings at this window layout (see
+# lib/session.sh's SESSION_MARGIN/SESSION_PANE_WIDTH); nudge these if a
+# rerun ever needs the fallback and the mouse misses the mark.
 BROWSER_CAMNAME_X=100
 BROWSER_CAMNAME_Y=400
 # Command 1's own startup log (shorter scrollback so far) vs. Command 2's
 # (typed further down, under all of Command 1's leftover output) settle at
-# different heights, so these are two distinct points, not one reused twice.
+# different heights, so these are two distinct fallback points, not one
+# reused twice.
 TERM_CAMNAME_X=340
 TERM_CAMNAME_Y=300
 TERM_CAMNAME_Y2=500
+
+# Per-point offsets added to point_at_browser_text's own located
+# position (center-x, just-below-baseline-y -- see lib/session.sh),
+# tunable independently for each of the three CDP-located points below.
+# 0,6 matches point_at_browser_text's own defaults, i.e. "no adjustment
+# yet" -- change a point's own pair here after a visual review rather than
+# touching the shared default in session.sh.
+#
+# Units: pixels, standard top-left-origin screen coordinates (+X right,
+# +Y down) -- CSS pixels as returned by Chrome's getBoundingClientRect()
+# in cdp_locate.py, which equal physical/screen pixels here since nothing
+# sets a device-pixel-ratio/scale-factor on this Xvfb display. They're
+# added directly to window-relative pixel coordinates that get passed to
+# `xdotool mousemove`, at the fixed 1280x800 resolution session.sh sets
+# (SESSION_WIDTH/SESSION_HEIGHT) -- not a resolution-independent unit, so
+# re-tune these if that display size ever changes. Same units as the
+# BROWSER_CAMNAME_X/Y-style fallback constants above.
+# Tuned per visual review 2026-07-17: point 1 (browser heading) and point 2
+# (terminal "got camera") both needed to move up and right, closer to the
+# indicated text -- up = decrease OFFSET_Y, right = increase OFFSET_X
+# (standard screen convention: +X right, +Y down). Point 3's X was already
+# fine; it just needed to move up a little.
+BROWSER_HEADING_OFFSET_X=12
+BROWSER_HEADING_OFFSET_Y=-6
+TERM_GOTCAMERA_OFFSET_X=12
+TERM_GOTCAMERA_OFFSET_Y=-6
+TERM_CAMNAME2_OFFSET_X=0
+TERM_CAMNAME2_OFFSET_Y=0
 
 set -o errexit
 set -o nounset
@@ -134,28 +166,42 @@ start_display
 start_capture "$OUT_DIR/raw.mp4"
 
 echo "=== Opening terminal and browser windows ==="
-TERM_WIN=$(open_terminal)
+# Not "TERM_WIN=$(open_terminal)" -- open_terminal sets TERM_WIN,
+# TERM_SESSION_PID, and TERM_CDP_PORT as globals; capturing it via command
+# substitution would run it in a subshell and silently discard all of them.
+open_terminal
 
-# strand-cam itself runs as a child of the xterm's shell (it must, to be
-# visible on screen), so session_cleanup's window-process kill won't reach
-# it -- it's still running when the script exits normally after Command 2.
-# Extend the trap to also stop it, scoped to xterm's own session id (set via
-# setsid in open_terminal, so this xterm is that session's leader and
-# strand-cam inherits the same SID as its descendant): safe regardless of
-# --camera-backend, including "pylon" with no distinguishing command-line
-# text of its own, and can never match an unrelated strand-cam elsewhere on
-# this machine, which would belong to a different session entirely.
-XTERM_PID=$(xdotool getwindowpid "$TERM_WIN")
-trap "pkill -s $XTERM_PID -f strand-cam 2>/dev/null || true; session_cleanup" EXIT
+# strand-cam itself runs as a child of the bash shell ttyd is bridging into
+# the browser (it must, to be visible on screen), so session_cleanup's
+# window-process kill won't reach it -- it's still running when the script
+# exits normally after Command 2. Extend the trap to also stop it, scoped to
+# ttyd's own session id (TERM_SESSION_PID, set by open_terminal via setsid,
+# so ttyd is that session's leader and strand-cam inherits the same SID as
+# its descendant): safe regardless of --camera-backend, including "pylon"
+# with no distinguishing command-line text of its own, and can never match
+# an unrelated strand-cam elsewhere on this machine, which would belong to a
+# different session entirely.
+trap "pkill -s $TERM_SESSION_PID -f strand-cam 2>/dev/null || true; session_cleanup" EXIT
 
 echo "=== Command 1: launch with no --camera-name (auto-selects the first camera) ==="
 type_in "$TERM_WIN" "strand-cam"
 wait_for_url "$BUI_URL" || { echo "ERROR: strand-cam BUI did not come up"; exit 1; }
-BROWSER_WIN=$(open_browser "$BUI_URL" "$TERM_WIN")
+# Not "BROWSER_WIN=$(open_browser ...)" -- same subshell problem as
+# open_terminal above; open_browser sets BROWSER_WIN/BROWSER_CDP_PORT itself.
+open_browser "$BUI_URL" "$TERM_WIN"
 
 echo "=== Indicating the camera name (browser, then terminal) ==="
-point_at_browser_text "$BROWSER_WIN" "Live view - " "$BROWSER_CAMNAME_X" "$BROWSER_CAMNAME_Y"
-point_at "$TERM_WIN" "$TERM_CAMNAME_X" "$TERM_CAMNAME_Y"
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Live view - " "$BROWSER_CAMNAME_X" "$BROWSER_CAMNAME_Y" "$BROWSER_HEADING_OFFSET_X" "$BROWSER_HEADING_OFFSET_Y"
+# "got camera" (from `info!("  got camera {}", raw_name)` in
+# strand-cam/src/strand-cam.rs) rather than the tracing span-context prefix
+# 'run{cam="...'": that prefix is repeated on EVERY log line emitted from
+# within the `run` span, not just once, so it's not actually a unique
+# anchor -- confirmed live: it matched whichever such line happened to be
+# last, nowhere near where "got camera" itself is. "got camera" is a
+# one-time message, logged exactly once. Previously a tuned pixel guess
+# with no way to verify it (see POINTING-NOTES.md); now a real CDP text
+# lookup against the ttyd terminal, the same as the browser heading above.
+point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "got camera" "$TERM_CAMNAME_X" "$TERM_CAMNAME_Y" "$TERM_GOTCAMERA_OFFSET_X" "$TERM_GOTCAMERA_OFFSET_Y"
 
 echo "=== Watching the live view (scrolling the page down and back) ==="
 scroll_page "$BROWSER_WIN"
@@ -169,9 +215,20 @@ echo "=== Command 2: relaunch with an explicit --camera-name ==="
 type_only "$TERM_WIN" "strand-cam --camera-name $SECOND_CAMERA_NAME"
 
 echo "=== Indicating the camera name (terminal), before activating ==="
-point_at "$TERM_WIN" "$TERM_CAMNAME_X" "$TERM_CAMNAME_Y2"
+# Needle is just the camera name, not "--camera-name $SECOND_CAMERA_NAME"
+# -- the full typed command is long enough to wrap across two terminal
+# rows (the shell prompt alone is most of a row), and a needle spanning
+# that wrap boundary matches no single row, only some much larger ancestor
+# (confirmed: a spanning needle here returned a ~530x540 box, essentially
+# the whole terminal pane, not a specific line). $SECOND_CAMERA_NAME alone
+# is short enough to reliably land within one row. It can still match an
+# earlier occurrence in Command 1's scrollback above (e.g. "got camera
+# simcam0") if that's still visible, but cdp_locate.py's tie-break (last
+# match in document order wins among equal-area candidates) resolves that
+# to the bottom-most -- i.e. most recent -- occurrence.
+point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "$SECOND_CAMERA_NAME" "$TERM_CAMNAME_X" "$TERM_CAMNAME_Y2" "$TERM_CAMNAME2_OFFSET_X" "$TERM_CAMNAME2_OFFSET_Y"
 
-xdotool key Return
+press_return "$TERM_WIN"
 wait_for_url "$BUI_URL" || { echo "ERROR: strand-cam BUI did not come back up"; exit 1; }
 
 echo "=== Watching the live view again (scrolling the page down and back) ==="
