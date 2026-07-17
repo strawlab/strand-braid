@@ -286,7 +286,7 @@ xdotool windowclose "$BROWSER_WIN" 2>/dev/null || true
 sleep 1
 
 echo "=== Reopening it via the terminal's printed URL ==="
-point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "$BUI_URL" "$TERM_CAMNAME_X" "$TERM_CAMNAME_Y2" 0 -9 0
+point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "$BUI_URL" "$TERM_CAMNAME_X" "$TERM_CAMNAME_Y2" 0 -10 0
 log_event "LEFT CLICK" 1.5
 sleep 1.5
 open_browser "$BUI_URL" "$TERM_WIN"
