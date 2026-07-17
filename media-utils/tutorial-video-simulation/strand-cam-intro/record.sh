@@ -34,25 +34,20 @@
 # firefox ended up as the fallback browser, which doesn't speak CDP) --
 # see lib/session.sh's point_at_browser_text/_open_isolated_browser_window.
 # Tuned by eye from observed recordings at this window layout (see
-# lib/session.sh's SESSION_MARGIN/SESSION_PANE_WIDTH); nudge these if a
-# rerun ever needs the fallback and the mouse misses the mark.
-BROWSER_CAMNAME_X=100
-BROWSER_CAMNAME_Y=400
+# lib/session.sh's SESSION_MARGIN/SESSION_PANE_WIDTH), then scaled 1.5x
+# along with SESSION_WIDTH/HEIGHT (1280x800 -> 1920x1200); nudge these if a
+# rerun ever needs the fallback and the mouse misses the mark -- they're
+# only ever a safety net, since the real CDP lookup adapts to layout
+# changes on its own.
+BROWSER_CAMNAME_X=150
+BROWSER_CAMNAME_Y=600
 # Command 1's own startup log (shorter scrollback so far) vs. Command 2's
 # (typed further down, under all of Command 1's leftover output) settle at
 # different heights, so these are two distinct fallback points, not one
 # reused twice.
-TERM_CAMNAME_X=340
-TERM_CAMNAME_Y=300
-TERM_CAMNAME_Y2=500
-
-# Chrome's own window-close button (top-right, part of the browser's own
-# chrome, not a page DOM element -- cdp_locate.py can't query it the way it
-# queries page text). Confirmed empirically from a real screenshot at this
-# exact window geometry (SESSION_PANE_WIDTH x SESSION_PANE_HEIGHT): the "x"
-# sits about 23px in from the right edge and 23px down from the top.
-BROWSER_CLOSE_X=545
-BROWSER_CLOSE_Y=23
+TERM_CAMNAME_X=510
+TERM_CAMNAME_Y=450
+TERM_CAMNAME_Y2=750
 
 # Per-point offsets added to point_at_browser_text's own located
 # position (center-x, just-below-baseline-y -- see lib/session.sh),
@@ -66,15 +61,25 @@ BROWSER_CLOSE_Y=23
 # in cdp_locate.py, which equal physical/screen pixels here since nothing
 # sets a device-pixel-ratio/scale-factor on this Xvfb display. They're
 # added directly to window-relative pixel coordinates that get passed to
-# `xdotool mousemove`, at the fixed 1280x800 resolution session.sh sets
-# (SESSION_WIDTH/SESSION_HEIGHT) -- not a resolution-independent unit, so
-# re-tune these if that display size ever changes. Same units as the
-# BROWSER_CAMNAME_X/Y-style fallback constants above.
+# `xdotool mousemove`, at the resolution session.sh sets
+# (SESSION_WIDTH/SESSION_HEIGHT, 1920x1200 as of this writing) -- not a
+# resolution-independent unit, so re-tune these if that display size ever
+# changes. Same units as the BROWSER_CAMNAME_X/Y-style fallback constants
+# above.
 # Tuned per visual review 2026-07-17: point 1 (browser heading) and point 2
 # (terminal "got camera") both needed to move up and right, closer to the
 # indicated text -- up = decrease OFFSET_Y, right = increase OFFSET_X
 # (standard screen convention: +X right, +Y down). Point 3's X was already
 # fine; it just needed to move up a little.
+#
+# Deliberately NOT rescaled when SESSION_WIDTH/HEIGHT went 1280x800 ->
+# 1920x1200 (unlike the fallback constants and BROWSER_CLOSE_X/Y below):
+# these are small manual corrections against an already-exact CDP-measured
+# text position (a few px of "which side of a dash," "a touch higher"),
+# not a position within the overall layout -- there's no reason to expect
+# them to change with the frame's size, only with how the text itself
+# renders. Re-tune by eye at the new resolution if a visual review shows
+# they're now off.
 BROWSER_HEADING_OFFSET_X=12
 BROWSER_HEADING_OFFSET_Y=-6
 TERM_GOTCAMERA_OFFSET_X=12
@@ -94,6 +99,19 @@ mkdir -p "$OUT_DIR"
 
 # shellcheck source=../lib/session.sh
 source "$SCRIPT_DIR/../lib/session.sh"
+
+# Chrome's own window-close button (top-right, part of the browser's own
+# chrome, not a page DOM element -- cdp_locate.py can't query it the way it
+# queries page text). Computed from SESSION_PANE_WIDTH (not a hardcoded
+# absolute pixel constant) because the button's offset from the window's
+# edges is fixed regardless of window width -- confirmed empirically at
+# two different window sizes (568px and 852px wide): the "x" sits ~23px in
+# from the right edge and ~23px down from the top both times, not
+# proportionally further from the corner at the wider size. Needs
+# session.sh already sourced (above) for SESSION_PANE_WIDTH to exist,
+# hence defined here rather than with the other tuned constants above.
+BROWSER_CLOSE_X=$((SESSION_PANE_WIDTH - 23))
+BROWSER_CLOSE_Y=23
 
 CAMERA_BACKEND="${CAMERA_BACKEND:-sim}"
 

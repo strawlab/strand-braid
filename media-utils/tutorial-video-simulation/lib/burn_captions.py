@@ -32,8 +32,12 @@ def build_filter(events):
         parts.append(
             "drawtext="
             f"text='{text}':"
-            "fontcolor=yellow:fontsize=36:borderw=2:bordercolor=black:"
-            "x=40:y=h-th-40:"
+            # fontsize/borderw/x/y scaled 1.5x along with session.sh's
+            # SESSION_WIDTH/HEIGHT (1280x800 -> 1920x1200) to stay the same
+            # size relative to the frame -- rescale these too if that ever
+            # changes again.
+            "fontcolor=yellow:fontsize=54:borderw=3:bordercolor=black:"
+            "x=60:y=h-th-60:"
             f"enable='between(t,{start},{end})'"
         )
     return ",".join(parts)
