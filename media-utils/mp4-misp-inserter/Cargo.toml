@@ -1,0 +1,28 @@
+[package]
+name = "mp4-misp-inserter"
+version.workspace = true
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "insert MISPmicrosectime precision-timestamp SEI NAL units into an MP4's H.264 stream, without re-encoding"
+
+[dependencies]
+clap.workspace = true
+eyre.workspace = true
+camino.workspace = true
+tracing.workspace = true
+
+frame-source.workspace = true
+env-tracing-logger.workspace = true
+mp4-writer = { workspace = true, features = ["nv-encode"] }
+strand-cam-remote-control.workspace = true
+
+[dev-dependencies]
+chrono.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tempfile.workspace = true
+machine-vision-formats.workspace = true
+strand-dynamic-frame.workspace = true
+
+ffmpeg-writer.workspace = true
+srt-writer.workspace = true
