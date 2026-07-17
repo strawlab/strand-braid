@@ -27,13 +27,17 @@ one or the other explicitly.
 
 ## Prerequisites (Linux only)
 
-Five packages are hard requirements:
+Six packages are hard requirements:
 
 - `ffmpeg` — screen capture and caption burn-in
 - `xdotool` — window placement, simulated typing, and keypresses
 - `Xvfb` + `openbox` — a disposable virtual display and window manager
 - `ttyd` — bridges the terminal's real PTY into a browser window instead of
   a native terminal emulator (see below for why)
+- `xprop` (part of the `x11-utils` package) — reads a window's
+  `_NET_FRAME_EXTENTS` so mouse-pointing can correct for a window-manager-
+  added title bar on the terminal window (see below for why it has one at
+  all)
 
 **Recording always happens on its own isolated `Xvfb` display, never your
 real desktop session.** This is deliberate: an earlier version reused
@@ -54,6 +58,21 @@ text, instead of a tuned pixel guess with no way to verify it. A native
 terminal emulator has no DOM to query, so this only works because the
 terminal is *also* just a browser page — see
 `strand-cam-intro/POINTING-NOTES.md` for the full history of that decision.
+The terminal's browser window is also launched in Chrome's **app mode**
+(`--app=URL`), which hides the tab strip/address bar/back-forward buttons
+entirely, so it reads as a real terminal window rather than an obvious
+browser tab — the BUI window is deliberately left as a normal browser
+window, since that's what a real user genuinely sees there.
+
+App mode has one side effect worth knowing about: since Chrome no longer
+draws its own window chrome, `openbox` decides this window needs a title
+bar after all and adds one of its own (a normal Chrome window doesn't get
+one, since openbox recognizes it as already decorated). That extra title
+bar isn't visible to Chrome's own DOM/CDP measurements, so
+`lib/session.sh`'s mouse-pointing math reads the window manager's own
+`_NET_FRAME_EXTENTS` property (via `xprop`) to correct for it — a `0,0,0,0`
+extent (the normal-window case) is a no-op, so this doesn't affect the BUI
+window's already-correct pointing.
 
 Everything else uses what's already installed instead of requiring anything
 new, falling back to installing its own minimal version only if nothing
@@ -134,7 +153,7 @@ Everything is on `main` — no branch to check out.
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y ffmpeg xdotool xvfb openbox ttyd
+sudo apt-get install -y ffmpeg xdotool xvfb openbox ttyd x11-utils
 ```
 
 That's everything needed for the display/terminal/capture side. See
