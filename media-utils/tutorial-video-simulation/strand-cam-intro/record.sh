@@ -231,8 +231,11 @@ point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "$SECOND_CAMERA_NAME" "$TERM_
 press_return "$TERM_WIN"
 wait_for_url "$BUI_URL" || { echo "ERROR: strand-cam BUI did not come back up"; exit 1; }
 
-echo "=== Watching the live view again (scrolling the page down and back) ==="
-scroll_page "$BROWSER_WIN"
+echo "=== Watching the live view again ==="
+# No scroll_page here (unlike Command 1's live-view pause above) -- removed
+# on request. A plain pause instead of cutting straight to stop_capture, so
+# the reconnected live view is visible for a beat before the video ends.
+sleep 10
 
 echo "=== Stopping capture ==="
 stop_capture
