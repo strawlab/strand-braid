@@ -5,11 +5,13 @@
 # hardware if any is attached to this machine, or the hardware-free `sim`
 # backend otherwise (see ../README.md for what this replaces and why).
 #
-# Requires a Linux host with ffmpeg, xdotool, Xvfb, openbox, and ttyd (hard
-# requirements -- this always records on its own isolated virtual display,
-# never your real desktop session), plus a browser (prefers an installed
-# google-chrome/chromium, falls back to firefox) -- the terminal itself is a
-# ttyd-bridged PTY running inside a browser window, not a native terminal
+# Requires a Linux host with ffmpeg, xdotool, Xvfb, openbox, ttyd, and
+# xprop (part of x11-utils) (hard requirements -- this always records on
+# its own isolated virtual display, never your real desktop session), plus
+# a browser (prefers an installed google-chrome/chromium, falls back to
+# firefox) -- the terminal itself is a ttyd-bridged PTY running inside a
+# browser window in Chrome's app mode (no tabs/address bar, so it reads as
+# a real terminal rather than a browser tab), not a native terminal
 # emulator, so its on-screen text can be located the same way as the BUI's
 # (see ../README.md for the full story and how to review the output).
 #

@@ -14,7 +14,11 @@
 # Hard requirements: ffmpeg (capture + caption burn-in), xdotool
 # (window/keyboard automation), Xvfb + openbox (the virtual display + window
 # manager), ttyd (bridges the terminal's real PTY into a browser window --
-# see open_terminal for why). Everything else is used if already present and
+# see open_terminal for why), xprop (part of the x11-utils package --
+# reads _NET_FRAME_EXTENTS so point_at/move_mouse_gradual_into can correct
+# for a window-manager-added title bar on undecorated windows like an
+# --app-mode Chrome instance; see _window_content_origin for why this
+# needed fixing at all). Everything else is used if already present and
 # otherwise falls back to installing its own minimal version:
 #   - browser: prefers google-chrome/chromium over firefox (see
 #     _open_isolated_browser_window for why), launched with an isolated
@@ -159,11 +163,12 @@ stop_capture() {
     sleep 2
 }
 
-# _open_isolated_browser_window URL: launches an isolated chrome/chromium/
-# firefox window pointed at URL and prints "WINDOW_ID CDP_PORT" on stdout
-# (CDP_PORT empty for firefox). Shared by open_terminal (pointed at ttyd)
-# and open_browser (pointed at the BUI) -- both need the same isolation
-# story, just against different URLs.
+# _open_isolated_browser_window URL [APP_MODE]: launches an isolated
+# chrome/chromium/firefox window pointed at URL and prints "WINDOW_ID
+# CDP_PORT" on stdout (CDP_PORT empty for firefox). Shared by open_terminal
+# (pointed at ttyd, APP_MODE=1) and open_browser (pointed at the BUI, no
+# APP_MODE) -- both need the same isolation story, just against different
+# URLs and (see below) different window chrome.
 #
 # Launched with an isolated profile and remote-control disabled: without
 # that, Firefox/Chrome notice an instance already running on your real
@@ -180,8 +185,20 @@ stop_capture() {
 # Firefox profile cannot be loaded" instead of actually isolating it. Only
 # falls back to firefox if no Chrome/Chromium variant is installed, in which
 # case that failure mode is a known limitation, not a bug to chase here.
+#
+# APP_MODE=1 launches with --app=URL instead of --new-window URL (chrome/
+# chromium only -- firefox has no equivalent single flag, so it's ignored
+# there): opens with no tab strip, address bar, or back/forward buttons,
+# just the page filling the window -- confirmed CDP still works identically
+# (window.outerHeight - window.innerHeight is just 0 in app mode instead of
+# the normal browser chrome height, and point_at_browser_text already reads
+# that dynamically from each query rather than assuming a fixed value, so
+# nothing else needed to change). Used for the ttyd terminal window so it
+# reads as a real terminal, not a browser tab; NOT used for the BUI window,
+# which should keep looking like an actual browser, since that's what a
+# real user genuinely sees there.
 _open_isolated_browser_window() {
-    local url="$1"
+    local url="$1" app_mode="${2:-}"
     local browser_cmd candidate
     for candidate in google-chrome google-chrome-stable chromium-browser chromium firefox; do
         if command -v "$candidate" >/dev/null 2>&1; then
@@ -223,7 +240,12 @@ _open_isolated_browser_window() {
         ;;
     esac
 
-    setsid "$browser_cmd" "${isolation_args[@]}" --new-window "$url" \
+    local url_arg=(--new-window "$url")
+    if [ "$browser_cmd" != "firefox" ] && [ -n "$app_mode" ]; then
+        url_arg=(--app="$url")
+    fi
+
+    setsid "$browser_cmd" "${isolation_args[@]}" "${url_arg[@]}" \
         >"$SESSION_WORK_DIR/$(basename "$profile_dir").log" 2>&1 &
     SESSION_PIDS+=("$!")
     sleep 2
@@ -272,7 +294,7 @@ open_terminal() {
     sleep 1
 
     local win_and_port
-    win_and_port=$(_open_isolated_browser_window "http://127.0.0.1:$ttyd_port/")
+    win_and_port=$(_open_isolated_browser_window "http://127.0.0.1:$ttyd_port/" 1)
     TERM_WIN=$(echo "$win_and_port" | awk '{print $1}')
     TERM_CDP_PORT=$(echo "$win_and_port" | awk '{print $2}')
     sleep 1
@@ -335,13 +357,42 @@ move_mouse_into() {
 # finished pointing at something) and the transition itself should read as
 # someone moving the mouse there, not teleporting.
 move_mouse_gradual_into() {
-    local win="$1" geom win_x win_y w h
+    local win="$1" geom w h origin win_x win_y
+    geom=$(xdotool getwindowgeometry --shell "$win")
+    w=$(echo "$geom" | sed -n 's/^WIDTH=//p')
+    h=$(echo "$geom" | sed -n 's/^HEIGHT=//p')
+    origin=$(_window_content_origin "$win")
+    win_x=$(echo "$origin" | awk '{print $1}')
+    win_y=$(echo "$origin" | awk '{print $2}')
+    move_mouse_gradual $((win_x + w / 2)) $((win_y + h / 2))
+}
+
+# _window_content_origin WINDOW_ID: prints "X Y", the on-screen absolute
+# position of WINDOW_ID's own top-left content area -- NOT necessarily the
+# same as xdotool getwindowgeometry's own X/Y, which can be offset by a
+# window-manager-added decoration frame. Confirmed via _NET_FRAME_EXTENTS:
+# a normal Chrome window (with its own tab strip/window controls) gets a
+# zero frame extent from openbox and needs no correction (xdotool's
+# geometry is already right there, as this project has relied on all
+# along); a Chrome --app-mode window (session.sh's APP_MODE, deliberately
+# undecorated by Chrome itself) gets openbox's own title bar added on top
+# instead, and xdotool's reported Y ends up offset from the window's true
+# on-screen position by exactly that title bar's height. Subtracting the
+# frame extent (0 in the normal case, a no-op) fixes both uniformly rather
+# than special-casing app-mode windows.
+_window_content_origin() {
+    local win="$1" geom win_x win_y extents left top
     geom=$(xdotool getwindowgeometry --shell "$win")
     win_x=$(echo "$geom" | sed -n 's/^X=//p')
     win_y=$(echo "$geom" | sed -n 's/^Y=//p')
-    w=$(echo "$geom" | sed -n 's/^WIDTH=//p')
-    h=$(echo "$geom" | sed -n 's/^HEIGHT=//p')
-    move_mouse_gradual $((win_x + w / 2)) $((win_y + h / 2))
+    extents=$(xprop -id "$win" _NET_FRAME_EXTENTS 2>/dev/null | sed -n 's/^[^=]*= *//p')
+    if [ -n "$extents" ]; then
+        left=$(echo "$extents" | awk -F', ' '{print $1}')
+        top=$(echo "$extents" | awk -F', ' '{print $3}')
+        win_x=$((win_x - left))
+        win_y=$((win_y - top))
+    fi
+    echo "$win_x $win_y"
 }
 
 # move_mouse_gradual TARGET_X TARGET_Y [STEPS] [STEP_DELAY]: moves the mouse
@@ -374,10 +425,10 @@ move_mouse_gradual() {
 # "about to click it."
 point_at() {
     local win="$1" rel_x="$2" rel_y="$3" sweep_width="${4:-50}"
-    local geom win_x win_y abs_x abs_y half
-    geom=$(xdotool getwindowgeometry --shell "$win")
-    win_x=$(echo "$geom" | sed -n 's/^X=//p')
-    win_y=$(echo "$geom" | sed -n 's/^Y=//p')
+    local origin win_x win_y abs_x abs_y half
+    origin=$(_window_content_origin "$win")
+    win_x=$(echo "$origin" | awk '{print $1}')
+    win_y=$(echo "$origin" | awk '{print $2}')
     abs_x=$((win_x + rel_x))
     abs_y=$((win_y + rel_y))
     move_mouse_gradual "$abs_x" "$abs_y"
