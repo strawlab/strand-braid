@@ -71,7 +71,7 @@ fn parse_stanza(input: &mut &BStr) -> ModalResult<Stanza> {
 
         // first line: count
         let count_res: winnow::Result<(usize,)> = seq!(num, _: line_ending).parse_next(input);
-        let count = count_res.unwrap().0;
+        let count = count_res.map_err(ErrMode::Cut)?.0;
 
         // "00:00:00,100 --> 00:00:00,210"
         let start_stop_res: ModalResult<(Duration, Duration)> =
@@ -93,7 +93,8 @@ fn parse_stanza(input: &mut &BStr) -> ModalResult<Stanza> {
             }
         };
         let lines0 = res?;
-        let lines = String::from_utf8(lines0.to_vec()).unwrap();
+        let lines =
+            String::from_utf8(lines0.to_vec()).map_err(|_e| ErrMode::Cut(ContextError::new()))?;
 
         Ok(Stanza {
             _count: count,
@@ -132,9 +133,14 @@ pub fn read_srt_file(p: &std::path::Path) -> Result<Vec<Stanza>> {
     fd.read_to_end(&mut buf)?;
     let mut buf_bstr: &BStr = buf.as_slice().into();
 
-    let stanzas: Vec<Stanza> = parse_stanzas
-        .parse_next(&mut buf_bstr)
-        .map_err(|_e| crate::Error::SrtParseError)?;
+    let stanzas: Vec<Stanza> = parse_stanzas.parse_next(&mut buf_bstr).map_err(|_e| {
+        let offset = buf.len() - buf_bstr.len();
+        let line = buf[..offset].iter().filter(|&&b| b == b'\n').count() + 1;
+        crate::Error::SrtParseError {
+            path: p.to_path_buf(),
+            line,
+        }
+    })?;
 
     Ok(stanzas)
 }

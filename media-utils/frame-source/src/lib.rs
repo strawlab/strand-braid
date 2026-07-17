@@ -23,8 +23,8 @@ mod ntp_timestamp;
 pub enum Error {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
-    #[error("SRT parse error")]
-    SrtParseError,
+    #[error("SRT file {path} is malformed starting around line {line}")]
+    SrtParseError { path: PathBuf, line: usize },
     #[error("expected SPS not found")]
     ExpectedSpsNotFound,
     #[error("expected PPS not found")]
