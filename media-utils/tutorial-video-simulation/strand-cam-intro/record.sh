@@ -46,6 +46,14 @@ TERM_CAMNAME_X=340
 TERM_CAMNAME_Y=300
 TERM_CAMNAME_Y2=500
 
+# Chrome's own window-close button (top-right, part of the browser's own
+# chrome, not a page DOM element -- cdp_locate.py can't query it the way it
+# queries page text). Confirmed empirically from a real screenshot at this
+# exact window geometry (SESSION_PANE_WIDTH x SESSION_PANE_HEIGHT): the "x"
+# sits about 23px in from the right edge and 23px down from the top.
+BROWSER_CLOSE_X=545
+BROWSER_CLOSE_Y=23
+
 # Per-point offsets added to point_at_browser_text's own located
 # position (center-x, just-below-baseline-y -- see lib/session.sh),
 # tunable independently for each of the three CDP-located points below.
@@ -203,8 +211,26 @@ point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Live view - " "$BROWSE
 # lookup against the ttyd terminal, the same as the browser heading above.
 point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "got camera" "$TERM_CAMNAME_X" "$TERM_CAMNAME_Y" "$TERM_GOTCAMERA_OFFSET_X" "$TERM_GOTCAMERA_OFFSET_Y"
 
+# Visible travel from the terminal (where the mouse just was) to the
+# browser, rather than letting scroll_page's own move_mouse_into jump
+# there instantly -- scroll_page still calls move_mouse_into itself right
+# after this, but by then it's already there, so that becomes a no-op.
+move_mouse_gradual_into "$BROWSER_WIN"
+
 echo "=== Watching the live view (scrolling the page down and back) ==="
 scroll_page "$BROWSER_WIN"
+
+# Simulated click back into the terminal (same style as the close/reopen
+# clicks: move the mouse there, caption "LEFT CLICK", no literal xdotool
+# click needed -- send_keys below activates the window for real), so it
+# reads clearly that we've returned to the terminal before Ctrl+C, rather
+# than Ctrl+C appearing to come out of nowhere right after scrolling the
+# browser.
+echo "=== Moving back to the terminal ==="
+move_mouse_gradual_into "$TERM_WIN"
+log_event "LEFT CLICK" 1.5
+sleep 1.5
+sleep 1
 
 echo "=== Ctrl+C ==="
 log_event "Ctrl+C" 1.5
@@ -233,9 +259,39 @@ wait_for_url "$BUI_URL" || { echo "ERROR: strand-cam BUI did not come back up"; 
 
 echo "=== Watching the live view again ==="
 # No scroll_page here (unlike Command 1's live-view pause above) -- removed
-# on request. A plain pause instead of cutting straight to stop_capture, so
-# the reconnected live view is visible for a beat before the video ends.
-sleep 10
+# on request. A plain pause instead of cutting straight to the next step,
+# so the reconnected live view is visible for a beat first. Reduced from
+# 10 to 4 (~40%) on request.
+sleep 4
+
+# Closing the BUI window, then reopening it via the terminal's printed URL
+# -- both "clicks" below are simulated, not real: point_at/point_at_browser_text
+# move the mouse there and log_event captions "LEFT CLICK" (same style as
+# Ctrl+C/Enter), but the actual close/reopen happens programmatically
+# (xdotool windowclose / open_browser) rather than via a literal xdotool
+# click, because neither target is something this harness can click for
+# real: Chrome's own close button is browser chrome, not a page DOM element
+# cdp_locate.py can query, and actually clicking the terminal's printed URL
+# would trigger ttyd's own link-opening (xterm.js's WebLinksAddon, loaded
+# unconditionally) -- which opens a new tab in the *terminal's* browser
+# window/process, not a new window in the BUI's usual right-hand pane.
+# Trailing "0" arg on both calls below: disables point_at's left-right
+# sweep (see lib/session.sh) -- that wiggle reads as "indicating text,"
+# not "about to click something," which is what these two are.
+echo "=== Closing the Strand Cam browser window ==="
+point_at "$BROWSER_WIN" "$BROWSER_CLOSE_X" "$BROWSER_CLOSE_Y" 0
+log_event "LEFT CLICK" 1.5
+sleep 1.5
+xdotool windowclose "$BROWSER_WIN" 2>/dev/null || true
+sleep 1
+
+echo "=== Reopening it via the terminal's printed URL ==="
+point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "$BUI_URL" "$TERM_CAMNAME_X" "$TERM_CAMNAME_Y2" 0 -9 0
+log_event "LEFT CLICK" 1.5
+sleep 1.5
+open_browser "$BUI_URL" "$TERM_WIN"
+wait_for_url "$BUI_URL" || { echo "ERROR: strand-cam BUI did not reconnect after reopening"; exit 1; }
+sleep 3
 
 echo "=== Stopping capture ==="
 stop_capture
