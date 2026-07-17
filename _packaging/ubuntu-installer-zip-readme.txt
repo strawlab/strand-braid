@@ -44,7 +44,7 @@ effect. If you skip this step, the Vimba backend fails to start with the error
 You should be able to install the .deb file by double clicking on it in a file
 navigator. Alternatively, you can install it from the command line:
 
-    sudo apt install ./strand-braid_1.0.0-rc.2-1_amd64.deb
+    sudo apt install ./@STRAND_BRAID_DEB_FILENAME@
 
 ## Running
 

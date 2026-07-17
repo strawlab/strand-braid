@@ -225,7 +225,15 @@ runs:
         OUTDIR="strand-braid-ubuntu-${{ inputs.ubuntu-version }}-${VERSION}"
         mkdir -p "$OUTDIR"
         cp -a _packaging/*.deb "$OUTDIR/"
-        cp _packaging/ubuntu-installer-zip-readme.txt "$OUTDIR/README.txt"
+        # The readme's example install command names the .deb file, which
+        # carries the release version (e.g. "strand-braid_1.0.0-rc.5-1_amd64.deb").
+        # Substitute the actual built .deb's name rather than re-deriving the
+        # version separately (from the tag, Cargo.toml, etc.) -- that would be a
+        # second source of truth that could itself drift from what's actually in
+        # the zip. There is exactly one .deb here (see `make -C _packaging`).
+        deb_filename="$(basename _packaging/*.deb)"
+        sed "s/@STRAND_BRAID_DEB_FILENAME@/$deb_filename/" \
+          _packaging/ubuntu-installer-zip-readme.txt > "$OUTDIR/README.txt"
         cp -a _packaging/strand-braid/licenses "$OUTDIR/"
         ls -lh "$OUTDIR/"
         dpkg --contents "$OUTDIR"/*.deb
