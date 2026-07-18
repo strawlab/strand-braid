@@ -138,7 +138,7 @@ pub fn run_cal(cli: Cli) -> Result<CalibrationResult> {
             let local = chrono::Local::now();
             let cam_info_file_stamped = local.format(&format_str).to_string();
 
-            let cam_info_file = format!("{}.yaml", &cam_name);
+            let cam_info_file = format!("{cam_name}.yaml");
 
             // Save timestamped version first for backup purposes (since below
             // we overwrite the non-timestamped file).

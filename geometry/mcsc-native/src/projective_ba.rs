@@ -670,10 +670,7 @@ fn solve_schur(
     }
 
     // Solve S * Dp = rhs_p via Cholesky.  S is SPD for λ > 0.
-    let dp = match s.cholesky() {
-        Some(chol) => chol.solve(&rhs_p),
-        None => return None,
-    };
+    let dp = s.cholesky()?.solve(&rhs_p);
 
     // Back-substitute: Dx[pt] = Vinv[pt] * ( -gx[pt] - sum_{cam vis pt} W[cam,pt]' * Dp[cam] )
     let mut dx = DVector::<f64>::zeros(3 * n);

@@ -422,7 +422,7 @@ impl OfflineBraidzRerunLogger {
                 )?;
 
                 if log_reprojected_2d {
-                    for (_cam_name, cam_data) in self.by_camname.iter() {
+                    for cam_data in self.by_camname.values() {
                         let cam_cal = &cam_data.calibration;
                         let pt3d = braid_mvg::PointWorldFrame {
                             coords: nalgebra::Point3::new(row.x, row.y, row.z),
@@ -460,7 +460,7 @@ impl OfflineBraidzRerunLogger {
                 )?;
 
                 if log_reprojected_2d {
-                    for (_cam_name, cam_data) in self.by_camname.iter() {
+                    for cam_data in self.by_camname.values() {
                         let ent_path = &cam_data.image_ent_path;
                         self.rec.log(
                             format!("{ent_path}/reproj/{obj_id}"),
