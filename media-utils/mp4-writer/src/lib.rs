@@ -245,8 +245,6 @@ where
         rendering_offset: i32,
         precision_timestamp: Option<chrono::DateTime<chrono::Local>>,
     ) -> Result<()> {
-        let inner = self.inner.take();
-
         let is_keyframe = parse_h264_is_idr_frame(data)?;
 
         let sample = match &data {
@@ -281,6 +279,8 @@ where
                 nals: nals.clone(),
             },
         };
+
+        let inner = self.inner.take();
 
         let mut state = match inner {
             Some(WriteState::Configured(mut mybox)) => {
@@ -357,15 +357,16 @@ where
             }
         };
 
-        match &mut state.mp4_segment {
-            MaybeMp4Writer::Mp4Writer(mp4_writer) => {
-                mp4_writer.write_sample(TRACK_ID, &sample)?;
-            }
+        let write_result = match &mut state.mp4_segment {
+            MaybeMp4Writer::Mp4Writer(mp4_writer) => mp4_writer
+                .write_sample(TRACK_ID, &sample)
+                .map_err(Error::from),
             _ => {
                 return inconsistent_state_err();
             }
-        }
+        };
         self.inner = Some(WriteState::Recording(state));
+        write_result?;
 
         Ok(())
     }
@@ -1531,4 +1532,98 @@ fn parse_h264_is_idr_frame(data: &frame_source::H264EncodingVariant) -> Result<b
 
 fn inconsistent_state_err<T>() -> Result<T> {
     Err(Error::InconsistentState {})
+}
+
+#[cfg(test)]
+mod tests {
+    use std::cell::{Cell, RefCell};
+    use std::io::{Cursor, Seek, SeekFrom, Write};
+    use std::rc::Rc;
+
+    use chrono::TimeDelta;
+    use frame_source::H264EncodingVariant;
+    use strand_cam_remote_control::{Mp4Codec, Mp4RecordingConfig};
+
+    use super::Mp4Writer;
+
+    #[derive(Clone, Default)]
+    struct FailOnceWriter {
+        cursor: Rc<RefCell<Cursor<Vec<u8>>>>,
+        fail_next_write: Rc<Cell<bool>>,
+    }
+
+    impl Write for FailOnceWriter {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            if self.fail_next_write.replace(false) {
+                return Err(std::io::Error::other("injected write failure"));
+            }
+            self.cursor.borrow_mut().write(buf)
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            self.cursor.borrow_mut().flush()
+        }
+    }
+
+    impl Seek for FailOnceWriter {
+        fn seek(&mut self, pos: SeekFrom) -> std::io::Result<u64> {
+            self.cursor.borrow_mut().seek(pos)
+        }
+    }
+
+    #[test]
+    fn finish_recovers_after_h264_sample_write_error() {
+        let output = FailOnceWriter::default();
+        let fail_next_write = output.fail_next_write.clone();
+        let output_cursor = output.cursor.clone();
+        let config = Mp4RecordingConfig {
+            codec: Mp4Codec::H264RawStream,
+            max_framerate: Default::default(),
+            h264_metadata: None,
+        };
+        let mut writer = Mp4Writer::new(
+            output,
+            config,
+            #[cfg(feature = "nv-encode")]
+            None,
+        )
+        .unwrap();
+        writer.set_first_sps_pps(
+            Some(vec![0x67, 0x42, 0xc0, 0x0a]),
+            Some(vec![0x68, 0xce, 0x0f, 0xc8]),
+        );
+
+        let start = chrono::DateTime::<chrono::Local>::from(std::time::SystemTime::UNIX_EPOCH);
+        writer
+            .write_h264_buf(
+                &H264EncodingVariant::RawEbsp(vec![vec![0x65, 0x88]]),
+                16,
+                16,
+                start,
+                start,
+                false,
+            )
+            .unwrap();
+
+        fail_next_write.set(true);
+        let write_error = writer
+            .write_h264_buf(
+                &H264EncodingVariant::RawEbsp(vec![vec![0x41, 0x9a]]),
+                16,
+                16,
+                start + TimeDelta::seconds(1),
+                start,
+                false,
+            )
+            .unwrap_err();
+        assert!(write_error.to_string().contains("injected write failure"));
+
+        writer.finish().unwrap();
+        drop(writer);
+
+        let output = output_cursor.borrow().get_ref().clone();
+        let output_len = output.len() as u64;
+        let reader = mp4::Mp4Reader::read_header(Cursor::new(output), output_len).unwrap();
+        assert_eq!(reader.sample_count(super::TRACK_ID).unwrap(), 2);
+    }
 }
