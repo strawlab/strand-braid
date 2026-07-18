@@ -6,9 +6,33 @@
   Braid live tracking on simulated cameras and reports end-to-end latency
   percentiles from both the model-server event stream and the recorded
   `.braidz`. Baseline on an idle machine: ~1 ms typical, <4 ms worst case.
+* Added the packaged `mp4-misp-inserter` command, which embeds per-frame
+  `MISPmicrosectime` timestamps from a companion `.srt` file into an existing
+  H.264 MP4 without decoding or re-encoding it. Original sample timing,
+  including B-frame composition offsets, is preserved. If the timing source is
+  damaged or ends early, the command keeps a playable output truncated at the
+  last covered complete GOP and reports failure unless `--allow-truncated` is
+  specified.
+
+### Changed
+
+* ffmpeg H.264 recording no longer forces `-bf 0`; B-frame selection is left to
+  the encoder by default now that the built-in decoder handles reordered
+  streams. An explicit maximum can still be configured when required.
 
 ### Fixed
 
+* `mp4-writer` now retains its recording state after an H.264 sample write
+  fails, allowing `finish()` to retry buffered data and finalize a recoverable
+  truncated MP4 once the underlying output is writable again (for example
+  after a disk-full error is resolved).
+* Malformed `.srt` sidecars now produce an error with the file path and
+  approximate line number instead of panicking during parsing.
+* `strand-cam-bui-types` now enables serde's standard-library support itself,
+  fixing builds of downstream projects that consume the crate from source.
+* The Ubuntu installer zip's README now substitutes the actual generated `.deb`
+  filename into its installation command instead of carrying a stale,
+  hard-coded release filename.
 * The built-in OpenH264 decoder now decodes H.264 streams containing B-frames
   (rc.5 claimed the decoder cannot decode them, but OpenH264 has supported
   B-frame decoding since v2.2 in 2022; the vendored copy is v2.6). The failure
@@ -20,9 +44,7 @@
   its timestamp) by display rank, and pictures still buffered at end of stream
   are drained. Decoded pixel content and frame order are pinned by tests
   validated bit-exactly against ffmpeg. Decode-failure hints no longer blame
-  B-frames or recommend `-bf 0`; non-4:2:0 chroma remains unsupported. ffmpeg
-  H.264 recording still defaults to `-bf 0`, now only because B-frames
-  complicate per-frame timestamping, not for playback compatibility.
+  B-frames or recommend `-bf 0`; non-4:2:0 chroma remains unsupported.
 * The `reconstruct_latency_usec.hlog` histogram now measures the latency until
   the tracker produces each estimate rather than until the disk writer dequeues
   it, eliminating a spurious 20–100 ms tail caused by the writer's periodic
