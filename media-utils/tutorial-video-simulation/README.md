@@ -16,14 +16,15 @@ a throwaway virtual display, and captures the result. Re-running a script
 after a GUI/CLI change regenerates the video against whatever the repo does
 today.
 
-Camera-dependent tutorials record against real camera hardware by default
-if any is attached to the machine they're run on, falling back to the
-hardware-free `sim` backend (`ci2-sim`, driven by
-`braid/braid-sim/example-sim.toml`) otherwise — so the same command
-records the most realistic possible version on a lab machine with a
-camera plugged in, and still just works with no hardware at all (e.g. CI,
-a laptop). See `CAMERA_BACKEND` in step 4 of Running instructions to force
-one or the other explicitly.
+`strand-cam-intro` records against real camera hardware by default if any
+is attached to the machine it's run on, falling back to the hardware-free
+`sim` backend (`ci2-sim`, driven by `braid/braid-sim/example-sim.toml`)
+otherwise — so the same command records the most realistic possible
+version on a lab machine with a camera plugged in, and still just works
+with no hardware at all (e.g. CI, a laptop). See `CAMERA_BACKEND` in step 4
+of Running instructions to force one or the other explicitly.
+
+`braid-intro` has no such fallback — see "Braid and camera hardware" below.
 
 ## Prerequisites (Linux only)
 
@@ -136,6 +137,19 @@ strand-cam-intro/
                         # from the command line): `strand-cam --camera-backend
                         # sim`, watch the live view, Ctrl+C, relaunch with
                         # `--camera-name simcam0` explicit.
+braid-intro/
+  record.sh            # regenerates Video_2.mp4 (launching Braid from the
+                        # command line): `braid-run config.TOML`, wait for
+                        # all cameras to synchronize, scroll up to the QR
+                        # code, open the GUI, cycle through every camera,
+                        # Ctrl+C, relaunch, then (new, not in the original)
+                        # close the GUI window and reopen it via the
+                        # terminal's printed URL. Real camera hardware only
+                        # -- see "Braid and camera hardware" below.
+  POINTING-NOTES.md    # tuned constants (scroll-click counts, fallback
+                        # pixel coordinates, per-camera dwell) that need
+                        # retuning after watching a real run -- read this
+                        # before touching record.sh's own tuned constants.
 ```
 
 ## Running instructions
@@ -272,7 +286,7 @@ build a given output came from.
 
 ## A note on `--camera-backend sim`
 
-The tutorials here auto-detect real Basler camera hardware and prefer it
+`strand-cam-intro` auto-detects real Basler camera hardware and prefers it
 over `--camera-backend sim` when it's available (see step 4), so the
 recording is as realistic as possible on a machine that has one, while
 still needing no camera hardware at all on one that doesn't. If you have a
@@ -297,6 +311,51 @@ bare command is already exactly correct. Command 2's `--camera-name` is
 `simcam0` for the sim backend, or auto-detected via `--list-cameras` for a
 real one (so it always points at whichever real camera is actually
 attached, not a hardcoded name).
+
+## Braid and camera hardware
+
+Unlike `strand-cam-intro`, `braid-intro` has **no hardware-free fallback**.
+It replays a real config file (`/home/strawlab/BRAID_TOMLS/config.TOML` by
+default, override with `BRAID_CONFIG_TOML`) that configures 5 real Basler
+cameras with PTP-sync triggering and a real extrinsic calibration file.
+`braid-run` only gets a `sim` backend for a camera if that camera's own
+`[[cameras]]` entry sets `start_backend = "sim"` in the TOML — this config
+doesn't, so every camera defaults to `Pylon` (`braid/braid-types/src/lib.rs`).
+Running `braid-intro/record.sh` requires that hardware, PTP sync, and
+calibration file to already be working on whatever machine you run it on;
+there's no `CAMERA_BACKEND`-style override to fall back to.
+
+`braid-run` also resolves its own per-camera `strand-cam` child next to its
+own executable path (`std::env::current_exe().parent()` in
+`braid-run/src/main.rs`'s `launch_strand_cam`), **not** via `$PATH` — so
+whichever `braid-run` binary ends up on `PATH` (installed package or a
+from-source build) needs a `strand-cam` binary sitting right next to it.
+The `.deb` package ships both together already; a from-source build needs
+`cargo build --release -p braid-run -p strand-cam` (not just `-p braid-run`).
+
+## Running `braid-intro`
+
+Same Prerequisites as `strand-cam-intro` (see above) — no extra packages
+needed, just the real camera hardware described in "Braid and camera
+hardware". Same `STRAND_BRAID_TARGET_DIR` override for picking a specific
+`braid-run`/`strand-cam` build if you don't want to rely on an installed
+package.
+
+```sh
+cd media-utils/tutorial-video-simulation/braid-intro
+./record.sh
+
+# Point at a different config file:
+BRAID_CONFIG_TOML=/path/to/other-config.TOML ./record.sh
+```
+
+Output is `out/braid-intro.mp4` (plus `out/raw.mp4` and `out/events.jsonl`,
+same as `strand-cam-intro`), with the `braid-run --version` output used to
+generate it written into the `comment` metadata tag the same way. Given how
+many pixel/scroll-count constants this scenario tunes by eye (see
+`braid-intro/POINTING-NOTES.md`) and how slow each iteration is (real PTP
+hardware has to actually resynchronize on every run), expect a first attempt
+to need a few rounds of "watch the video, adjust a constant, rerun."
 
 ## Adding another tutorial
 

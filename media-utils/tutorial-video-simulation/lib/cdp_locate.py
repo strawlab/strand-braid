@@ -148,6 +148,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--port", required=True, type=int, help="Chrome --remote-debugging-port")
     parser.add_argument("--contains", required=True, help="substring to search for in element text")
+    parser.add_argument(
+        "--get-href",
+        action="store_true",
+        help=(
+            "instead of a bounding box, print {'href': ...} -- the resolved absolute URL of the "
+            "nearest ancestor <a> of the matching text node. Used to read a real link's actual "
+            "target (e.g. a same-origin app route whose exact URL-encoding isn't worth "
+            "reimplementing in bash) rather than reconstructing it by hand."
+        ),
+    )
     args = parser.parse_args()
 
     needle = json.dumps(args.contains)
@@ -179,27 +189,50 @@ def main():
     # terminal, document order for row elements tracks visual top-to-bottom
     # order, so "last" reliably means "bottom-most / most recently
     # written," which is almost always the occurrence a caller wants.
-    expression = (
-        "(function(){"
-        f"var needle={needle};"
-        "var walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);"
-        "var node,best=null;"
-        "while(node=walker.nextNode()){"
-        "var idx=node.nodeValue.lastIndexOf(needle);"
-        "if(idx===-1)continue;"
-        "var range=document.createRange();"
-        "range.setStart(node,idx);"
-        "range.setEnd(node,idx+needle.length);"
-        "var rects=range.getClientRects();"
-        "if(!rects.length)continue;"
-        "var r=rects[rects.length-1];"
-        "if(r.width>0&&r.height>0){best={x:r.x,y:r.y,width:r.width,height:r.height};}"
-        "}"
-        "if(!best)return null;"
-        "best.chromeY=window.outerHeight-window.innerHeight;"
-        "return best;"
-        "})()"
-    )
+    if args.get_href:
+        # Same needle-matching walk as the bounding-box mode below, but
+        # instead of measuring the text's own Range, walks up from the
+        # matching text node to its nearest ancestor <a> and reads its
+        # `.href` (the property, not getAttribute -- resolved to a full
+        # absolute URL by the browser, so the caller never has to
+        # reconstruct any app-specific path encoding itself). Same
+        # last-match-wins tie-break as the bounding-box mode.
+        expression = (
+            "(function(){"
+            f"var needle={needle};"
+            "var walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);"
+            "var node,best=null;"
+            "while(node=walker.nextNode()){"
+            "var idx=node.nodeValue.lastIndexOf(needle);"
+            "if(idx===-1)continue;"
+            "var el=node.parentElement?node.parentElement.closest('a'):null;"
+            "if(el){best={href:el.href};}"
+            "}"
+            "return best;"
+            "})()"
+        )
+    else:
+        expression = (
+            "(function(){"
+            f"var needle={needle};"
+            "var walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);"
+            "var node,best=null;"
+            "while(node=walker.nextNode()){"
+            "var idx=node.nodeValue.lastIndexOf(needle);"
+            "if(idx===-1)continue;"
+            "var range=document.createRange();"
+            "range.setStart(node,idx);"
+            "range.setEnd(node,idx+needle.length);"
+            "var rects=range.getClientRects();"
+            "if(!rects.length)continue;"
+            "var r=rects[rects.length-1];"
+            "if(r.width>0&&r.height>0){best={x:r.x,y:r.y,width:r.width,height:r.height};}"
+            "}"
+            "if(!best)return null;"
+            "best.chromeY=window.outerHeight-window.innerHeight;"
+            "return best;"
+            "})()"
+        )
 
     try:
         value = cdp_evaluate(args.port, expression)
