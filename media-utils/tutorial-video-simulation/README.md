@@ -412,6 +412,27 @@ prerequisites beyond the ones listed above:
    invokes `sudo` — it just checks for a device with this card label
    (override via `CHECKERBOARD_LOOPBACK_LABEL`) and errors out with the
    exact command above if none is found.
+
+   **This is a real limitation for CI.** `modprobe` loads a module into the
+   *host* kernel, so it needs an environment where that's actually
+   possible:
+   - A plain containerized CI job (ordinary Docker-based runner) generally
+     can't load a kernel module into the shared host kernel at all, even
+     with elevated container privileges on many CI providers.
+   - A VM-based runner (e.g. GitHub Actions' hosted Ubuntu runners, which
+     are full VMs) or a self-hosted runner you control can work, but only
+     if `v4l2loopback-dkms` actually builds via DKMS against that runner's
+     kernel — not guaranteed on every CI image.
+   - Either way, the two commands above must run as their own privileged
+     setup step in the CI pipeline definition itself (e.g. a step in a
+     GitHub Actions workflow YAML), *before* the step that runs
+     `record.sh` — never inside `record.sh`, which never calls `sudo` (see
+     above).
+
+   `braid-intro` has an analogous CI limitation for a different reason (it
+   needs real physical camera hardware). Of the three scenarios, only
+   `strand-cam-intro` is CI-friendly out of the box, via its hardware-free
+   `sim` fallback.
 2. `CHECKERBOARD_VIDEO`, a video file (any container/codec `ffmpeg` can
    decode — `.mp4`/`.webm`, doesn't matter, since `ffmpeg` decodes it before
    it ever reaches the loopback device) of a real checkerboard held at
@@ -431,9 +452,41 @@ instead verifies the "Checkerboard Calibration" panel actually renders once
 the BUI is up, erroring out with a clear message (and the rebuild command)
 if not, rather than silently recording a video of a missing feature.
 
+## Running `checkerboard-calibration`
+
+Same Prerequisites as `strand-cam-intro`/`braid-intro` (see above), plus the
+two extra ones just above (a loaded `v4l2loopback` device, `CHECKERBOARD_VIDEO`
+set). Same `STRAND_BRAID_TARGET_DIR` override for picking a specific
+`strand-cam` build if you don't want to rely on an installed package.
+
+### Locally
+
 ```sh
+sudo apt-get install -y v4l2loopback-dkms   # one-time, if not already installed
+sudo modprobe v4l2loopback video_nr=9 card_label="checkerboard-cam" exclusive_caps=1
+
 cd media-utils/tutorial-video-simulation/checkerboard-calibration
 CHECKERBOARD_VIDEO=/path/to/checkerboard.mp4 ./record.sh
+```
+
+### In CI
+
+Requires a VM-based or self-hosted runner (see the CI limitation note
+above — a plain containerized job cannot do this). The `v4l2loopback` setup
+must be its own pipeline step, run once before `record.sh`:
+
+```yaml
+# example GitHub Actions steps
+- name: Set up v4l2loopback
+  run: |
+    sudo apt-get update
+    sudo apt-get install -y v4l2loopback-dkms
+    sudo modprobe v4l2loopback video_nr=9 card_label="checkerboard-cam" exclusive_caps=1
+
+- name: Record checkerboard-calibration tutorial video
+  run: |
+    cd media-utils/tutorial-video-simulation/checkerboard-calibration
+    CHECKERBOARD_VIDEO=/path/to/checkerboard.mp4 ./record.sh
 ```
 
 Output is `out/checkerboard-calibration.mp4` (plus `out/raw.mp4` and

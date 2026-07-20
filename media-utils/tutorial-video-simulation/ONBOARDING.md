@@ -41,10 +41,14 @@ Always push to `origin` (should already point at
     `braid-intro/record.sh` cannot run** — camera sync will simply hang
     until timeout. Don't assume a script regression if it fails there;
     check hardware/config first.
-- **`checkerboard-calibration/record.sh`** — added 2026-07-20, **written
-  but never actually run** (see "Current state" below). No real camera
-  hardware needed at all, but needs a `v4l2loopback` virtual camera device
-  fed a real checkerboard video via `ffmpeg` (`CHECKERBOARD_VIDEO=...`,
+- **`checkerboard-calibration/record.sh`** — added 2026-07-20, **currently
+  BLOCKED** (see "Current state" below and its own `POINTING-NOTES.md`):
+  two real bugs in `record.sh` itself got found and fixed this session, but
+  the scenario is now stuck on a `nokhwa`/`ci2-webcam` incompatibility with
+  `v4l2loopback` that's out of this directory's scope to fix (see
+  `POINTING-NOTES.md`'s "BLOCKED" section for the full diagnosis). No real
+  camera hardware needed at all, but needs a `v4l2loopback` virtual camera
+  device fed a real checkerboard video via `ffmpeg` (`CHECKERBOARD_VIDEO=...`,
   required, no default) — see `README.md`'s "Checkerboard calibration and
   `v4l2loopback`" section for the full setup (kernel module, cargo
   `checkercal` feature). Also the only one of the three that isn't
@@ -105,17 +109,35 @@ this code again:
   a negative offset if you want to land exactly on the text).
 
 `checkerboard-calibration` (`record.sh`, `POINTING-NOTES.md`), by contrast,
-**has not been run even once** — it was written entirely on this macOS dev
-machine, which cannot run any part of this pipeline (no `Xvfb`/`x11grab`),
-and no real `CHECKERBOARD_VIDEO` was supplied yet either (the user has an
-old reference video and a real calibration debug folder from a past
-session at `/Volumes/strawscience/mjmharrap/Braid_for_dummies/
-Supplemental_or_data_items/video_3/` — off-repo, on a lab file server, not
-something `record.sh` reads directly). Treat it as an untested first draft:
-first real run on Linux, with real footage, should be watched closely and
-is likely to need constant/pacing fixes the same way `braid-intro` did.
-Two library extensions came out of writing it, now available to any
-scenario:
+**is blocked** — see `checkerboard-calibration/POINTING-NOTES.md`'s
+"BLOCKED" section (top of the file) for the full writeup; summary below.
+Two library extensions came out of originally writing it, now available to
+any scenario:
+
+**Dependency check and first real run, `strawlab` Linux dev machine
+(2026-07-20):** all of `ffmpeg`/`xdotool`/`Xvfb`/`openbox`/`ttyd`/`xprop`/
+`python3` plus `google-chrome` (and `firefox` as fallback) are present.
+`strand-cam` is installed via the `.deb` package at `/usr/bin/strand-cam`
+(`1.0.0-rc.5+c2b21b9e...`), confirmed (via `strings | grep -i "checkerboard
+calibration"`) to already have `checkercal` compiled in — no rebuild
+needed. `v4l2loopback` is now set up via `checkerboard-calibration/
+setup-v4l2loopback.sh` (handles a real DKMS multi-kernel edge case seen
+here — see the script's own header comment). A trimmed `CHECKERBOARD_VIDEO`
+is ready at `checkerboard-calibration/intrinsic_cal_demo_trimmed.mp4`
+(120.6s, 1920x1200, video-only; the original `intrinsic_cal_demo.mp4` this
+was trimmed from is no longer present in this directory as of this
+writing).
+
+With all of that in place, `record.sh` still doesn't produce a video:
+`nokhwa` (the `webcam` backend's underlying library) fails to open the
+`v4l2loopback` device at all (`BackendError(Could not get device property
+CameraFormat: Failed to Fufill)`), independent of two real `record.sh` bugs
+that got found and fixed along the way (an apostrophe that broke bash's
+parser, and a PATH-wrapper-vs-`open_terminal` ordering bug). This looks
+like a `nokhwa`/`v4l2loopback` compatibility gap, not something fixable
+from this directory — see `POINTING-NOTES.md` for the full diagnosis
+(what was ruled out, what the working theory is, and why fixing
+`ci2-webcam` itself was deliberately not attempted this session).
 
 - **`click_browser_element` / `cdp_locate.py --click` gained a
   configurable `--click-ancestor`** (default still `button`) — some
@@ -159,11 +181,12 @@ scenario:
   real original `Video_2.mp4` yet (unlike `strand-cam-intro`, which got one
   — see its own `COMPARISON-NOTES.md`) — tuning so far has been iterative
   spot-feedback, not a systematic pass.
-- `checkerboard-calibration` has never been run at all — see its own
-  section above and `POINTING-NOTES.md`. Needs, in order: a Linux machine,
-  a `v4l2loopback` device set up, a real `CHECKERBOARD_VIDEO`, a strand-cam
-  build with `--features checkercal`, then the usual "run it, watch it,
-  fix constants, rerun" cycle the other two scenarios already went through.
+- `checkerboard-calibration` is blocked on a `nokhwa`/`v4l2loopback`
+  incompatibility — see its own section above and `POINTING-NOTES.md`'s
+  "BLOCKED" section. Needs either a `nokhwa`/`ci2-webcam` fix or a
+  different way to feed real footage into strand-cam before the usual
+  "run it, watch it, fix constants, rerun" cycle the other two scenarios
+  already went through can even start.
 - Git author email on old commits is still the auto-generated
   `mh1517@bio-....privat`, not the real `mh1517@bio.uni-freiburg.de` — only
   matters if this ever goes upstream.
@@ -173,7 +196,7 @@ scenario:
 ```
 cd media-utils/tutorial-video-simulation/strand-cam-intro && ./record.sh   # works anywhere
 cd media-utils/tutorial-video-simulation/braid-intro && ./record.sh       # needs the real 5-camera rig
-cd media-utils/tutorial-video-simulation/checkerboard-calibration && CHECKERBOARD_VIDEO=... ./record.sh  # needs v4l2loopback + a real checkerboard video; untested (see above)
+cd media-utils/tutorial-video-simulation/checkerboard-calibration && CHECKERBOARD_VIDEO=... ./record.sh  # BLOCKED -- nokhwa/v4l2loopback issue, see POINTING-NOTES.md
 ```
 
 Watch `out/*.mp4`, get feedback, adjust the tuned constants at the top of
