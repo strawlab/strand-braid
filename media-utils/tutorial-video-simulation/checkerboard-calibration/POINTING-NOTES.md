@@ -86,6 +86,59 @@ first with the direct `strand-cam --camera-backend webcam --camera-name
 checkerboard-cam` command (no `record.sh`, no browser automation) before
 assuming anything's changed.
 
+### Update 2026-07-20 (later the same day): resolved at the `ci2` level —
+### a new `ci2-video-file` backend bypasses `v4l2loopback`/`nokhwa` entirely
+
+A new camera backend, `camera/ci2-video-file/` (`--camera-backend
+video-file`), plays back a video file directly — no `v4l2loopback` kernel
+module, no `ffmpeg` feeder process, no `nokhwa` involved at all. It decodes
+via the existing `media-utils/frame-source` crate (previously wired up for
+offline post-processing only, as this file's BLOCKED section above says —
+this is the "completely different way to feed real footage into
+strand-cam's acquisition pipeline" that section names as the alternative to
+a `ci2-webcam`/`nokhwa` fix). It is purely additive: a new crate plus one
+new `CameraBackend` enum variant and match arm in `strand-cam/src/cli_app.rs`
+— no existing backend (including `ci2-webcam`) was touched, consistent
+with the earlier decision not to modify existing strand-cam code for this.
+
+Verified directly against strand-cam (bypassing `record.sh`/browser
+automation, the same isolation approach used to originally diagnose the
+`nokhwa` blocker above): `STRAND_CAM_VIDEO_FILE=.../intrinsic_cal_demo_trimmed.mp4
+strand-cam --camera-backend video-file --camera-name intrinsic_cal_demo_trimmed`
+enumerates and opens correctly (1920x1200), plays at the file's real ~8.57fps
+(a loop-restart log line fired at ~131s wall-clock, matching the file's own
+~120.6s duration — confirming correct pacing, not a wrong guess), and ran
+with zero `cam_stream_task` "Channel full... Dropping frame data" errors
+over multiple minutes and a full loop cycle.
+
+Two real bugs were found and fixed while verifying this, worth knowing if
+touching `ci2-video-file` again:
+- `frame_source::FrameDataSource::average_framerate()` is only populated
+  from strand-cam-specific SEI timing metadata (`h264_source.rs`'s
+  `calc_avg_fps`) — `None` for an ordinary MP4 like this scenario's own
+  `intrinsic_cal_demo_trimmed.mp4`. Using it naively (with a 30fps
+  fallback) silently played this ~8.57fps-native video ~3.5x too fast.
+  Fixed by preferring `average_framerate()` when present (e.g. for footage
+  actually recorded by strand-cam itself) and otherwise estimating fps from
+  two real consecutive frames' own timestamps.
+- The `Instant`-based "absolute schedule" pacer (the same idiom `ci2-sim`
+  uses) would blast through a backlog instead of resyncing if a downstream
+  consumer ever stalled and delayed the caller — this is exactly what
+  produced the "Channel full" flood during testing. Fixed with a resync
+  guard: if the pacer is more than one frame period behind, it resyncs to
+  "now" instead of dumping the whole backlog at once (matching how a real
+  camera's small hardware buffer would just drop late frames rather than
+  deliver them all in a burst).
+
+**Not yet done:** this scenario's own `record.sh`, `../README.md`'s
+"Checkerboard calibration and `v4l2loopback`" section, and this file's own
+header/description above all still describe the old `v4l2loopback`/`webcam`
+approach — `record.sh` has NOT been updated to actually use
+`STRAND_CAM_VIDEO_FILE`/`--camera-backend video-file` yet, so running it
+as-is still hits the original blocker. That update, then the usual "run it,
+watch it, fix constants" tuning cycle the other two scenarios already went
+through, is the natural next step.
+
 ## Solid (verified via source, not tuned-by-eye)
 
 - The BUI markup for the "Checkerboard Calibration" panel

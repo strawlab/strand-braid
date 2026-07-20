@@ -34,6 +34,7 @@ members = [
     "camera/ci2-vimba-types",
     "camera/ci2-webcam",
     "camera/ci2-sim",
+    "camera/ci2-video-file",
     "camera/strand-cam-remote-control",
     "camera/strand-cam-types",
     "camera/vimba",
@@ -326,6 +327,7 @@ ci2-vimba = { path = "camera/ci2-vimba" }
 ci2-vimba-types = { path = "camera/ci2-vimba-types" }
 ci2-webcam = { path = "camera/ci2-webcam" }
 ci2-sim = { path = "camera/ci2-sim" }
+ci2-video-file = { path = "camera/ci2-video-file" }
 csv-eof = { path = "utils/csv-eof" }
 download-verify = { path = "utils/download-verify" }
 dynlink-cuda = { path = "media-utils/nvenc/dynlink-cuda" }
