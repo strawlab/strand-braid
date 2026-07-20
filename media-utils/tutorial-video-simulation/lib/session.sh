@@ -508,6 +508,10 @@ scroll_page() {
     local win="$1" i
     xdotool windowactivate --sync "$win"
     move_mouse_into "$win"
+    # Captioned for the 10s of actual scroll-wheel motion, not the trailing
+    # 3s hold at the top -- matches the other log_event calls' convention of
+    # the duration tracking the on-screen action, not whatever comes after.
+    log_event "Scroll wheel" 10
     for ((i = 0; i < 20; i++)); do
         xdotool click 5
         sleep 0.25
