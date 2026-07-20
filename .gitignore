@@ -1,5 +1,6 @@
 target
 scratch/
+.DS_Store
 
 # CI/local outputs for release packaging
 /build/
