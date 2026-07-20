@@ -6,6 +6,11 @@ through the GUI) against the *current* CLI and GUI, whenever those drift from
 what an older recorded video shows. Not a Cargo crate — nothing here is added
 to the workspace `[workspace] members` list.
 
+This README covers the architecture/prerequisites. For current status,
+hardware caveats, and conventions learned while building this (useful if
+you're picking the work back up, especially on a different machine), see
+[`ONBOARDING.md`](ONBOARDING.md).
+
 ## Why
 
 Tutorial videos go stale: CLI flags get renamed, GUIs get redesigned. Rather

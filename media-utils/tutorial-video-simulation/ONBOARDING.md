@@ -120,10 +120,6 @@ fixes worth knowing about if you're touching this code again:
 
 ## What's not done yet
 
-- `braid-intro/POINTING-NOTES.md` still describes the pre-2026-07-20 state
-  (written when the scenario was first added) — hasn't been updated to
-  match the tuning fixes above. Update it alongside any further constant
-  changes, same convention `strand-cam-intro/POINTING-NOTES.md` uses.
 - No full frame-by-frame comparison of `braid-intro`'s output against the
   real original `Video_2.mp4` yet (unlike `strand-cam-intro`, which got one
   — see its own `COMPARISON-NOTES.md`) — tuning so far has been iterative
