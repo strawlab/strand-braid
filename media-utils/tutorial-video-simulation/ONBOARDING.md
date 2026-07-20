@@ -20,7 +20,7 @@ explicit go-ahead — only the fork is safe to land commits on for now.
 Always push to `origin` (should already point at
 `git@github.com:Mharrap/strand-braid.git`).
 
-## Two scenarios, very different hardware requirements
+## Three scenarios, very different hardware requirements
 
 - **`strand-cam-intro/record.sh`** — well-verified, stable since
   2026-07-17. Auto-detects real Basler hardware via `--list-cameras`,
@@ -41,6 +41,15 @@ Always push to `origin` (should already point at
     `braid-intro/record.sh` cannot run** — camera sync will simply hang
     until timeout. Don't assume a script regression if it fails there;
     check hardware/config first.
+- **`checkerboard-calibration/record.sh`** — added 2026-07-20, **written
+  but never actually run** (see "Current state" below). No real camera
+  hardware needed at all, but needs a `v4l2loopback` virtual camera device
+  fed a real checkerboard video via `ffmpeg` (`CHECKERBOARD_VIDEO=...`,
+  required, no default) — see `README.md`'s "Checkerboard calibration and
+  `v4l2loopback`" section for the full setup (kernel module, cargo
+  `checkercal` feature). Also the only one of the three that isn't
+  regenerating a pre-existing tutorial video — there's no earlier
+  "Video_3.mp4" in this repo.
 
 ## Before running either script
 
@@ -57,12 +66,13 @@ ps aux | grep -E 'strand-cam|braid-run'
 If something's running that you didn't start, **ask before touching it** —
 don't kill it yourself (see "no broad process kills" below).
 
-## Current state (as of commit `402ea8f2`, 2026-07-20)
+## Current state (as of 2026-07-20, `checkerboard-calibration` added this session)
 
-Both scripts run end-to-end cleanly against real hardware, zero leftover
-processes. `braid-intro` went through many rounds of "run it, watch the
-generated video, get specific feedback, fix, rerun" this session. Notable
-fixes worth knowing about if you're touching this code again:
+`strand-cam-intro` and `braid-intro` both run end-to-end cleanly against
+real hardware, zero leftover processes. `braid-intro` went through many
+rounds of "run it, watch the generated video, get specific feedback, fix,
+rerun" this session. Notable fixes worth knowing about if you're touching
+this code again:
 
 - **A real correctness bug, not just cosmetic:** any CDP text-lookup that
   used a bare `"http://"` needle would match strand-cam's own far more
@@ -94,6 +104,31 @@ fixes worth knowing about if you're touching this code again:
   caller's `OFFSET_Y`, so `OFFSET_Y=0` still lands ~6px low — cancel it with
   a negative offset if you want to land exactly on the text).
 
+`checkerboard-calibration` (`record.sh`, `POINTING-NOTES.md`), by contrast,
+**has not been run even once** — it was written entirely on this macOS dev
+machine, which cannot run any part of this pipeline (no `Xvfb`/`x11grab`),
+and no real `CHECKERBOARD_VIDEO` was supplied yet either (the user has an
+old reference video and a real calibration debug folder from a past
+session at `/Volumes/strawscience/mjmharrap/Braid_for_dummies/
+Supplemental_or_data_items/video_3/` — off-repo, on a lab file server, not
+something `record.sh` reads directly). Treat it as an untested first draft:
+first real run on Linux, with real footage, should be watched closely and
+is likely to need constant/pacing fixes the same way `braid-intro` did.
+Two library extensions came out of writing it, now available to any
+scenario:
+
+- **`click_browser_element` / `cdp_locate.py --click` gained a
+  configurable `--click-ancestor`** (default still `button`) — some
+  widgets (e.g. this project's own `<Toggle>` component,
+  `web/ads-webasm/src/components/toggle.rs`) render
+  `<label><input type=checkbox></label>` with no `<button>` in their DOM at
+  all; pass `ancestor_tag="label"` for those (clicking a `<label>`
+  natively activates its `<input>`).
+- **New `get_browser_text` / `cdp_locate.py --get-text`** reads a live
+  numeric/text value out of the DOM (e.g. "Number of checkerboards
+  collected: 7") — `wait_for_browser_text` can only confirm a fixed needle
+  is present, not read a value that changes over time.
+
 ## Conventions this project has learned the hard way
 
 - **Never `pkill` by process name on this machine.** It's a shared desktop
@@ -124,6 +159,11 @@ fixes worth knowing about if you're touching this code again:
   real original `Video_2.mp4` yet (unlike `strand-cam-intro`, which got one
   — see its own `COMPARISON-NOTES.md`) — tuning so far has been iterative
   spot-feedback, not a systematic pass.
+- `checkerboard-calibration` has never been run at all — see its own
+  section above and `POINTING-NOTES.md`. Needs, in order: a Linux machine,
+  a `v4l2loopback` device set up, a real `CHECKERBOARD_VIDEO`, a strand-cam
+  build with `--features checkercal`, then the usual "run it, watch it,
+  fix constants, rerun" cycle the other two scenarios already went through.
 - Git author email on old commits is still the auto-generated
   `mh1517@bio-....privat`, not the real `mh1517@bio.uni-freiburg.de` — only
   matters if this ever goes upstream.
@@ -133,6 +173,7 @@ fixes worth knowing about if you're touching this code again:
 ```
 cd media-utils/tutorial-video-simulation/strand-cam-intro && ./record.sh   # works anywhere
 cd media-utils/tutorial-video-simulation/braid-intro && ./record.sh       # needs the real 5-camera rig
+cd media-utils/tutorial-video-simulation/checkerboard-calibration && CHECKERBOARD_VIDEO=... ./record.sh  # needs v4l2loopback + a real checkerboard video; untested (see above)
 ```
 
 Watch `out/*.mp4`, get feedback, adjust the tuned constants at the top of

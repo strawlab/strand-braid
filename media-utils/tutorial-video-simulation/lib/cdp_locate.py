@@ -171,14 +171,39 @@ def main():
         "--click",
         action="store_true",
         help=(
-            "instead of a bounding box, call .click() on the nearest ancestor <button> of the "
-            "matching text node -- a real DOM click dispatched programmatically, so whatever "
-            "listener the app registered (e.g. a Yew onclick callback) actually fires, the same "
-            "way navigate_browser substitutes for a literal click on a link. Also overrides "
-            "window.confirm/alert to auto-accept first, since a real click's handler may call "
-            "window.confirm() synchronously -- that's a native, blocking dialog this hand-rolled "
-            "client has no way to intercept otherwise (would hang waiting for a response that "
-            "never comes)."
+            "instead of a bounding box, call .click() on the nearest ancestor of the matching "
+            "text node matching --click-ancestor -- a real DOM click dispatched "
+            "programmatically, so whatever listener the app registered (e.g. a Yew onclick "
+            "callback) actually fires, the same way navigate_browser substitutes for a literal "
+            "click on a link. Also overrides window.confirm/alert to auto-accept first, since a "
+            "real click's handler may call window.confirm() synchronously -- that's a native, "
+            "blocking dialog this hand-rolled client has no way to intercept otherwise (would "
+            "hang waiting for a response that never comes)."
+        ),
+    )
+    parser.add_argument(
+        "--click-ancestor",
+        default="button",
+        help=(
+            "element.closest() selector used by --click to find the clickable ancestor of the "
+            "matching text node (default: button). Some widgets have no <button> in their DOM "
+            "at all -- e.g. this project's <Toggle> component (web/ads-webasm/src/components/"
+            "toggle.rs) renders a bare <label><input type=checkbox></label>, so toggling it "
+            "needs --click-ancestor label: clicking a <label> natively activates its associated "
+            "<input> per HTML's own label-click behavior, without needing to locate the <input> "
+            "itself."
+        ),
+    )
+    parser.add_argument(
+        "--get-text",
+        action="store_true",
+        help=(
+            "instead of a bounding box, print {'text': ...} -- the full textContent of the "
+            "matching text node's parent element. Used for reading a live value out of a short, "
+            "single-purpose element (e.g. \"Number of checkerboards collected: 7\") where the "
+            "caller needs the actual number, not just whether/where the text appears -- "
+            "wait_for_browser_text can only confirm presence of a fixed needle, not read a "
+            "value that changes over time."
         ),
     )
     args = parser.parse_args()
@@ -234,10 +259,29 @@ def main():
             "return best;"
             "})()"
         )
+    elif args.get_text:
+        # Same needle-matching walk as --get-href, but reads the matching text
+        # node's parent's textContent instead of resolving a link -- right for
+        # a counter rendered as its own dedicated element (e.g. a lone <div>),
+        # where the parent's full text is exactly the value wanted, no more.
+        expression = (
+            "(function(){"
+            f"var needle={needle};"
+            "var walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);"
+            "var node,best=null;"
+            "while(node=walker.nextNode()){"
+            "var idx=node.nodeValue.lastIndexOf(needle);"
+            "if(idx===-1)continue;"
+            "if(node.parentElement){best={text:node.parentElement.textContent};}"
+            "}"
+            "return best;"
+            "})()"
+        )
     elif args.click:
         # Same last-match-wins needle walk as the other modes, but resolves
-        # to the nearest ancestor <button> instead of an <a> or a text
-        # Range. Dispatches a real mousedown, a short real pause, then
+        # to the nearest ancestor matching --click-ancestor (default
+        # <button>) instead of an <a> or a text Range. Dispatches a real
+        # mousedown, a short real pause, then
         # mouseup + click -- not just a bare .click() -- so the browser's
         # native :active-pseudo-class press styling actually plays (a real
         # click's own mousedown/mouseup pair is what triggers it; .click()
@@ -245,15 +289,17 @@ def main():
         # :active). An async IIFE so the pause is a real elapsed-time
         # setTimeout, not a busy-wait -- cdp_evaluate is called with
         # await_promise=True so CDP actually waits for it to resolve.
+        ancestor = json.dumps(args.click_ancestor)
         expression = (
             "(async function(){"
             f"var needle={needle};"
+            f"var ancestor={ancestor};"
             "var walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);"
             "var node,best=null;"
             "while(node=walker.nextNode()){"
             "var idx=node.nodeValue.lastIndexOf(needle);"
             "if(idx===-1)continue;"
-            "var el=node.parentElement?node.parentElement.closest('button'):null;"
+            "var el=node.parentElement?node.parentElement.closest(ancestor):null;"
             "if(el){best=el;}"
             "}"
             "if(!best)return null;"

@@ -613,21 +613,42 @@ cdp_locate.cdp_evaluate(int(sys.argv[2]), 'window.location.href = ' + json.dumps
 " "$lib_dir" "$cdp_port" "$url"
 }
 
-# click_browser_element CDP_PORT NEEDLE: finds the on-screen text
-# containing NEEDLE (same last-match-wins needle search as
-# point_at_browser_text) and clicks its nearest ancestor <button> over CDP
-# (cdp_locate.py --click) -- a real DOM click dispatched programmatically,
-# firing whatever listener the app itself registered, used in place of a
-# literal xdotool click for the same reason navigate_browser is (see
-# navigate_browser's own comment). Returns non-zero if no matching button
-# is found; stderr goes to the shared cdp_locate.log like the other CDP
-# helpers.
+# click_browser_element CDP_PORT NEEDLE [ANCESTOR_TAG=button]: finds the
+# on-screen text containing NEEDLE (same last-match-wins needle search as
+# point_at_browser_text) and clicks its nearest ANCESTOR_TAG ancestor over
+# CDP (cdp_locate.py --click --click-ancestor) -- a real DOM click
+# dispatched programmatically, firing whatever listener the app itself
+# registered, used in place of a literal xdotool click for the same reason
+# navigate_browser is (see navigate_browser's own comment). Default
+# ANCESTOR_TAG is "button"; pass "label" for a <Toggle>-style checkbox
+# widget (web/ads-webasm/src/components/toggle.rs renders
+# <label><input type=checkbox></label> with no <button> at all -- clicking
+# the <label> natively activates its <input> per HTML's own label-click
+# behavior). Returns non-zero if no matching ancestor is found; stderr goes
+# to the shared cdp_locate.log like the other CDP helpers.
 click_browser_element() {
-    local cdp_port="$1" needle="$2"
+    local cdp_port="$1" needle="$2" ancestor_tag="${3:-button}"
     local lib_dir
     lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-    python3 "$lib_dir/cdp_locate.py" --port "$cdp_port" --contains "$needle" --click \
+    python3 "$lib_dir/cdp_locate.py" --port "$cdp_port" --contains "$needle" --click --click-ancestor "$ancestor_tag" \
         >/dev/null 2>"$SESSION_WORK_DIR/cdp_locate.log"
+}
+
+# get_browser_text CDP_PORT NEEDLE: finds the on-screen text containing
+# NEEDLE (same needle-matching as point_at_browser_text) and prints the
+# full textContent of its parent element -- used to read a live value out
+# of a short, single-purpose element (e.g. "Number of checkerboards
+# collected: 7") where the caller needs the actual number, not just
+# whether/where the text appears (unlike wait_for_browser_text, which can
+# only confirm presence of a fixed needle). Prints nothing and returns 1 if
+# no matching element is found.
+get_browser_text() {
+    local cdp_port="$1" needle="$2"
+    local lib_dir result
+    lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    result=$(python3 "$lib_dir/cdp_locate.py" --port "$cdp_port" --contains "$needle" --get-text \
+        2>"$SESSION_WORK_DIR/cdp_locate.log") || return 1
+    echo "$result" | python3 -c 'import json,sys; print(json.load(sys.stdin)["text"])'
 }
 
 # browser_back WINDOW_ID CDP_PORT LIST_URL BACK_X BACK_Y [SWEEP_WIDTH=0]:
