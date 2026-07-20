@@ -61,13 +61,33 @@ TERM_QR_FALLBACK_Y=300
 BROWSER_CAMLINK_FALLBACK_X=150
 BROWSER_CAMLINK_FALLBACK_Y=550
 
-# Chrome's own back-button chrome (top-left toolbar row) -- by analogy with
-# BROWSER_CLOSE_X/Y below (a fixed offset from the window's own edge,
-# empirically verified for the close button in strand-cam-intro; NOT yet
-# verified for this one -- see POINTING-NOTES.md). Y matches
-# BROWSER_CLOSE_Y, the same toolbar row.
-BROWSER_BACK_X=40
-BROWSER_BACK_Y=23
+# How many scroll-wheel-down clicks bring every camera link into view
+# before pointing at each one -- first guess, needs a real run to confirm
+# it's enough (and not so much it scrolls a link back out at the bottom).
+BROWSER_CAMLIST_SCROLL_CLICKS=3
+BROWSER_CAMLIST_SCROLL_DELAY=0.25
+
+# How many scroll-wheel-down clicks reach the bottom of the dashboard page
+# (past the Recording/Cameras/Status sections) to reveal the "Quit Braid"
+# button -- first guess, needs a real run to confirm it's enough.
+BROWSER_QUIT_SCROLL_CLICKS=30
+BROWSER_QUIT_SCROLL_DELAY=0.1
+
+# Fallback pixel coordinates for the "Quit Braid" button lookup, used only
+# if the CDP text lookup itself fails.
+BROWSER_QUIT_FALLBACK_X=400
+BROWSER_QUIT_FALLBACK_Y=900
+
+# Chrome's own back-button chrome (top-left toolbar row, below the tab
+# strip -- NOT the same row as BROWSER_CLOSE_Y, whose window-controls sit on
+# the tab strip itself). Measured directly from a captured frame (raw.mp4 at
+# t=52s, during camera 1's dwell, before the back-button click moves the
+# cursor there): the real arrow centers at absolute (1023, 140); the
+# browser window's own origin is (996, 72) (SESSION_MARGIN*2 +
+# SESSION_PANE_WIDTH, SESSION_MARGIN -- zero frame-extent decoration, so
+# also its content origin), giving this relative position.
+BROWSER_BACK_X=27
+BROWSER_BACK_Y=68
 
 # How long to dwell on each camera's own live view before hitting back --
 # brisk, matching the original Video_2.mp4's own ~2-3s-per-camera pacing.
@@ -167,7 +187,7 @@ trap "pkill -s $TERM_SESSION_PID -f 'braid-run|strand-cam' 2>/dev/null || true; 
 # handles the failure the same way the rest of this script does) if
 # anything along the way times out.
 launch_braid() {
-    local command_text="$1" launch_epoch braid_log log_line braid_url
+    local command_text="$1" demo="${2:-1}" launch_epoch braid_log log_line braid_url
     launch_epoch=$(date +%s)
     type_in "$TERM_WIN" "$command_text"
 
@@ -176,13 +196,33 @@ launch_braid() {
         echo "ERROR: cameras never reported synchronized" >&2
         return 1
     }
-    point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "All expected cameras synchronized" \
-        "$TERM_SYNC_FALLBACK_X" "$TERM_SYNC_FALLBACK_Y"
+    # demo=0 (launch 2): the browser is already open from launch 1 and never
+    # closed, so none of the "look, here's how you'd open it" business below
+    # (indicating the sync line, scrolling to the QR code, pointing at the
+    # link) needs repeating -- only the URL still needs extracting, so the
+    # caller can navigate the existing window to it.
+    if [ "$demo" = "1" ]; then
+        point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "All expected cameras synchronized" \
+            "$TERM_SYNC_FALLBACK_X" "$TERM_SYNC_FALLBACK_Y" 0 1 60
+    fi
     sleep 1
 
-    echo "Scrolling up to reveal the QR code..." >&2
-    scroll_by "$TERM_WIN" up "$QR_SCROLL_CLICKS" "$QR_SCROLL_DELAY" "Scroll wheel"
-    sleep 1
+    if [ "$demo" = "1" ]; then
+        echo "Scrolling up to reveal the QR code..." >&2
+        # Needle is "r http://", not the bare "http://" -- the terminal also
+        # prints "Predicted URL: http://..." (once per launch) and, far more
+        # often, "Will connect to braid at "http://127.0.0.1:PORT/..."" (once
+        # per camera, repeatedly) -- both contain "http://" too, and the
+        # latter especially is recent/bottom-anchored enough that a bare
+        # "http://" needle was satisfied almost immediately without any real
+        # scrolling, then had the click below land on that loopback
+        # strand-cam URL instead of the actual QR line. Only "QR code for
+        # {url}" contains "r http://" (the tail of "for" + the URL) -- the
+        # other two lines read ": http://" and "\"http://" at that position.
+        scroll_until_visible "$TERM_WIN" "$TERM_CDP_PORT" up "r http://" "$QR_SCROLL_CLICKS" \
+            15 "$QR_SCROLL_DELAY" "Scroll wheel"
+        sleep 0.5
+    fi
 
     braid_log=$(newest_file_matching "$HOME/.braid-*.log" "$launch_epoch")
     [ -n "$braid_log" ] || {
@@ -199,13 +239,18 @@ launch_braid() {
         return 1
     }
 
-    # Sweep width 0 -- this is "about to click," not "indicating text" (see
-    # point_at's own convention, already used this way for strand-cam-
-    # intro's close/reopen clicks).
-    point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "QR code for" \
-        "$TERM_QR_FALLBACK_X" "$TERM_QR_FALLBACK_Y" 0 6 0
-    log_event "LEFT CLICK" 1.5
-    sleep 1.5
+    if [ "$demo" = "1" ]; then
+        # Sweep width 0 -- this is "about to click," not "indicating text"
+        # (see point_at's own convention, already used this way for
+        # strand-cam-intro's close/reopen clicks). Needle is "r http://",
+        # not the bare "http://" -- see scroll_until_visible's own comment
+        # above for why the bare form matches the wrong (loopback,
+        # constantly-repeated) line instead of this one.
+        point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "r http://" \
+            "$TERM_QR_FALLBACK_X" "$TERM_QR_FALLBACK_Y" 0 -6 0
+        log_event "Ctrl + LEFT CLICK" 1.5
+        sleep 1.5
+    fi
 
     echo "$braid_url"
 }
@@ -219,9 +264,20 @@ move_mouse_gradual_into "$BROWSER_WIN"
 echo "=== Cycling through each camera ==="
 for cam in "${CAMERA_NAMES[@]}"; do
     echo "--- $cam ---"
+    # browser_back below does a full page reload (navigate_browser sets
+    # window.location.href), which resets scroll to the top -- so this
+    # scroll has to happen every iteration, not just once before the loop,
+    # or later cameras would fall back out of view exactly like before.
+    scroll_by "$BROWSER_WIN" down "$BROWSER_CAMLIST_SCROLL_CLICKS" "$BROWSER_CAMLIST_SCROLL_DELAY"
     # Sweep width 0 -- indicating this link right before "clicking" it.
+    # OFFSET_Y=-12: point_at_browser_text's own bounding-box calculation
+    # always adds a fixed +6 baseline buffer below the measured text (to
+    # clear the glyphs' own descenders); -6 cancelled that exactly (landing
+    # right at the text's own bottom edge) but still read as too low, so
+    # this goes a further -6 up, into the name itself rather than just its
+    # bottom edge.
     point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "$cam" \
-        "$BROWSER_CAMLINK_FALLBACK_X" "$BROWSER_CAMLINK_FALLBACK_Y" 0 6 0
+        "$BROWSER_CAMLINK_FALLBACK_X" "$BROWSER_CAMLINK_FALLBACK_Y" 0 -12 0
     log_event "LEFT CLICK" 1.5
     sleep 0.5
     # Real click, not simulated -- but performed via navigate_browser
@@ -257,7 +313,7 @@ move_mouse_gradual_into "$TERM_WIN"
 # down first, before Ctrl+C, keeps us at the bottom through the retype.
 echo "=== Scrolling the terminal back to the bottom ==="
 scroll_by "$TERM_WIN" down "$QR_SCROLL_CLICKS" "$QR_SCROLL_DELAY" "Scroll wheel"
-sleep 1
+sleep 0.5
 
 log_event "LEFT CLICK" 1.5
 sleep 1.5
@@ -268,8 +324,11 @@ send_keys "$TERM_WIN" ctrl+c
 sleep 2
 
 echo "=== Launch 2: braid-run (relaunch) ==="
-BRAID_URL_2=$(launch_braid "braid-run '$BRAID_CONFIG'") || { echo "ERROR: launch 2 failed"; exit 1; }
-open_browser "$BRAID_URL_2" "$TERM_WIN"
+BRAID_URL_2=$(launch_braid "braid-run '$BRAID_CONFIG'" 0) || { echo "ERROR: launch 2 failed"; exit 1; }
+# The browser window from launch 1 was never closed -- navigate it to the
+# new session's URL directly (same CDP mechanism as camera navigation)
+# rather than opening a second new window via open_browser.
+navigate_browser "$BROWSER_CDP_PORT" "$BRAID_URL_2"
 wait_for_url "$BRAID_URL_2" || { echo "ERROR: Braid GUI did not come back up"; exit 1; }
 sleep 3
 
@@ -284,23 +343,53 @@ xdotool windowclose "$BROWSER_WIN" 2>/dev/null || true
 sleep 1
 
 echo "=== Reopening it via the terminal's printed URL ==="
-# Needle is "token=", not the full $BRAID_URL_2 -- confirmed live (first
-# real run) that the full URL is long enough to wrap across two terminal
-# rows, which cdp_locate.py's Range-based matching can't match at all
-# (same wrapping failure strand-cam-intro's own history already
-# documents for a spanning needle), falling back to a tuned pixel guess.
-# "token=" is short, guaranteed to sit within one row, and appears in
-# several lines sharing this launch's own token -- cdp_locate.py's
-# last-match-wins tie-break resolves to whichever is bottom-most in the
-# current (already-scrolled-up) viewport, any of which is a correct,
-# representative thing to point at.
-point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "token=" \
-    "$TERM_QR_FALLBACK_X" "$TERM_QR_FALLBACK_Y" 0 6 0
-log_event "LEFT CLICK" 1.5
+# demo=0 skipped launch 2's own QR-reveal scroll (see launch_braid), so the
+# URL line was never scrolled into view and isn't rendered in xterm.js's DOM
+# at all -- scroll up again here, on-screen like launch 1's, so the lookup
+# below has something real to find.
+echo "Scrolling up to reveal the URL again..." >&2
+# scroll_until_visible, not scroll_by -- stops as soon as the QR/URL line is
+# rendered, landing on THIS launch's own nearest one instead of overshooting
+# all the way to the absolute top (launch 1's older one). Needle is
+# "r http://", not the bare "http://" -- see launch_braid's own comment for
+# why the bare form matches the wrong, constantly-repeated loopback line.
+scroll_until_visible "$TERM_WIN" "$TERM_CDP_PORT" up "r http://" "$QR_SCROLL_CLICKS" \
+    15 "$QR_SCROLL_DELAY" "Scroll wheel"
+sleep 0.5
+
+# Needle is "r http://", not the full $BRAID_URL_2, "token=", or the bare
+# "http://" -- same reasoning as the QR-code link fix in launch_braid: land
+# on the link itself (not preceding/surrounding text) and avoid matching
+# the wrong, more-recently-printed loopback line.
+point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "r http://" \
+    "$TERM_QR_FALLBACK_X" "$TERM_QR_FALLBACK_Y" 0 -6 0
+log_event "Ctrl + LEFT CLICK" 1.5
 sleep 1.5
 open_browser "$BRAID_URL_2" "$TERM_WIN"
 wait_for_url "$BRAID_URL_2" || { echo "ERROR: Braid GUI did not reconnect after reopening"; exit 1; }
 sleep 3
+
+echo "=== Scrolling to the bottom to quit Braid ==="
+move_mouse_gradual_into "$BROWSER_WIN"
+scroll_by "$BROWSER_WIN" down "$BROWSER_QUIT_SCROLL_CLICKS" "$BROWSER_QUIT_SCROLL_DELAY" "Scroll wheel"
+sleep 0.5
+
+# Sweep width 0 -- about to click, not indicating text.
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Quit Braid" \
+    "$BROWSER_QUIT_FALLBACK_X" "$BROWSER_QUIT_FALLBACK_Y" 0 -4 0
+log_event "LEFT CLICK" 1.5
+sleep 0.5
+
+# Real click, performed programmatically via click_browser_element (see
+# lib/session.sh) rather than a literal xdotool click -- same "simulate
+# visually, act via a separately-verified mechanism" convention as the
+# camera links' navigate_browser. Also auto-accepts the native
+# window.confirm() dialog the app's DoQuit handler pops (see
+# cdp_locate.py --click), which this hand-rolled CDP client has no way to
+# intercept if it were left to actually appear.
+click_browser_element "$BROWSER_CDP_PORT" "Quit Braid" || echo "WARNING: could not click Quit Braid button" >&2
+wait_for_browser_text "$BROWSER_CDP_PORT" "Braid has quit" 10 0.5 || echo "WARNING: quit confirmation text not seen" >&2
+sleep 1.5
 
 echo "=== Stopping capture ==="
 stop_capture

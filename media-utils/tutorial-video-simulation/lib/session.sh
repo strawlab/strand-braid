@@ -613,6 +613,23 @@ cdp_locate.cdp_evaluate(int(sys.argv[2]), 'window.location.href = ' + json.dumps
 " "$lib_dir" "$cdp_port" "$url"
 }
 
+# click_browser_element CDP_PORT NEEDLE: finds the on-screen text
+# containing NEEDLE (same last-match-wins needle search as
+# point_at_browser_text) and clicks its nearest ancestor <button> over CDP
+# (cdp_locate.py --click) -- a real DOM click dispatched programmatically,
+# firing whatever listener the app itself registered, used in place of a
+# literal xdotool click for the same reason navigate_browser is (see
+# navigate_browser's own comment). Returns non-zero if no matching button
+# is found; stderr goes to the shared cdp_locate.log like the other CDP
+# helpers.
+click_browser_element() {
+    local cdp_port="$1" needle="$2"
+    local lib_dir
+    lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    python3 "$lib_dir/cdp_locate.py" --port "$cdp_port" --contains "$needle" --click \
+        >/dev/null 2>"$SESSION_WORK_DIR/cdp_locate.log"
+}
+
 # browser_back WINDOW_ID CDP_PORT LIST_URL BACK_X BACK_Y [SWEEP_WIDTH=0]:
 # points at Chrome's real back-button chrome location (BROWSER_CLOSE_X/Y-
 # style reasoning -- real browser chrome, not a page DOM element
@@ -694,6 +711,74 @@ scroll_by() {
         log_event "$caption" "$(python3 -c "print($clicks * $delay)")"
     fi
     _scroll_clicks "$win" "$button" "$clicks" "$delay"
+}
+
+# scroll_until_visible WINDOW_ID CDP_PORT DIRECTION NEEDLE MAX_CLICKS
+#   [STEP_CLICKS=15] [DELAY=0.03] [CAPTION="Scroll wheel"]:
+# Like scroll_by, but scrolls in small batches and checks via cdp_locate.py
+# after each one, stopping as soon as NEEDLE is rendered in the DOM instead
+# of always spending the full MAX_CLICKS. scroll_by's fixed click count has
+# to be sized for the worst case (a busy real-hardware log with lots of
+# scrollback to get through), but once the terminal/page has actually hit
+# its scroll limit, xterm.js/the browser clamps and every further wheel
+# event is a silent no-op -- so a fixed count that overshoots doesn't just
+# waste time, it leaves the recording visibly frozen for however many
+# clicks' worth of time are left (confirmed live: extracting one frame per
+# second showed the terminal already sitting static at the top for ~15s of
+# a 12s-nominal scroll before the next action even began). Stopping at the
+# first match also fixes a correctness issue this caused on a re-scroll:
+# scrolling ALL the way to the absolute top lands on the OLDEST matching
+# occurrence (e.g. a previous launch's own QR/URL block), not the nearest
+# one to where the scroll started -- checking incrementally from the
+# current position naturally finds the nearest (bottom-most, most recent)
+# occurrence first, before ever reaching the older one.
+#
+# Caption is logged AFTER scrolling stops, not before -- unlike scroll_by
+# (which always runs the full declared duration, so logging it upfront is
+# accurate), the real duration here depends on where the match turns up and
+# is only known after the fact. log_event itself always timestamps its
+# start as "now," which would be wrong here (the action already happened),
+# so this writes the event directly with the real start time captured
+# before scrolling began -- giving the caption's true elapsed duration
+# instead of the worst-case MAX_CLICKS * DELAY, which was leaving it
+# visibly stuck on screen long after the scroll had actually stopped.
+scroll_until_visible() {
+    local win="$1" cdp_port="$2" direction="$3" needle="$4" max_clicks="$5"
+    local step="${6:-15}" delay="${7:-0.03}" caption="${8:-Scroll wheel}"
+    local button remaining this_step lib_dir start_epoch found=0
+    case "$direction" in
+    up) button=4 ;;
+    down) button=5 ;;
+    *)
+        echo "ERROR: scroll_until_visible direction must be 'up' or 'down', got '$direction'" >&2
+        return 1
+        ;;
+    esac
+    lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    xdotool windowactivate --sync "$win"
+    move_mouse_into "$win"
+    start_epoch=$(python3 -c 'import time; print(time.time())')
+    remaining="$max_clicks"
+    while [ "$remaining" -gt 0 ]; do
+        this_step="$step"
+        [ "$this_step" -gt "$remaining" ] && this_step="$remaining"
+        _scroll_clicks "$win" "$button" "$this_step" "$delay"
+        remaining=$((remaining - this_step))
+        if python3 "$lib_dir/cdp_locate.py" --port "$cdp_port" --contains "$needle" \
+            >/dev/null 2>"$SESSION_WORK_DIR/cdp_locate.log"; then
+            found=1
+            break
+        fi
+    done
+    if [ -n "$caption" ]; then
+        python3 -c '
+import json, sys, time
+text, start, capture_start = sys.argv[1], float(sys.argv[2]), float(sys.argv[3])
+print(json.dumps({"t": round(start - capture_start, 2), "duration": round(time.time() - start, 2), "text": text}))
+' "$caption" "$start_epoch" "$SESSION_CAPTURE_START_EPOCH" >>"$SESSION_EVENTS_FILE"
+    fi
+    [ "$found" -eq 1 ] && return 0
+    return 1
 }
 
 # type_only WINDOW_ID TEXT: like type_in, but stops after typing -- no
