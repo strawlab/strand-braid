@@ -73,7 +73,7 @@ REPO_ROOT=$(cd "$SCRIPT_DIR/../../.." && pwd)
 OUT_DIR=$(cd "$(dirname "${1:-$SCRIPT_DIR/out}")" && pwd)/$(basename "${1:-$SCRIPT_DIR/out}")
 mkdir -p "$OUT_DIR"
 
-: "${CHECKERBOARD_VIDEO:?ERROR: set CHECKERBOARD_VIDEO to a video of a checkerboard shown at varying distances/angles (see this script's own header comment)}"
+: "${CHECKERBOARD_VIDEO:?ERROR: set CHECKERBOARD_VIDEO to a video of a checkerboard shown at varying distances/angles (see the header comment in this script)}"
 [ -f "$CHECKERBOARD_VIDEO" ] || {
     echo "ERROR: CHECKERBOARD_VIDEO=$CHECKERBOARD_VIDEO not found" >&2
     exit 1
@@ -178,14 +178,6 @@ setsid ffmpeg -nostdin -y -stream_loop -1 -re -i "$CHECKERBOARD_VIDEO" \
 SESSION_PIDS+=("$!")
 sleep 2
 
-echo "=== Opening terminal ==="
-open_terminal
-
-# strand-cam runs as a child of the bash shell ttyd is bridging into the
-# browser, so session_cleanup's window-process kill won't reach it -- same
-# reasoning as strand-cam-intro's own trap extension.
-trap "pkill -s $TERM_SESSION_PID -f strand-cam 2>/dev/null || true; session_cleanup" EXIT
-
 # strand-cam has no env var for --camera-backend (CLI-only, defaults to
 # Pylon -- see ../README.md's "A note on --camera-backend sim"). The real
 # hardware this tutorial is ultimately about is a physical Basler camera
@@ -199,6 +191,13 @@ trap "pkill -s $TERM_SESSION_PID -f strand-cam 2>/dev/null || true; session_clea
 # --camera-backend webcam while forwarding everything else. Scoped to this
 # script's own process and its ttyd/strand-cam children only; deleted by
 # session_cleanup along with the rest of SESSION_WORK_DIR.
+#
+# Built and exported to PATH *before* open_terminal, not after: open_terminal
+# launches ttyd's shell as its own process, which only ever sees the PATH
+# record.sh had at that moment -- a later `export PATH=...` in record.sh's
+# own shell doesn't retroactively reach an already-running child (this bit
+# strand-cam-intro's own version of this trick too, which is why its wrapper
+# setup comes before its own open_terminal call).
 WRAPPER_DIR="$SESSION_WORK_DIR/bin"
 mkdir -p "$WRAPPER_DIR"
 cat >"$WRAPPER_DIR/strand-cam" <<EOF
@@ -207,6 +206,14 @@ exec "$TARGET_DIR/strand-cam" --camera-backend webcam "\$@"
 EOF
 chmod +x "$WRAPPER_DIR/strand-cam"
 export PATH="$WRAPPER_DIR:$TARGET_DIR:$PATH"
+
+echo "=== Opening terminal ==="
+open_terminal
+
+# strand-cam runs as a child of the bash shell ttyd is bridging into the
+# browser, so session_cleanup's window-process kill won't reach it -- same
+# reasoning as strand-cam-intro's own trap extension.
+trap "pkill -s $TERM_SESSION_PID -f strand-cam 2>/dev/null || true; session_cleanup" EXIT
 
 echo "=== Launching strand-cam against the checkerboard feed ==="
 type_in "$TERM_WIN" "strand-cam --camera-name $CHECKERBOARD_LOOPBACK_LABEL"
