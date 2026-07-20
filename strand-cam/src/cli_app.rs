@@ -13,8 +13,8 @@ use eyre::{Result, WrapErr, eyre};
 
 /// Which camera vendor backend the merged Strand Camera binary should load.
 ///
-/// The [`ValueEnum`] value names (`pylon`, `vimba`, `webcam`, `sim`) are the
-/// strings accepted by `--camera-backend`, and match
+/// The [`ValueEnum`] value names (`pylon`, `vimba`, `webcam`, `sim`,
+/// `video-file`) are the strings accepted by `--camera-backend`, and match
 /// [`braid_types::StartCameraBackend::camera_backend_arg`], which is how Braid
 /// asks `strand-cam` for a particular backend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, ValueEnum)]
@@ -30,6 +30,11 @@ pub enum CameraBackend {
     /// simulated insects for end-to-end testing. The scenario is given by the
     /// `STRAND_CAM_SIM_SPEC` environment variable.
     Sim,
+    /// Video-file backend (`ci2-video-file`), which plays back a
+    /// pre-recorded video file as a live feed for testing/demos without
+    /// camera hardware. The file is given by the `STRAND_CAM_VIDEO_FILE`
+    /// environment variable.
+    VideoFile,
 }
 
 /// Enumerate the cameras visible to `mymod` and print them to stdout.
@@ -147,6 +152,13 @@ pub fn cli_main_dispatch(app_name: &'static str) -> Result<()> {
             let module: &'static ci2_sim::WrappedModule =
                 Box::leak(Box::new(ci2_sim::new_module()?));
             let guard = ci2_sim::make_singleton_guard(&module)?;
+            let mymod = ci2_async::into_threaded_async(module, &guard);
+            cli_main(mymod, cli, app_name)?;
+        }
+        CameraBackend::VideoFile => {
+            let module: &'static ci2_video_file::WrappedModule =
+                Box::leak(Box::new(ci2_video_file::new_module()?));
+            let guard = ci2_video_file::make_singleton_guard(&module)?;
             let mymod = ci2_async::into_threaded_async(module, &guard);
             cli_main(mymod, cli, app_name)?;
         }
@@ -520,6 +532,7 @@ mod tests {
             ("vimba", CameraBackend::Vimba),
             ("webcam", CameraBackend::Webcam),
             ("sim", CameraBackend::Sim),
+            ("video-file", CameraBackend::VideoFile),
         ] {
             assert_eq!(
                 parse_cli_args(&["--camera-backend", text])

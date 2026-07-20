@@ -41,19 +41,21 @@ Always push to `origin` (should already point at
     `braid-intro/record.sh` cannot run** — camera sync will simply hang
     until timeout. Don't assume a script regression if it fails there;
     check hardware/config first.
-- **`checkerboard-calibration/record.sh`** — added 2026-07-20, **currently
-  BLOCKED** (see "Current state" below and its own `POINTING-NOTES.md`):
-  two real bugs in `record.sh` itself got found and fixed this session, but
-  the scenario is now stuck on a `nokhwa`/`ci2-webcam` incompatibility with
-  `v4l2loopback` that's out of this directory's scope to fix (see
-  `POINTING-NOTES.md`'s "BLOCKED" section for the full diagnosis). No real
-  camera hardware needed at all, but needs a `v4l2loopback` virtual camera
-  device fed a real checkerboard video via `ffmpeg` (`CHECKERBOARD_VIDEO=...`,
-  required, no default) — see `README.md`'s "Checkerboard calibration and
-  `v4l2loopback`" section for the full setup (kernel module, cargo
-  `checkercal` feature). Also the only one of the three that isn't
-  regenerating a pre-existing tutorial video — there's no earlier
-  "Video_3.mp4" in this repo.
+- **`checkerboard-calibration/record.sh`** — added 2026-07-20, **its own
+  `record.sh` is currently still BLOCKED** (see "Current state" below and
+  its own `POINTING-NOTES.md`), but the underlying blocker was resolved
+  the same day at the `ci2` level (see below) — `record.sh` itself just
+  hasn't been updated to use the fix yet. As written, it feeds a real
+  checkerboard video into a `v4l2loopback` virtual camera device via
+  `ffmpeg` and points strand-cam's `webcam` backend (`nokhwa`) at it, which
+  fails to open the device at all (see `POINTING-NOTES.md`'s "BLOCKED"
+  section for the full diagnosis). A new alternative now exists and is
+  verified working: a `camera/ci2-video-file` backend
+  (`--camera-backend video-file`) that plays back a video file directly,
+  no `v4l2loopback`/`ffmpeg`/`nokhwa` needed at all — see
+  `POINTING-NOTES.md`'s "Update 2026-07-20 (later the same day)" section.
+  Also the only one of the three that isn't regenerating a pre-existing
+  tutorial video — there's no earlier "Video_3.mp4" in this repo.
 
 ## Before running either script
 
@@ -109,10 +111,13 @@ this code again:
   a negative offset if you want to land exactly on the text).
 
 `checkerboard-calibration` (`record.sh`, `POINTING-NOTES.md`), by contrast,
-**is blocked** — see `checkerboard-calibration/POINTING-NOTES.md`'s
-"BLOCKED" section (top of the file) for the full writeup; summary below.
-Two library extensions came out of originally writing it, now available to
-any scenario:
+**was blocked, then resolved at the `ci2` level later the same day** — see
+`checkerboard-calibration/POINTING-NOTES.md`'s "BLOCKED" section (top of
+the file) for the full original writeup, and its "Update 2026-07-20 (later
+the same day)" subsection right after for the fix. `record.sh` itself still
+needs updating to actually use the new backend (see above); summary of the
+original blocker below. Two library extensions came out of originally
+writing it, now available to any scenario:
 
 **Dependency check and first real run, `strawlab` Linux dev machine
 (2026-07-20):** all of `ffmpeg`/`xdotool`/`Xvfb`/`openbox`/`ttyd`/`xprop`/
@@ -138,6 +143,25 @@ like a `nokhwa`/`v4l2loopback` compatibility gap, not something fixable
 from this directory — see `POINTING-NOTES.md` for the full diagnosis
 (what was ruled out, what the working theory is, and why fixing
 `ci2-webcam` itself was deliberately not attempted this session).
+
+**Resolved later the same day, at the `ci2` level, not by fixing
+`ci2-webcam`/`nokhwa`:** added `camera/ci2-video-file`, a new backend
+(`--camera-backend video-file`) that decodes a video file directly via the
+existing `media-utils/frame-source` crate — no `v4l2loopback`, `ffmpeg`
+feeder process, or `nokhwa` involved at all. Purely additive (new crate +
+one new `CameraBackend` enum variant/match arm in
+`strand-cam/src/cli_app.rs`); no existing backend touched. Verified
+directly against strand-cam with this scenario's own
+`intrinsic_cal_demo_trimmed.mp4`: correct ~8.57fps native-rate playback
+(matching the file's real ~120.6s duration) and zero downstream dropped
+frames over a full loop cycle. See `POINTING-NOTES.md`'s "Update
+2026-07-20 (later the same day)" section for two real bugs found and fixed
+while verifying this. **Not done yet:** wiring this scenario's own
+`record.sh` (and `README.md`'s "Checkerboard calibration and
+`v4l2loopback`" section) to actually use `STRAND_CAM_VIDEO_FILE`/
+`--camera-backend video-file` instead of the `v4l2loopback` approach above
+— until that happens, running `record.sh` as-is still hits the original
+blocker described just above.
 
 - **`click_browser_element` / `cdp_locate.py --click` gained a
   configurable `--click-ancestor`** (default still `button`) — some
@@ -181,12 +205,16 @@ from this directory — see `POINTING-NOTES.md` for the full diagnosis
   real original `Video_2.mp4` yet (unlike `strand-cam-intro`, which got one
   — see its own `COMPARISON-NOTES.md`) — tuning so far has been iterative
   spot-feedback, not a systematic pass.
-- `checkerboard-calibration` is blocked on a `nokhwa`/`v4l2loopback`
-  incompatibility — see its own section above and `POINTING-NOTES.md`'s
-  "BLOCKED" section. Needs either a `nokhwa`/`ci2-webcam` fix or a
-  different way to feed real footage into strand-cam before the usual
-  "run it, watch it, fix constants, rerun" cycle the other two scenarios
-  already went through can even start.
+- `checkerboard-calibration/record.sh` still needs updating to use the new
+  `camera/ci2-video-file` backend (`STRAND_CAM_VIDEO_FILE`/
+  `--camera-backend video-file`) instead of its current `v4l2loopback`/
+  `webcam` approach, which is blocked (see its own section above and
+  `POINTING-NOTES.md`). The backend itself is verified working in
+  isolation; once `record.sh` is updated to use it, the scenario still
+  needs the usual "run it, watch it, fix constants, rerun" tuning cycle
+  the other two scenarios already went through (untuned pointing constants,
+  no comparison pass yet — see `POINTING-NOTES.md`'s own "Unverified" and
+  "Known gap" sections).
 - Git author email on old commits is still the auto-generated
   `mh1517@bio-....privat`, not the real `mh1517@bio.uni-freiburg.de` — only
   matters if this ever goes upstream.
@@ -196,7 +224,7 @@ from this directory — see `POINTING-NOTES.md` for the full diagnosis
 ```
 cd media-utils/tutorial-video-simulation/strand-cam-intro && ./record.sh   # works anywhere
 cd media-utils/tutorial-video-simulation/braid-intro && ./record.sh       # needs the real 5-camera rig
-cd media-utils/tutorial-video-simulation/checkerboard-calibration && CHECKERBOARD_VIDEO=... ./record.sh  # BLOCKED -- nokhwa/v4l2loopback issue, see POINTING-NOTES.md
+cd media-utils/tutorial-video-simulation/checkerboard-calibration && CHECKERBOARD_VIDEO=... ./record.sh  # record.sh itself still BLOCKED (v4l2loopback/nokhwa) -- but camera/ci2-video-file now fixes this at the ci2 level; record.sh just needs updating to use it, see POINTING-NOTES.md
 ```
 
 Watch `out/*.mp4`, get feedback, adjust the tuned constants at the top of
