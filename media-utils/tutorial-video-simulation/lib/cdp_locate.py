@@ -120,7 +120,7 @@ def ws_recv_text(sock):
             return message.decode()
 
 
-def cdp_evaluate(port, expression):
+def cdp_evaluate(port, expression, await_promise=False):
     ws_url = find_page_ws_url(port)
     # ws://host:port/path
     rest = ws_url.split("://", 1)[1]
@@ -132,7 +132,16 @@ def cdp_evaluate(port, expression):
     sock = socket.create_connection((host, ws_port), timeout=5)
     try:
         ws_handshake(sock, host, ws_port, path)
-        msg = {"id": 1, "method": "Runtime.evaluate", "params": {"expression": expression, "returnByValue": True}}
+        # await_promise: needed when `expression` is an async IIFE (e.g. the
+        # --click mode's mousedown/mouseup press animation below, which
+        # awaits a real setTimeout between the two) -- without it, CDP
+        # returns the Promise object itself instead of waiting for it to
+        # resolve.
+        msg = {
+            "id": 1,
+            "method": "Runtime.evaluate",
+            "params": {"expression": expression, "returnByValue": True, "awaitPromise": await_promise},
+        }
         ws_send_text(sock, json.dumps(msg))
         reply = json.loads(ws_recv_text(sock))
     finally:
@@ -156,6 +165,20 @@ def main():
             "nearest ancestor <a> of the matching text node. Used to read a real link's actual "
             "target (e.g. a same-origin app route whose exact URL-encoding isn't worth "
             "reimplementing in bash) rather than reconstructing it by hand."
+        ),
+    )
+    parser.add_argument(
+        "--click",
+        action="store_true",
+        help=(
+            "instead of a bounding box, call .click() on the nearest ancestor <button> of the "
+            "matching text node -- a real DOM click dispatched programmatically, so whatever "
+            "listener the app registered (e.g. a Yew onclick callback) actually fires, the same "
+            "way navigate_browser substitutes for a literal click on a link. Also overrides "
+            "window.confirm/alert to auto-accept first, since a real click's handler may call "
+            "window.confirm() synchronously -- that's a native, blocking dialog this hand-rolled "
+            "client has no way to intercept otherwise (would hang waiting for a response that "
+            "never comes)."
         ),
     )
     args = parser.parse_args()
@@ -211,6 +234,39 @@ def main():
             "return best;"
             "})()"
         )
+    elif args.click:
+        # Same last-match-wins needle walk as the other modes, but resolves
+        # to the nearest ancestor <button> instead of an <a> or a text
+        # Range. Dispatches a real mousedown, a short real pause, then
+        # mouseup + click -- not just a bare .click() -- so the browser's
+        # native :active-pseudo-class press styling actually plays (a real
+        # click's own mousedown/mouseup pair is what triggers it; .click()
+        # alone fires only the synthetic "click" event and never touches
+        # :active). An async IIFE so the pause is a real elapsed-time
+        # setTimeout, not a busy-wait -- cdp_evaluate is called with
+        # await_promise=True so CDP actually waits for it to resolve.
+        expression = (
+            "(async function(){"
+            f"var needle={needle};"
+            "var walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);"
+            "var node,best=null;"
+            "while(node=walker.nextNode()){"
+            "var idx=node.nodeValue.lastIndexOf(needle);"
+            "if(idx===-1)continue;"
+            "var el=node.parentElement?node.parentElement.closest('button'):null;"
+            "if(el){best=el;}"
+            "}"
+            "if(!best)return null;"
+            "window.confirm=function(){return true;};"
+            "window.alert=function(){};"
+            "var opts={bubbles:true,cancelable:true,view:window};"
+            "best.dispatchEvent(new MouseEvent('mousedown',opts));"
+            "await new Promise(function(r){setTimeout(r,150);});"
+            "best.dispatchEvent(new MouseEvent('mouseup',opts));"
+            "best.click();"
+            "return true;"
+            "})()"
+        )
     else:
         expression = (
             "(function(){"
@@ -235,7 +291,7 @@ def main():
         )
 
     try:
-        value = cdp_evaluate(args.port, expression)
+        value = cdp_evaluate(args.port, expression, await_promise=args.click)
     except Exception as e:
         print(f"ERROR: {e}", file=sys.stderr)
         sys.exit(1)
