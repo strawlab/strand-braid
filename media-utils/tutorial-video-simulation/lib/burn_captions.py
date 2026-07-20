@@ -14,24 +14,41 @@
 
 import argparse
 import json
+import os
 import subprocess
 import sys
+import tempfile
 
 
-def escape_drawtext(text):
-    # ffmpeg drawtext treats : and \ and ' specially.
-    return text.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
-
-
-def build_filter(events):
+def build_filter(events, text_dir):
+    # Each caption's raw text is written to its own file and referenced via
+    # drawtext's `textfile` option, rather than inlined via `text='...'` --
+    # ffmpeg's drawtext filter does its own SECOND layer of escaping on top
+    # of the filtergraph's own quoting rules ("double escaping", per
+    # ffmpeg's own docs), and getting both layers right for an arbitrary
+    # caption containing a literal single quote turned out to be fragile in
+    # practice: a caption whose text contained a shell-quoted path
+    # (`braid-run '/path/to/config.TOML'`) first broke the filtergraph
+    # parser outright ("No such filter: '<value>'", from an unescaped
+    # comma), and once that was fixed by properly splicing the quote
+    # ('\'' -- the same trick POSIX shells use), the quote characters
+    # silently vanished from the rendered caption instead of appearing
+    # literally, i.e. drawtext's own escaping layer was consuming them.
+    # `textfile` sidesteps both layers: the file's bytes are rendered
+    # verbatim, with no escaping of the caption text itself needed at all --
+    # only the file PATH goes through the filtergraph's own quoting, and
+    # since we generate that path ourselves (a plain tempdir/caption_N.txt),
+    # it never contains anything that needs escaping.
     parts = []
-    for ev in events:
+    for i, ev in enumerate(events):
         start = float(ev["t"])
         end = start + float(ev["duration"])
-        text = escape_drawtext(ev["text"])
+        text_path = os.path.join(text_dir, f"caption_{i}.txt")
+        with open(text_path, "w") as f:
+            f.write(ev["text"])
         parts.append(
             "drawtext="
-            f"text='{text}':"
+            f"textfile='{text_path}':"
             # fontsize/borderw/x/y scaled 1.5x along with session.sh's
             # SESSION_WIDTH/HEIGHT (1280x800 -> 1920x1200) to stay the same
             # size relative to the frame -- rescale these too if that ever
@@ -61,15 +78,16 @@ def main():
             if line:
                 events.append(json.loads(line))
 
-    cmd = ["ffmpeg", "-y", "-i", args.input]
-    if events:
-        cmd += ["-vf", build_filter(events)]
-    if args.comment:
-        cmd += ["-metadata", f"comment={args.comment}"]
-    cmd += ["-c:a", "copy", args.output]
+    with tempfile.TemporaryDirectory(prefix="burn_captions-") as text_dir:
+        cmd = ["ffmpeg", "-y", "-i", args.input]
+        if events:
+            cmd += ["-vf", build_filter(events, text_dir)]
+        if args.comment:
+            cmd += ["-metadata", f"comment={args.comment}"]
+        cmd += ["-c:a", "copy", args.output]
 
-    print("+", " ".join(cmd), file=sys.stderr)
-    subprocess.run(cmd, check=True)
+        print("+", " ".join(cmd), file=sys.stderr)
+        subprocess.run(cmd, check=True)
 
 
 if __name__ == "__main__":

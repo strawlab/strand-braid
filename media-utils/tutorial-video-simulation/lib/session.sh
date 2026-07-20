@@ -287,7 +287,14 @@ open_terminal() {
     # defaults to a read-only display, which would silently swallow every
     # xdotool keystroke typed into this window. rendererType=dom: forces
     # xterm.js's DOM renderer (see open_terminal's comment above).
-    setsid ttyd -p "$ttyd_port" -i 127.0.0.1 -W -t rendererType=dom bash \
+    # scrollback=100000: xterm.js's own default (1000 lines) is small enough
+    # that a busy real-hardware log (e.g. braid-run's periodic per-camera
+    # acquisition-statistics chatter across two full launches) can evict
+    # early lines -- like a Predicted URL/QR block -- before a later step
+    # ever scrolls back up looking for them. cdp_locate.py can only see
+    # what's still in the live DOM, not real scrolled-off history, so a
+    # trimmed buffer means the text is simply gone, not just off-screen.
+    setsid ttyd -p "$ttyd_port" -i 127.0.0.1 -W -t rendererType=dom -t scrollback=100000 bash \
         >"$SESSION_WORK_DIR/ttyd.log" 2>&1 &
     TERM_SESSION_PID="$!"
     SESSION_PIDS+=("$TERM_SESSION_PID")
@@ -496,6 +503,150 @@ point_at_browser_text() {
     fi
 }
 
+# wait_for_browser_text CDP_PORT NEEDLE [TRIES=150] [INTERVAL=2]: polls
+# cdp_locate.py every INTERVAL seconds, up to TRIES times, until NEEDLE
+# appears anywhere in the page's DOM. Returns 0 as soon as it's found, 1
+# once TRIES is exhausted. Unlike point_at_browser_text (which tries once
+# and falls back to a tuned pixel guess -- right for something that appears
+# near-instantly, like strand-cam's "got camera" line), this is for events
+# with no fixed upper bound on wall-clock arrival, e.g. real PTP hardware
+# synchronizing across several cameras. Doesn't move the mouse or log a
+# caption itself -- call point_at_browser_text separately right after, for
+# the actual "point at it" moment once presence is confirmed. Default
+# 150*2s = 5 minutes.
+wait_for_browser_text() {
+    local cdp_port="$1" needle="$2" tries="${3:-150}" interval="${4:-2}" i
+    local lib_dir
+    lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    for ((i = 0; i < tries; i++)); do
+        if python3 "$lib_dir/cdp_locate.py" --port "$cdp_port" --contains "$needle" \
+            >/dev/null 2>"$SESSION_WORK_DIR/cdp_locate.log"; then
+            return 0
+        fi
+        sleep "$interval"
+    done
+    return 1
+}
+
+# wait_for_log_match LOG_FILE REGEX [TRIES=150] [INTERVAL=2]: polls
+# LOG_FILE with `grep -E` every INTERVAL seconds, up to TRIES times, until a
+# line matching REGEX appears -- then prints the LAST such line (tail -1,
+# in case more than one already matches by the time it's checked) on stdout
+# and returns 0. Returns 1 once TRIES is exhausted with no match. Tolerates
+# LOG_FILE not existing yet on the first few tries (e.g. the process
+# hasn't created it yet). Analogous to wait_for_url, but for a file a
+# process writes to incrementally instead of an HTTP endpoint.
+wait_for_log_match() {
+    local log_file="$1" regex="$2" tries="${3:-150}" interval="${4:-2}" i line
+    for ((i = 0; i < tries; i++)); do
+        if [ -f "$log_file" ]; then
+            line=$(grep -E "$regex" "$log_file" 2>/dev/null | tail -1) || line=""
+            if [ -n "$line" ]; then
+                echo "$line"
+                return 0
+            fi
+        fi
+        sleep "$interval"
+    done
+    return 1
+}
+
+# newest_file_matching GLOB [NEWER_THAN_EPOCH=0]: prints the most recently
+# modified file matching GLOB (a shell glob, e.g. "$HOME/.braid-*.log"),
+# restricted to files with mtime >= NEWER_THAN_EPOCH if given (a unix epoch
+# seconds value, e.g. captured right before launching the process that
+# creates the file) -- so a second launch's own lookup doesn't re-find the
+# first launch's still-present file. Prints nothing if no file matches.
+newest_file_matching() {
+    local glob="$1" newer_than="${2:-0}" f newest="" newest_mtime=-1 mtime
+    local had_nullglob=0
+    shopt -q nullglob && had_nullglob=1
+    shopt -s nullglob
+    for f in $glob; do
+        mtime=$(stat -c %Y "$f" 2>/dev/null) || continue
+        if [ "$mtime" -ge "$newer_than" ] && [ "$mtime" -gt "$newest_mtime" ]; then
+            newest="$f"
+            newest_mtime="$mtime"
+        fi
+    done
+    [ "$had_nullglob" -eq 0 ] && shopt -u nullglob
+    [ -n "$newest" ] && echo "$newest"
+}
+
+# get_browser_href CDP_PORT NEEDLE: finds the on-screen text containing
+# NEEDLE via cdp_locate.py (same needle-matching as point_at_browser_text)
+# and prints the resolved absolute `.href` of its nearest ancestor <a>
+# element -- not reconstructed by hand in bash, since an app's exact
+# URL-encoding of a path segment (e.g. a WASM frontend that
+# percent-encodes a camera name) isn't worth reimplementing and keeping in
+# sync. Prints nothing and returns 1 if no matching link is found.
+get_browser_href() {
+    local cdp_port="$1" needle="$2"
+    local lib_dir result
+    lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    result=$(python3 "$lib_dir/cdp_locate.py" --port "$cdp_port" --contains "$needle" --get-href \
+        2>"$SESSION_WORK_DIR/cdp_locate.log") || return 1
+    echo "$result" | python3 -c 'import json,sys; print(json.load(sys.stdin)["href"])'
+}
+
+# navigate_browser CDP_PORT URL: navigates an already-open Chrome tab to
+# URL by setting `window.location.href` over the same CDP connection
+# cdp_locate.py uses for text queries -- a real full-page navigation
+# (creates a normal browser-history entry, exactly as if URL had been typed
+# into the address bar), just triggered programmatically. Used in place of
+# a literal xdotool click on a same-origin link: a real click on this
+# project's Yew/WASM-rendered camera links did not reliably trigger
+# navigation in practice, so record.sh scripts point at the link visually
+# (for the caption) and perform the actual navigation this way instead --
+# the same "simulate visually, act via a separately-verified mechanism"
+# convention already used for the terminal's printed URL and the browser
+# close button.
+navigate_browser() {
+    local cdp_port="$1" url="$2"
+    local lib_dir
+    lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    python3 -c "
+import sys, json
+sys.path.insert(0, sys.argv[1])
+import cdp_locate
+cdp_locate.cdp_evaluate(int(sys.argv[2]), 'window.location.href = ' + json.dumps(sys.argv[3]) + ';')
+" "$lib_dir" "$cdp_port" "$url"
+}
+
+# browser_back WINDOW_ID CDP_PORT LIST_URL BACK_X BACK_Y [SWEEP_WIDTH=0]:
+# points at Chrome's real back-button chrome location (BROWSER_CLOSE_X/Y-
+# style reasoning -- real browser chrome, not a page DOM element
+# cdp_locate.py can query) for the visual "LEFT CLICK" caption, then
+# navigates back to LIST_URL via navigate_browser -- kept consistent with
+# the forward navigation's own mechanism (see navigate_browser) rather
+# than mixing a real xdotool keystroke with a programmatic forward step.
+browser_back() {
+    local win="$1" cdp_port="$2" list_url="$3" back_x="$4" back_y="$5" sweep_width="${6:-0}"
+    xdotool windowactivate --sync "$win"
+    point_at "$win" "$back_x" "$back_y" "$sweep_width"
+    log_event "LEFT CLICK" 1.5
+    sleep 1.5
+    navigate_browser "$cdp_port" "$list_url"
+    sleep 1
+}
+
+# _scroll_clicks WINDOW_ID BUTTON CLICKS DELAY: low-level repeat-click
+# primitive (X11 button 4 = wheel up, 5 = wheel down). No window
+# activation/mouse positioning/captioning of its own -- shared by
+# scroll_page and scroll_by, which each handle that themselves since their
+# captioning conventions differ (one fixed round-trip caption vs. a
+# caller-provided single-direction one).
+_scroll_clicks() {
+    local win="$1" button="$2" clicks="$3" delay="$4" delay_ms
+    # A single `xdotool click --repeat` call, not a bash loop spawning one
+    # xdotool process per click -- scroll_page's own 20-click counts barely
+    # matter either way, but a large scroll (e.g. jumping many hundreds of
+    # clicks up through a busy real-hardware terminal log) would otherwise
+    # pay real per-process spawn overhead on top of the intended delay.
+    delay_ms=$(python3 -c "print(round($delay * 1000))")
+    xdotool click --repeat "$clicks" --delay "$delay_ms" "$button"
+}
+
 # scroll_page WINDOW_ID: slowly scrolls the page down then back up over
 # about 10s (20 clicks each direction, 0.25s apart), so a "watching the live
 # view" pause shows something happening instead of a completely static
@@ -505,24 +656,44 @@ point_at_browser_text() {
 # type_in/send_keys use, since XSendEvent-style --window targeting isn't
 # reliably honored by every app.
 scroll_page() {
-    local win="$1" i
+    local win="$1"
     xdotool windowactivate --sync "$win"
     move_mouse_into "$win"
     # Captioned for the 10s of actual scroll-wheel motion, not the trailing
     # 3s hold at the top -- matches the other log_event calls' convention of
     # the duration tracking the on-screen action, not whatever comes after.
     log_event "Scroll wheel" 10
-    for ((i = 0; i < 20; i++)); do
-        xdotool click 5
-        sleep 0.25
-    done
-    for ((i = 0; i < 20; i++)); do
-        xdotool click 4
-        sleep 0.25
-    done
+    _scroll_clicks "$win" 5 20 0.25
+    _scroll_clicks "$win" 4 20 0.25
     # Brief hold once back at the top, rather than immediately cutting to
     # the next action.
     sleep 3
+}
+
+# scroll_by WINDOW_ID DIRECTION CLICKS [DELAY=0.25] [CAPTION="Scroll wheel"]:
+# a single-direction scroll that doesn't fit scroll_page's fixed
+# down-then-up round trip -- e.g. scrolling UP through a terminal's
+# scrollback once to reveal something further up (like an earlier QR code),
+# with no return trip afterward. Pass CAPTION="" to suppress the caption
+# entirely, e.g. if a caller wants to log its own event covering a larger
+# span of actions.
+scroll_by() {
+    local win="$1" direction="$2" clicks="$3" delay="${4:-0.25}" caption="${5:-Scroll wheel}"
+    local button
+    case "$direction" in
+    up) button=4 ;;
+    down) button=5 ;;
+    *)
+        echo "ERROR: scroll_by direction must be 'up' or 'down', got '$direction'" >&2
+        return 1
+        ;;
+    esac
+    xdotool windowactivate --sync "$win"
+    move_mouse_into "$win"
+    if [ -n "$caption" ]; then
+        log_event "$caption" "$(python3 -c "print($clicks * $delay)")"
+    fi
+    _scroll_clicks "$win" "$button" "$clicks" "$delay"
 }
 
 # type_only WINDOW_ID TEXT: like type_in, but stops after typing -- no
