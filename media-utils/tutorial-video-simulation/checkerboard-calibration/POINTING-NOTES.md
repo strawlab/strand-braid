@@ -513,6 +513,106 @@ whole video each time), but given the confirmed intermittency, this
 should be treated as "significantly mitigated," not "provably eliminated,"
 until it's been observed clean across many more runs.
 
+## Update 2026-07-21 (still later): five real tuning runs -- offsets tuned,
+click captions completed, a real debug-save confirmation wait, and capture
+deferred past the panel-collapse step
+
+Picked up on a fresh machine/session, working purely from user-given pixel
+nudges plus one real UI-behavior question, verified via five consecutive
+real end-to-end `record.sh` runs against `CHECKERBOARD_VIDEO=
+Basler-81011970.mp4` (all clean: no CDP-lookup warnings, no leftover
+processes, calibration saved each time -- checkerboard counts ranged
+13-18 across runs, consistent with the same footage being decoded on a
+loaded machine each time, not a regression).
+
+**Every `point_at_browser_text` OFFSET_X/OFFSET_Y is now tuned** (this
+scenario previously had every single point at the untouched library
+default, `OFFSET_X=0, OFFSET_Y=6` -- see the old "Unverified" section
+below, now out of date for offsets specifically). Current values, all in
+`record.sh`:
+
+| Point (needle) | Sweep | OFFSET_X | OFFSET_Y |
+|---|---|---|---|
+| "Checkerboard Calibration" (panel expand) | 0 | 0 | -2 |
+| "Input: Checkerboard Size" (info only) | 50 (default) | 0 | 6 (default, untouched) |
+| "Enable checkerboard calibration" (enable + disable, both occurrences) | 0 | 0 | -3 |
+| "Save debug information" (enable) | 0 | 0 | -3 |
+| "Save debug information" (disable) | 0 | 0 | 0 |
+| "Number of checkerboards collected" | 100 | 15 | -10 |
+| "Perform and Save Calibration" | 0 | 0 | -3 |
+| Navigator: ".config" / "strand-cam" / "camera_info" (each) | 0 | 0 | -10 |
+| Navigator: calibration filename | 0 | 0 | -10 |
+| Viewer: needle changed from "Mean reprojection distance" to **"distance:"** | 50 (default) | 50 | 6 |
+
+Note the asymmetry deliberately left in place: "Save debug information"'s
+enable-click offset (`Y=-3`) was never applied to its disable-click
+(`Y=0`) -- the user's tuning requests named specific call sites, not "all
+occurrences of this needle," so don't assume the two should match without
+asking. Same reasoning for why the two "Enable checkerboard calibration"
+occurrences (enable/disable) DO share `Y=-3` here -- that one was
+requested for both explicitly.
+
+**Click captioning completed.** Previously only the panel-expand,
+Perform-and-Save, and navigator/viewer clicks had a "LEFT CLICK" caption;
+the four toggle presses (enable/disable x "Enable checkerboard
+calibration"/"Save debug information") had none. Added `log_event "LEFT
+CLICK" 1.5` + `sleep 1.5` before each of those four clicks too, matching
+the point-caption-pause-click pattern used everywhere else in this
+pipeline. Conversely, removed the "Starting checkerboard video" caption
+that used to precede the `StartPlayback` `post_cam_arg` call -- on
+request, since that action has no on-screen click to pair the caption
+with.
+
+**New: a real wait for the "Save debug information" toggle's visible
+"on" state**, not just its click. Investigated on request why the
+toggle's orange styling and its "Saving debug data to {path}" text
+appeared to trail the click in a captured video: both are driven by
+`shared.checkerboard_save_debug` coming back from the backend
+(`Toggle`'s `value`/`class` props in `web/ads-webasm/src/components/
+toggle.rs` and `strand-cam/yew_frontend/src/main.rs:1258-1284`) via
+`CamArg::ToggleCheckerboardDebug` -> `cam_arg_task.rs:671-698` (creates
+the debug dir, updates shared state) -> a round-trip back to the browser
+-- NOT by the native checkbox tick, which flips instantly on click
+regardless of any of that. So there's a real, if usually brief,
+backend round-trip between "checkbox ticks" and "orange + path text
+appear." Added `wait_for_browser_text "$BROWSER_CDP_PORT" "Saving debug
+data to" 20 1` right after the toggle clicks, before `StartPlayback`
+fires -- not a hard gate (warns and proceeds on timeout, since this is a
+cosmetic pacing improvement, not a correctness requirement).
+
+**Screen capture (`start_capture`) moved twice this session, in
+response to two separate requests, and now starts later than either
+original position:**
+1. First moved from immediately after `start_display` to immediately
+   after `open_browser` (both windows open/tiled) -- on request, so the
+   recording doesn't show launching strand-cam at all.
+2. Then moved again, from right after `open_browser` to right after the
+   "Collapsing other BUI panels" loop -- on request, so the recording
+   also doesn't show the default expanded panel layout or the collapsing
+   itself, only the tidied-up two-window layout, right before scrolling
+   to "Checkerboard Calibration".
+
+Both moves needed the same fix to avoid a real crash: `type_in` (typing
+the launch command into the terminal) runs *before* `start_capture` now,
+and it captions via `log_event`, which does `float($SESSION_CAPTURE_START_EPOCH)`
+in Python -- crashes on the empty string that variable defaults to before
+`start_capture` first runs. Fixed by setting
+`SESSION_CAPTURE_START_EPOCH` to a placeholder value (`python3 -c 'import
+time; print(time.time())'`) right after `start_display`, then truncating
+`$SESSION_EVENTS_FILE` right after the real `start_capture` call so none
+of the placeholder-timestamped pre-recording captions (the typed launch
+command, "Enter") leak into the actual burned-in captions. Verified via a
+real run: video duration dropped from the original ~211s down to ~205s
+(capture starting after `open_browser`) and then ~202s (capture starting
+after panel-collapse), consistent with progressively less dead time at
+the front of the recording, not a regression.
+
+All changes committed as `21288d92` ("tutorial-video-simulation: more
+checkerboard-calibration tuning -- click captions, debug-save wait,
+deferred capture start") on top of `c753d8de` (the offset-only tuning
+commit from earlier the same session), both pushed to `origin/main` (the
+fork).
+
 ## Solid (verified via source, not tuned-by-eye)
 
 - The BUI markup for the "Checkerboard Calibration" panel
@@ -545,15 +645,18 @@ until it's been observed clean across many more runs.
 
 ## Unverified / needs a real run
 
-- **All `point_at_browser_text` calls have no fallback pixel coordinates**
-  (unlike every other scenario's `POINTING-NOTES.md`-tracked constants) —
-  deliberately left unset rather than guessed, since there was no way to
-  visually review a real frame while writing this. A failed CDP lookup will
-  just warn and skip that one point (see `lib/session.sh`'s
-  `point_at_browser_text`), not aim somewhere wrong — but it also means a
-  firefox-fallback run (no CDP at all) would silently skip every pointing
-  step in this scenario. Add real fallback coordinates once there's a
-  captured frame to measure them from.
+- **All `point_at_browser_text` calls still have no fallback pixel
+  coordinates** (unlike every other scenario's `POINTING-NOTES.md`-tracked
+  constants) — deliberately left unset rather than guessed. Note this is
+  now stale in one respect: the `OFFSET_X`/`OFFSET_Y` values themselves
+  *are* tuned (see the "five real tuning runs" update above, with the full
+  current table) — it's specifically the `FALLBACK_X`/`FALLBACK_Y`
+  parameters (used only if the CDP lookup itself fails) that remain unset.
+  A failed CDP lookup will just warn and skip that one point (see
+  `lib/session.sh`'s `point_at_browser_text`), not aim somewhere wrong —
+  but it also means a firefox-fallback run (no CDP at all) would silently
+  skip every pointing step in this scenario. Add real fallback coordinates
+  once there's a captured frame to measure them from.
 - **Whether `scroll_until_visible ... 60` is enough** to reach the
   "Checkerboard Calibration" heading — chosen by analogy to
   `braid-intro`'s `BROWSER_QUIT_SCROLL_CLICKS=30` (a similarly-deep BUI-page
