@@ -253,6 +253,145 @@ possibility) rather than an interaction bug. Next step once the above
 fixes are verified: check the terminal log directly for an ERROR line from
 the calibration attempt.
 
+## Update 2026-07-21 (later the same day): hold-first-frame + `StartPlayback` trigger
+
+Both real runs above suffered from `ci2-video-file` starting playback the
+instant strand-cam opened the camera — well before `record.sh` had
+collapsed other panels, dismissed the frame-processing modal, or expanded
+the Checkerboard Calibration panel, so the checkerboard-collection "timer"
+effectively started at an arbitrary point relative to what was on screen,
+not from when the recording was actually ready to watch. Fixed with a real
+core-repo change (not just `record.sh`), reusing existing architecture
+rather than inventing a new signal/file-based mechanism:
+
+- **`camera/ci2-video-file`**: new `STRAND_CAM_VIDEO_FILE_AUTOSTART` env
+  var (default `true`, fully backward compatible) — `"false"` holds
+  `next_frame` on a clone of the very first decoded frame (unpaced,
+  repeated indefinitely, `pending_frames`/`rx` untouched) until a
+  `"StartPlayback"` `ci2::Camera::command_execute` call arrives, at which
+  point pacing resets to start fresh from that moment rather than resuming
+  from whenever the camera originally opened.
+- **`camera/strand-cam-remote-control`**: new `CamArg::ExecuteCommand(String)`
+  variant — a generic pass-through to `command_execute`, since no existing
+  `CamArg` variant reached that trait method at all (it was previously only
+  called internally, for PTP-sync commands).
+- **`strand-cam/src/cam_arg_task.rs`**: one new dispatch arm forwarding
+  `ExecuteCommand` to `cam.command_execute(&name, true)`, same
+  log-and-continue error style as every other setter arm.
+- **`lib/session.sh`**: new `post_cam_arg` helper — `curl`s
+  `{"ToCamera": ...}` straight to strand-cam's `/callback` endpoint. This
+  is confirmed to be the *exact same* route the BUI's own JS already uses
+  for every camera command this pipeline otherwise simulates via
+  `click_browser_element` (`strand-cam/src/strand-cam.rs:937`'s
+  `callback_handler` → `cam_args_tx` → `cam_arg_task.rs` — the only control
+  channel a running strand-cam process has), and needs no auth token since
+  this pipeline always binds loopback-only
+  (`AccessToken::NoToken` — `strand-cam.rs`'s `build_device_connect_urls`).
+- **`record.sh`**: exports `STRAND_CAM_VIDEO_FILE_AUTOSTART=false`, and
+  once every setting is configured (size fields shown), calls
+  `post_cam_arg "$BUI_URL" '{"ExecuteCommand":"StartPlayback"}'` (captioned,
+  since it's an HTTP call with no on-screen click to show) *before*
+  enabling checkerboard calibration — deliberately reordered so detection
+  only ever runs against the already-moving video, never the held first
+  frame, regardless of whether that first frame happened to contain a
+  detectable checkerboard pose of its own.
+
+One real bug found and fixed during isolated verification (bypassing
+`record.sh`, same isolation approach used throughout this backend's
+development): the first version of the held branch applied **no pacing at
+all** -- since it just returns a cached `Arc` clone immediately, the outer
+processing pipeline called `next_frame` in a tight loop, confirmed via
+`top` at **183% CPU** while held (should be idle). Fixed by applying the
+exact same `Instant`-based pace-to-frame-rate logic to the held branch too
+(repeating the same image on the same schedule a real frame would arrive
+on), verified via the same isolated test: ~0% CPU while held, CPU usage
+climbing normally (matching real ~8.57fps decoding) within seconds of
+`curl`ing the `StartPlayback` trigger. Also verified: `cargo build --release
+-p strand-cam --features checkercal`, `cargo clippy`, and `cargo fmt --check`
+all clean.
+
+Not yet re-run through `record.sh` end-to-end as of this note — next step
+is the usual "run it, watch it" pass, which should also finally show
+whether the still-unresolved "Saved camera calibration" gap above is a real
+calibration-quality issue (now that detection genuinely only samples a
+moving video) or something else.
+
+## Update 2026-07-21 (later still): end-of-video detection switched from a
+terminal log line to a marker file — the real cause of the "video never
+reached its end" symptom
+
+The re-run above (and the two before it) all shared one symptom: the
+recording visibly showed the checkerboard video playing to completion and
+correctly holding on its last frame, but `record.sh` itself always behaved
+as if it hadn't — either exhausting the wait's timeout, or (once the
+timeout was raised) still not detecting completion any sooner. Root-caused
+without touching any code first: `wait_for_browser_text "$TERM_CDP_PORT"
+"holding on last frame" ...` was polling `cdp_locate.py`'s DOM query
+against the ttyd-bridged terminal, but `ttyd -t rendererType=dom` (via
+xterm.js's DOM renderer) only ever materializes the *currently visible
+viewport* as DOM nodes — scrolled-off history exists only in xterm.js's own
+JS-side scrollback buffer, never as DOM text `cdp_locate.py`'s
+`document.body` TreeWalker can see. Meanwhile
+`strand-cam/src/frame_process_task.rs`'s checkerboard-detection loop logs
+two `info!` lines roughly every 500ms ("Attempting to find NxM
+chessboard." then a Found/Found-no-corners line) continuously — both while
+the video plays *and*, since detection keeps running against the frozen
+last frame, after it ends too. That's ~4 new terminal lines/second
+relentlessly pushing the one-time "holding on last frame" line upward, out
+of the visible viewport, and thus permanently out of `cdp_locate.py`'s
+reach, within a few seconds of it ever appearing — no amount of extra
+timeout budget fixes this, since the line is simply gone from the DOM, not
+slow to arrive.
+
+Fixed with the file-marker approach discussed with the user rather than
+either of the two SSE/BUI-state "push" alternatives considered first (both
+rejected on request, since they'd require touching the shared `ci2` trait
+crate, `strand-cam.rs`'s single `next_frame()` call site, and/or the
+`strand-cam-storetype` crate, and possibly the Yew frontend too — outside
+this tutorial's own `ci2-video-file` backend, which the user does not want
+touched for this):
+
+- **`camera/ci2-video-file/src/lib.rs`**: new
+  `STRAND_CAM_VIDEO_FILE_DONE_MARKER` env var (unset by default, fully
+  backward compatible) — names a file path; `decode_loop` creates that file
+  (empty contents, best-effort — a write failure just logs a
+  `tracing::warn!` and otherwise doesn't affect playback) at the exact same
+  moment it already logs "holding on last frame". A plain file's existence
+  can't scroll out of view the way a terminal line can, so this sidesteps
+  the DOM problem entirely without needing any code outside this one crate.
+- **`lib/session.sh`**: new `wait_for_file FILE_PATH [TRIES] [INTERVAL]`
+  helper (next to `wait_for_log_match`) — polls for plain file existence, no
+  CDP/browser involved at all.
+- **`record.sh`**: exports
+  `STRAND_CAM_VIDEO_FILE_DONE_MARKER="$SESSION_WORK_DIR/video-file-ended"`
+  alongside the existing `AUTOSTART`/`LOOP` exports, and the "watching
+  checkerboard detections accumulate" wait now calls `wait_for_file
+  "$CHECKERBOARD_DONE_MARKER" 200 1` instead of `wait_for_browser_text
+  "$TERM_CDP_PORT" "holding on last frame" 200 1` (same 200-tries-*-1s
+  bound).
+
+Verified via a real end-to-end `record.sh` run (`cargo build --release -p
+strand-cam --features checkercal` rebuilt explicitly first, to be certain
+the running binary actually included this change rather than reusing a
+stale one — worth doing every time, since `record.sh`'s own
+`TARGET_DIR/strand-cam` existence check only detects a *missing* binary,
+not a stale one): the "Watching checkerboard detections accumulate until
+the video ends" step now resolves immediately once the video actually
+finishes, with no timeout stall — `=== Video finished — holding on its
+last frame ===` and `=== Number of checkerboards collected: 17 ===` both
+printed right after it, and the whole run (raw capture) completed in
+`213.77s` total. Clean teardown confirmed afterward (no leftover
+strand-cam/ttyd/Xvfb/chrome processes owned by this session).
+
+**Not fixed by this change, and still open:** `"Saved camera calibration to
+file"` still never appeared in this run either (same `WARNING` as every
+prior run) — that wait (`wait_for_browser_text "$TERM_CDP_PORT" "Saved
+camera calibration" 15 2`) was deliberately left alone this round, but it
+polls the exact same scrolling terminal DOM via the exact same mechanism,
+so it's a strong candidate for the identical root cause. Worth applying the
+same marker-file treatment there next, rather than assuming it's a genuine
+calibration failure.
+
 ## Solid (verified via source, not tuned-by-eye)
 
 - The BUI markup for the "Checkerboard Calibration" panel

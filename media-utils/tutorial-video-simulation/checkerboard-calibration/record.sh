@@ -90,17 +90,6 @@ mkdir -p "$OUT_DIR"
     exit 1
 }
 
-# Minimum "checkerboards collected" count to wait for before clicking
-# "Perform and Save Calibration". The users-guide's own recommended minimum
-# for a REAL calibration is higher (docs/user-docs/users-guide/src/
-# braid_calibration.md: "say, at least 10"); this default is lower purely to
-# bound how long this *recording* takes (see also the tightened
-# wait_for_checkerboard_count/save-confirmation timeouts below) -- not a
-# strand-cam-enforced minimum either way (the BUI's own Perform button is
-# disabled only at exactly 0 collected). Override to 10+ if you actually
-# care about the resulting calibration's quality rather than just the video.
-CHECKERBOARD_MIN_COUNT="${CHECKERBOARD_MIN_COUNT:-5}"
-
 # shellcheck source=../lib/session.sh
 source "$SCRIPT_DIR/../lib/session.sh"
 
@@ -179,6 +168,33 @@ export RUST_LOG=info
 # backends, via --list-cameras, rather than re-deriving the stem in bash and
 # risking it drifting from Rust's own file_stem() logic.
 export STRAND_CAM_VIDEO_FILE="$CHECKERBOARD_VIDEO"
+# Hold on the first frame instead of playing immediately (ci2-video-file's
+# default) -- this scenario explicitly kicks off real playback itself, once
+# every BUI setting is configured, via a "StartPlayback" command sent
+# through post_cam_arg (see below) -- so the checkerboard-collected count
+# only ever starts climbing from that moment, not from whenever the camera
+# happened to open.
+export STRAND_CAM_VIDEO_FILE_AUTOSTART=false
+# Play through CHECKERBOARD_VIDEO exactly once rather than looping forever
+# (ci2-video-file's default) -- this scenario waits for the whole video, not
+# a fixed checkerboard count or timeout (see "Watching checkerboard
+# detections accumulate" below), so looping would mean it never naturally
+# finishes.
+export STRAND_CAM_VIDEO_FILE_LOOP=false
+# Where ci2-video-file writes an empty marker file the instant playback
+# reaches the end (see camera/ci2-video-file/src/lib.rs's "Signaling end of
+# playback" docs) -- record.sh waits on this file's existence (wait_for_file,
+# below) rather than the terminal's own "holding on last frame" log line.
+# That log line is real and does fire, but polling for it via cdp_locate.py
+# against the ttyd-bridged terminal is unreliable: xterm.js's DOM renderer
+# only materializes the currently visible viewport as DOM nodes, and the
+# checkerboard corner-detection loop logs ~4 lines/second (both while the
+# video plays and, since detection keeps running against the frozen last
+# frame, after it ends too) -- easily enough to scroll that one-time line
+# out of view, and thus out of reach of any DOM query, within a few seconds
+# of it appearing. A plain file's existence can't scroll away.
+CHECKERBOARD_DONE_MARKER="$SESSION_WORK_DIR/video-file-ended"
+export STRAND_CAM_VIDEO_FILE_DONE_MARKER="$CHECKERBOARD_DONE_MARKER"
 echo "=== Detecting the video-file camera name ==="
 CHECKERBOARD_LIST_OUTPUT=$("$TARGET_DIR/strand-cam" --camera-backend video-file --list-cameras 2>&1) || true
 CHECKERBOARD_CAM_NAME=$(echo "$CHECKERBOARD_LIST_OUTPUT" | grep -E '^  [^ ]+  \(model:' | head -1 | awk '{print $1}')
@@ -251,24 +267,40 @@ if ! wait_for_browser_text "$BROWSER_CDP_PORT" "Checkerboard Calibration" 10 1; 
     exit 1
 fi
 
+echo "=== Letting the real default BUI layout be visible for a moment ==="
+# Every top-level BUI section normally opens in the state a real strand-cam
+# session actually starts in -- "Live view", "MP4 Recording Options", "Post
+# Triggering", "Object Detection", and "Camera Settings" all default to
+# expanded (main.rs's CheckboxLabel `initially_checked=true`, or `true` in
+# VideoField's own case for "Live view"). Pause here so the recording
+# genuinely shows that real starting state (now that the browser window is
+# placed in its final tiled position) before the next step tidies it up --
+# collapsing immediately after `open_browser` would happen too fast to ever
+# actually appear in the captured video.
+sleep 2
+
 echo "=== Collapsing other BUI panels (not relevant to this recording) ==="
 # Every top-level BUI section (main.rs) is the same CSS-checkbox-hack
 # collapsible as Checkerboard Calibration itself (see the comment further
-# down at the panel-expand step). Of the ones this build actually renders,
-# "MP4 Recording Options", "Post Triggering", and "Object Detection" default
-# to expanded (`initially_checked=true`) and sit above Checkerboard
-# Calibration in page order, so left alone they add scrolling/clutter before
-# ever reaching the calibration content; "Camera Settings" also defaults to
-# expanded, further down. ("AprilTag Detection" isn't compiled into this
-# build -- no `apriltag` feature -- so it never renders at all; "FMF & µFMF
-# Recording", "ImOps Detection", "Kalman tracking", and "Online LED
-# triggering" already default to collapsed, so there's nothing to do for
-# those.) Collapsed via a plain click_browser_element, no visual
-# pointing/captioning -- these are housekeeping for this recording's own
-# clarity, not something the tutorial is about, and (like the checkerboard
-# panel's own label) the click fires via CDP regardless of current scroll
-# position, so there's no need to scroll to each one first.
-for panel in "MP4 Recording Options" "Post Triggering" "Object Detection" "Camera Settings"; do
+# down at the panel-expand step) -- "Live view" specifically is
+# VideoField's own wrap-collapsible (web/ads-webasm/src/components/
+# video_field.rs), titled "Live view - {camera name}". All five collapsed
+# here sit above Checkerboard Calibration in page order (or, for "Camera
+# Settings", isn't worth leaving expanded either), so left alone they add
+# scrolling/clutter before ever reaching the calibration content -- and
+# "Live view" specifically needs to be out of the way before the
+# checkerboard process (enabling calibration, playback) starts, so it
+# doesn't compete for attention with the panel this recording is actually
+# about. ("AprilTag Detection" isn't compiled into this build -- no
+# `apriltag` feature -- so it never renders at all; "FMF & µFMF Recording",
+# "ImOps Detection", "Kalman tracking", and "Online LED triggering" already
+# default to collapsed, so there's nothing to do for those.) Collapsed via
+# a plain click_browser_element, no visual pointing/captioning -- this is
+# housekeeping for this recording's own clarity, not something the
+# tutorial is about, and (like the checkerboard panel's own label) the
+# click fires via CDP regardless of current scroll position, so there's no
+# need to scroll to each one first.
+for panel in "Live view" "MP4 Recording Options" "Post Triggering" "Object Detection" "Camera Settings"; do
     click_browser_element "$BROWSER_CDP_PORT" "$panel" label \
         || echo "WARNING: couldn't find/click the '$panel' panel label to collapse it -- continuing" >&2
 done
@@ -339,7 +371,31 @@ sleep 1.5
 click_browser_element "$BROWSER_CDP_PORT" "Checkerboard Calibration" label
 sleep 1
 
+echo "=== Showing the checkerboard size fields (left at strand-cam's own 8x6 default) ==="
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Input: Checkerboard Size"
+sleep 2
+
+echo "=== Starting checkerboard video playback ==="
+# Everything is configured now (other panels collapsed, error modal handled,
+# Checkerboard Calibration panel open, size fields shown) -- tell
+# ci2-video-file to stop holding on its first frame and begin real playback,
+# via the exact same POST /callback route the BUI's own JS uses for every
+# other camera command (see post_cam_arg in ../lib/session.sh), just called
+# directly instead of through a simulated click. No on-screen element to
+# point at for this one (it's a plain HTTP call, not a click), so caption it
+# the same way Ctrl+C/Enter get captioned for actions with no visible
+# on-screen trace of their own.
+log_event "Starting checkerboard video" 1.5
+post_cam_arg "$BUI_URL" '{"ExecuteCommand":"StartPlayback"}'
+sleep 1.5
+
 echo "=== Enabling checkerboard calibration ==="
+# Deliberately AFTER the StartPlayback trigger above, not before: this
+# guarantees checkerboard detection only ever runs against the
+# already-moving video, never against the held first frame -- so it can't
+# matter whether that first frame happened to contain a detectable
+# checkerboard pose of its own. The checkerboard-collected count below
+# genuinely starts from the trigger point either way.
 # Sweep width 0 -- about to click, not indicating text.
 point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Enable checkerboard calibration" "" "" "" "" 0
 log_event "LEFT CLICK" 1.5
@@ -349,45 +405,38 @@ sleep 1.5
 # <label><input type=checkbox></label> with no <button> in its DOM at all.
 click_browser_element "$BROWSER_CDP_PORT" "Enable checkerboard calibration" label
 
-echo "=== Showing the checkerboard size fields (left at strand-cam's own 8x6 default) ==="
-point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Input: Checkerboard Size"
-sleep 2
-
-echo "=== Watching checkerboard detections accumulate ==="
-# Polls the live "Number of checkerboards collected: N" counter
-# (strand-cam/yew_frontend/src/main.rs) until N reaches CHECKERBOARD_MIN_COUNT,
-# the same "actual on-screen state, not a worst-case guess" principle
+echo "=== Watching checkerboard detections accumulate until the video ends ==="
+# No checkerboard-count target and no fixed timeout -- CHECKERBOARD_VIDEO
+# (STRAND_CAM_VIDEO_FILE_LOOP=false, set above) plays through exactly once,
+# then ci2-video-file freezes on its last frame and creates
+# CHECKERBOARD_DONE_MARKER (see the export above and ci2-video-file's own
+# "Signaling end of playback" docs) instead of looping. Wait for that marker
+# file -- the same "actual observed state, not a worst-case guess" principle
 # scroll_until_visible/wait_for_browser_text already use elsewhere in this
-# pipeline. Bounded to 60 tries * 1s = 60s worst case (not
-# wait_for_browser_text's own 150-tries-*-2s = 5 minute default) -- part of
-# keeping this scenario's overall recording length reasonable (target ~2m30s
-# total; see also the tightened "Saved camera calibration" wait below), since
-# an open-ended wait here would otherwise let a slow/sparse CHECKERBOARD_VIDEO
-# blow that budget with no feedback until the very end.
-wait_for_checkerboard_count() {
-    local min_count="$1" tries="${2:-60}" interval="${3:-1}" i text n
-    for ((i = 0; i < tries; i++)); do
-        text=$(get_browser_text "$BROWSER_CDP_PORT" "Number of checkerboards collected" 2>/dev/null) || text=""
-        if [[ "$text" =~ collected:\ ([0-9]+) ]]; then
-            n="${BASH_REMATCH[1]}"
-            echo "  ...checkerboards collected so far: $n" >&2
-            if [ "$n" -ge "$min_count" ]; then
-                echo "$n"
-                return 0
-            fi
-        fi
-        sleep "$interval"
-    done
-    return 1
-}
-COLLECTED=$(wait_for_checkerboard_count "$CHECKERBOARD_MIN_COUNT") || {
-    echo "ERROR: only collected fewer than $CHECKERBOARD_MIN_COUNT checkerboards within the timeout." >&2
-    echo "CHECKERBOARD_VIDEO may need more/longer distinct checkerboard poses -- see this script's own header comment." >&2
+# pipeline -- rather than polling a count or guessing a duration. A plain
+# wait_for_file check, not wait_for_browser_text: the latter was tried first
+# and reliably failed here, since the checkerboard-detection loop's own
+# ~4 lines/second of logging scrolls a one-time terminal line like this out
+# of the ttyd-rendered DOM long before a poll can see it (see the export
+# comment above and POINTING-NOTES.md's dated update for the full
+# diagnosis). Bounded to 200 tries * 1s = 200s: comfortably above
+# CHECKERBOARD_VIDEO's own known ~120s duration (check with `ffprobe -v
+# error -show_entries format=duration CHECKERBOARD_VIDEO` if using a
+# different file) with margin, but not truly open-ended.
+if ! wait_for_file "$CHECKERBOARD_DONE_MARKER" 200 1; then
+    echo "ERROR: CHECKERBOARD_VIDEO never reached its end within the timeout." >&2
+    echo "Is STRAND_CAM_VIDEO_FILE_LOOP=false actually reaching strand-cam? Check the terminal log." >&2
     exit 1
-}
-echo "=== Collected $COLLECTED checkerboards ==="
+fi
+echo "=== Video finished -- holding on its last frame ==="
+# Log the final count for the record, but it's informational only now, not
+# a gate -- however many checkerboards a full play-through of
+# CHECKERBOARD_VIDEO happens to yield is however many there are.
+FINAL_COUNT=$(get_browser_text "$BROWSER_CDP_PORT" "Number of checkerboards collected" 2>/dev/null) || FINAL_COUNT=""
+echo "=== $FINAL_COUNT ==="
 point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Number of checkerboards collected"
-sleep 2
+# The requested 1-second hold on the last frame before moving on.
+sleep 1
 
 echo "=== Performing and saving the calibration ==="
 # Sweep width 0 -- about to click, not indicating text.
@@ -405,11 +454,11 @@ echo "=== Confirming the save in the terminal log ==="
 # history) rather than something like "computing calibration", which would
 # also fire once per attempt but reads less clearly as success. Bounded to
 # 15 tries * 2s = 30s (not the 150-tries-*-2s = 5 minute default) -- a
-# successful save confirms almost immediately, and this scenario's overall
-# recording length is meant to stay near ~2m30s (see wait_for_checkerboard_count
-# above); sitting idle for the full 5 minutes on a failed calibration would
-# blow that budget for no benefit, since the WARNING below already covers
-# the "it didn't save" case just as well at 30s as at 5 minutes.
+# successful save confirms almost immediately, and sitting idle for the
+# full 5 minutes on a failed calibration would add dead time to an already
+# CHECKERBOARD_VIDEO-length-bound recording for no benefit, since the
+# WARNING below already covers the "it didn't save" case just as well at
+# 30s as at 5 minutes.
 move_mouse_gradual_into "$TERM_WIN"
 if wait_for_browser_text "$TERM_CDP_PORT" "Saved camera calibration" 15 2; then
     point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "Saved camera calibration"

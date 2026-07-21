@@ -445,6 +445,43 @@ backend is approved and lands in whatever build ends up installed, set
 prefer-the-installed-build behavior `strand-cam-intro`/`braid-intro` already
 use. An explicit `STRAND_BRAID_TARGET_DIR` always overrides both.
 
+**The video holds on its first frame until `record.sh` says go.**
+`ci2-video-file` normally starts playing/looping the instant strand-cam
+opens the camera — but `record.sh` sets `STRAND_CAM_VIDEO_FILE_AUTOSTART=false`,
+which holds on that first frame (repeated, unpaced) until a `"StartPlayback"`
+command arrives. `record.sh` sends that command itself, via
+`lib/session.sh`'s `post_cam_arg` helper, only once every other BUI setting
+(other panels collapsed, the error modal handled, the Checkerboard
+Calibration panel expanded) is already configured — so the recording's
+pacing is deterministic and the checkerboard-collected count genuinely
+starts climbing from that moment, not from whenever strand-cam happened to
+open the camera. `post_cam_arg` POSTs directly to strand-cam's `/callback`
+endpoint — the exact same route the BUI's own JavaScript uses for every
+button/toggle click this pipeline otherwise simulates via
+`click_browser_element`, just called without a browser round-trip. See
+`camera/ci2-video-file/src/lib.rs`'s module doc ("Holding on the first
+frame") for the backend-side mechanism.
+
+**The video signals when it reaches the end via a marker file, not a log
+line.** `record.sh` also sets `STRAND_CAM_VIDEO_FILE_LOOP=false` (plays
+through exactly once instead of looping) and
+`STRAND_CAM_VIDEO_FILE_DONE_MARKER=<path>`; `ci2-video-file` creates that
+(empty) file the instant playback reaches the end, and `record.sh` waits
+on its existence (`lib/session.sh`'s `wait_for_file`) rather than polling
+the terminal for `ci2-video-file`'s own "holding on last frame" log line.
+That log line is real, but polling for it via CDP against the ttyd-bridged
+terminal doesn't work reliably: `ttyd`'s DOM-rendering terminal only ever
+materializes the currently visible viewport as DOM nodes, and the
+checkerboard-detection loop's own frequent logging (roughly 4 lines/second,
+continuing even after the video ends since detection keeps running against
+the frozen last frame) scrolls a one-time line like that out of view --
+and thus out of reach of any DOM query -- within a few seconds of it
+appearing. A plain file's existence can't scroll away. See
+`camera/ci2-video-file/src/lib.rs`'s module doc ("Signaling end of
+playback") for the backend-side mechanism, and
+`checkerboard-calibration/POINTING-NOTES.md`'s dated update for the full
+diagnosis.
+
 ## Running `checkerboard-calibration`
 
 Same Prerequisites as `strand-cam-intro`/`braid-intro` (see above), plus
