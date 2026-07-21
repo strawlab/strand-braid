@@ -217,7 +217,7 @@ _open_isolated_browser_window() {
         export MOZ_NO_REMOTE=1
         ;;
     *)
-        # chrome/chromium variants. Three flags:
+        # chrome/chromium variants. Four flags:
         #   --ozone-platform=x11: on a Wayland desktop, Chrome auto-detects
         #     $WAYLAND_DISPLAY and renders natively there, completely
         #     bypassing our isolated $DISPLAY (Wayland connections don't go
@@ -235,8 +235,60 @@ _open_isolated_browser_window() {
         #     picked per call to avoid colliding with anything else on this
         #     machine, including the other isolated browser window from this
         #     same run (this is a real, non-virtual-display-scoped TCP port).
+        #   --disable-session-crashed-bubble: suppresses the "Restore pages?
+        #     Chrome didn't shut down correctly" infobar outright, seen in a
+        #     real recording once this pipeline started keeping 4 isolated
+        #     Chrome instances open at once instead of 2 (terminal, BUI,
+        #     file navigator, file viewer -- see checkerboard-calibration/
+        #     POINTING-NOTES.md). Applied regardless of root cause: even
+        #     with this, a renderer crash would still just show an empty/
+        #     reloaded page rather than a distracting on-screen prompt.
+        #   --disable-background-networking / --disable-component-update /
+        #     --no-default-browser-check: this machine has real internet
+        #     access, so a fresh profile can genuinely reach Google's update
+        #     servers and show a "Chrome is out of date"/relaunch-to-update
+        #     nag -- a long-known cosmetic gap in this pipeline (see
+        #     strand-cam-intro/POINTING-NOTES.md's original 2026-07-16
+        #     history), not fixed until now. These stop it from ever
+        #     checking at all, rather than trying to dismiss a popup that
+        #     may or may not appear depending on network timing.
+        #
+        # --disable-session-crashed-bubble alone turned out NOT to be
+        # enough: a real recording still showed "Restore pages?" from the
+        # very first frame of a genuinely brand-new profile, before this
+        # process had even had a chance to crash -- a well-known Chrome
+        # quirk where a fresh --user-data-dir can be marked as an unclean
+        # exit internally (e.g. a startup-time re-exec) before the visible
+        # window ever appears, independent of the flag. Pre-seeding the
+        # profile's own Preferences file with a "clean exit" marker sidesteps
+        # the heuristic entirely rather than depending on a specific flag
+        # continuing to work across Chrome versions.
+        #
+        # Confirmed intermittent even with the above (one run clean,
+        # the very next run -- same code -- showed the bubble again): the
+        # user identified the likely reason -- Chrome's crash reporter
+        # (Crashpad) runs as a single handler process shared by every
+        # Chrome instance for this Linux user, not one scoped to each
+        # isolated --user-data-dir. An unrelated crash in a completely
+        # different, real Chrome window on this machine can leave that
+        # shared handler/database in a state our isolated instances still
+        # consult, even though our own profile is genuinely fresh.
+        # --disable-crash-reporter opts our instances out of that shared
+        # infrastructure entirely, and Local State's own
+        # stability.exited_cleanly flag is pre-seeded alongside Preferences'
+        # exit_type, since some Chrome versions gate the restore prompt on
+        # the browser-level Local State flag as well as (or instead of) the
+        # per-profile one.
+        mkdir -p "$profile_dir/Default"
+        cat >"$profile_dir/Default/Preferences" <<'EOF'
+{"profile":{"exit_type":"Normal","exited_cleanly":true}}
+EOF
+        cat >"$profile_dir/Local State" <<'EOF'
+{"user_experience_metrics":{"stability":{"exited_cleanly":true}}}
+EOF
+
         cdp_port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')
-        isolation_args=(--user-data-dir="$profile_dir" --no-first-run --ozone-platform=x11 --disable-gpu --remote-debugging-port="$cdp_port")
+        isolation_args=(--user-data-dir="$profile_dir" --no-first-run --ozone-platform=x11 --disable-gpu --remote-debugging-port="$cdp_port" --disable-session-crashed-bubble --disable-background-networking --disable-component-update --no-default-browser-check --disable-crash-reporter)
         ;;
     esac
 
@@ -330,6 +382,76 @@ open_browser() {
     xdotool windowsize "$BROWSER_WIN" "$SESSION_PANE_WIDTH" "$SESSION_PANE_HEIGHT"
     xdotool windowmove "$term_win" "$SESSION_MARGIN" "$SESSION_MARGIN"
     xdotool windowsize "$term_win" "$SESSION_PANE_WIDTH" "$SESSION_TERM_HEIGHT"
+}
+
+# open_file_navigator START_DIR: launches an isolated Chrome window (--app
+# mode, same "hide the tab strip/address bar so it doesn't read as an
+# obvious browser tab" trick open_terminal uses for ttyd) pointed at
+# Chrome's own built-in file:// directory listing for START_DIR. Sets the
+# globals NAV_WIN/NAV_CDP_PORT. Positioned in the same right-hand pane
+# open_browser uses -- call after the BUI is no longer needed.
+#
+# Why Chrome instead of a real file manager (e.g. Nautilus): a native
+# desktop file manager has no CDP/DOM to query, so pointing/clicking would
+# mean either a new accessibility-API integration (AT-SPI -- tried and
+# abandoned, see checkerboard-calibration/POINTING-NOTES.md for the real
+# isolation problems this hit: a GApplication singleton service that
+# ignores the isolated DISPLAY, same class of bug as gnome-terminal/Chrome-
+# on-Wayland years ago) or untuned pixel guesses. Chrome's own file://
+# listing is a real, CDP-queryable DOM (confirmed: folder/file rows are
+# genuine <a> elements with exact bounding boxes, same as every other
+# click in this pipeline), so it reuses 100% of the existing
+# cdp_locate.py/point_at_browser_text/click_browser_element machinery with
+# no new dependency and no shared-desktop risk at all.
+#
+# Deliberately NOT called via command substitution -- see open_terminal's
+# own comment for why (the subshell problem).
+open_file_navigator() {
+    local start_dir="$1"
+    local win_and_port right_x
+    win_and_port=$(_open_isolated_browser_window "file://$start_dir/" 1)
+    NAV_WIN=$(echo "$win_and_port" | awk '{print $1}')
+    NAV_CDP_PORT=$(echo "$win_and_port" | awk '{print $2}')
+
+    right_x=$((SESSION_MARGIN * 2 + SESSION_PANE_WIDTH))
+    xdotool windowmove "$NAV_WIN" "$right_x" "$SESSION_MARGIN"
+    xdotool windowsize "$NAV_WIN" "$SESSION_PANE_WIDTH" "$SESSION_PANE_HEIGHT"
+}
+
+# open_file_viewer FILE_PATH: renders FILE_PATH's real content as a small
+# HTML page (lib/render_file_viewer.py -- dispatches on extension: text-like
+# by default, <img>/<video> for known image/video extensions) and opens it
+# in a NEW isolated Chrome window (not reusing open_file_navigator's window)
+# -- deliberately a separate window, not a navigation within the navigator
+# window, so it looks like a real "double-click a file, a new window opens
+# showing it" experience rather than the navigator's own view changing.
+# Sets the globals VIEWER_WIN/VIEWER_CDP_PORT. Since the result is real
+# HTML, cdp_locate.py/point_at_browser_text work on its content exactly
+# like everywhere else in this pipeline -- e.g. pointing at a specific
+# value inside a displayed YAML file.
+#
+# Why not just navigate Chrome directly to the file's own file:// URL:
+# Chrome has no built-in viewer for arbitrary extensions like .yaml --
+# confirmed it silently downloads them instead of displaying anything
+# (document.body stays empty), rather than erroring loudly. Building our
+# own minimal viewer page sidesteps that entirely and is exactly as
+# reliable for any extension we add support for in render_file_viewer.py.
+#
+# Deliberately NOT called via command substitution -- see open_terminal's
+# own comment for why (the subshell problem).
+open_file_viewer() {
+    local file_path="$1"
+    local lib_dir viewer_html win_and_port
+    lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    viewer_html="$SESSION_WORK_DIR/file_viewer_$(basename "$file_path").html"
+    python3 "$lib_dir/render_file_viewer.py" "$file_path" "$viewer_html"
+
+    win_and_port=$(_open_isolated_browser_window "file://$viewer_html")
+    VIEWER_WIN=$(echo "$win_and_port" | awk '{print $1}')
+    VIEWER_CDP_PORT=$(echo "$win_and_port" | awk '{print $2}')
+
+    xdotool windowmove "$VIEWER_WIN" $((SESSION_MARGIN * 3)) $((SESSION_MARGIN * 3))
+    xdotool windowsize "$VIEWER_WIN" "$SESSION_PANE_WIDTH" "$SESSION_PANE_HEIGHT"
 }
 
 # move_mouse_to WINDOW_ID X Y: moves the mouse pointer to a specific pixel
@@ -566,6 +688,29 @@ wait_for_file() {
     local file_path="$1" tries="${2:-150}" interval="${3:-2}" i
     for ((i = 0; i < tries; i++)); do
         [ -f "$file_path" ] && return 0
+        sleep "$interval"
+    done
+    return 1
+}
+
+# wait_for_file_newer_than FILE_PATH BASELINE_MTIME [TRIES=150] [INTERVAL=2]:
+# polls FILE_PATH every INTERVAL seconds, up to TRIES times, until it exists
+# AND its mtime is strictly greater than BASELINE_MTIME (a unix epoch
+# seconds value, e.g. captured via `stat -c %Y FILE_PATH 2>/dev/null || echo 0`
+# right before triggering whatever should (re)write it). Unlike plain
+# wait_for_file, this correctly handles a target path that may already
+# exist from an earlier, unrelated run (e.g. strand-cam's calibration
+# output file lives in a real, persistent config directory, not a fresh
+# per-run temp dir like STRAND_CAM_VIDEO_FILE_DONE_MARKER's) -- a bare
+# existence check would report success immediately on a stale leftover
+# file, before this run's own save has actually happened.
+wait_for_file_newer_than() {
+    local file_path="$1" baseline="$2" tries="${3:-150}" interval="${4:-2}" i mtime
+    for ((i = 0; i < tries; i++)); do
+        if [ -f "$file_path" ]; then
+            mtime=$(stat -c %Y "$file_path" 2>/dev/null) || mtime=0
+            [ "$mtime" -gt "$baseline" ] && return 0
+        fi
         sleep "$interval"
     done
     return 1
