@@ -213,9 +213,22 @@ echo "=== Found video-file camera: $CHECKERBOARD_CAM_NAME ==="
 
 BUI_URL="http://127.0.0.1:3440/"
 
-echo "=== Starting virtual display and screen capture ==="
+echo "=== Starting virtual display ==="
 start_display
-start_capture "$OUT_DIR/raw.mp4"
+# Screen capture (start_capture, below) is deliberately deferred until both
+# the terminal and BUI windows are open AND the BUI's other panels are
+# already collapsed -- on request, this recording doesn't need to show
+# strand-cam being launched or the collapsing itself, just the tidied-up
+# layout, right before the Checkerboard Calibration tab gets clicked.
+# log_event still needs a valid
+# SESSION_CAPTURE_START_EPOCH before start_capture actually sets the real
+# one, though: type_in below (launching strand-cam) captions the typed
+# command and the Enter press via log_event, which crashes on an empty
+# epoch. This placeholder just avoids that crash -- start_capture overwrites
+# it with the real recording-start time, and the events file gets cleared
+# right after, so none of this pre-recording captioning leaks into the
+# actual video.
+SESSION_CAPTURE_START_EPOCH=$(python3 -c 'import time; print(time.time())')
 
 # strand-cam has no env var for --camera-backend (CLI-only, defaults to
 # Pylon -- see ../README.md's "A note on --camera-backend sim"). The real
@@ -267,16 +280,16 @@ if ! wait_for_browser_text "$BROWSER_CDP_PORT" "Checkerboard Calibration" 10 1; 
     exit 1
 fi
 
-echo "=== Letting the real default BUI layout be visible for a moment ==="
+echo "=== Letting the real default BUI layout settle for a moment ==="
 # Every top-level BUI section normally opens in the state a real strand-cam
 # session actually starts in -- "Live view", "MP4 Recording Options", "Post
 # Triggering", "Object Detection", and "Camera Settings" all default to
 # expanded (main.rs's CheckboxLabel `initially_checked=true`, or `true` in
-# VideoField's own case for "Live view"). Pause here so the recording
-# genuinely shows that real starting state (now that the browser window is
-# placed in its final tiled position) before the next step tidies it up --
-# collapsing immediately after `open_browser` would happen too fast to ever
-# actually appear in the captured video.
+# VideoField's own case for "Live view"). None of this default state is
+# shown in the recording (screen capture starts below, after collapsing --
+# on request, so viewers only ever see the tidied-up layout) -- this pause is
+# just settle time for the BUI's own initial render before the collapse
+# clicks below, not for anything to appear on screen.
 sleep 2
 
 echo "=== Collapsing other BUI panels (not relevant to this recording) ==="
@@ -304,6 +317,14 @@ for panel in "Live view" "MP4 Recording Options" "Post Triggering" "Object Detec
     click_browser_element "$BROWSER_CDP_PORT" "$panel" label \
         || echo "WARNING: couldn't find/click the '$panel' panel label to collapse it -- continuing" >&2
 done
+
+echo "=== Starting screen capture (right-hand window's panels are all collapsed now) ==="
+start_capture "$OUT_DIR/raw.mp4"
+# Discard the caption events logged during setup above (typing the launch
+# command, pressing Enter) -- those happened before real recording started,
+# so their timestamps (relative to the placeholder epoch set near
+# start_display) don't correspond to anything in raw.mp4.
+: > "$SESSION_EVENTS_FILE"
 
 echo "=== Suppressing frame-processing-error popups for this recording ==="
 # strand-cam/yew_frontend/src/main.rs's frame_processing_error_dialog: a real,
@@ -376,17 +397,37 @@ echo "=== Enabling checkerboard calibration and debug output ==="
 # frame means detection is already warmed up and running by the time real
 # playback starts, instead of missing the first however-many real frames
 # while it spins up. Both toggles (same <Toggle> shape,
-# checkerboard_calibration_ui in strand-cam/yew_frontend/src/main.rs) are
-# pointed at and clicked back-to-back, sharing one pause afterward, rather
-# than each getting its own separate point/caption/sleep/click cycle.
+# checkerboard_calibration_ui in strand-cam/yew_frontend/src/main.rs) get
+# their own "LEFT CLICK" caption, same as every other simulated click in
+# this pipeline.
 # Sweep width 0 -- about to click, not indicating text.
 point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Enable checkerboard calibration" "" "" "0" "-3" 0
+log_event "LEFT CLICK" 1.5
+sleep 1.5
 # ANCESTOR_TAG "label", not the default "button" -- this is a <Toggle>
 # (web/ads-webasm/src/components/toggle.rs), which renders
 # <label><input type=checkbox></label> with no <button> in its DOM at all.
 click_browser_element "$BROWSER_CDP_PORT" "Enable checkerboard calibration" label
 point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Save debug information" "" "" "0" "-3" 0
+log_event "LEFT CLICK" 1.5
+sleep 1.5
 click_browser_element "$BROWSER_CDP_PORT" "Save debug information" label
+
+# The toggle's checkbox mark ticks the instant the click lands (native
+# browser checkbox behavior), but the orange ".toggle-on" styling and the
+# "Saving debug data to {path}" line just below it are both driven by
+# shared.checkerboard_save_debug coming back from the backend
+# (CamArg::ToggleCheckerboardDebug -> cam_arg_task.rs creates the debug dir
+# and updates shared state -> that state round-trips back to the browser and
+# re-renders) -- not by the click itself. Wait for that real confirmation
+# text before starting playback, so the recording shows the toggle's actual
+# "on" appearance settled before the video begins, instead of the two
+# appearing to happen back-to-back by coincidence. Not a hard gate: if this
+# backend round-trip is ever unexpectedly slow, warn and proceed anyway
+# rather than aborting an otherwise-fine recording over a cosmetic timing
+# detail.
+wait_for_browser_text "$BROWSER_CDP_PORT" "Saving debug data to" 20 1 \
+    || echo "WARNING: 'Saving debug data to' never appeared within 20s -- proceeding anyway" >&2
 sleep 1.5
 
 echo "=== Starting checkerboard video playback ==="
@@ -396,11 +437,9 @@ echo "=== Starting checkerboard video playback ==="
 # to stop holding on its first frame and begin real playback, via the exact
 # same POST /callback route the BUI's own JS uses for every other camera
 # command (see post_cam_arg in ../lib/session.sh), just called directly
-# instead of through a simulated click. No on-screen element to point at
-# for this one (it's a plain HTTP call, not a click), so caption it the
-# same way Ctrl+C/Enter get captioned for actions with no visible on-screen
-# trace of their own.
-log_event "Starting checkerboard video" 1.5
+# instead of through a simulated click. No on-screen caption for this one
+# (deliberately removed on request) -- it's a plain HTTP call with nothing
+# for a viewer to see happen on screen at the moment it fires anyway.
 post_cam_arg "$BUI_URL" '{"ExecuteCommand":"StartPlayback"}'
 sleep 1.5
 
@@ -433,7 +472,7 @@ echo "=== Video finished -- holding on its last frame ==="
 # CHECKERBOARD_VIDEO happens to yield is however many there are.
 FINAL_COUNT=$(get_browser_text "$BROWSER_CDP_PORT" "Number of checkerboards collected" 2>/dev/null) || FINAL_COUNT=""
 echo "=== $FINAL_COUNT ==="
-point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Number of checkerboards collected" "" "" "0" "0" 100
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Number of checkerboards collected" "" "" "15" "-10" 100
 # The requested 1-second hold on the last frame before moving on.
 sleep 1
 
@@ -441,11 +480,14 @@ echo "=== Disabling checkerboard calibration and debug output ==="
 # The video has ended and no more checkerboards are coming, so turn both
 # toggles back off before computing/saving the calibration (which runs on
 # the corner sets already collected, not on live detection) -- same
-# back-to-back point/click pattern as enabling them above, sharing one
-# pause afterward.
+# point/caption/click pattern as enabling them above.
 point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Enable checkerboard calibration" "" "" "0" "-3" 0
+log_event "LEFT CLICK" 1.5
+sleep 1.5
 click_browser_element "$BROWSER_CDP_PORT" "Enable checkerboard calibration" label
 point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Save debug information" "" "" "0" "0" 0
+log_event "LEFT CLICK" 1.5
+sleep 1.5
 click_browser_element "$BROWSER_CDP_PORT" "Save debug information" label
 sleep 1.5
 
@@ -500,7 +542,7 @@ if wait_for_file_newer_than "$CHECKERBOARD_CAL_YAML" "$CHECKERBOARD_CAL_YAML_BAS
     sleep 1
 
     for folder in ".config" "strand-cam" "camera_info"; do
-        point_at_browser_text "$NAV_WIN" "$NAV_CDP_PORT" "$folder" "" "" "0" "-3" 0
+        point_at_browser_text "$NAV_WIN" "$NAV_CDP_PORT" "$folder" "" "" "0" "-10" 0
         log_event "LEFT CLICK" 1.5
         sleep 1.5
         # ANCESTOR_TAG "a": these are Chrome's own real <a> links for each
@@ -518,7 +560,7 @@ if wait_for_file_newer_than "$CHECKERBOARD_CAL_YAML" "$CHECKERBOARD_CAL_YAML_BAS
     # confirmed it silently downloads the file instead of displaying it
     # (see POINTING-NOTES.md) -- so the actual "open" action below is a
     # generated viewer page, not letting this link's own href navigate.
-    point_at_browser_text "$NAV_WIN" "$NAV_CDP_PORT" "$(basename "$CHECKERBOARD_CAL_YAML")" "" "" "0" "-3" 0
+    point_at_browser_text "$NAV_WIN" "$NAV_CDP_PORT" "$(basename "$CHECKERBOARD_CAL_YAML")" "" "" "0" "-10" 0
     log_event "LEFT CLICK" 1.5
     sleep 1.5
     open_file_viewer "$CHECKERBOARD_CAL_YAML"
