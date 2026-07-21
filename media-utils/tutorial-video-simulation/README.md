@@ -32,9 +32,9 @@ of Running instructions to force one or the other explicitly.
 `braid-intro` has no such fallback — see "Braid and camera hardware" below.
 
 `checkerboard-calibration` has no camera hardware requirement of its own at
-all, but needs a `v4l2loopback` virtual camera device fed a real recorded
-checkerboard video via `ffmpeg` — see "Checkerboard calibration and
-`v4l2loopback`" below. Unlike the other two, it is not regenerating a
+all — it plays a real recorded checkerboard video directly through
+strand-cam's `video-file` backend — see "Checkerboard calibration and the
+`video-file` backend" below. Unlike the other two, it is not regenerating a
 pre-existing tutorial video (there is no earlier "Video_3.mp4" in this
 repo) — it's new content.
 
@@ -167,10 +167,10 @@ checkerboard-calibration/
                         # calibration" tutorial video: launch strand-cam,
                         # enable Checkerboard Calibration, watch detections
                         # accumulate against a real recorded checkerboard
-                        # video fed in via v4l2loopback (no real camera
-                        # hardware needed), click "Perform and Save
-                        # Calibration". See "Checkerboard calibration and
-                        # v4l2loopback" below.
+                        # video played back through the `video-file` backend
+                        # (no real camera hardware needed), click "Perform
+                        # and Save Calibration". See "Checkerboard
+                        # calibration and the video-file backend" below.
   POINTING-NOTES.md    # same purpose as the other scenarios' own --
                         # currently all-unverified, since this one hasn't
                         # been run yet (see the file itself).
@@ -381,7 +381,7 @@ many pixel/scroll-count constants this scenario tunes by eye (see
 hardware has to actually resynchronize on every run), expect a first attempt
 to need a few rounds of "watch the video, adjust a constant, rerun."
 
-## Checkerboard calibration and `v4l2loopback`
+## Checkerboard calibration and the `video-file` backend
 
 `checkerboard-calibration` demonstrates strand-cam's intrinsic (lens
 distortion) camera calibration workflow — see
@@ -393,54 +393,32 @@ machine may have none pointed at a checkerboard) nor the synthetic `sim`
 backend's procedurally-generated insect-blob frames (`ci2-sim`) can provide
 that.
 
-Instead, this scenario feeds a real recorded checkerboard video into a
-[`v4l2loopback`](https://github.com/umlaeute/v4l2loopback) virtual camera
-device via `ffmpeg`, and points strand-cam's `webcam` backend (`ci2-webcam`,
-backed by [`nokhwa`](https://crates.io/crates/nokhwa)'s native Linux/V4L2
-enumeration) at it — the loopback device looks like an ordinary webcam to
-`nokhwa`, so this needs no strand-cam/`ci2` source changes, only two extra
-prerequisites beyond the ones listed above:
+Instead, this scenario plays a real recorded checkerboard video directly
+through strand-cam's `video-file` backend (`camera/ci2-video-file`,
+`--camera-backend video-file`), which decodes the file itself via the
+`media-utils/frame-source` crate and paces playback to its own native frame
+rate — no virtual camera device, `ffmpeg` feeder process, kernel module, or
+`nokhwa` involved at all. (An earlier version of this scenario fed the video
+through a [`v4l2loopback`](https://github.com/umlaeute/v4l2loopback) virtual
+webcam into strand-cam's `webcam` backend instead; `nokhwa` failed to open
+that device at all — see `checkerboard-calibration/POINTING-NOTES.md`'s
+BLOCKED section for the full diagnosis — so this scenario switched to the
+`video-file` backend, added specifically to unblock this.) This needs no
+extra system prerequisites beyond the ones listed above, and no `sudo`
+anywhere — just:
 
-1. The `v4l2loopback` kernel module (`v4l2loopback-dkms` on Debian/Ubuntu),
-   with a device already loaded under a known card label:
-   ```sh
-   sudo apt-get install -y v4l2loopback-dkms
-   sudo modprobe v4l2loopback video_nr=9 card_label="checkerboard-cam" exclusive_caps=1
-   ```
-   `record.sh` deliberately does not `modprobe` this itself — loading a
-   kernel module needs root, and no other script in this project ever
-   invokes `sudo` — it just checks for a device with this card label
-   (override via `CHECKERBOARD_LOOPBACK_LABEL`) and errors out with the
-   exact command above if none is found.
+- `CHECKERBOARD_VIDEO`, a video file (any container/codec the
+  `media-utils/frame-source` crate can decode, e.g. `.mp4`) of a real
+  checkerboard held at varying distances/angles, including into the corners
+  of frame, with brief (>=1s) held pauses at each distinct pose —
+  strand-cam's own detection loop only samples at most once every 500ms
+  (`checkerboard_loop_dur` in `strand-cam/src/frame_process_task.rs`), so
+  continuous fast motion may never register a clean detection.
 
-   **This is a real limitation for CI.** `modprobe` loads a module into the
-   *host* kernel, so it needs an environment where that's actually
-   possible:
-   - A plain containerized CI job (ordinary Docker-based runner) generally
-     can't load a kernel module into the shared host kernel at all, even
-     with elevated container privileges on many CI providers.
-   - A VM-based runner (e.g. GitHub Actions' hosted Ubuntu runners, which
-     are full VMs) or a self-hosted runner you control can work, but only
-     if `v4l2loopback-dkms` actually builds via DKMS against that runner's
-     kernel — not guaranteed on every CI image.
-   - Either way, the two commands above must run as their own privileged
-     setup step in the CI pipeline definition itself (e.g. a step in a
-     GitHub Actions workflow YAML), *before* the step that runs
-     `record.sh` — never inside `record.sh`, which never calls `sudo` (see
-     above).
-
-   `braid-intro` has an analogous CI limitation for a different reason (it
-   needs real physical camera hardware). Of the three scenarios, only
-   `strand-cam-intro` is CI-friendly out of the box, via its hardware-free
-   `sim` fallback.
-2. `CHECKERBOARD_VIDEO`, a video file (any container/codec `ffmpeg` can
-   decode — `.mp4`/`.webm`, doesn't matter, since `ffmpeg` decodes it before
-   it ever reaches the loopback device) of a real checkerboard held at
-   varying distances/angles, including into the corners of frame, with
-   brief (>=1s) held pauses at each distinct pose — strand-cam's own
-   detection loop only samples at most once every 500ms
-   (`checkerboard_loop_dur` in `strand-cam/src/frame_process_task.rs`), so
-   continuous fast motion may never register a clean detection.
+Because it needs no kernel module or physical hardware, `checkerboard-
+calibration` is CI-friendly the same way `strand-cam-intro`'s `sim` fallback
+is — unlike `braid-intro`, which needs real physical camera hardware and so
+cannot run in CI at all.
 
 Also needs a strand-cam build with the `checkercal` cargo feature —
 **not** in strand-cam's default feature set (`strand-cam/Cargo.toml`'s
@@ -452,41 +430,32 @@ instead verifies the "Checkerboard Calibration" panel actually renders once
 the BUI is up, erroring out with a clear message (and the rebuild command)
 if not, rather than silently recording a video of a missing feature.
 
+**`BUILD_NEW_STRANDBRAID` (default `true`) — this scenario deliberately does
+NOT prefer an installed build, unlike every other scenario here.** The
+`video-file` backend itself is a plain dependency, not gated by any cargo
+feature — but it's new (added as part of this tutorial-video work) and not
+yet reviewed/merged upstream, so no *installed* build has it yet (the real
+`.deb`-installed `/usr/bin/strand-cam` on the primary dev machine predates
+it and rejects `--camera-backend video-file` outright). This script must
+never rebuild or overwrite that installed binary, so while
+`BUILD_NEW_STRANDBRAID=true` it builds and uses its own local copy from this
+repo instead, in `target/release`, never on `PATH`. Once the `video-file`
+backend is approved and lands in whatever build ends up installed, set
+`BUILD_NEW_STRANDBRAID=false` to switch back to the normal
+prefer-the-installed-build behavior `strand-cam-intro`/`braid-intro` already
+use. An explicit `STRAND_BRAID_TARGET_DIR` always overrides both.
+
 ## Running `checkerboard-calibration`
 
-Same Prerequisites as `strand-cam-intro`/`braid-intro` (see above), plus the
-two extra ones just above (a loaded `v4l2loopback` device, `CHECKERBOARD_VIDEO`
-set). Same `STRAND_BRAID_TARGET_DIR` override for picking a specific
-`strand-cam` build if you don't want to rely on an installed package.
-
-### Locally
+Same Prerequisites as `strand-cam-intro`/`braid-intro` (see above), plus
+`CHECKERBOARD_VIDEO` set (see just above). Same `STRAND_BRAID_TARGET_DIR`
+override for picking a specific `strand-cam` build, and see
+`BUILD_NEW_STRANDBRAID` just above for why this scenario builds its own copy
+by default rather than relying on an installed package.
 
 ```sh
-sudo apt-get install -y v4l2loopback-dkms   # one-time, if not already installed
-sudo modprobe v4l2loopback video_nr=9 card_label="checkerboard-cam" exclusive_caps=1
-
 cd media-utils/tutorial-video-simulation/checkerboard-calibration
 CHECKERBOARD_VIDEO=/path/to/checkerboard.mp4 ./record.sh
-```
-
-### In CI
-
-Requires a VM-based or self-hosted runner (see the CI limitation note
-above — a plain containerized job cannot do this). The `v4l2loopback` setup
-must be its own pipeline step, run once before `record.sh`:
-
-```yaml
-# example GitHub Actions steps
-- name: Set up v4l2loopback
-  run: |
-    sudo apt-get update
-    sudo apt-get install -y v4l2loopback-dkms
-    sudo modprobe v4l2loopback video_nr=9 card_label="checkerboard-cam" exclusive_caps=1
-
-- name: Record checkerboard-calibration tutorial video
-  run: |
-    cd media-utils/tutorial-video-simulation/checkerboard-calibration
-    CHECKERBOARD_VIDEO=/path/to/checkerboard.mp4 ./record.sh
 ```
 
 Output is `out/checkerboard-calibration.mp4` (plus `out/raw.mp4` and

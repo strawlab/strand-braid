@@ -4,7 +4,14 @@
 source of truth for current behavior** if this file ever goes stale
 relative to them.
 
-## BLOCKED (2026-07-20): nokhwa can't open the v4l2loopback device
+**STATUS: the BLOCKED section right below is historical.** `record.sh` no
+longer uses `v4l2loopback`/`ci2-webcam` at all -- it was rewritten to use
+the `video-file` backend described in the "Update 2026-07-20 (later the
+same day)" section further down, which resolved this blocker. The BLOCKED
+writeup is kept for the diagnosis (in case `ci2-webcam`/`nokhwa` is ever
+revisited for something else), not as a description of current behavior.
+
+## BLOCKED (2026-07-20, historical): nokhwa can't open the v4l2loopback device
 
 First real run attempt happened this session, on Linux, with a real
 `CHECKERBOARD_VIDEO` (a trimmed `intrinsic_cal_demo.mp4`) and a real
@@ -78,13 +85,12 @@ strand-cam's acquisition pipeline (see `../README.md`'s discussion — no
 such alternative exists today; the closest thing, `media-utils/frame-source`,
 is wired up for offline post-processing only, not live camera acquisition).
 
-If picking this up again: the loopback device setup itself
-(`setup-v4l2loopback.sh`) and the trimmed test video
-(`intrinsic_cal_demo_trimmed.mp4`, already in this directory) are both
-ready to go — the blocker is purely the `nokhwa` open call above. Re-verify
-first with the direct `strand-cam --camera-backend webcam --camera-name
-checkerboard-cam` command (no `record.sh`, no browser automation) before
-assuming anything's changed.
+This is no longer something to pick up: `record.sh` was switched to the
+`video-file` backend instead (see the update section right below), so
+`ci2-webcam`/`nokhwa`/`v4l2loopback` are no longer part of this scenario at
+all. `setup-v4l2loopback.sh` has been deleted. Kept here purely as a
+diagnosis record in case `ci2-webcam`/`nokhwa` itself is ever revisited for
+an unrelated reason.
 
 ### Update 2026-07-20 (later the same day): resolved at the `ci2` level —
 ### a new `ci2-video-file` backend bypasses `v4l2loopback`/`nokhwa` entirely
@@ -130,14 +136,122 @@ touching `ci2-video-file` again:
   camera's small hardware buffer would just drop late frames rather than
   deliver them all in a burst).
 
-**Not yet done:** this scenario's own `record.sh`, `../README.md`'s
-"Checkerboard calibration and `v4l2loopback`" section, and this file's own
-header/description above all still describe the old `v4l2loopback`/`webcam`
-approach — `record.sh` has NOT been updated to actually use
-`STRAND_CAM_VIDEO_FILE`/`--camera-backend video-file` yet, so running it
-as-is still hits the original blocker. That update, then the usual "run it,
-watch it, fix constants" tuning cycle the other two scenarios already went
-through, is the natural next step.
+**Done:** this scenario's own `record.sh` and `../README.md`'s "Checkerboard
+calibration and the `video-file` backend" section were both updated to
+actually use `STRAND_CAM_VIDEO_FILE`/`--camera-backend video-file` --
+`record.sh` now exports `STRAND_CAM_VIDEO_FILE=$CHECKERBOARD_VIDEO`, detects
+the exact `--camera-name` the backend expects via `--list-cameras` (the same
+pattern `strand-cam-intro`/`braid-intro` use for a real camera's name,
+rather than re-deriving the file-stem logic in bash), and its PATH-shadowing
+wrapper now injects `--camera-backend video-file` instead of `webcam`. All
+`v4l2loopback`/`ffmpeg`-feeder/loopback-device-detection code was removed,
+along with `setup-v4l2loopback.sh` (deleted, no longer needed).
+
+**Also new: a `BUILD_NEW_STRANDBRAID` toggle (default `true`), since this
+scenario is a deliberate exception to the project's usual "prefer an
+installed strand-cam" convention.** The `video-file` backend hasn't been
+reviewed/merged upstream, so the real `.deb`-installed
+`/usr/bin/strand-cam` on the primary dev machine predates it and rejects
+`--camera-backend video-file` outright (confirmed directly) — and this
+script must never rebuild/overwrite that installed binary. While
+`BUILD_NEW_STRANDBRAID=true`, `record.sh` builds and uses its own local
+copy from this repo instead (`target/release`, never on `PATH`); flip it to
+`false` once the backend is approved and lands in whatever build ends up
+installed. See `record.sh`'s own header comment and `../README.md`'s
+"Checkerboard calibration and the `video-file` backend" section for the
+full reasoning.
+
+**Still the natural next step:** the usual "run it, watch it, fix
+constants" tuning cycle the other two scenarios already went through —
+this file's own "Unverified / needs a real run" section below still
+applies unchanged.
+
+## Update 2026-07-21: first two real end-to-end runs, several real bugs found and fixed
+
+First real run (against a locally-built `strand-cam` with
+`BUILD_NEW_STRANDBRAID=true`, real `trunk`-bundled BUI, `checkercal`
+feature) completed end-to-end: checkerboard detections genuinely
+accumulated 0→10 against `intrinsic_cal_demo_trimmed.mp4`. But the
+recording ran 6m36s (way beyond a reasonable tutorial-video length) and the
+user flagged two real problems from watching it:
+
+- **The Checkerboard Calibration panel never visually opens.** Root cause:
+  the whole panel is a CSS-checkbox-hack collapsible
+  (`web/ads-webasm/scss/_wrap_collapsible.scss`'s `.wrap-collapsible` —
+  `<CheckboxLabel label="Checkerboard Calibration">` renders a hidden
+  `<input type=checkbox>` + sibling `<label>`, with every control inside in
+  a `display:none` sibling `<div>` until checked). `scroll_until_visible`
+  only confirms the heading text is present in the DOM — it never clicks to
+  expand the section. This also explains why point_at_browser_text's CDP
+  lookups for "Enable checkerboard calibration"/"Input: Checkerboard
+  Size"/etc. kept failing in the first run (their bounding boxes are zero
+  while `display:none`), even though the underlying `click_browser_element`
+  calls still fired (a programmatic `.click()` on a hidden DOM node still
+  dispatches its click handler in Chrome, unlike a real synthetic click).
+  Fixed by adding an explicit click on the panel's own label (`ANCESTOR_TAG
+  label`, same as the Toggle components inside it) right after scrolling to
+  it, before touching anything inside.
+- **A real "Error: frame processing too slow" modal** (`main.rs`'s
+  `frame_processing_error_dialog`, a data-driven `.modal-container` fixed
+  near the top of the viewport regardless of scroll) can appear under this
+  pipeline's own CPU load (screen capture + browser + ffmpeg all competing).
+  Added a bounded check (8 tries × 1s) right after the checkercal
+  verification, before touching the Checkerboard Calibration panel at all:
+  if present, toggles "Ignore all future errors" (a `<Toggle>`, `label`
+  ancestor) *then* clicks "Dismiss" — checked the actual `Msg::
+  DismissProcessingErrorModal`/`Msg::SetIgnoreAllFutureErrors` handlers in
+  `main.rs` to confirm this ordering sends `SetIngoreFutureFrameProcessing
+  Errors(None)` (permanent), not `Some(5)` (temporary), before relying on
+  it. Needle "Dismiss" alone is ambiguous in principle (two other "Dismiss"
+  buttons exist in `main.rs` — a JSON-decode-error modal and a
+  version-update banner) but not in practice here, since `record.sh` already
+  sets `DISABLE_VERSION_CHECK=1`.
+
+The 6m36s runtime turned out to be dominated not by the checkerboard-
+accumulation wait, but by the **"Confirming the save" step's default
+5-minute `wait_for_browser_text` timeout** — the calibration save never
+actually confirmed (see below), so it sat there the full 5 minutes before
+giving up. Per the user's request ("set the timecap for the video to
+2mins30sec, wait for 5 checkerboards"), tightened three things:
+`CHECKERBOARD_MIN_COUNT` default `10` → `5`; `wait_for_checkerboard_count`
+bounded to 60 tries × 1s (60s worst case, was 150×2s=300s); the save
+confirmation's `wait_for_browser_text` bounded to 15 tries × 2s (30s worst
+case, was 300s). Second run: **93s total** (raw video), comfortably under
+the 2m30s target.
+
+Also per user request, added a step (right after the checkercal
+verification, before the frame-processing-modal check) that collapses every
+other top-level BUI panel that defaults to expanded and actually renders in
+this build — "MP4 Recording Options", "Post Triggering", "Object Detection",
+"Camera Settings" (all `initially_checked=true` in `main.rs`; "AprilTag
+Detection" never renders without the `apriltag` feature; "FMF & µFMF
+Recording"/"ImOps Detection"/"Kalman tracking"/"Online LED triggering"
+already default to collapsed) — via plain `click_browser_element` calls, no
+visual pointing, since it's housekeeping for this recording's own clarity,
+not something the tutorial is about. Not yet verified via a real run as of
+this note (added same session as the sway-removal fix just below, before
+the next `record.sh` invocation).
+
+Also per user request, removed the left-right "sweep" (`point_at`'s
+`SWEEP_WIDTH`, meant for "look at this text," not "about to click this" —
+see `braid-intro`'s own established convention) from every
+`point_at_browser_text` call that precedes a `click_browser_element`:
+"Ignore all future errors", "Dismiss", "Checkerboard Calibration" (the
+panel-expand click), "Enable checkerboard calibration", "Perform and Save
+Calibration". Left the wiggle on the three calls that only ever indicate
+text with no click following ("Input: Checkerboard Size", "Number of
+checkerboards collected", "Saved camera calibration").
+
+**Still not resolved:** "Saved camera calibration to file" has never
+appeared in either real run, despite the Perform-and-Save click
+demonstrably firing (script would have aborted under `set -e` otherwise,
+since `click_browser_element`'s exit status is checked). Not yet
+root-caused — could be a genuine calibration failure (e.g. the 5-10
+collected poses being too similar/degenerate for the solver, since
+`CHECKERBOARD_VIDEO`'s content/pacing was never verified against this
+possibility) rather than an interaction bug. Next step once the above
+fixes are verified: check the terminal log directly for an ERROR line from
+the calibration attempt.
 
 ## Solid (verified via source, not tuned-by-eye)
 
