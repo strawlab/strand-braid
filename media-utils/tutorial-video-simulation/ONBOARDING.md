@@ -166,9 +166,14 @@ setup-v4l2loopback.sh` (handled a real DKMS multi-kernel edge case seen
 here — see the diagnosis below); that script has since been deleted, once
 the scenario moved to the `video-file` backend and no longer needed
 `v4l2loopback` at all. A trimmed `CHECKERBOARD_VIDEO` is ready at
-`checkerboard-calibration/intrinsic_cal_demo_trimmed.mp4` (120.6s,
-1920x1200, video-only; the original `intrinsic_cal_demo.mp4` this was
-trimmed from is no longer present in this directory as of this writing).
+`checkerboard-calibration/Basler-81011970.mp4` (120.6s, 1920x1200,
+video-only; the original `intrinsic_cal_demo.mp4` this was trimmed from is
+no longer present in this directory as of this writing). Renamed from
+`intrinsic_cal_demo_trimmed.mp4` on 2026-07-21 — the `video-file` backend
+derives strand-cam's reported camera name from the file's stem (see
+`camera/ci2-video-file/src/lib.rs`), so this fabricated-but-plausible
+Basler-style serial makes the recording look like a real strand-cam
+instance rather than showing the demo filename on screen.
 
 With all of that in place, `record.sh` still doesn't produce a video:
 `nokhwa` (the `webcam` backend's underlying library) fails to open the
