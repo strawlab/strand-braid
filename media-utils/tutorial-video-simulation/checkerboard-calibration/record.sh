@@ -305,45 +305,37 @@ for panel in "Live view" "MP4 Recording Options" "Post Triggering" "Object Detec
         || echo "WARNING: couldn't find/click the '$panel' panel label to collapse it -- continuing" >&2
 done
 
-echo "=== Checking for a stuck 'frame processing too slow' error modal ==="
+echo "=== Suppressing frame-processing-error popups for this recording ==="
 # strand-cam/yew_frontend/src/main.rs's frame_processing_error_dialog: a real,
-# data-driven `.modal-container` (fixed near the top of the viewport,
-# regardless of scroll position -- ads-webasm/scss/_base.scss) that pops up
-# whenever the backend reports `had_frame_processing_error`, which checkerboard
-# corner-finding (CPU-heavy) can trigger under this pipeline's own recording
-# overhead (Xvfb/xdotool/ffmpeg/Chrome all competing for CPU). Left alone, it
-# sits on screen indefinitely and can recur once calibration starts. Dismissed
-# here, before touching the Checkerboard Calibration panel at all, with
-# "Ignore all future errors" also toggled on so it can't reappear mid-run.
-# Bounded wait (not wait_for_browser_text's open-ended default) since this
-# modal may not appear at all on a lightly-loaded run -- that's fine, just
-# move on if it doesn't show up within a few seconds.
-if wait_for_browser_text "$BROWSER_CDP_PORT" "frame processing too slow" 8 1; then
-    echo "=== Dismissing it: toggling 'Ignore all future errors', then Dismiss ==="
-    # Sweep width 0 -- about to click, not indicating text (see
-    # point_at_browser_text's own doc comment in lib/session.sh: the
-    # left-right wiggle reads as "look at this text," not "about to click
-    # this").
-    point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Ignore all future errors" "" "" "" "" 0
-    log_event "LEFT CLICK" 1.5
-    sleep 1.5
-    # ANCESTOR_TAG "label" -- same <Toggle> shape as "Enable checkerboard
-    # calibration" below (web/ads-webasm/src/components/toggle.rs).
-    click_browser_element "$BROWSER_CDP_PORT" "Ignore all future errors" label
-    point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Dismiss" "" "" "" "" 0
-    log_event "LEFT CLICK" 1.5
-    sleep 1.5
-    # Needle "Dismiss" alone is ambiguous in principle (main.rs has two other
-    # "Dismiss" buttons: a JSON-decode-error modal and a version-update
-    # banner) -- not ambiguous in practice here, since DISABLE_VERSION_CHECK=1
-    # (set above) keeps the version banner from ever rendering, and a JSON
-    # decode error is not expected in normal operation, so this modal's
-    # Dismiss is the only one actually in the DOM.
-    click_browser_element "$BROWSER_CDP_PORT" "Dismiss"
-    sleep 1
-else
-    echo "=== Not present within the timeout -- continuing ==="
-fi
+# data-driven `.modal-container` that pops up whenever the backend reports
+# `had_frame_processing_error`, which checkerboard corner-finding (CPU-heavy)
+# can trigger under this pipeline's own recording overhead (Xvfb/xdotool/
+# ffmpeg/Chrome all competing for CPU) -- not something a real user's
+# strand-cam session would normally hit at all. An earlier version of this
+# script waited (bounded to 8s) for the modal to appear right here, then
+# clicked "Ignore all future errors" + "Dismiss" to suppress it -- but that
+# 8s window is always well before checkerboard calibration is even enabled
+# (let alone before the video starts playing), i.e. before the CPU load that
+# actually triggers this error, so the modal was in practice never seen
+# there and the click sequence never ran; it then went on to appear,
+# undismissed, later in the recording with no code left to catch it.
+#
+# Fixed by suppressing it directly at the source instead of waiting for a
+# UI element that may not exist yet: `CamArg::SetIngoreFutureFrameProcessingErrors(None)`
+# (see camera/strand-cam-remote-control/src/lib.rs) sets the backend's
+# `FrameProcessingErrorState` to `IgnoreAll` (strand-cam/src/cam_stream_task.rs),
+# which suppresses `had_frame_processing_error` for the rest of this
+# strand-cam process's life regardless of when/how often the underlying
+# channel-full condition recurs -- the same "ignore forever" behavior the
+# toggle-then-dismiss click sequence was trying to reach, just sent directly
+# via post_cam_arg (the same `/callback` POST route used for the
+# StartPlayback trigger below) instead of simulating clicks on a modal that
+# may not have appeared yet. Sent early, before anything CPU-heavy starts,
+# so the modal never has a chance to appear on screen at all -- which is
+# also more faithful to what a real user would experience, since this error
+# is purely an artifact of this recording pipeline's own overhead, not a
+# normal part of the checkerboard calibration workflow.
+post_cam_arg "$BUI_URL" '{"SetIngoreFutureFrameProcessingErrors":null}'
 
 echo "=== Scrolling down to the Checkerboard Calibration panel ==="
 scroll_until_visible "$BROWSER_WIN" "$BROWSER_CDP_PORT" down "Checkerboard Calibration" 60
@@ -375,35 +367,42 @@ echo "=== Showing the checkerboard size fields (left at strand-cam's own 8x6 def
 point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Input: Checkerboard Size"
 sleep 2
 
-echo "=== Starting checkerboard video playback ==="
-# Everything is configured now (other panels collapsed, error modal handled,
-# Checkerboard Calibration panel open, size fields shown) -- tell
-# ci2-video-file to stop holding on its first frame and begin real playback,
-# via the exact same POST /callback route the BUI's own JS uses for every
-# other camera command (see post_cam_arg in ../lib/session.sh), just called
-# directly instead of through a simulated click. No on-screen element to
-# point at for this one (it's a plain HTTP call, not a click), so caption it
-# the same way Ctrl+C/Enter get captioned for actions with no visible
-# on-screen trace of their own.
-log_event "Starting checkerboard video" 1.5
-post_cam_arg "$BUI_URL" '{"ExecuteCommand":"StartPlayback"}'
-sleep 1.5
-
-echo "=== Enabling checkerboard calibration ==="
-# Deliberately AFTER the StartPlayback trigger above, not before: this
-# guarantees checkerboard detection only ever runs against the
-# already-moving video, never against the held first frame -- so it can't
-# matter whether that first frame happened to contain a detectable
-# checkerboard pose of its own. The checkerboard-collected count below
-# genuinely starts from the trigger point either way.
+echo "=== Enabling checkerboard calibration and debug output ==="
+# Deliberately BEFORE the StartPlayback trigger below, not after: enabling
+# detection has some startup lag before it actually kicks in, and the held
+# first frame (see STRAND_CAM_VIDEO_FILE_AUTOSTART above) never contains a
+# checkerboard anyway, so there's no risk of a spurious detection against
+# it. Enabling here and letting that lag happen against the still-held
+# frame means detection is already warmed up and running by the time real
+# playback starts, instead of missing the first however-many real frames
+# while it spins up. Both toggles (same <Toggle> shape,
+# checkerboard_calibration_ui in strand-cam/yew_frontend/src/main.rs) are
+# pointed at and clicked back-to-back, sharing one pause afterward, rather
+# than each getting its own separate point/caption/sleep/click cycle.
 # Sweep width 0 -- about to click, not indicating text.
 point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Enable checkerboard calibration" "" "" "" "" 0
-log_event "LEFT CLICK" 1.5
-sleep 1.5
 # ANCESTOR_TAG "label", not the default "button" -- this is a <Toggle>
 # (web/ads-webasm/src/components/toggle.rs), which renders
 # <label><input type=checkbox></label> with no <button> in its DOM at all.
 click_browser_element "$BROWSER_CDP_PORT" "Enable checkerboard calibration" label
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Save debug information" "" "" "" "" 0
+click_browser_element "$BROWSER_CDP_PORT" "Save debug information" label
+sleep 1.5
+
+echo "=== Starting checkerboard video playback ==="
+# Everything is configured now (other panels collapsed, error modal handled,
+# Checkerboard Calibration panel open, size fields shown, detection already
+# enabled and running against the held frame above) -- tell ci2-video-file
+# to stop holding on its first frame and begin real playback, via the exact
+# same POST /callback route the BUI's own JS uses for every other camera
+# command (see post_cam_arg in ../lib/session.sh), just called directly
+# instead of through a simulated click. No on-screen element to point at
+# for this one (it's a plain HTTP call, not a click), so caption it the
+# same way Ctrl+C/Enter get captioned for actions with no visible on-screen
+# trace of their own.
+log_event "Starting checkerboard video" 1.5
+post_cam_arg "$BUI_URL" '{"ExecuteCommand":"StartPlayback"}'
+sleep 1.5
 
 echo "=== Watching checkerboard detections accumulate until the video ends ==="
 # No checkerboard-count target and no fixed timeout -- CHECKERBOARD_VIDEO
@@ -438,6 +437,35 @@ point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Number of checkerboard
 # The requested 1-second hold on the last frame before moving on.
 sleep 1
 
+echo "=== Disabling checkerboard calibration and debug output ==="
+# The video has ended and no more checkerboards are coming, so turn both
+# toggles back off before computing/saving the calibration (which runs on
+# the corner sets already collected, not on live detection) -- same
+# back-to-back point/click pattern as enabling them above, sharing one
+# pause afterward.
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Enable checkerboard calibration" "" "" "" "" 0
+click_browser_element "$BROWSER_CDP_PORT" "Enable checkerboard calibration" label
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Save debug information" "" "" "" "" 0
+click_browser_element "$BROWSER_CDP_PORT" "Save debug information" label
+sleep 1.5
+
+# Where CamArg::PerformCheckerboardCalibration (strand-cam/src/cam_arg_task.rs)
+# saves the non-timestamped calibration file -- matches its own resolution
+# exactly (directories::BaseDirs::config_dir().join(APP_INFO.name).join("camera_info"),
+# APP_INFO.name == "strand-cam" -- see strand-cam/src/strand-cam.rs), and
+# CHECKERBOARD_CAM_NAME (detected earlier via --list-cameras) is exactly the
+# raw_cam_name that handler uses to name the file. Respect XDG_CONFIG_HOME
+# if set, same as the `directories` crate does on Linux.
+CHECKERBOARD_CAL_YAML="${XDG_CONFIG_HOME:-$HOME/.config}/strand-cam/camera_info/$CHECKERBOARD_CAM_NAME.yaml"
+# Captured BEFORE clicking "Perform and Save Calibration": this file lives
+# in a real, persistent config directory (unlike CHECKERBOARD_DONE_MARKER's
+# fresh-per-run SESSION_WORK_DIR), so a from-a-previous-run file could
+# already exist here -- a bare existence check afterward would report
+# success immediately on that stale leftover, before this run's own save
+# has actually happened. wait_for_file_newer_than (below) needs this
+# baseline to tell "already there" apart from "just written".
+CHECKERBOARD_CAL_YAML_BASELINE_MTIME=$(stat -c %Y "$CHECKERBOARD_CAL_YAML" 2>/dev/null) || CHECKERBOARD_CAL_YAML_BASELINE_MTIME=0
+
 echo "=== Performing and saving the calibration ==="
 # Sweep width 0 -- about to click, not indicating text.
 point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Perform and Save Calibration" "" "" "" "" 0
@@ -445,27 +473,71 @@ log_event "LEFT CLICK" 1.5
 sleep 1.5
 click_browser_element "$BROWSER_CDP_PORT" "Perform and Save Calibration"
 
-echo "=== Confirming the save in the terminal log ==="
-# "Saved camera calibration to file" (from the `info!(...)` in
-# strand-cam/src/cam_arg_task.rs's CamArg::PerformCheckerboardCalibration
-# handler) -- a one-time message logged exactly once per successful save,
-# the same "unique anchor, not a repeated prefix" reasoning strand-cam-intro
-# already applies to its own "got camera" lookup (see its POINTING-NOTES.md
-# history) rather than something like "computing calibration", which would
-# also fire once per attempt but reads less clearly as success. Bounded to
-# 15 tries * 2s = 30s (not the 150-tries-*-2s = 5 minute default) -- a
-# successful save confirms almost immediately, and sitting idle for the
-# full 5 minutes on a failed calibration would add dead time to an already
-# CHECKERBOARD_VIDEO-length-bound recording for no benefit, since the
-# WARNING below already covers the "it didn't save" case just as well at
-# 30s as at 5 minutes.
-move_mouse_gradual_into "$TERM_WIN"
-if wait_for_browser_text "$TERM_CDP_PORT" "Saved camera calibration" 15 2; then
-    point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "Saved camera calibration"
+echo "=== Confirming the calibration was saved (checking the real file, not the terminal log) ==="
+# An earlier version of this wait polled the terminal log for "Saved camera
+# calibration to file" -- removed (see POINTING-NOTES.md's dated update):
+# cdp_locate.py can only see whatever's currently in the ttyd-rendered
+# viewport, so that wait could never reliably distinguish "calibration
+# succeeded" from "the line already scrolled out of view before a poll
+# checked" -- a source of false-negative warnings, not a real confirmation.
+# Checking the actual file strand-cam writes is unambiguous: bounded to 15
+# tries * 2s = 30s, same budget the old terminal-log wait used.
+if wait_for_file_newer_than "$CHECKERBOARD_CAL_YAML" "$CHECKERBOARD_CAL_YAML_BASELINE_MTIME" 15 2; then
+    echo "=== Saved: $CHECKERBOARD_CAL_YAML ==="
+
+    echo "=== Opening a file navigator to browse to the calibration file ==="
+    # Chrome's own built-in file:// directory listing, not a real file
+    # manager (Nautilus et al. have no CDP/DOM to query, and turned out to
+    # have real GApplication-singleton isolation problems -- see
+    # POINTING-NOTES.md) -- --app mode hides the tab strip/address bar so
+    # it doesn't read as an obvious browser tab, same trick open_terminal
+    # uses for ttyd. Starts at $HOME so the recording shows real
+    # step-by-step folder navigation down to the calibration file, the same
+    # "watch a user browse there" principle as a real file manager demo,
+    # just backed by real, CDP-verified clicks the whole way.
+    move_mouse_gradual_into "$TERM_WIN"
+    open_file_navigator "$HOME"
+    sleep 1
+
+    for folder in ".config" "strand-cam" "camera_info"; do
+        point_at_browser_text "$NAV_WIN" "$NAV_CDP_PORT" "$folder" "" "" "" "" 0
+        log_event "LEFT CLICK" 1.5
+        sleep 1.5
+        # ANCESTOR_TAG "a": these are Chrome's own real <a> links for each
+        # directory-listing row (confirmed via a live DOM query before
+        # writing this), so clicking one fires a real navigation to that
+        # subfolder, no different from any other link click in this
+        # pipeline.
+        click_browser_element "$NAV_CDP_PORT" "$folder" a
+        sleep 1
+    done
+
+    echo "=== Selecting the calibration file (opens in a new window, like a real double-click) ==="
+    # Sweep width 0 (about to "click"), and deliberately NOT a real
+    # click_browser_element call: Chrome has no built-in viewer for .yaml,
+    # confirmed it silently downloads the file instead of displaying it
+    # (see POINTING-NOTES.md) -- so the actual "open" action below is a
+    # generated viewer page, not letting this link's own href navigate.
+    point_at_browser_text "$NAV_WIN" "$NAV_CDP_PORT" "$(basename "$CHECKERBOARD_CAL_YAML")" "" "" "" "" 0
+    log_event "LEFT CLICK" 1.5
+    sleep 1.5
+    open_file_viewer "$CHECKERBOARD_CAL_YAML"
+    sleep 1
+
+    echo "=== Pointing at the calibration's own quality metric ==="
+    # "# Mean reprojection distance: ..." -- camcal::save_yaml's own leading
+    # comment (lower is better; this is the real number a user would care
+    # about most from this whole exercise), rendered as plain text inside
+    # the generated viewer's <pre> -- pointable exactly like any other
+    # on-screen text in this pipeline, since it's real HTML/DOM, not a
+    # native app.
+    point_at_browser_text "$VIEWER_WIN" "$VIEWER_CDP_PORT" "Mean reprojection distance"
+    sleep 3
 else
-    echo "WARNING: 'Saved camera calibration to file' never appeared in the terminal log -- calibration may have failed (check for an ERROR line, e.g. from too few/too degenerate checkerboard poses)." >&2
+    echo "WARNING: $CHECKERBOARD_CAL_YAML was never (re)written within the timeout -- calibration may have failed (check the terminal log for an ERROR line, e.g. from too few/too degenerate checkerboard poses). Skipping the file-navigator steps." >&2
+    move_mouse_gradual_into "$TERM_WIN"
+    sleep 3
 fi
-sleep 3
 
 echo "=== Stopping capture ==="
 stop_capture

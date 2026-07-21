@@ -392,6 +392,127 @@ so it's a strong candidate for the identical root cause. Worth applying the
 same marker-file treatment there next, rather than assuming it's a genuine
 calibration failure.
 
+## Update 2026-07-21 (yet later): real calibration-save check, frame-
+processing-error popup fixed at the source, and a file-navigator/viewer
+step added after saving
+
+The "Saved camera calibration" gap flagged just above turned out to be
+exactly the same scrolling-DOM problem: fixed the same way as the
+end-of-video wait, by checking the real file on disk instead of the
+terminal log. `record.sh` now captures `CHECKERBOARD_CAL_YAML`'s mtime
+*before* clicking "Perform and Save Calibration" (this file lives in a
+real, persistent `~/.config/strand-cam/camera_info/` — not a fresh
+per-run temp dir — so a stale file from an earlier run could already be
+there; a bare existence check would false-positive on it) and
+`lib/session.sh`'s new `wait_for_file_newer_than FILE BASELINE_MTIME`
+waits for it to actually be rewritten. No more false-negative "may have
+failed" warnings on a calibration that actually succeeded.
+
+**Frame-processing-error popup**: root-caused and fixed at the source
+instead of trying to catch/dismiss it visually. The old code waited up to
+8s near BUI startup for the "frame processing too slow" modal, then
+clicked "Ignore all future errors" + "Dismiss" — but that 8s window is
+always well before checkerboard detection (the actual CPU-heavy trigger)
+starts, so the modal was never actually there to click, and reappeared
+later, undismissed, with nothing left to catch it. Fixed with a single
+`post_cam_arg "$BUI_URL" '{"SetIngoreFutureFrameProcessingErrors":null}'`
+call sent early (before anything CPU-heavy starts) — sets the backend's
+`FrameProcessingErrorState` to `IgnoreAll` directly (same mechanism the
+toggle-then-dismiss click sequence was trying to reach), so the modal
+never appears on screen at all, which is also more honest: a real user
+under real conditions basically never sees this, since it's purely an
+artifact of this recording pipeline's own CPU overhead.
+
+**Toggle sequencing fixed on request**: "Enable checkerboard calibration"
+now fires *before* `StartPlayback` (not after) — detection has some
+startup lag, and the held first frame never contains a checkerboard
+anyway, so enabling it early means detection is already warmed up by the
+time real playback starts, instead of missing the first several real
+frames. A new "Save debug information" toggle is enabled alongside it
+(one shared point/click/pause beat, not two separate ones), and both get
+disabled the same way right after the video ends, before "Perform and
+Save Calibration" (detection's job is done; calibration computes from
+already-collected corners, not live detection).
+
+**New: after saving, `record.sh` browses to and opens the calibration
+file.** Considered and rejected two other approaches first, worth
+remembering why:
+- **AT-SPI automation of a real file manager (Nautilus)** — tried, hit
+  real, escalating isolation problems: Nautilus is a GApplication
+  singleton service (same class of bug as old `gnome-terminal`/Wayland
+  issues) that leaked a window onto the user's *real* desktop on first
+  attempt; the fix for that (a private `dbus-run-session`) then triggered
+  GTK to spin up a second, redundant AT-SPI accessibility stack
+  (bus-launcher + registry + dbus-daemon) as an unwanted side effect; and
+  even a plain script on the *normal* shared session bus failed to
+  connect to the accessibility bus for reasons never root-caused. Abandoned
+  per the user's explicit call, after three consecutive rounds of
+  side-effects on shared session state.
+- **Launching a native program (e.g. a text editor) to view the file** —
+  rejected because it has no CDP/DOM, so nothing inside it could be
+  pointed at with the mouse the way everything else in this pipeline can.
+- **What was actually built**: Chrome's own built-in `file://` directory
+  listing (confirmed via live CDP query: real `<a>` elements, exact
+  bounding boxes, same as every other click in this pipeline) serves as
+  the file navigator — `lib/session.sh`'s new `open_file_navigator
+  START_DIR` opens it in `--app` mode (hides the tab strip, same trick
+  `open_terminal` uses for ttyd). `record.sh` clicks through
+  `.config` → `strand-cam` → `camera_info` (real link clicks, confirmed
+  hidden/dotfile folders do show up in Chrome's listing) to reach the
+  calibration file. Chrome has no built-in viewer for `.yaml` though —
+  confirmed it silently downloads the file instead of displaying it
+  (`document.body` stays empty) — so selecting it doesn't let its own
+  `href` navigate; instead `lib/render_file_viewer.py` (new, stdlib-only)
+  reads the real file and builds a small HTML page (`<pre>` for
+  text-like content, `<img>`/`<video>` for images/video, dispatched by
+  extension — "robust to future usage not using yaml" per the user's
+  request), which `open_file_viewer FILE_PATH` opens in a genuinely new
+  isolated Chrome window (not a navigation within the navigator window,
+  so it looks like a real "double-click opens a new window" experience).
+  Because the result is real HTML, `point_at_browser_text` works on its
+  content exactly like anywhere else — `record.sh` points at the
+  calibration's own "Mean reprojection distance" line, its real quality
+  metric.
+
+Verified end-to-end via real captured frames (not just the script's own
+exit code): the navigator correctly showed `.config/strand-cam/`, the
+viewer window displayed the actual saved YAML content (cross-checked
+against the real file on disk), and the mouse ended up on the
+reprojection-distance line as intended.
+
+**A real, still only partially-understood Chrome cosmetic bug found and
+mitigated along the way**: once this pipeline started keeping 4 isolated
+Chrome windows open at once (terminal, BUI, navigator, viewer) instead of
+2, the BUI window started intermittently showing Chrome's "Restore pages?
+Chrome didn't shut down correctly" infobar (`SessionCrashedBubbleView`) —
+confirmed via real frame extraction, present from as early as t=20-30s of
+a ~212s recording (i.e. not something caused by end-of-recording cleanup
+ordering, which was the first hypothesis considered and ruled out on
+timing grounds: the banner predates any cleanup by well over a minute).
+Also confirmed genuinely intermittent, not deterministic: the *exact same*
+code produced the banner on one run and not the very next one. The user's
+working theory is a crash in some *unrelated* real Chrome process on this
+machine tainting Crashpad (Chrome's crash-report handler, which runs as a
+single process shared by every Chrome instance for a given Linux user,
+not one scoped per isolated `--user-data-dir`) — plausible and consistent
+with the intermittency, though not independently proven. Mitigated in
+`_open_isolated_browser_window` (`lib/session.sh`) with four layered
+measures, applied to every isolated Chrome window this pipeline opens:
+`--disable-session-crashed-bubble` and `--disable-crash-reporter` (opts
+out of the shared Crashpad infrastructure entirely), plus pre-seeding
+both `<profile_dir>/Default/Preferences` (`exit_type: Normal`) and
+`<profile_dir>/Local State` (`stability.exited_cleanly: true`) before
+launch, since different Chrome versions/code paths can gate the restore
+prompt on either file. Also added, unrelated but same code path:
+`--disable-background-networking`/`--disable-component-update`/
+`--no-default-browser-check`, fixing a long-known, previously-unaddressed
+cosmetic gap from `strand-cam-intro`'s own original 2026-07-16 history (a
+"Can't update Chrome" bubble). Multiple full runs after all of the above
+came back completely clean (checked via frame extraction across the
+whole video each time), but given the confirmed intermittency, this
+should be treated as "significantly mitigated," not "provably eliminated,"
+until it's been observed clean across many more runs.
+
 ## Solid (verified via source, not tuned-by-eye)
 
 - The BUI markup for the "Checkerboard Calibration" panel

@@ -53,26 +53,29 @@ Always push to `origin` (should already point at
   `POINTING-NOTES.md`'s "BLOCKED" section, now historical, for the full
   diagnosis. The `video-file` backend was added specifically to unblock
   this, then `record.sh` itself was updated to use it — see "Current
-  state" below.) **Run end-to-end four times now** (2026-07-21), each time
-  fixing a real bug the user caught by watching the output or diagnosed
-  from the symptom: the Checkerboard Calibration panel's collapsible
-  section wasn't actually being expanded, a "frame processing too slow"
-  modal was left undismissed, the recording ran way too long (6m36s)
-  because of an open-ended wait that's since been bounded, a
-  hold-on-first-frame + `"StartPlayback"` trigger was added so the video
-  only starts moving once `record.sh` has finished configuring everything
-  else, and — most recently — end-of-video detection was switched from
-  polling the ttyd terminal's rendered DOM for a log line to polling for a
-  plain marker file `ci2-video-file` now writes directly, since the
-  terminal-DOM approach was silently unreliable (xterm.js's DOM renderer
-  only ever shows the current viewport, and the checkerboard-detection
-  loop's own ~4 lines/second of logging scrolled the one-time "holding on
-  last frame" line out of reach within seconds of it appearing, no matter
-  how long the timeout was) — see `POINTING-NOTES.md`'s dated update
-  sections for the full history of all of these. "Saved camera calibration
-  to file" has still never appeared in any run so far; still unresolved,
-  and a strong candidate for the identical scrolling-DOM root cause (see
-  `POINTING-NOTES.md`'s latest update).
+  state" below.) **Run end-to-end many times now** (2026-07-20 through
+  2026-07-21), each time fixing a real bug the user caught by watching the
+  output or diagnosed from the symptom — see `POINTING-NOTES.md`'s dated
+  update sections for the full history. Highlights: end-of-video detection
+  and the calibration-save confirmation both switched from polling the
+  ttyd terminal's rendered DOM for a log line to checking real state
+  directly (a marker file `ci2-video-file` writes, and the calibration
+  YAML's own mtime, respectively) — the terminal-DOM approach was silently
+  unreliable, since xterm.js's DOM renderer only ever shows the current
+  viewport and the checkerboard-detection loop's own ~4 lines/second of
+  logging scrolled one-time lines out of reach within seconds, no matter
+  the timeout. The "frame processing too slow" popup is now suppressed at
+  the source (a direct `post_cam_arg` call, sent before anything CPU-heavy
+  starts) instead of being caught-and-dismissed after the fact. Most
+  recently, `record.sh` browses to and opens the saved calibration file
+  after saving it — via Chrome's own built-in `file://` directory listing
+  (real CDP-verified clicks, no new dependency) and a small generated HTML
+  viewer (`lib/render_file_viewer.py`), not a native file manager (AT-SPI
+  automation of Nautilus was tried and abandoned after real, escalating
+  isolation side-effects — see `POINTING-NOTES.md`). Also mitigated (not
+  fully proven eliminated — confirmed intermittent): a "Restore pages?
+  Chrome didn't shut down correctly" bubble that started appearing once
+  this scenario keeps 4 isolated Chrome windows open at once.
 
   **Unlike every other scenario here, this one does NOT default to
   preferring an installed strand-cam.** The `video-file` backend is new and
@@ -239,16 +242,14 @@ what's still outstanding (mainly: a first real end-to-end run).
   real original `Video_2.mp4` yet (unlike `strand-cam-intro`, which got one
   — see its own `COMPARISON-NOTES.md`) — tuning so far has been iterative
   spot-feedback, not a systematic pass.
-- `checkerboard-calibration/record.sh` has been run end-to-end four times
+- `checkerboard-calibration/record.sh` has been run end-to-end many times
   now (see its own section above and `POINTING-NOTES.md`'s dated update
   sections) — still mid-tuning, same iterative cycle the other two
   scenarios already went through (no comparison pass yet — see
-  `POINTING-NOTES.md`'s "Known gap" section). "Saved camera calibration to
-  file" has never appeared in a real run so far — still unresolved, and
-  (per `POINTING-NOTES.md`'s latest update) a strong candidate for the same
-  scrolling-terminal-DOM root cause the end-of-video wait just got fixed
-  for — worth trying the same marker-file treatment there next before
-  assuming it's a genuine calibration failure.
+  `POINTING-NOTES.md`'s "Known gap" section). The Chrome "Restore pages?"
+  bubble is mitigated but, given confirmed intermittency, not proven fully
+  eliminated — worth watching for on future runs before treating it as
+  closed.
 - Git author email on old commits is still the auto-generated
   `mh1517@bio-....privat`, not the real `mh1517@bio.uni-freiburg.de` — only
   matters if this ever goes upstream.
@@ -258,7 +259,7 @@ what's still outstanding (mainly: a first real end-to-end run).
 ```
 cd media-utils/tutorial-video-simulation/strand-cam-intro && ./record.sh   # works anywhere
 cd media-utils/tutorial-video-simulation/braid-intro && ./record.sh       # needs the real 5-camera rig
-cd media-utils/tutorial-video-simulation/checkerboard-calibration && CHECKERBOARD_VIDEO=... ./record.sh  # run 4x successfully; still mid-tuning, "Saved camera calibration" wait still unresolved, see POINTING-NOTES.md
+cd media-utils/tutorial-video-simulation/checkerboard-calibration && CHECKERBOARD_VIDEO=... ./record.sh  # run many times successfully; still mid-tuning, see POINTING-NOTES.md
 ```
 
 Watch `out/*.mp4`, get feedback, adjust the tuned constants at the top of
