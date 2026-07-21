@@ -551,6 +551,26 @@ wait_for_log_match() {
     return 1
 }
 
+# wait_for_file FILE_PATH [TRIES=150] [INTERVAL=2]: polls for FILE_PATH's
+# existence every INTERVAL seconds, up to TRIES times. Returns 0 once found,
+# 1 once TRIES is exhausted. Prefer this over wait_for_browser_text for a
+# signal a backend can write directly to disk (e.g. ci2-video-file's
+# STRAND_CAM_VIDEO_FILE_DONE_MARKER): a plain file's existence can't scroll
+# out of view the way a line in a ttyd/xterm.js-rendered terminal can --
+# xterm.js's DOM renderer only ever materializes the currently visible
+# viewport as DOM nodes, so a busy log can evict a one-time line from the
+# DOM (and thus from what cdp_locate.py can see) well before a poll catches
+# it. See checkerboard-calibration/POINTING-NOTES.md for the concrete case
+# this was added for.
+wait_for_file() {
+    local file_path="$1" tries="${2:-150}" interval="${3:-2}" i
+    for ((i = 0; i < tries; i++)); do
+        [ -f "$file_path" ] && return 0
+        sleep "$interval"
+    done
+    return 1
+}
+
 # newest_file_matching GLOB [NEWER_THAN_EPOCH=0]: prints the most recently
 # modified file matching GLOB (a shell glob, e.g. "$HOME/.braid-*.log"),
 # restricted to files with mtime >= NEWER_THAN_EPOCH if given (a unix epoch
@@ -874,6 +894,23 @@ wait_for_url() {
         sleep 0.5
     done
     return 1
+}
+
+# post_cam_arg BUI_URL CAM_ARG_JSON: POSTs {"ToCamera": CAM_ARG_JSON} to the
+# BUI's /callback endpoint (strand-cam/src/strand-cam.rs's callback_handler)
+# -- the exact same plain HTTP endpoint the BUI's own JS uses to control the
+# camera (every button/toggle click this pipeline simulates via
+# click_browser_element ultimately goes through this same route from inside
+# the browser); this just calls it directly. No token needed: this pipeline
+# always binds strand-cam to loopback only, which strand-cam always treats
+# as AccessToken::NoToken (strand-cam/src/strand-cam.rs's
+# build_device_connect_urls). CAM_ARG_JSON is the JSON body for one CamArg
+# variant, e.g. '{"ExecuteCommand":"StartPlayback"}'.
+post_cam_arg() {
+    local bui_url="$1" cam_arg_json="$2"
+    curl --fail --silent --show-error -X POST "${bui_url%/}/callback" \
+        -H 'Content-Type: application/json' \
+        -d "{\"ToCamera\":$cam_arg_json}"
 }
 
 # log_event TEXT DURATION_SECONDS: records an on-screen caption event, timed

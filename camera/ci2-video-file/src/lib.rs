@@ -18,9 +18,12 @@
 //!
 //! # Playback
 //!
-//! The file plays back once and then loops from the beginning, indefinitely
-//! -- there is no live-camera equivalent of "the movie ended". Decoding
-//! happens on a dedicated background thread (see [`decode_loop`]), because
+//! By default the file plays back once and then loops from the beginning,
+//! indefinitely -- there is no live-camera equivalent of "the movie ended".
+//! Setting [`VIDEO_FILE_LOOP_ENV`] to `"false"` disables this, instead
+//! playing through exactly once and holding on the last frame (see "Playing
+//! once, then holding on the last frame" below). Decoding happens on a
+//! dedicated background thread (see [`decode_loop`]), because
 //! [`frame_source::FrameDataSource`]'s frame iterator borrows the source for
 //! its own lifetime and so can't be stored alongside it as a struct field
 //! across independent [`ci2::Camera::next_frame`] calls; the decoder thread
@@ -43,10 +46,60 @@
 //! Frames are exposed in whatever pixel format [`frame_source`] decodes them
 //! to (`RGB8` for MP4/H.264); no format conversion is offered, matching
 //! `ci2-webcam`'s approach.
+//!
+//! # Holding on the first frame
+//!
+//! By default (matching every prior release of this backend) playback begins
+//! the instant the camera opens. Setting [`VIDEO_FILE_AUTOSTART_ENV`] to
+//! `"false"` instead holds on the very first decoded frame -- repeated
+//! indefinitely, still paced to the normal frame rate (so a caller
+//! configuring settings during a hold doesn't spin the downstream
+//! processing pipeline as fast as it possibly can on a static image) --
+//! until a `"StartPlayback"` [`ci2::Camera::command_execute`] command
+//! arrives (reachable from outside the process via
+//! `CamArg::ExecuteCommand("StartPlayback".into())`, e.g. a plain `POST
+//! /callback` to strand-cam's BUI). Real playback then begins from that
+//! moment, with pacing reset to start fresh rather than resuming from
+//! whenever the camera was originally opened. This exists so a caller (e.g.
+//! a recording/test harness) can finish configuring everything else before
+//! letting the source video actually start moving.
+//!
+//! # Playing once, then holding on the last frame
+//!
+//! Setting [`VIDEO_FILE_LOOP_ENV`] to `"false"` disables the default
+//! loop-forever behavior: the file plays through exactly once, then
+//! `next_frame` freezes on the last decoded frame -- still paced to the
+//! normal frame rate, same as the pre-start hold above, rather than a busy
+//! loop -- instead of restarting from the beginning. The decoder thread
+//! logs "reached end of ..., holding on last frame" (as opposed to "...
+//! looping playback") the moment this happens, so an external watcher (e.g.
+//! a recording harness polling the terminal log) can tell when the source
+//! has genuinely finished, rather than guessing from the file's own known
+//! duration.
+//!
+//! # Signaling end of playback
+//!
+//! The log line above works for a human watching the terminal, but is
+//! unreliable for an automated caller polling a *rendered* terminal (e.g. a
+//! recording harness driving a browser-bridged terminal via `ttyd`/CDP):
+//! most terminal front-ends, including `ttyd`'s DOM renderer, only ever
+//! materialize the currently visible viewport as DOM nodes, so a busy log
+//! (e.g. checkerboard corner-detection running every ~500ms) can scroll the
+//! line out of view -- and thus permanently out of reach of a DOM query --
+//! well before a poll happens to check for it. Setting
+//! [`VIDEO_FILE_DONE_MARKER_ENV`] to a file path has `decode_loop` create
+//! that file (empty contents) at the exact same moment it logs "holding on
+//! last frame". A plain filesystem existence check is immune to the
+//! scrolling problem above, since a file's existence doesn't scroll away.
+//! Unset by default (no marker file is written unless a caller opts in);
+//! only meaningful together with [`VIDEO_FILE_LOOP_ENV`]`=false`, since
+//! looping playback never reaches "the end" at all.
 
 extern crate machine_vision_formats as formats;
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{Receiver, RecvTimeoutError, SyncSender};
 use std::time::{Duration, Instant};
 
@@ -58,6 +111,31 @@ use strand_dynamic_frame::DynamicFrameOwned;
 
 /// The environment variable naming the video file to play back.
 pub const VIDEO_FILE_ENV: &str = "STRAND_CAM_VIDEO_FILE";
+
+/// The environment variable controlling whether playback begins immediately
+/// (`"true"`/unset, the default -- unchanged from every prior release) or
+/// holds on the first frame until a `"StartPlayback"` `command_execute` call
+/// arrives (`"false"`). See the module-level "Holding on the first frame"
+/// docs above.
+pub const VIDEO_FILE_AUTOSTART_ENV: &str = "STRAND_CAM_VIDEO_FILE_AUTOSTART";
+
+/// The [`ci2::Camera::command_execute`] command name that ends the hold
+/// started by [`VIDEO_FILE_AUTOSTART_ENV`]`=false` and begins real playback.
+pub const START_PLAYBACK_COMMAND: &str = "StartPlayback";
+
+/// The environment variable controlling whether the file loops forever
+/// (`"true"`/unset, the default -- unchanged from every prior release) or
+/// plays through exactly once and then holds on its last frame (`"false"`).
+/// See the module-level "Playing once, then holding on the last frame"
+/// docs above.
+pub const VIDEO_FILE_LOOP_ENV: &str = "STRAND_CAM_VIDEO_FILE_LOOP";
+
+/// The environment variable naming a marker file to create the moment
+/// playback reaches the end of the source (only reachable when
+/// [`VIDEO_FILE_LOOP_ENV`]`=false`). Unset by default -- no marker file is
+/// written unless a caller opts in. See the module-level "Signaling end of
+/// playback" docs above.
+pub const VIDEO_FILE_DONE_MARKER_ENV: &str = "STRAND_CAM_VIDEO_FILE_DONE_MARKER";
 
 /// Frame rate used when the source has no known average frame rate (e.g. FMF).
 const DEFAULT_FPS: f64 = 30.0;
@@ -183,12 +261,33 @@ struct DecodedFrame {
     average_framerate: Option<f64>,
 }
 
-/// Decode `path` on a dedicated thread, looping back to the beginning
-/// whenever the source is exhausted, sending each decoded frame to `tx`.
+/// A message from [`decode_loop`] to [`WrappedCamera`]: either a real
+/// decoded frame, or (only when `decode_loop` was told not to loop) a
+/// one-time marker that the file has been played through exactly once and
+/// no more frames are coming.
+enum DecodeMsg {
+    Frame(DecodedFrame),
+    /// Sent exactly once, as the last message before the decoder thread
+    /// exits, when `decode_loop` was run with `loop_playback: false`.
+    EndOfStream,
+}
+
+/// Decode `path` on a dedicated thread, sending each decoded frame to `tx`.
 ///
-/// Runs until `tx.send` fails (the receiver -- and thus the [`WrappedCamera`]
-/// -- has been dropped), at which point the thread exits.
-fn decode_loop(path: PathBuf, tx: SyncSender<ci2::Result<DecodedFrame>>) {
+/// When `loop_playback` is true (the default -- see [`VIDEO_FILE_LOOP_ENV`]),
+/// loops back to the beginning whenever the source is exhausted, indefinitely.
+/// When false, plays the file through exactly once, sends one
+/// [`DecodeMsg::EndOfStream`], creates `done_marker` (if given -- see
+/// [`VIDEO_FILE_DONE_MARKER_ENV`]), and returns.
+///
+/// Otherwise runs until `tx.send` fails (the receiver -- and thus the
+/// [`WrappedCamera`] -- has been dropped), at which point the thread exits.
+fn decode_loop(
+    path: PathBuf,
+    tx: SyncSender<ci2::Result<DecodeMsg>>,
+    loop_playback: bool,
+    done_marker: Option<PathBuf>,
+) {
     let mut first_loop = true;
     loop {
         let mut source = match frame_source::FrameSourceBuilder::new(&path).build_source() {
@@ -242,11 +341,11 @@ fn decode_loop(path: PathBuf, tx: SyncSender<ci2::Result<DecodedFrame>>) {
             };
             sent_any = true;
             if tx
-                .send(Ok(DecodedFrame {
+                .send(Ok(DecodeMsg::Frame(DecodedFrame {
                     image,
                     pts,
                     average_framerate,
-                }))
+                })))
                 .is_err()
             {
                 return;
@@ -260,12 +359,27 @@ fn decode_loop(path: PathBuf, tx: SyncSender<ci2::Result<DecodedFrame>>) {
             ))));
             return;
         }
+        if !loop_playback {
+            tracing::info!("video-file backend: reached end of {path:?}, holding on last frame");
+            if let Some(marker) = &done_marker {
+                // Best-effort: a failure here shouldn't take down playback,
+                // just leave whoever's waiting on the marker to time out and
+                // report it themselves.
+                if let Err(e) = std::fs::write(marker, "") {
+                    tracing::warn!(
+                        "video-file backend: failed to write done-marker {marker:?}: {e}"
+                    );
+                }
+            }
+            let _ = tx.send(Ok(DecodeMsg::EndOfStream));
+            return;
+        }
     }
 }
 
 pub struct WrappedCamera {
     info: VideoFileCameraInfo,
-    rx: Receiver<ci2::Result<DecodedFrame>>,
+    rx: Receiver<ci2::Result<DecodeMsg>>,
     /// Frames already pulled off `rx` during [`WrappedCamera::new`] (to
     /// determine `width`/`height`/`pixel_format`/`fps` up front, mirroring
     /// how e.g. `ci2-webcam` negotiates format at open time), waiting to be
@@ -282,6 +396,31 @@ pub struct WrappedCamera {
     start: Option<Instant>,
     /// Next frame number to emit.
     next_fno: usize,
+    /// Whether real playback has been allowed to begin -- always `true`
+    /// unless `VIDEO_FILE_AUTOSTART_ENV=false`, in which case `next_frame`
+    /// holds on `held_frame` until a `"StartPlayback"` `command_execute`
+    /// call (see `command_execute` below) flips this. `Arc` since
+    /// `command_execute` only gets `&self`.
+    started_manually: Arc<AtomicBool>,
+    /// Whether `next_frame` has already reset `start`/`next_fno` for the
+    /// held -> started transition. Initialized equal to the initial value
+    /// of `started_manually`, so the default (autostart) path never enters
+    /// that branch at all -- zero behavior change when
+    /// `VIDEO_FILE_AUTOSTART_ENV` is unset.
+    has_reset_pacing: bool,
+    /// A clone of the very first decoded frame, repeatedly served (never
+    /// consumed) while held before playback starts.
+    held_frame: Arc<DynamicFrameOwned>,
+    /// The most recently served real (decoded, non-held) frame -- kept
+    /// up to date on every real frame so it's ready to freeze on once
+    /// `DecodeMsg::EndOfStream` arrives (only possible when
+    /// `VIDEO_FILE_LOOP_ENV=false`; see `next_frame`).
+    last_real_frame: Option<Arc<DynamicFrameOwned>>,
+    /// Whether the source has finished playing through once and
+    /// `decode_loop` sent `DecodeMsg::EndOfStream` -- only ever becomes
+    /// true when not looping. Once true, `next_frame` freezes on
+    /// `last_real_frame` instead of reading `rx`/`pending_frames` again.
+    ended: bool,
 }
 
 fn _test_camera_is_send() {
@@ -290,13 +429,25 @@ fn _test_camera_is_send() {
     implements::<WrappedCamera>();
 }
 
-fn recv_decoded(rx: &Receiver<ci2::Result<DecodedFrame>>) -> ci2::Result<DecodedFrame> {
+fn recv_decoded(rx: &Receiver<ci2::Result<DecodeMsg>>) -> ci2::Result<DecodeMsg> {
     match rx.recv_timeout(DECODE_TIMEOUT) {
-        Ok(Ok(frame)) => Ok(frame),
+        Ok(Ok(msg)) => Ok(msg),
         Ok(Err(e)) => Err(e),
         Err(RecvTimeoutError::Timeout) => Err(ci2::Error::Timeout),
         Err(RecvTimeoutError::Disconnected) => Err(ci2::Error::from(
             "video-file decoder thread exited unexpectedly",
+        )),
+    }
+}
+
+/// Like [`recv_decoded`], but for call sites (only [`WrappedCamera::new`])
+/// that expect a real frame and treat an immediate `EndOfStream` (a source
+/// with fewer frames than the caller needed) as an error.
+fn recv_decoded_frame(rx: &Receiver<ci2::Result<DecodeMsg>>) -> ci2::Result<DecodedFrame> {
+    match recv_decoded(rx)? {
+        DecodeMsg::Frame(frame) => Ok(frame),
+        DecodeMsg::EndOfStream => Err(ci2::Error::from(
+            "video file ended before producing the expected frame",
         )),
     }
 }
@@ -313,20 +464,34 @@ impl WrappedCamera {
             )));
         }
 
+        let loop_playback = std::env::var_os(VIDEO_FILE_LOOP_ENV)
+            .map(|v| v != "false")
+            .unwrap_or(true);
+        let done_marker = std::env::var_os(VIDEO_FILE_DONE_MARKER_ENV).map(PathBuf::from);
+
         let (tx, rx) = std::sync::mpsc::sync_channel(DECODE_QUEUE_DEPTH);
         let decode_path = path.clone();
         std::thread::Builder::new()
             .name("ci2-video-file-decode".to_string())
-            .spawn(move || decode_loop(decode_path, tx))
+            .spawn(move || decode_loop(decode_path, tx, loop_playback, done_marker))
             .map_err(|e| ci2::Error::BackendError(anyhow::Error::new(e)))?;
 
         // Block until the first frame decodes, to negotiate width/height/
         // pixel-format synchronously (as real camera backends do at open
         // time) and to fail loudly, right here, on a bad source file.
-        let first = recv_decoded(&rx)?;
+        let first = recv_decoded_frame(&rx)?;
         let width = first.image.borrow().width();
         let height = first.image.borrow().height();
         let pixel_format = first.image.borrow().pixel_format();
+        // Cloned before `first.image` is moved into `pending_frames` below --
+        // this is the frame `next_frame` repeatedly serves while held (see
+        // the module-level "Holding on the first frame" docs), kept
+        // completely separate from the real playback queue.
+        let held_frame = Arc::new(first.image.clone());
+
+        let autostart = std::env::var_os(VIDEO_FILE_AUTOSTART_ENV)
+            .map(|v| v != "false")
+            .unwrap_or(true);
 
         // Native frame rate, in priority order:
         // 1. `average_framerate()`, whole-file-averaged from SEI timing
@@ -345,7 +510,7 @@ impl WrappedCamera {
             let mut fps = DEFAULT_FPS;
             pending_frames.push_back(first.image);
             if let Some(pts0) = first.pts
-                && let Ok(second) = recv_decoded(&rx)
+                && let Ok(DecodeMsg::Frame(second)) = recv_decoded(&rx)
             {
                 if let Some(pts1) = second.pts {
                     let dt = pts1.saturating_sub(pts0).as_secs_f64();
@@ -369,6 +534,11 @@ impl WrappedCamera {
             frame_rate_enabled: true,
             start: None,
             next_fno: 0,
+            started_manually: Arc::new(AtomicBool::new(autostart)),
+            has_reset_pacing: autostart,
+            last_real_frame: Some(held_frame.clone()),
+            held_frame,
+            ended: false,
         })
     }
 
@@ -394,9 +564,18 @@ impl ci2::CameraInfo for WrappedCamera {
 }
 
 impl ci2::Camera for WrappedCamera {
-    // ----- Video files have no GenICam feature tree. -----
-    fn command_execute(&self, _name: &str, _verify: bool) -> ci2::Result<()> {
-        Err(ci2::Error::FeatureNotPresent())
+    // ----- Video files have no GenICam feature tree, except one command. -----
+    fn command_execute(&self, name: &str, _verify: bool) -> ci2::Result<()> {
+        match name {
+            START_PLAYBACK_COMMAND => {
+                // See the module-level "Holding on the first frame" docs and
+                // `next_frame` below. A no-op (not an error) if playback was
+                // never held in the first place.
+                self.started_manually.store(true, Ordering::SeqCst);
+                Ok(())
+            }
+            _ => Err(ci2::Error::FeatureNotPresent()),
+        }
     }
     fn feature_bool(&self, _name: &str) -> ci2::Result<bool> {
         Err(ci2::Error::FeatureNotPresent())
@@ -541,16 +720,64 @@ impl ci2::Camera for WrappedCamera {
     }
 
     fn next_frame(&mut self) -> ci2::Result<DynamicFrameWithInfo> {
+        let held = !self.started_manually.load(Ordering::SeqCst);
+        if !held && !self.has_reset_pacing {
+            // Just transitioned held -> started: begin pacing from *now*,
+            // not from whenever acquisition_start() originally fired (which,
+            // if we were held, may have been long before this moment).
+            self.start = Some(Instant::now());
+            self.next_fno = 0;
+            self.has_reset_pacing = true;
+        }
+
         let fno = self.next_fno;
         self.next_fno += 1;
 
-        let image = match self.pending_frames.pop_front() {
-            Some(image) => image,
-            None => recv_decoded(&self.rx)?.image,
+        // Held (pre-start): repeatedly serve the same clone of the first
+        // frame (see the module-level "Holding on the first frame" docs),
+        // never touching `pending_frames`/`rx` -- the real playback queue
+        // sits untouched behind this until `command_execute("StartPlayback")`
+        // flips the flag. Ended (post-completion, only possible when
+        // VIDEO_FILE_LOOP_ENV=false): repeatedly serve the last real frame
+        // instead of erroring on the now-disconnected decode channel (see
+        // the module-level "Playing once, then holding on the last frame"
+        // docs). Otherwise, pull the next real frame as usual, tracking it
+        // as `last_real_frame` in case the very next call turns out to be
+        // the last one.
+        let image: std::sync::Arc<DynamicFrameOwned> = if held {
+            self.held_frame.clone()
+        } else if self.ended {
+            self.last_real_frame
+                .clone()
+                .expect("a real frame is always served before `ended` can become true")
+        } else {
+            let decoded = match self.pending_frames.pop_front() {
+                Some(image) => Some(image),
+                None => match recv_decoded(&self.rx)? {
+                    DecodeMsg::Frame(frame) => Some(frame.image),
+                    DecodeMsg::EndOfStream => None,
+                },
+            };
+            match decoded {
+                Some(decoded) => {
+                    let image = std::sync::Arc::new(decoded);
+                    self.last_real_frame = Some(image.clone());
+                    image
+                }
+                None => {
+                    self.ended = true;
+                    self.last_real_frame
+                        .clone()
+                        .expect("a real frame is always served before EndOfStream can arrive")
+                }
+            }
         };
 
         // Pace to the frame rate (when enabled), the same Instant-based
-        // sleep-until-target idiom ci2-sim uses.
+        // sleep-until-target idiom ci2-sim uses -- applied while held too
+        // (repeating the same image), so a caller configuring settings
+        // during a hold doesn't spin the downstream pipeline (encoding,
+        // detection, ...) as fast as it possibly can on a static frame.
         if let (Some(start), true) = (self.start, self.frame_rate_enabled) {
             let period = self.frame_period();
             let target = start + period * fno as u32;
@@ -571,7 +798,7 @@ impl ci2::Camera for WrappedCamera {
         }
 
         Ok(DynamicFrameWithInfo {
-            image: std::sync::Arc::new(image),
+            image,
             host_timing: HostTimingInfo {
                 fno,
                 datetime: chrono::Utc::now(),

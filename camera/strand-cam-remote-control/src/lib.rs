@@ -638,4 +638,12 @@ pub enum CamArg {
     SetImOpsCenterX(u32),
     SetImOpsCenterY(u32),
     SetImOpsThreshold(u8),
+
+    /// Executes a named, backend-defined command via the `ci2::Camera`
+    /// trait's `command_execute` method (e.g. `"StartPlayback"` for the
+    /// `video-file` backend, which ends a hold on its first frame -- see
+    /// `camera/ci2-video-file`). An unrecognized name is a no-op error,
+    /// logged and otherwise ignored; most backends don't recognize any
+    /// command name at all.
+    ExecuteCommand(String),
 }

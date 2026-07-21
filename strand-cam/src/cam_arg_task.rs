@@ -369,6 +369,12 @@ where
                 });
             }
 
+            CamArg::ExecuteCommand(name) => {
+                if let Err(e) = cam.command_execute(&name, true) {
+                    error!("executing command {name:?}: {:?}", e);
+                }
+            }
+
             CamArg::SetIsRecordingAprilTagCsv(do_recording) => {
                 let new_val = {
                     let tracker = shared_store_arc.read().unwrap();
