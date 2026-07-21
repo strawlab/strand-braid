@@ -77,6 +77,29 @@ Always push to `origin` (should already point at
   Chrome didn't shut down correctly" bubble that started appearing once
   this scenario keeps 4 isolated Chrome windows open at once.
 
+  **Update 2026-07-21 (a later session): every `point_at_browser_text`
+  offset in this scenario is now tuned**, via five real end-to-end
+  `record.sh` runs against `CHECKERBOARD_VIDEO=Basler-81011970.mp4` (all
+  clean — no CDP-lookup warnings, no leftover processes). Previously every
+  single point sat at the library's untouched default (`OFFSET_X=0,
+  OFFSET_Y=6`); see `POINTING-NOTES.md`'s "five real tuning runs" section
+  for the full current-value table. Also from that session: "LEFT CLICK"
+  captions were added to the four toggle presses that previously had none
+  (enable/disable × "Enable checkerboard calibration"/"Save debug
+  information"); the "Starting checkerboard video" caption on the
+  `StartPlayback` trigger was removed (no click to pair it with); a real
+  `wait_for_browser_text` for "Saving debug data to" was added right after
+  toggling debug output on, so the recording shows that toggle's actual
+  orange "on" state (which round-trips through the backend, not just the
+  click) settled before playback starts; and screen capture itself
+  (`start_capture`) was moved twice, ending up right after the "Collapsing
+  other BUI panels" step, so the recording no longer shows strand-cam being
+  launched, the default expanded panel layout, or the collapsing itself —
+  it opens directly on the tidied-up two-window layout. All committed
+  (`c753d8de`, `21288d92`) and pushed to `origin/main`. Fallback pixel
+  coordinates (used only if a CDP lookup itself fails) are still unset —
+  see `POINTING-NOTES.md`'s "Unverified" section.
+
   **Unlike every other scenario here, this one does NOT default to
   preferring an installed strand-cam.** The `video-file` backend is new and
   not yet reviewed/merged upstream, so the real installed `.deb` build on
