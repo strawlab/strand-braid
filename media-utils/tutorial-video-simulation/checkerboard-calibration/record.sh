@@ -357,7 +357,7 @@ echo "=== Expanding the Checkerboard Calibration panel ==="
 # click-a-<label>-to-activate-its-<input> mechanism as the Toggle components
 # below.
 # Sweep width 0 -- about to click, not indicating text.
-point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Checkerboard Calibration" "" "" "" "" 0
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Checkerboard Calibration" "" "" "0" "-2" 0
 log_event "LEFT CLICK" 1.5
 sleep 1.5
 click_browser_element "$BROWSER_CDP_PORT" "Checkerboard Calibration" label
@@ -380,12 +380,12 @@ echo "=== Enabling checkerboard calibration and debug output ==="
 # pointed at and clicked back-to-back, sharing one pause afterward, rather
 # than each getting its own separate point/caption/sleep/click cycle.
 # Sweep width 0 -- about to click, not indicating text.
-point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Enable checkerboard calibration" "" "" "" "" 0
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Enable checkerboard calibration" "" "" "0" "-3" 0
 # ANCESTOR_TAG "label", not the default "button" -- this is a <Toggle>
 # (web/ads-webasm/src/components/toggle.rs), which renders
 # <label><input type=checkbox></label> with no <button> in its DOM at all.
 click_browser_element "$BROWSER_CDP_PORT" "Enable checkerboard calibration" label
-point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Save debug information" "" "" "" "" 0
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Save debug information" "" "" "0" "-3" 0
 click_browser_element "$BROWSER_CDP_PORT" "Save debug information" label
 sleep 1.5
 
@@ -433,7 +433,7 @@ echo "=== Video finished -- holding on its last frame ==="
 # CHECKERBOARD_VIDEO happens to yield is however many there are.
 FINAL_COUNT=$(get_browser_text "$BROWSER_CDP_PORT" "Number of checkerboards collected" 2>/dev/null) || FINAL_COUNT=""
 echo "=== $FINAL_COUNT ==="
-point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Number of checkerboards collected"
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Number of checkerboards collected" "" "" "0" "0" 100
 # The requested 1-second hold on the last frame before moving on.
 sleep 1
 
@@ -443,9 +443,9 @@ echo "=== Disabling checkerboard calibration and debug output ==="
 # the corner sets already collected, not on live detection) -- same
 # back-to-back point/click pattern as enabling them above, sharing one
 # pause afterward.
-point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Enable checkerboard calibration" "" "" "" "" 0
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Enable checkerboard calibration" "" "" "0" "-3" 0
 click_browser_element "$BROWSER_CDP_PORT" "Enable checkerboard calibration" label
-point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Save debug information" "" "" "" "" 0
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Save debug information" "" "" "0" "0" 0
 click_browser_element "$BROWSER_CDP_PORT" "Save debug information" label
 sleep 1.5
 
@@ -468,7 +468,7 @@ CHECKERBOARD_CAL_YAML_BASELINE_MTIME=$(stat -c %Y "$CHECKERBOARD_CAL_YAML" 2>/de
 
 echo "=== Performing and saving the calibration ==="
 # Sweep width 0 -- about to click, not indicating text.
-point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Perform and Save Calibration" "" "" "" "" 0
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Perform and Save Calibration" "" "" "0" "-3" 0
 log_event "LEFT CLICK" 1.5
 sleep 1.5
 click_browser_element "$BROWSER_CDP_PORT" "Perform and Save Calibration"
@@ -500,7 +500,7 @@ if wait_for_file_newer_than "$CHECKERBOARD_CAL_YAML" "$CHECKERBOARD_CAL_YAML_BAS
     sleep 1
 
     for folder in ".config" "strand-cam" "camera_info"; do
-        point_at_browser_text "$NAV_WIN" "$NAV_CDP_PORT" "$folder" "" "" "" "" 0
+        point_at_browser_text "$NAV_WIN" "$NAV_CDP_PORT" "$folder" "" "" "0" "-3" 0
         log_event "LEFT CLICK" 1.5
         sleep 1.5
         # ANCESTOR_TAG "a": these are Chrome's own real <a> links for each
@@ -518,7 +518,7 @@ if wait_for_file_newer_than "$CHECKERBOARD_CAL_YAML" "$CHECKERBOARD_CAL_YAML_BAS
     # confirmed it silently downloads the file instead of displaying it
     # (see POINTING-NOTES.md) -- so the actual "open" action below is a
     # generated viewer page, not letting this link's own href navigate.
-    point_at_browser_text "$NAV_WIN" "$NAV_CDP_PORT" "$(basename "$CHECKERBOARD_CAL_YAML")" "" "" "" "" 0
+    point_at_browser_text "$NAV_WIN" "$NAV_CDP_PORT" "$(basename "$CHECKERBOARD_CAL_YAML")" "" "" "0" "-3" 0
     log_event "LEFT CLICK" 1.5
     sleep 1.5
     open_file_viewer "$CHECKERBOARD_CAL_YAML"
@@ -531,7 +531,7 @@ if wait_for_file_newer_than "$CHECKERBOARD_CAL_YAML" "$CHECKERBOARD_CAL_YAML_BAS
     # the generated viewer's <pre> -- pointable exactly like any other
     # on-screen text in this pipeline, since it's real HTML/DOM, not a
     # native app.
-    point_at_browser_text "$VIEWER_WIN" "$VIEWER_CDP_PORT" "Mean reprojection distance"
+    point_at_browser_text "$VIEWER_WIN" "$VIEWER_CDP_PORT" "distance:" "" "" "50" "6"
     sleep 3
 else
     echo "WARNING: $CHECKERBOARD_CAL_YAML was never (re)written within the timeout -- calibration may have failed (check the terminal log for an ERROR line, e.g. from too few/too degenerate checkerboard poses). Skipping the file-navigator steps." >&2
