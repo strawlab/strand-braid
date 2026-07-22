@@ -6,14 +6,21 @@
 # 5 cameras cycled through (the original skips one), and a close/reopen
 # demonstration added at the end (the original stops before showing this).
 #
-# Unlike strand-cam-intro, this scenario has NO hardware-free fallback: the
-# config it replays (see BRAID_CONFIG_TOML below) configures 5 real Basler
-# cameras with PtpSync triggering and a real extrinsic calibration file,
-# none of which `braid-run` can substitute a `sim` backend for unless the
-# config itself opts a camera into `start_backend = "sim"` (it doesn't).
-# Requires that hardware, PTP sync, and calibration file to already be
-# working on whatever machine runs this -- see ../README.md's "Braid and
-# camera hardware" section.
+# Like strand-cam-intro, this scenario auto-detects real camera hardware and
+# falls back to hardware-free simulated cameras if none is found (see
+# BRAID_CAMERAS below) -- unlike strand-cam-intro's `sim` backend, which just
+# swaps one `--camera-backend` flag, braid-run's real-hardware config (see
+# BRAID_CONFIG_TOML below) is a whole TOML describing 5 real Basler cameras
+# with PtpSync triggering and a real extrinsic calibration file, none of
+# which a sim fallback can reuse -- so the fallback path instead generates a
+# throwaway config from scratch via `braid-sim generate` (the same generator
+# the project's own `smoke-tests/braid-sim.sh` uses): 5 `start_backend =
+# "sim"` cameras (`camera/ci2-sim`, the same synthetic insect-blob backend
+# strand-cam-intro's `sim` fallback uses) and `FakeSync` triggering (braid-run
+# synthesizes a clock model for this immediately -- no PTP hardware/network
+# involved, see braid/braid-run/src/mainbrain.rs's `needs_clock_model`/`Using
+# fake synchronization method` path). See ../README.md's "Braid and camera
+# hardware" section for the full story.
 #
 # Requires everything strand-cam-intro/record.sh requires (ffmpeg, xdotool,
 # Xvfb, openbox, ttyd, xprop, a browser -- see ../README.md Prerequisites),
@@ -23,13 +30,32 @@
 # in braid-run/src/main.rs's `launch_strand_cam`), NOT via `$PATH` -- so an
 # installed package needs to already ship both together (it does, via the
 # .deb), and a from-source build needs both built into the same directory.
+# The sim fallback additionally needs a `braid-sim` binary -- a dev-only
+# generator tool, not shipped in the .deb, so it's built from source
+# on-demand (see the `braid-sim` resolution below) regardless of whether
+# braid-run/strand-cam themselves came from an installed package.
 #
 # Usage:
 #   ./record.sh [OUTPUT_DIR]
 #   BRAID_CONFIG_TOML=/path/to/other-config.TOML ./record.sh
+#   BRAID_CAMERAS=sim ./record.sh    # hardware-free, even if real cameras are attached
 #
 # OUTPUT_DIR defaults to a directory named 'out' next to this script. It is
 # created if missing and is not, and should not be, committed to the repo.
+#
+# BRAID_CONFIG_TOML, if set, always wins outright regardless of BRAID_CAMERAS
+# -- same "explicit override always wins" precedent as strand-cam-intro's
+# CAMERA_BACKEND -- and is used verbatim (error if missing), skipping the
+# auto-detection below entirely.
+#
+# BRAID_CAMERAS selects real vs. simulated cameras. Left unset, record.sh
+# auto-detects: real Basler (pylon) hardware (via --list-cameras, same check
+# strand-cam-intro uses) *and* the default config file
+# (/home/strawlab/BRAID_TOMLS/config.TOML, override via BRAID_CONFIG_TOML)
+# both present -> real; either missing -> the hardware-free sim fallback.
+# Set BRAID_CAMERAS=sim explicitly to force the sim fallback regardless of
+# what's attached (e.g. to regenerate the hardware-free version on a machine
+# that does have real cameras, or in CI).
 
 # Tuned pixel/click-count constants -- expect to retune all of these after
 # watching a first real run (see POINTING-NOTES.md). Units/convention match
@@ -112,22 +138,14 @@ source "$SCRIPT_DIR/../lib/session.sh"
 BROWSER_CLOSE_X=$((SESSION_PANE_WIDTH - 23))
 BROWSER_CLOSE_Y=23
 
-BRAID_CONFIG="${BRAID_CONFIG_TOML:-/home/strawlab/BRAID_TOMLS/config.TOML}"
-[ -f "$BRAID_CONFIG" ] || { echo "ERROR: config file not found: $BRAID_CONFIG" >&2; exit 1; }
-
-# Parsed straight out of the config file at runtime, rather than hardcoded
-# -- stays correct if the config's cameras ever change, matching this
-# project's existing "discover, don't hardcode" approach (c.f.
-# strand-cam-intro's own --list-cameras detection).
-mapfile -t CAMERA_NAMES < <(grep -oP '(?<=^name = ")[^"]+' "$BRAID_CONFIG")
-[ "${#CAMERA_NAMES[@]}" -gt 0 ] || { echo "ERROR: no camera names found in $BRAID_CONFIG" >&2; exit 1; }
-echo "=== Found ${#CAMERA_NAMES[@]} camera(s) in config: ${CAMERA_NAMES[*]} ==="
-
 # Prefer, in order: an explicit override, an already-installed braid-run
 # (e.g. via the .deb package, which ships strand-cam alongside it), then
 # finally a from-source build -- mirrors strand-cam-intro's own TARGET_DIR
 # resolution, but must also verify strand-cam exists in the same directory
-# (see the header comment above for why).
+# (see the header comment above for why). Resolved before the camera-mode
+# decision below, since auto-detection needs a real strand-cam binary to
+# probe for hardware with (same ordering reason as strand-cam-intro's own
+# CAMERA_BACKEND auto-detection).
 if [ -n "${STRAND_BRAID_TARGET_DIR:-}" ]; then
     TARGET_DIR="$STRAND_BRAID_TARGET_DIR"
 elif command -v braid-run >/dev/null 2>&1; then
@@ -148,6 +166,80 @@ fi
 
 BRAID_VERSION=$("$TARGET_DIR/braid-run" --version)
 echo "=== $BRAID_VERSION ==="
+
+DEFAULT_BRAID_CONFIG="/home/strawlab/BRAID_TOMLS/config.TOML"
+
+if [ -n "${BRAID_CONFIG_TOML:-}" ]; then
+    BRAID_CONFIG="$BRAID_CONFIG_TOML"
+    [ -f "$BRAID_CONFIG" ] || { echo "ERROR: config file not found: $BRAID_CONFIG" >&2; exit 1; }
+    CAMERAS_MODE=real
+    echo "=== BRAID_CONFIG_TOML=$BRAID_CONFIG (explicit) ==="
+elif [ "${BRAID_CAMERAS:-}" = "sim" ]; then
+    CAMERAS_MODE=sim
+    echo "=== BRAID_CAMERAS=sim (explicit) ==="
+elif [ -f "$DEFAULT_BRAID_CONFIG" ] && "$TARGET_DIR/strand-cam" --camera-backend pylon --list-cameras 2>/dev/null \
+    | grep -qE '^  [^ ]+  \(model:'; then
+    BRAID_CONFIG="$DEFAULT_BRAID_CONFIG"
+    CAMERAS_MODE=real
+    echo "=== Real camera hardware + config detected -- using real cameras ($BRAID_CONFIG) ==="
+else
+    CAMERAS_MODE=sim
+    echo "=== No real camera hardware/config detected -- falling back to simulated cameras ==="
+fi
+
+if [ "$CAMERAS_MODE" = "sim" ]; then
+    # braid-sim isn't shipped in the .deb (a dev-only generator tool, only
+    # ever used by this tutorial harness) -- build it from source on demand,
+    # same idiom as braid-run/strand-cam's own from-source fallback above,
+    # but independent of TARGET_DIR since an installed braid-run/strand-cam
+    # would never have it alongside them.
+    if command -v braid-sim >/dev/null 2>&1; then
+        BRAID_SIM_BIN=$(command -v braid-sim)
+    elif [ -x "$REPO_ROOT/target/release/braid-sim" ]; then
+        BRAID_SIM_BIN="$REPO_ROOT/target/release/braid-sim"
+    else
+        echo "=== Building braid-sim (cargo build --release) ==="
+        ( cd "$REPO_ROOT" && cargo build --release -p braid-sim )
+        BRAID_SIM_BIN="$REPO_ROOT/target/release/braid-sim"
+    fi
+    [ -x "$BRAID_SIM_BIN" ] || { echo "ERROR: $BRAID_SIM_BIN not found after build." >&2; exit 1; }
+
+    # Scenario file drives both config generation (camera count/geometry)
+    # and, exported below, the actual sim cameras' own frame content at
+    # runtime -- must be the same file for both, or camera count could
+    # mismatch between the generated config and what ci2-sim actually
+    # starts. Same env var strand-cam-intro's own `sim` backend reads, and
+    # the same default scenario file it uses.
+    export STRAND_CAM_SIM_SPEC="${STRAND_CAM_SIM_SPEC:-$REPO_ROOT/braid/braid-sim/example-sim.toml}"
+    [ -f "$STRAND_CAM_SIM_SPEC" ] || { echo "ERROR: sim scenario not found: $STRAND_CAM_SIM_SPEC" >&2; exit 1; }
+
+    echo "=== Generating a simulated Braid config from $STRAND_CAM_SIM_SPEC ==="
+    # 0.0.0.0, not 127.0.0.1: braid-run's mainbrain only prints "QR code for
+    # {url}" (the needle launch_braid's own scroll/point steps search for)
+    # for a *non-loopback* URL (braid/braid-run/src/mainbrain.rs's
+    # `is_loopback` check) -- binding all interfaces makes `build_urls`
+    # expand to both a loopback entry (still used below to extract the
+    # actual Predicted URL to navigate to) and a real LAN one, matching
+    # real hardware's own config and what the rest of this script expects
+    # to find on screen. Confirmed via a real run: a loopback-only address
+    # never emits a QR line at all, so scroll_until_visible searches
+    # forever and this script aborts with no ERROR message (its own
+    # unguarded failure path).
+    "$BRAID_SIM_BIN" generate "$STRAND_CAM_SIM_SPEC" \
+        --out-dir "$OUT_DIR/sim-config-gen" \
+        --http-api-server-addr "0.0.0.0:1234"
+    BRAID_CONFIG="$OUT_DIR/sim-config-gen/braid-config.toml"
+fi
+
+# Parsed straight out of the config file at runtime, rather than hardcoded
+# -- stays correct if the config's cameras ever change, matching this
+# project's existing "discover, don't hardcode" approach (c.f.
+# strand-cam-intro's own --list-cameras detection). Works the same whether
+# $BRAID_CONFIG is the real hardware config or the sim-generated one above:
+# both are `[[cameras]]` tables with an un-indented `name = "..."` line.
+mapfile -t CAMERA_NAMES < <(grep -oP '(?<=^name = ")[^"]+' "$BRAID_CONFIG")
+[ "${#CAMERA_NAMES[@]}" -gt 0 ] || { echo "ERROR: no camera names found in $BRAID_CONFIG" >&2; exit 1; }
+echo "=== Found ${#CAMERA_NAMES[@]} camera(s) in config: ${CAMERA_NAMES[*]} ==="
 
 export PATH="$TARGET_DIR:$PATH"
 # Required: env_tracing_logger's EnvFilter::from_default_env() means every
@@ -173,8 +265,9 @@ open_terminal
 trap "pkill -s $TERM_SESSION_PID -f 'braid-run|strand-cam' 2>/dev/null || true; session_cleanup" EXIT
 
 # launch_braid COMMAND_TEXT: types COMMAND_TEXT into the terminal, waits
-# for real PTP hardware to report all cameras synchronized (no fixed
-# timeout beyond wait_for_browser_text's own generous default), points at
+# for all cameras to report synchronized (real PTP hardware, or the
+# sim fallback's instant FakeSync -- no fixed timeout beyond
+# wait_for_browser_text's own generous default), points at
 # that message, scrolls up to reveal the QR/token block printed at startup
 # and pauses on it, then extracts THIS launch's own loopback Predicted URL
 # (with its token) from braid-run's own ~/.braid-*.log -- never parsed off
@@ -191,7 +284,7 @@ launch_braid() {
     launch_epoch=$(date +%s)
     type_in "$TERM_WIN" "$command_text"
 
-    echo "Waiting for all cameras to report synchronized (real PTP hardware, no fixed timeout)..." >&2
+    echo "Waiting for all cameras to report synchronized (no fixed timeout)..." >&2
     wait_for_browser_text "$TERM_CDP_PORT" "All expected cameras synchronized" || {
         echo "ERROR: cameras never reported synchronized" >&2
         return 1

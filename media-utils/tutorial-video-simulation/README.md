@@ -29,7 +29,8 @@ version on a lab machine with a camera plugged in, and still just works
 with no hardware at all (e.g. CI, a laptop). See `CAMERA_BACKEND` in step 4
 of Running instructions to force one or the other explicitly.
 
-`braid-intro` has no such fallback — see "Braid and camera hardware" below.
+`braid-intro` has the same auto-detect/fallback story — see "Braid and
+camera hardware" below.
 
 `checkerboard-calibration` has no camera hardware requirement of its own at
 all — it plays a real recorded checkerboard video directly through
@@ -338,16 +339,44 @@ attached, not a hardcoded name).
 
 ## Braid and camera hardware
 
-Unlike `strand-cam-intro`, `braid-intro` has **no hardware-free fallback**.
-It replays a real config file (`/home/strawlab/BRAID_TOMLS/config.TOML` by
+Like `strand-cam-intro`, `braid-intro` auto-detects real camera hardware and
+falls back to hardware-free simulated cameras if none is found. The real
+path replays a config file (`/home/strawlab/BRAID_TOMLS/config.TOML` by
 default, override with `BRAID_CONFIG_TOML`) that configures 5 real Basler
-cameras with PTP-sync triggering and a real extrinsic calibration file.
+cameras with PTP-sync triggering and a real extrinsic calibration file —
 `braid-run` only gets a `sim` backend for a camera if that camera's own
-`[[cameras]]` entry sets `start_backend = "sim"` in the TOML — this config
-doesn't, so every camera defaults to `Pylon` (`braid/braid-types/src/lib.rs`).
-Running `braid-intro/record.sh` requires that hardware, PTP sync, and
-calibration file to already be working on whatever machine you run it on;
-there's no `CAMERA_BACKEND`-style override to fall back to.
+`[[cameras]]` entry sets `start_backend = "sim"` in the TOML
+(`braid/braid-types/src/lib.rs`'s `StartCameraBackend` enum), and this
+config doesn't, so every camera there defaults to `Pylon`.
+
+The sim fallback can't reuse that config file (there's no hardware to
+substitute a `sim` backend into it for), so instead it generates a whole new
+throwaway one from scratch, via `braid-sim generate` — the same generator
+`smoke-tests/braid-sim.sh` uses for its own end-to-end sim test: 5 cameras
+with `start_backend = "sim"` (`camera/ci2-sim`, the same synthetic
+insect-blob backend `strand-cam-intro`'s own `sim` fallback uses) and
+`FakeSync` triggering, driven by the same `braid/braid-sim/example-sim.toml`
+scenario `strand-cam-intro` defaults to (override via `STRAND_CAM_SIM_SPEC`,
+same env var `ci2-sim` itself reads). `FakeSync` needs no PTP hardware or
+network at all — `braid-run` synthesizes a clock model for it immediately
+(`braid/braid-run/src/mainbrain.rs`'s "Using fake synchronization method"
+path), so sim-mode camera sync is near-instant rather than however long real
+PTP hardware takes to lock.
+
+`record.sh` auto-detects which to use: real Basler hardware (via
+`--list-cameras`, same check `strand-cam-intro` uses) *and* the default
+config file both present → real cameras; either missing → the sim
+fallback. `BRAID_CAMERAS=sim` forces the fallback explicitly regardless of
+what's attached (e.g. to regenerate the hardware-free version on a machine
+that does have real cameras, or in CI); an explicit `BRAID_CONFIG_TOML`
+always wins outright over `BRAID_CAMERAS`, same as `CAMERA_BACKEND`'s
+"explicit wins" precedent in `strand-cam-intro`.
+
+`braid-sim` itself isn't shipped in the `.deb` package (it's a dev-only
+generator tool, only ever used by this tutorial harness) — `record.sh`
+builds it from source on demand if it isn't already on `PATH` or in
+`target/release`, independent of whether `braid-run`/`strand-cam`
+themselves came from an installed package.
 
 `braid-run` also resolves its own per-camera `strand-cam` child next to its
 own executable path (`std::env::current_exe().parent()` in
@@ -360,16 +389,19 @@ The `.deb` package ships both together already; a from-source build needs
 ## Running `braid-intro`
 
 Same Prerequisites as `strand-cam-intro` (see above) — no extra packages
-needed, just the real camera hardware described in "Braid and camera
-hardware". Same `STRAND_BRAID_TARGET_DIR` override for picking a specific
-`braid-run`/`strand-cam` build if you don't want to rely on an installed
-package.
+needed even for the sim fallback, just a Rust toolchain to build `braid-sim`
+if it isn't already around. Same `STRAND_BRAID_TARGET_DIR` override for
+picking a specific `braid-run`/`strand-cam` build if you don't want to rely
+on an installed package.
 
 ```sh
 cd media-utils/tutorial-video-simulation/braid-intro
-./record.sh
+./record.sh                          # auto-detects real hardware, else sim
 
-# Point at a different config file:
+# Force the hardware-free sim fallback, even with real cameras attached:
+BRAID_CAMERAS=sim ./record.sh
+
+# Point at a different real-hardware config file:
 BRAID_CONFIG_TOML=/path/to/other-config.TOML ./record.sh
 ```
 
@@ -416,9 +448,8 @@ anywhere — just:
   continuous fast motion may never register a clean detection.
 
 Because it needs no kernel module or physical hardware, `checkerboard-
-calibration` is CI-friendly the same way `strand-cam-intro`'s `sim` fallback
-is — unlike `braid-intro`, which needs real physical camera hardware and so
-cannot run in CI at all.
+calibration` is CI-friendly the same way `strand-cam-intro`'s and
+`braid-intro`'s own `sim` fallbacks are.
 
 Also needs a strand-cam build with the `checkercal` cargo feature —
 **not** in strand-cam's default feature set (`strand-cam/Cargo.toml`'s
