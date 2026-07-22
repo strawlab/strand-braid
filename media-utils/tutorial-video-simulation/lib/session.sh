@@ -360,6 +360,15 @@ open_terminal() {
 
     xdotool windowmove "$TERM_WIN" "$SESSION_MARGIN" "$SESSION_MARGIN"
     xdotool windowsize "$TERM_WIN" "$SESSION_PANE_WIDTH" "$SESSION_TERM_HEIGHT"
+    # openbox shows its own transient "WIDTHxHEIGHT" resize-indicator overlay
+    # right on top of the window for a beat after windowsize -- confirmed via
+    # a real capture starting immediately after this function returns: still
+    # visible at t=0.3s, gone by t=0.7s. Callers that start screen capture
+    # right after open_terminal returns (so the recording never shows this
+    # window appearing/resizing) would otherwise catch that overlay fading
+    # in the opening frames instead. Settling here costs nothing in the
+    # recording, since it's still before capture starts.
+    sleep 1
 }
 
 # open_browser URL TERM_WIN: launches as a floating window on the right

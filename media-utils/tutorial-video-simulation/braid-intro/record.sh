@@ -249,12 +249,20 @@ export PATH="$TARGET_DIR:$PATH"
 export RUST_LOG=info
 export DISABLE_VERSION_CHECK=1
 
-echo "=== Starting virtual display and screen capture ==="
+echo "=== Starting virtual display ==="
 start_display
-start_capture "$OUT_DIR/raw.mp4"
 
 echo "=== Opening terminal window ==="
+# Placed and resized to its final SESSION_MARGIN/SESSION_PANE_WIDTH geometry
+# before capture starts below, so the recording never shows the window
+# appearing at Chrome's own default size/position and jumping into place.
 open_terminal
+
+echo "=== Starting screen capture ==="
+start_capture "$OUT_DIR/raw.mp4"
+# Half a second holding on the placed, empty terminal before anything is
+# typed -- reads as a real pause before starting to type, not a cut.
+sleep 0.5
 
 # braid-run spawns each camera's own strand-cam as a real child process of
 # itself (std::process::Command::spawn in launch_strand_cam), itself a

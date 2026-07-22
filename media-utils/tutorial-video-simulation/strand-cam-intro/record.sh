@@ -212,15 +212,23 @@ EOF
 fi
 BUI_URL="http://127.0.0.1:3440/"
 
-echo "=== Starting virtual display and screen capture ==="
+echo "=== Starting virtual display ==="
 start_display
-start_capture "$OUT_DIR/raw.mp4"
 
-echo "=== Opening terminal and browser windows ==="
+echo "=== Opening terminal window ==="
 # Not "TERM_WIN=$(open_terminal)" -- open_terminal sets TERM_WIN,
 # TERM_SESSION_PID, and TERM_CDP_PORT as globals; capturing it via command
 # substitution would run it in a subshell and silently discard all of them.
+# Placed and resized to its final SESSION_MARGIN/SESSION_PANE_WIDTH geometry
+# before capture starts below, so the recording never shows the window
+# appearing at Chrome's own default size/position and jumping into place.
 open_terminal
+
+echo "=== Starting screen capture ==="
+start_capture "$OUT_DIR/raw.mp4"
+# Half a second holding on the placed, empty terminal before anything is
+# typed -- reads as a real pause before starting to type, not a cut.
+sleep 0.5
 
 # strand-cam itself runs as a child of the bash shell ttyd is bridging into
 # the browser (it must, to be visible on screen), so session_cleanup's
