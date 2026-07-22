@@ -393,12 +393,59 @@ open_browser() {
     xdotool windowsize "$term_win" "$SESSION_PANE_WIDTH" "$SESSION_TERM_HEIGHT"
 }
 
+# open_live_view_window URL TERM_WIN: opens a SECOND, independent browser
+# window/connection to the same running BUI (the server happily handles
+# multiple simultaneous clients, each with its own page state) --
+# positioned in the LEFT pane, the terminal's usual spot, instead of the
+# right one open_browser uses. Left in its own default page state on
+# purpose: "Live view" starts out expanded until something collapses it,
+# so this window shows the actual camera feed, while a separate
+# open_browser connection (BROWSER_WIN) can still have ITS OWN panels
+# collapsed independently for whatever controls a scene needs to click,
+# with no cross-talk between the two. Sets the globals LIVEVIEW_WIN/
+# LIVEVIEW_CDP_PORT.
+#
+# Call this AFTER open_browser/open_terminal have already positioned
+# TERM_WIN into the left pane -- opened later, this window naturally sits
+# on top of it, so the terminal (still needed off-camera to type the
+# launch command, but not after that) simply ends up covered rather than
+# needing to be closed or moved elsewhere. Extended upward (and taller by
+# the same amount) to also cover TERM_WIN's own decoration: ttyd's --app
+# mode has no Chrome-drawn title bar, so openbox adds its own above the
+# content area (same issue _window_content_origin exists to correct for),
+# and windowmove positions that CONTENT origin, not the decorated frame's
+# true top-left -- same size/position here would leave a sliver of that
+# title bar visible above this window instead of actually hiding it.
+#
+# Deliberately NOT called via command substitution -- see open_terminal's
+# own comment for why (the subshell problem).
+open_live_view_window() {
+    local url="$1" term_win="$2"
+    local win_and_port
+    win_and_port=$(_open_isolated_browser_window "$url")
+    LIVEVIEW_WIN=$(echo "$win_and_port" | awk '{print $1}')
+    LIVEVIEW_CDP_PORT=$(echo "$win_and_port" | awk '{print $2}')
+
+    local extents top=0
+    extents=$(xprop -id "$term_win" _NET_FRAME_EXTENTS 2>/dev/null | sed -n 's/^[^=]*= *//p')
+    [ -n "$extents" ] && top=$(echo "$extents" | awk -F', ' '{print $3}')
+
+    xdotool windowmove "$LIVEVIEW_WIN" "$SESSION_MARGIN" $((SESSION_MARGIN - top))
+    xdotool windowsize "$LIVEVIEW_WIN" "$SESSION_PANE_WIDTH" $((SESSION_PANE_HEIGHT + top))
+}
+
 # open_file_navigator START_DIR: launches an isolated Chrome window (--app
 # mode, same "hide the tab strip/address bar so it doesn't read as an
 # obvious browser tab" trick open_terminal uses for ttyd) pointed at
 # Chrome's own built-in file:// directory listing for START_DIR. Sets the
-# globals NAV_WIN/NAV_CDP_PORT. Positioned in the same right-hand pane
-# open_browser uses -- call after the BUI is no longer needed.
+# globals NAV_WIN/NAV_CDP_PORT. Deliberately left wherever Chrome opens it
+# by default -- NOT repositioned/resized into the right-hand pane the way
+# open_browser's window is: a real recording showed that windowmove/
+# windowsize call visibly relocating the window a moment after it first
+# appeared, which read as an odd jump right as the mouse was also moving
+# in -- call after the BUI is no longer needed, and give it a moment (e.g.
+# a plain `sleep 1`) after this returns before pointing/clicking anything,
+# so its own page has actually rendered first.
 #
 # Why Chrome instead of a real file manager (e.g. Nautilus): a native
 # desktop file manager has no CDP/DOM to query, so pointing/clicking would
@@ -417,14 +464,10 @@ open_browser() {
 # own comment for why (the subshell problem).
 open_file_navigator() {
     local start_dir="$1"
-    local win_and_port right_x
+    local win_and_port
     win_and_port=$(_open_isolated_browser_window "file://$start_dir/" 1)
     NAV_WIN=$(echo "$win_and_port" | awk '{print $1}')
     NAV_CDP_PORT=$(echo "$win_and_port" | awk '{print $2}')
-
-    right_x=$((SESSION_MARGIN * 2 + SESSION_PANE_WIDTH))
-    xdotool windowmove "$NAV_WIN" "$right_x" "$SESSION_MARGIN"
-    xdotool windowsize "$NAV_WIN" "$SESSION_PANE_WIDTH" "$SESSION_PANE_HEIGHT"
 }
 
 # open_file_viewer FILE_PATH: renders FILE_PATH's real content as a small
