@@ -492,6 +492,16 @@ click_browser_element "$BROWSER_CDP_PORT" "Quit Braid" || echo "WARNING: could n
 wait_for_browser_text "$BROWSER_CDP_PORT" "Braid has quit" 10 0.5 || echo "WARNING: quit confirmation text not seen" >&2
 sleep 1.5
 
+# New closing beat: show the terminal has kept logging (braid-run's own
+# shutdown output) while we were over in the browser confirming the quit.
+# scroll_by, not scroll_until_visible, and reusing QR_SCROLL_CLICKS/DELAY --
+# same "guarantee reaching the real bottom" reasoning as the pre-Ctrl+C
+# scroll-back-down above, not "stop once a specific line is rendered."
+echo "=== Moving to the terminal and scrolling to the bottom ==="
+move_mouse_gradual_into "$TERM_WIN"
+scroll_by "$TERM_WIN" down "$QR_SCROLL_CLICKS" "$QR_SCROLL_DELAY" "Scroll wheel"
+sleep 0.5
+
 echo "=== Stopping capture ==="
 stop_capture
 
