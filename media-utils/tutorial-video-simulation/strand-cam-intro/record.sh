@@ -94,6 +94,28 @@ TERM_GOTCAMERA_OFFSET_Y=-6
 TERM_CAMNAME2_OFFSET_X=0
 TERM_CAMNAME2_OFFSET_Y=0
 
+# "Quit Strand Camera" demonstration at the end, copying braid-intro's own
+# closing sequence (see braid-intro/record.sh's "Quit Braid" step) -- both
+# buttons render via the same yew_tincture <Button> component. Fallback
+# pixel coordinates (used only if the CDP text lookup fails) and the
+# scroll click count/delay are first guesses, not yet tuned against a real
+# recording -- BROWSER_QUIT_OFFSET_Y=-4 and the scroll clicks/delay are
+# carried over from braid-intro's own final tuned values as a starting
+# point, since it's the same button component/page structure. Uses
+# scroll_by (fixed click count), not scroll_until_visible -- the latter
+# checks whether the needle text is present anywhere in the DOM, which for
+# a normal browser page (unlike ttyd's viewport-only terminal DOM) is true
+# even while "Quit Strand Camera" sits off-screen below the fold, so it was
+# stopping after the very first short scroll burst instead of actually
+# reaching the button. braid-intro hit this same distinction first; see its
+# own "Quit Braid" scroll_by call.
+BROWSER_QUIT_FALLBACK_X=400
+BROWSER_QUIT_FALLBACK_Y=900
+BROWSER_QUIT_OFFSET_X=0
+BROWSER_QUIT_OFFSET_Y=-4
+BROWSER_QUIT_SCROLL_CLICKS=30
+BROWSER_QUIT_SCROLL_DELAY=0.1
+
 set -o errexit
 set -o nounset
 set -o pipefail
@@ -343,6 +365,27 @@ sleep 1.5
 open_browser "$BUI_URL" "$TERM_WIN"
 wait_for_url "$BUI_URL" || { echo "ERROR: strand-cam BUI did not reconnect after reopening"; exit 1; }
 sleep 3
+
+# New relative to the original Video_1.mp4 (which stops here): demonstrate
+# the "Quit Strand Camera" button, reusing braid-intro's own end-of-run
+# pattern (scroll to reveal it, point at it, click it for real via CDP --
+# which also auto-accepts the native window.confirm() dialog the button's
+# DoQuit handler pops, same as braid-intro's "Quit Braid" -- then wait for
+# the real "has quit" confirmation text before stopping capture).
+echo "=== Scrolling to the bottom to quit Strand Camera ==="
+move_mouse_gradual_into "$BROWSER_WIN"
+scroll_by "$BROWSER_WIN" down "$BROWSER_QUIT_SCROLL_CLICKS" "$BROWSER_QUIT_SCROLL_DELAY" "Scroll wheel"
+sleep 0.5
+
+# Sweep width 0 -- about to click, not indicating text.
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Quit Strand Camera" \
+    "$BROWSER_QUIT_FALLBACK_X" "$BROWSER_QUIT_FALLBACK_Y" "$BROWSER_QUIT_OFFSET_X" "$BROWSER_QUIT_OFFSET_Y" 0
+log_event "LEFT CLICK" 1.5
+sleep 0.5
+
+click_browser_element "$BROWSER_CDP_PORT" "Quit Strand Camera" || echo "WARNING: could not click Quit Strand Camera button" >&2
+wait_for_browser_text "$BROWSER_CDP_PORT" "Strand Camera has quit" 10 0.5 || echo "WARNING: quit confirmation text not seen" >&2
+sleep 1.5
 
 echo "=== Stopping capture ==="
 stop_capture
