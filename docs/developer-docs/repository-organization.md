@@ -181,6 +181,7 @@
  - event-stream-types (web/event-stream-types) - types for http event streams
  - strand-bui-backend-session (web/strand-bui-backend-session) - Backend session management for the BUI (Browser User Interface) used by Strand Camera and Braid
  - strand-bui-backend-session-types (web/strand-bui-backend-session/types) - Types for Strand Camera BUI (Browser User Interface) backend session management
+ - strand-cam-bui-components (web/strand-cam-bui-components) - Reusable Yew components for Strand Camera browser user interfaces
  - strand-cam-bui-types (web/strand-cam-bui-types) - Type definitions for the Strand Camera Browser User Interface (BUI) system.
  - strand-http-video-streaming (web/strand-http-video-streaming) - stream video over HTTP
  - strand-http-video-streaming-types (web/strand-http-video-streaming/strand-http-video-streaming-types) - Type definitions for HTTP video streaming functionality in the Strand Camera ecosystem.

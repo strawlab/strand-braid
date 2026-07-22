@@ -1,14 +1,11 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Live preview tile of one camera, streamed through Braid's `cam-proxy`.
+//! A live preview tile streamed from a Strand Camera HTTP server.
 //!
-//! This connects to the camera's Strand Camera HTTP server through the
-//! mainbrain reverse proxy, subscribes to its event stream (which carries the
-//! "firehose" video frames including detected points), and draws the frames
-//! onto a compact canvas. It implements the same receiver-paced flow control
-//! as the Strand Camera UI: after a frame is rendered, a `FirehoseNotify`
-//! callback is posted so the server sends the next frame.
+//! The component subscribes to Strand Camera's event stream, draws the
+//! firehose video frames (including detected points) onto a canvas, and uses
+//! receiver-paced flow control to request each subsequent frame.
 
 use gloo_events::EventListener;
 use gloo_timers::callback::{Interval, Timeout};
@@ -30,13 +27,14 @@ const PREVIEW_FPS: f64 = 10.0;
 
 /// A frame which finished loading into the `<img>` element and can be drawn.
 #[derive(Clone, PartialEq)]
-pub(crate) struct LoadedFrame {
+pub struct LoadedFrame {
     fno: u64,
     ck: ConnectionKey,
     shapes: Vec<CanvasDrawableShape>,
 }
 
-pub(crate) struct CamPreview {
+/// A live, annotated preview of one Strand Camera.
+pub struct CamPreview {
     es: EventSource,
     _listeners: Vec<EventListener>,
     image: web_sys::HtmlImageElement,
@@ -59,7 +57,8 @@ pub(crate) struct CamPreview {
     _clock_handle: Interval,
 }
 
-pub(crate) enum Msg {
+/// Internal messages used by [`CamPreview`].
+pub enum CamPreviewMsg {
     NewImageFrame(FirehoseImageData),
     FrameLoaded(LoadedFrame),
     NotifySender,
@@ -68,22 +67,22 @@ pub(crate) enum Msg {
     Nop,
 }
 
+/// Properties for [`CamPreview`].
 #[derive(PartialEq, Properties)]
-pub(crate) struct Props {
+pub struct CamPreviewProps {
     /// URL path prefix (including trailing slash) which reaches the Strand
-    /// Camera HTTP server through the braid camera proxy, e.g.
-    /// `/cam-proxy/<encoded-cam-name>/`.
-    pub(crate) proxy_prefix: String,
+    /// Camera HTTP server, e.g. `/cam-proxy/<encoded-cam-name>/`.
+    pub proxy_prefix: String,
     /// Inline style setting the aspect ratio of the camera image, applied to
     /// the status box shown before the first frame so that it occupies the
     /// same space as the canvas will.
     #[prop_or_default]
-    pub(crate) aspect_style: Option<String>,
+    pub aspect_style: Option<String>,
 }
 
 impl Component for CamPreview {
-    type Message = Msg;
-    type Properties = Props;
+    type Message = CamPreviewMsg;
+    type Properties = CamPreviewProps;
 
     fn create(ctx: &Context<Self>) -> Self {
         let events_url = format!(
@@ -100,16 +99,16 @@ impl Component for CamPreview {
 
         let stream_callback = ctx.link().callback(|bufstr: String| {
             match serde_json::from_str::<FirehoseImageData>(&bufstr) {
-                Ok(image_result) => Msg::NewImageFrame(image_result),
+                Ok(image_result) => CamPreviewMsg::NewImageFrame(image_result),
                 Err(e) => {
                     log::error!("error decoding video frame: {e}");
-                    Msg::Nop
+                    CamPreviewMsg::Nop
                 }
             }
         });
 
-        let mut _listeners = Vec::new();
-        _listeners.push(EventListener::new(
+        let mut listeners = Vec::new();
+        listeners.push(EventListener::new(
             &es,
             strand_http_video_streaming_types::VIDEO_STREAM_EVENT_NAME,
             move |event: &Event| {
@@ -120,19 +119,21 @@ impl Component for CamPreview {
         ));
 
         let link = ctx.link().clone();
-        _listeners.push(EventListener::new(&es, "error", move |_event: &Event| {
+        listeners.push(EventListener::new(&es, "error", move |_event: &Event| {
             // Trigger a UI redraw to show the connection state.
-            link.send_message(Msg::EsError);
+            link.send_message(CamPreviewMsg::EsError);
         }));
 
-        let _clock_handle = {
+        let clock_handle = {
             let link = ctx.link().clone();
-            Interval::new(100, move || link.send_message(Msg::CheckForUpdate))
+            Interval::new(100, move || {
+                link.send_message(CamPreviewMsg::CheckForUpdate)
+            })
         };
 
         Self {
             es,
-            _listeners,
+            _listeners: listeners,
             image: web_sys::HtmlImageElement::new().unwrap_throw(),
             onload_closure: None,
             canvas_ref: NodeRef::default(),
@@ -143,7 +144,7 @@ impl Component for CamPreview {
             last_frame_render: 0.0,
             last_recv: 0.0,
             timeout: None,
-            _clock_handle,
+            _clock_handle: clock_handle,
         }
     }
 
@@ -155,7 +156,7 @@ impl Component for CamPreview {
 
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
-            Msg::NewImageFrame(in_msg) => {
+            CamPreviewMsg::NewImageFrame(in_msg) => {
                 self.last_recv = js_sys::Date::now();
 
                 let mut draw_shapes = in_msg.annotations.clone();
@@ -170,11 +171,11 @@ impl Component for CamPreview {
                 let loaded = LoadedFrame {
                     fno: in_msg.fno,
                     ck: in_msg.ck,
-                    shapes: draw_shapes.into_iter().map(|s| s.into()).collect(),
+                    shapes: draw_shapes.into_iter().map(Into::into).collect(),
                 };
                 let callback = ctx
                     .link()
-                    .callback(move |_| Msg::FrameLoaded(loaded.clone()));
+                    .callback(move |_| CamPreviewMsg::FrameLoaded(loaded.clone()));
                 let on_load_closure = Closure::wrap(Box::new(move || {
                     callback.emit(()); // dummy arg for callback
                 }) as Box<dyn FnMut()>);
@@ -185,9 +186,9 @@ impl Component for CamPreview {
                 // Keep the new closure alive; drop the previous one, which the
                 // `<img>` element no longer references.
                 self.onload_closure = Some(on_load_closure);
-                return false;
+                false
             }
-            Msg::FrameLoaded(frame) => {
+            CamPreviewMsg::FrameLoaded(frame) => {
                 let dims = self.draw_frame_canvas(&frame);
                 let relayout = self.rendered_fno.is_none() || self.image_dims != dims;
                 self.rendered_fno = Some(frame.fno);
@@ -206,19 +207,19 @@ impl Component for CamPreview {
                 if wait_msecs > 0 {
                     let link = ctx.link().clone();
                     self.timeout = Some(Timeout::new(wait_msecs as u32, move || {
-                        link.send_message(Msg::NotifySender)
+                        link.send_message(CamPreviewMsg::NotifySender)
                     }));
                 } else {
                     self.timeout = None;
-                    ctx.link().send_message(Msg::NotifySender);
+                    ctx.link().send_message(CamPreviewMsg::NotifySender);
                 }
 
                 // The first frame switches the view from "connecting" to the
                 // canvas (and a dimension change updates the canvas aspect
                 // ratio); subsequent draws need no DOM update.
-                return relayout;
+                relayout
             }
-            Msg::NotifySender => {
+            CamPreviewMsg::NotifySender => {
                 self.timeout = None;
                 if let Some(ck) = self.last_ck {
                     let url = format!("{}callback", ctx.props().proxy_prefix);
@@ -228,28 +229,25 @@ impl Component for CamPreview {
                         if let Err(e) = post_json(&url, buf).await {
                             log::error!("failed sending firehose notification: {e:?}");
                         }
-                        Msg::Nop
+                        CamPreviewMsg::Nop
                     });
                 }
-                return false;
+                false
             }
-            Msg::CheckForUpdate => {
+            CamPreviewMsg::CheckForUpdate => {
                 // If no frame arrived for too long (e.g. a notification was
                 // lost), request a new one.
                 let now = js_sys::Date::now(); // in milliseconds
                 let dur_msec = now - self.last_recv;
                 if dur_msec > (1.0 / PREVIEW_FPS * 1000.0) && self.last_ck.is_some() {
                     self.last_recv = now; // Reset timeout to limit requests.
-                    ctx.link().send_message(Msg::NotifySender);
+                    ctx.link().send_message(CamPreviewMsg::NotifySender);
                 }
-                return false;
+                false
             }
-            Msg::EsError => {}
-            Msg::Nop => {
-                return false;
-            }
+            CamPreviewMsg::EsError => true,
+            CamPreviewMsg::Nop => false,
         }
-        true
     }
 
     fn view(&self, ctx: &Context<Self>) -> Html {
@@ -284,7 +282,7 @@ impl Component for CamPreview {
                     ref={self.canvas_ref.clone()}
                     class="cam-preview-canvas"
                     style={canvas_style}
-                    />
+                />
                 {status}
             </>
         }
@@ -315,9 +313,10 @@ impl CamPreview {
     }
 }
 
-async fn post_json(url: &str, buf: String) -> Result<(), crate::FetchError> {
+async fn post_json(url: &str, buf: String) -> Result<(), JsValue> {
     use wasm_bindgen_futures::JsFuture;
     use web_sys::{Request, RequestInit, Response};
+
     let opts = RequestInit::new();
     opts.set_method("POST");
     opts.set_cache(web_sys::RequestCache::NoStore);

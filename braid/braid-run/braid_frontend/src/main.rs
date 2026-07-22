@@ -19,9 +19,7 @@ use yew::{Component, Context, Event, Html, html};
 use yew_tincture::components::{Button, CheckboxLabel, TypedInput, TypedInputStorage};
 
 use ads_webasm::components::{ConnectDevice, RecordingPathWidget, ReloadButton, Toggle};
-
-mod cam_preview;
-use cam_preview::CamPreview;
+use strand_cam_bui_components::CamPreview;
 
 // -----------------------------------------------------------------------------
 

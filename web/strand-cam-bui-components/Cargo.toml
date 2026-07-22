@@ -1,0 +1,40 @@
+[package]
+name = "strand-cam-bui-components"
+version.workspace = true
+authors = ["Andrew Straw <strawman@astraw.com>"]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Reusable Yew components for Strand Camera browser user interfaces"
+
+[dependencies]
+gloo-events.workspace = true
+gloo-timers = "0.3.0"
+gloo-utils.workspace = true
+js-sys.workspace = true
+log.workspace = true
+serde_json.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+yew.workspace = true
+
+ads-webasm.workspace = true
+strand-bui-backend-session-types.workspace = true
+strand-cam-storetype.workspace = true
+strand-http-video-streaming-types.workspace = true
+
+[dependencies.web-sys]
+workspace = true
+features = [
+  "CanvasRenderingContext2d",
+  "Event",
+  "EventSource",
+  "Headers",
+  "HtmlCanvasElement",
+  "HtmlImageElement",
+  "MessageEvent",
+  "Request",
+  "RequestCache",
+  "RequestInit",
+  "Response",
+  "Window",
+]
