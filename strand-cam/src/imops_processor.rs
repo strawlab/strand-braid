@@ -68,10 +68,16 @@ pub struct ImOpsDetection {
 /// `configuration_rx` is a latest-value control path. Its value is consulted
 /// for each frame, so the host can safely change detector configuration without
 /// networking or waiting for a queued control message to be processed.
-#[derive(Clone)]
+///
+/// `cam_args_rx`, when present, is a bounded Tokio channel from the host to
+/// Strand Camera. Its [`strand_cam_remote_control::CamArg`] values are routed
+/// through the same command task as `CallbackType::ToCamera` HTTP requests.
+/// Closing this channel only disables host-side camera control; it does not
+/// stop camera acquisition.
 pub struct ImOpsHostOptions {
     pub configuration_rx: tokio::sync::watch::Receiver<ImOpsHostConfiguration>,
     pub detection_tx: tokio::sync::mpsc::Sender<ImOpsDetection>,
+    pub cam_args_rx: Option<tokio::sync::mpsc::Receiver<strand_cam_remote_control::CamArg>>,
 }
 
 /// Threshold a Mono8 image and calculate its spatial moments.

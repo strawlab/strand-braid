@@ -1552,7 +1552,7 @@ async fn run<M, C, G>(
     gui_singleton: ArcMutGuiSingleton,
     data_dir: PathBuf,
     shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
-    imops: Option<ImOpsHostOptions>,
+    mut imops: Option<ImOpsHostOptions>,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
@@ -2004,6 +2004,11 @@ where
     };
 
     let (cam_args_tx, cam_args_rx) = tokio::sync::mpsc::channel(100);
+    // An embedded host may directly control the camera without making an HTTP
+    // callback. Forward those commands into the same queue used by
+    // `CallbackType::ToCamera`, preserving their normal ordering and dispatch
+    // path. A closed host channel is not a camera shutdown request.
+    let host_cam_args_rx = imops.as_mut().and_then(|imops| imops.cam_args_rx.take());
     let (led_box_tx_std, led_box_rx) = tokio::sync::mpsc::channel(20);
 
     let led_box_heartbeat_update_arc = Arc::new(RwLock::new(None));
@@ -2616,6 +2621,22 @@ where
         )
     };
 
+    let host_cam_arg_future = async move {
+        if let Some(mut host_cam_args_rx) = host_cam_args_rx {
+            while let Some(cam_arg) = host_cam_args_rx.recv().await {
+                if cam_args_tx.send(cam_arg).await.is_err() {
+                    // The command task has already stopped, so application
+                    // shutdown is underway elsewhere.
+                    debug!("host camera command receiver stopped: camera command task is gone");
+                    return;
+                }
+            }
+            debug!("host camera command channel closed; continuing without host camera control");
+        }
+
+        std::future::pending::<()>().await;
+    };
+
     let (launched_tx, mut launched_rx) = tokio::sync::watch::channel(());
 
     #[cfg(not(feature = "eframe-gui"))]
@@ -2682,6 +2703,7 @@ where
     tokio::select! {
         res = http_serve_future => {res?},
         res = cam_arg_future => {res?},
+        _ = host_cam_arg_future => {},
         res = forward_to_mainbrain_fut => {res?},
         _ = send_updates_future => {},
         res = frame_process_task_fut => {res?},

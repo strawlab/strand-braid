@@ -1916,6 +1916,7 @@ mod tests {
         let mut direct_imops = Some(ImOpsHostOptions {
             configuration_rx,
             detection_tx,
+            cam_args_rx: None,
         });
 
         assert!(
