@@ -280,6 +280,18 @@ if ! wait_for_browser_text "$BROWSER_CDP_PORT" "Checkerboard Calibration" 10 1; 
     exit 1
 fi
 
+echo "=== Opening a second BUI window for the live camera feed (left pane) ==="
+# A second, independent browser connection to the exact same running
+# strand-cam instance -- takes over the terminal's spot in the left pane
+# and is left in its own default state (Live view starts expanded; only
+# the OTHER connection, BROWSER_WIN, gets its panels collapsed below), so
+# the recording shows the actual checkerboard video/detection overlay
+# playing throughout instead of an idle terminal. The terminal is still
+# needed off-camera to type the launch command above, but never needs to
+# be seen again after this -- opened afterward, this window simply sits on
+# top of it at the same position/size.
+open_live_view_window "$BUI_URL" "$TERM_WIN"
+
 echo "=== Letting the real default BUI layout settle for a moment ==="
 # Every top-level BUI section normally opens in the state a real strand-cam
 # session actually starts in -- "Live view", "MP4 Recording Options", "Post
@@ -536,8 +548,12 @@ if wait_for_file_newer_than "$CHECKERBOARD_CAL_YAML" "$CHECKERBOARD_CAL_YAML_BAS
     # uses for ttyd. Starts at $HOME so the recording shows real
     # step-by-step folder navigation down to the calibration file, the same
     # "watch a user browse there" principle as a real file manager demo,
-    # just backed by real, CDP-verified clicks the whole way.
-    move_mouse_gradual_into "$TERM_WIN"
+    # just backed by real, CDP-verified clicks the whole way. No preceding
+    # mouse move here -- the navigator now opens wherever Chrome defaults
+    # to (see open_file_navigator's own comment), not a known pane, so
+    # heading toward the old left-pane spot first no longer makes sense;
+    # the first point_at_browser_text call below moves the mouse to
+    # wherever the window actually landed.
     open_file_navigator "$HOME"
     sleep 1
 
