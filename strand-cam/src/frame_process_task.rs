@@ -37,12 +37,34 @@ use strand_cam_storetype::StoreType;
 #[cfg(feature = "fiducial")]
 use ads_apriltag as apriltag;
 
+use crate::imops_processor::{
+    ImOpsDetection, ImOpsFrameMetadata, ImOpsProcessor, ImOpsProcessorConfig,
+};
 use crate::{
     CentroidToDevice, FinalMp4RecordingConfig, FmfWriteInfo, FpsCalc,
     LED_BOX_HEARTBEAT_INTERVAL_MSEC, MOMENT_CENTROID_SCHEMA_VERSION, MomentCentroid, Msg,
     TimestampSource, convert_stream, open_braid_destination_addr, post_trigger_buffer,
     video_streaming,
 };
+
+#[derive(Debug, PartialEq, Eq)]
+enum DirectImOpsDelivery {
+    Delivered,
+    DroppedFull,
+    SinkClosed,
+}
+
+/// Deliver without awaiting so host-side processing cannot delay acquisition.
+fn try_deliver_direct_imops_detection(
+    detection_tx: &tokio::sync::mpsc::Sender<ImOpsDetection>,
+    detection: ImOpsDetection,
+) -> DirectImOpsDelivery {
+    match detection_tx.try_send(detection) {
+        Ok(()) => DirectImOpsDelivery::Delivered,
+        Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => DirectImOpsDelivery::DroppedFull,
+        Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => DirectImOpsDelivery::SinkClosed,
+    }
+}
 
 /// Perform image analysis
 #[cfg_attr(not(target_os = "linux"), expect(clippy::extra_unused_lifetimes))]
@@ -69,6 +91,7 @@ pub(crate) async fn frame_process_task<'a>(
     http_camserver_info: strand_bui_backend_session_types::BuiServerAddrInfo,
     transmit_msg_tx: Option<tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>>,
     camdata_udp_addr: Option<SocketAddr>,
+    direct_imops_detection_tx: Option<tokio::sync::mpsc::Sender<ImOpsDetection>>,
     led_box_heartbeat_update_arc: Arc<RwLock<Option<std::time::Instant>>>,
     #[cfg(feature = "checkercal")] collected_corners_arc: crate::CollectedCornersArc,
     #[cfg(feature = "flydratrax")] args: &crate::StrandCamArgs,
@@ -930,75 +953,85 @@ pub(crate) async fn frame_process_task<'a>(
                                 eyre::bail!("imops only implemented for Mono8 pixel format");
                             };
 
-                            let thresholded = imops::threshold(
+                            let detection = ImOpsProcessor::new(ImOpsProcessorConfig {
+                                threshold: store_cache_ref.im_ops_state.threshold,
+                                center_x: store_cache_ref.im_ops_state.center_x,
+                                center_y: store_cache_ref.im_ops_state.center_y,
+                            })
+                            .process(
                                 OImage::copy_from(&mono8),
-                                imops::CmpOp::LessThan,
-                                store_cache_ref.im_ops_state.threshold,
-                                0,
-                                255,
+                                ImOpsFrameMetadata {
+                                    frame_number: framenumber,
+                                    timestamp: save_mp4_fmf_stamp,
+                                    timestamp_source: timestamp_source.clone(),
+                                    camera_name: cam_name.as_str().to_owned(),
+                                },
                             );
-
-                            let mu00 = imops::spatial_moment_00(&thresholded);
-                            let mu01 = imops::spatial_moment_01(&thresholded);
-                            let mu10 = imops::spatial_moment_10(&thresholded);
-                            let mc = {
+                            if let Some(centroid) = detection.centroid {
+                                all_points.push(video_streaming::Point {
+                                    x: centroid.x,
+                                    y: centroid.y,
+                                    area: None,
+                                    theta: None,
+                                });
+                            }
+                            if let Some(detection_tx) = &direct_imops_detection_tx {
+                                match try_deliver_direct_imops_detection(detection_tx, detection) {
+                                    DirectImOpsDelivery::Delivered => {}
+                                    DirectImOpsDelivery::DroppedFull => {
+                                        trace!(
+                                            "dropping ImOps detection because the host sink is full"
+                                        );
+                                    }
+                                    DirectImOpsDelivery::SinkClosed => {
+                                        debug!("ImOps host sink closed; dropping detection");
+                                    }
+                                }
+                            } else {
                                 let mc = CentroidToDevice::Centroid(MomentCentroid {
                                     schema_version: MOMENT_CENTROID_SCHEMA_VERSION,
-                                    framenumber,
-                                    timestamp: save_mp4_fmf_stamp,
-                                    timestamp_source,
-                                    mu00,
-                                    mu01,
-                                    mu10,
-                                    center_x: store_cache_ref.im_ops_state.center_x,
-                                    center_y: store_cache_ref.im_ops_state.center_y,
-                                    cam_name: cam_name.as_str().to_string(),
+                                    framenumber: detection.metadata.frame_number,
+                                    timestamp: detection.metadata.timestamp,
+                                    timestamp_source: detection.metadata.timestamp_source,
+                                    mu00: detection.mu00,
+                                    mu01: detection.mu01,
+                                    mu10: detection.mu10,
+                                    center_x: detection.center_x,
+                                    center_y: detection.center_y,
+                                    cam_name: detection.metadata.camera_name,
                                 });
-                                if mu00 != 0.0 {
-                                    // If mu00 is 0.0, these will be NaN.
-                                    let x = mu10 / mu00;
-                                    let y = mu01 / mu00;
 
-                                    all_points.push(video_streaming::Point {
-                                        x,
-                                        y,
-                                        area: None,
-                                        theta: None,
-                                    });
+                                let need_new_socket = if let Some(socket) = &im_ops_socket {
+                                    socket.local_addr().unwrap().ip()
+                                        != store_cache_ref.im_ops_state.source
+                                } else {
+                                    true
+                                };
+
+                                if need_new_socket {
+                                    let mut iter = std::net::ToSocketAddrs::to_socket_addrs(&(
+                                        store_cache_ref.im_ops_state.source,
+                                        0u16,
+                                    ))
+                                    .unwrap();
+                                    let sockaddr = iter.next().unwrap();
+
+                                    im_ops_socket = std::net::UdpSocket::bind(sockaddr)
+                                        .map_err(|e| {
+                                            error!("failed opening socket: {}", e);
+                                        })
+                                        .ok();
                                 }
 
-                                mc
-                            };
-
-                            let need_new_socket = if let Some(socket) = &im_ops_socket {
-                                socket.local_addr().unwrap().ip()
-                                    != store_cache_ref.im_ops_state.source
-                            } else {
-                                true
-                            };
-
-                            if need_new_socket {
-                                let mut iter = std::net::ToSocketAddrs::to_socket_addrs(&(
-                                    store_cache_ref.im_ops_state.source,
-                                    0u16,
-                                ))
-                                .unwrap();
-                                let sockaddr = iter.next().unwrap();
-
-                                im_ops_socket = std::net::UdpSocket::bind(sockaddr)
-                                    .map_err(|e| {
-                                        error!("failed opening socket: {}", e);
-                                    })
-                                    .ok();
-                            }
-
-                            if let Some(socket) = &mut im_ops_socket {
-                                let buf = serde_cbor::to_vec(&mc).unwrap();
-                                match socket.send_to(&buf, store_cache_ref.im_ops_state.destination)
-                                {
-                                    Ok(_n_bytes) => {}
-                                    Err(e) => {
-                                        error!("Unable to send image moment data. {}", e);
+                                if let Some(socket) = &mut im_ops_socket {
+                                    let buf = serde_cbor::to_vec(&mc).unwrap();
+                                    match socket
+                                        .send_to(&buf, store_cache_ref.im_ops_state.destination)
+                                    {
+                                        Ok(_n_bytes) => {}
+                                        Err(e) => {
+                                            error!("Unable to send image moment data. {}", e);
+                                        }
                                     }
                                 }
                             }
@@ -1800,5 +1833,43 @@ fn calc_braid_timestamp(
             Some(x)
         }
         None => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn detection() -> ImOpsDetection {
+        ImOpsDetection {
+            metadata: ImOpsFrameMetadata {
+                frame_number: 1,
+                timestamp: chrono::DateTime::UNIX_EPOCH,
+                timestamp_source: TimestampSource::HostAcquiredTimestamp,
+                camera_name: "test-camera".to_owned(),
+            },
+            mu00: 0.0,
+            mu01: 0.0,
+            mu10: 0.0,
+            center_x: 0,
+            center_y: 0,
+            centroid: None,
+        }
+    }
+
+    #[test]
+    fn direct_imops_sink_drops_new_detection_when_full() {
+        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+
+        assert_eq!(
+            try_deliver_direct_imops_detection(&tx, detection()),
+            DirectImOpsDelivery::Delivered
+        );
+        assert_eq!(
+            try_deliver_direct_imops_detection(&tx, detection()),
+            DirectImOpsDelivery::DroppedFull
+        );
+        assert!(rx.try_recv().is_ok());
+        assert!(rx.try_recv().is_err());
     }
 }

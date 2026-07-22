@@ -67,6 +67,8 @@ use strand_cam_storetype::{
 
 use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
 
+pub use imops_processor::{ImOpsHostConfiguration, ImOpsHostOptions};
+
 use std::{
     io::Write,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket},
@@ -104,6 +106,7 @@ mod post_trigger_buffer;
 mod gui_app;
 
 mod frame_process_task;
+pub mod imops_processor;
 
 mod cam_arg_task;
 mod cam_stream_task;
@@ -691,7 +694,9 @@ pub struct StrandCamArgs {
     pub write_buffer_size_num_messages: usize,
     #[cfg(target_os = "linux")]
     v4l2loopback: Option<PathBuf>,
-    data_dir: Option<PathBuf>,
+    /// Directory where recordings and other camera data are written. If unset,
+    /// the caller's current working directory is used.
+    pub data_dir: Option<PathBuf>,
 }
 
 pub type SaveEmptyData2dType = bool;
@@ -1147,6 +1152,7 @@ where
         data_dir,
         log_file_time,
     };
+    let legacy_data_dir = log_file_info.data_dir.clone();
 
     #[cfg(feature = "eframe-gui")]
     {
@@ -1176,9 +1182,14 @@ where
                     mymod,
                     args,
                     app_name,
-                    log_file_info,
-                    gui_app_stuff,
-                    gui_singleton2,
+                    RunAfterOptions {
+                        log_file_info: Some(log_file_info),
+                        gui_app_stuff,
+                        gui_singleton: gui_singleton2,
+                        shutdown_rx: None,
+                        data_dir: legacy_data_dir,
+                        imops: None,
+                    },
                 ))?;
 
                 info!("done");
@@ -1215,14 +1226,76 @@ where
             mymod,
             args,
             app_name,
-            log_file_info,
-            None,
-            gui_singleton,
+            RunAfterOptions {
+                log_file_info: Some(log_file_info),
+                gui_app_stuff: None,
+                gui_singleton,
+                shutdown_rx: None,
+                data_dir: legacy_data_dir,
+                imops: None,
+            },
         ))?;
 
         info!("done");
         Ok(mymod)
     }
+}
+
+/// Run Strand Camera on the caller's Tokio runtime.
+///
+/// Unlike [`run_strand_cam_app`], this function neither initializes logging nor
+/// creates a Tokio runtime. This is the entry point for applications which
+/// compose camera acquisition with other subsystems in a single process. Send
+/// on `shutdown_rx` to stop the camera application and recover its camera
+/// module.
+///
+/// The caller is responsible for installing a tracing subscriber before
+/// invoking this function. The standalone command-line wrapper remains the
+/// owner of Strand Camera's legacy per-process logging and log-file naming.
+pub async fn run_strand_cam_app_async<M, C, G>(
+    mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
+    args: StrandCamArgs,
+    app_name: &'static str,
+    shutdown_rx: tokio::sync::oneshot::Receiver<()>,
+) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
+where
+    M: ci2::CameraModule<CameraType = C, Guard = G>,
+    C: 'static + ci2::Camera + Send,
+    G: Send,
+{
+    run_strand_cam_app_async_with_host_options(mymod, args, app_name, shutdown_rx, None).await
+}
+
+/// Run Strand Camera on the caller's Tokio runtime with optional local ImOps
+/// result delivery.
+pub async fn run_strand_cam_app_async_with_host_options<M, C, G>(
+    mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
+    args: StrandCamArgs,
+    app_name: &'static str,
+    shutdown_rx: tokio::sync::oneshot::Receiver<()>,
+    imops: Option<ImOpsHostOptions>,
+) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
+where
+    M: ci2::CameraModule<CameraType = C, Guard = G>,
+    C: 'static + ci2::Camera + Send,
+    G: Send,
+{
+    let data_dir = args.data_dir.clone().unwrap_or_else(|| PathBuf::from("."));
+
+    run_after_maybe_connecting_to_braid(
+        mymod,
+        args,
+        app_name,
+        RunAfterOptions {
+            log_file_info: None,
+            gui_app_stuff: None,
+            gui_singleton: Default::default(),
+            shutdown_rx: Some(shutdown_rx),
+            data_dir,
+            imops,
+        },
+    )
+    .await
 }
 
 struct GuiAppStuff {
@@ -1296,20 +1369,37 @@ struct LogFileInfo {
     log_file_time: chrono::DateTime<chrono::Local>,
 }
 
+/// Lifecycle resources supplied by either the standalone wrapper or an
+/// embedding application.
+struct RunAfterOptions {
+    log_file_info: Option<LogFileInfo>,
+    gui_app_stuff: Option<GuiAppStuff>,
+    gui_singleton: ArcMutGuiSingleton,
+    shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
+    data_dir: PathBuf,
+    imops: Option<ImOpsHostOptions>,
+}
+
 /// First, connect to Braid if requested, then run.
 async fn run_after_maybe_connecting_to_braid<M, C, G>(
     mymod: ci2_async::ThreadedAsyncCameraModule<M, C, G>,
     args: StrandCamArgs,
     app_name: &'static str,
-    log_file_info: LogFileInfo,
-    gui_app_stuff: Option<GuiAppStuff>,
-    gui_singleton: ArcMutGuiSingleton,
+    host: RunAfterOptions,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
     C: 'static + ci2::Camera + Send,
     G: Send,
 {
+    let RunAfterOptions {
+        log_file_info,
+        gui_app_stuff,
+        gui_singleton,
+        shutdown_rx,
+        data_dir,
+        imops,
+    } = host;
     let cfg_from_braid;
     let strand_cam_bui_http_address_string = match &args.standalone_or_braid {
         StandaloneOrBraid::Braid(braid_args) => {
@@ -1376,29 +1466,32 @@ where
         None => cam_infos[0].name(),
     };
 
-    // Rename the log file (which is open and being written to) so that the name
-    // includes the camera name.
-    let new_log_file_name = log_file_info
-        .log_file_time
-        .format(".strand-cam-%Y%m%d_%H%M%S.%f")
-        .to_string()
-        + &format!("-{}.log", use_camera_name);
-    let new_log_file_name = log_file_info.log_dir.join(&new_log_file_name);
+    if let Some(log_file_info) = log_file_info {
+        // Rename the log file (which is open and being written to) so that the
+        // name includes the camera name. Embedded callers own logging and do
+        // not have a Strand Camera-specific file to rename.
+        let new_log_file_name = log_file_info
+            .log_file_time
+            .format(".strand-cam-%Y%m%d_%H%M%S.%f")
+            .to_string()
+            + &format!("-{}.log", use_camera_name);
+        let new_log_file_name = log_file_info.log_dir.join(&new_log_file_name);
 
-    tracing::debug!(
-        "Renaming log file \"{}\" -> \"{}\"",
-        log_file_info.initial_log_file_name.display(),
-        new_log_file_name.display()
-    );
-    std::fs::rename(&log_file_info.initial_log_file_name, &new_log_file_name).with_context(
-        || {
-            format!(
-                "Renaming log file \"{}\" -> \"{}\"",
-                log_file_info.initial_log_file_name.display(),
-                new_log_file_name.display()
-            )
-        },
-    )?;
+        tracing::debug!(
+            "Renaming log file \"{}\" -> \"{}\"",
+            log_file_info.initial_log_file_name.display(),
+            new_log_file_name.display()
+        );
+        std::fs::rename(&log_file_info.initial_log_file_name, &new_log_file_name).with_context(
+            || {
+                format!(
+                    "Renaming log file \"{}\" -> \"{}\"",
+                    log_file_info.initial_log_file_name.display(),
+                    new_log_file_name.display()
+                )
+            },
+        )?;
+    }
 
     run(
         mymod,
@@ -1409,7 +1502,9 @@ where
         use_camera_name,
         gui_app_stuff,
         gui_singleton,
-        log_file_info.data_dir,
+        data_dir,
+        shutdown_rx,
+        imops,
     )
     .await
 }
@@ -1441,16 +1536,7 @@ async fn forward_to_mainbrain(
 /// information.
 ///
 /// This function is way too huge and should be refactored.
-#[tracing::instrument(skip(
-    mymod,
-    args,
-    app_name,
-    braid_info,
-    strand_cam_bui_http_address_string,
-    gui_app_stuff,
-    gui_singleton,
-    data_dir
-))]
+#[tracing::instrument(skip_all, fields(cam=cam))]
 #[expect(
     clippy::too_many_arguments,
     reason = "oh this is ugly. refactor at some point."
@@ -1465,6 +1551,8 @@ async fn run<M, C, G>(
     gui_app_stuff: Option<GuiAppStuff>,
     gui_singleton: ArcMutGuiSingleton,
     data_dir: PathBuf,
+    shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
+    imops: Option<ImOpsHostOptions>,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
@@ -2107,7 +2195,17 @@ where
     #[cfg(feature = "fiducial")]
     let apriltag_state = Some(ApriltagState::default());
 
-    let im_ops_state = ImOpsState::default();
+    let im_ops_state = if let Some(imops) = &imops {
+        ImOpsState {
+            do_detection: imops.initial_configuration.enabled,
+            threshold: imops.initial_configuration.processor.threshold,
+            center_x: imops.initial_configuration.processor.center_x,
+            center_y: imops.initial_configuration.processor.center_y,
+            ..ImOpsState::default()
+        }
+    } else {
+        ImOpsState::default()
+    };
 
     #[cfg(feature = "flydra_feat_detect")]
     let has_image_tracker_compiled = true;
@@ -2387,6 +2485,7 @@ where
             http_camserver_info2,
             transmit_msg_tx.clone(),
             camdata_udp_addr,
+            imops.as_ref().map(|imops| imops.detection_tx.clone()),
             led_box_heartbeat_update_arc2,
             #[cfg(feature = "checkercal")]
             collected_corners_arc.clone(),
@@ -2568,6 +2667,13 @@ where
         None => dummy_rx,
         Some(fut) => fut,
     };
+    // Keep an inert receiver for the legacy CLI path. Embedded callers pass a
+    // receiver and thereby retain ownership of application shutdown.
+    let (_dummy_shutdown_tx, dummy_shutdown_rx) = tokio::sync::oneshot::channel();
+    let mut shutdown_rx = match shutdown_rx {
+        None => dummy_shutdown_rx,
+        Some(rx) => rx,
+    };
 
     // Now run until first future returns, then exit.
     info!("Strand Cam launched.");
@@ -2580,6 +2686,7 @@ where
         res = frame_process_task_fut => {res?},
         res = firehose_task_join_handle => {res?},
         _ = quit_rx.recv() => {},
+        _ = &mut shutdown_rx => {},
     }
     info!("Strand Cam ending nicely. :)");
     // All other futures above are now dropped, thus cancelled.
