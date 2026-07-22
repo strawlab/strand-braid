@@ -64,9 +64,13 @@ pub struct ImOpsDetection {
 /// `detection_tx` must be a bounded Tokio channel sender. Strand Camera uses
 /// [`tokio::sync::mpsc::Sender::try_send`] and drops a new detection when the
 /// channel is full, so slow host-side processing never stalls acquisition.
+///
+/// `configuration_rx` is a latest-value control path. Its value is consulted
+/// for each frame, so the host can safely change detector configuration without
+/// networking or waiting for a queued control message to be processed.
 #[derive(Clone)]
 pub struct ImOpsHostOptions {
-    pub initial_configuration: ImOpsHostConfiguration,
+    pub configuration_rx: tokio::sync::watch::Receiver<ImOpsHostConfiguration>,
     pub detection_tx: tokio::sync::mpsc::Sender<ImOpsDetection>,
 }
 

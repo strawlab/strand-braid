@@ -2196,11 +2196,12 @@ where
     let apriltag_state = Some(ApriltagState::default());
 
     let im_ops_state = if let Some(imops) = &imops {
+        let configuration = *imops.configuration_rx.borrow();
         ImOpsState {
-            do_detection: imops.initial_configuration.enabled,
-            threshold: imops.initial_configuration.processor.threshold,
-            center_x: imops.initial_configuration.processor.center_x,
-            center_y: imops.initial_configuration.processor.center_y,
+            do_detection: configuration.enabled,
+            threshold: configuration.processor.threshold,
+            center_x: configuration.processor.center_x,
+            center_y: configuration.processor.center_y,
             ..ImOpsState::default()
         }
     } else {
@@ -2485,7 +2486,7 @@ where
             http_camserver_info2,
             transmit_msg_tx.clone(),
             camdata_udp_addr,
-            imops.as_ref().map(|imops| imops.detection_tx.clone()),
+            imops,
             led_box_heartbeat_update_arc2,
             #[cfg(feature = "checkercal")]
             collected_corners_arc.clone(),

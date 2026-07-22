@@ -38,7 +38,8 @@ use strand_cam_storetype::StoreType;
 use ads_apriltag as apriltag;
 
 use crate::imops_processor::{
-    ImOpsDetection, ImOpsFrameMetadata, ImOpsProcessor, ImOpsProcessorConfig,
+    ImOpsDetection, ImOpsFrameMetadata, ImOpsHostConfiguration, ImOpsHostOptions, ImOpsProcessor,
+    ImOpsProcessorConfig,
 };
 use crate::{
     CentroidToDevice, FinalMp4RecordingConfig, FmfWriteInfo, FpsCalc,
@@ -66,6 +67,14 @@ fn try_deliver_direct_imops_detection(
     }
 }
 
+fn current_direct_imops_configuration(
+    direct_imops: &mut Option<ImOpsHostOptions>,
+) -> Option<ImOpsHostConfiguration> {
+    direct_imops
+        .as_mut()
+        .map(|direct_imops| *direct_imops.configuration_rx.borrow_and_update())
+}
+
 /// Perform image analysis
 #[cfg_attr(not(target_os = "linux"), expect(clippy::extra_unused_lifetimes))]
 #[expect(
@@ -91,7 +100,7 @@ pub(crate) async fn frame_process_task<'a>(
     http_camserver_info: strand_bui_backend_session_types::BuiServerAddrInfo,
     transmit_msg_tx: Option<tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>>,
     camdata_udp_addr: Option<SocketAddr>,
-    direct_imops_detection_tx: Option<tokio::sync::mpsc::Sender<ImOpsDetection>>,
+    mut direct_imops: Option<ImOpsHostOptions>,
     led_box_heartbeat_update_arc: Arc<RwLock<Option<std::time::Instant>>>,
     #[cfg(feature = "checkercal")] collected_corners_arc: crate::CollectedCornersArc,
     #[cfg(feature = "flydratrax")] args: &crate::StrandCamArgs,
@@ -942,10 +951,16 @@ pub(crate) async fn frame_process_task<'a>(
                     let mut blkajdsfads = None;
 
                     {
-                        if let Some(ref store_cache_ref) = store_cache
-                            && let (true, Some(framenumber)) =
-                                (store_cache_ref.im_ops_state.do_detection, block_id)
-                        {
+                        let direct_imops_configuration =
+                            current_direct_imops_configuration(&mut direct_imops);
+                        let is_doing_imops = direct_imops_configuration
+                            .map(|configuration| configuration.enabled)
+                            .unwrap_or_else(|| {
+                                store_cache
+                                    .as_ref()
+                                    .is_some_and(|store| store.im_ops_state.do_detection)
+                            });
+                        if let (true, Some(framenumber)) = (is_doing_imops, block_id) {
                             let src = frame.image.borrow();
                             let mono8 = if let Some(mono8) = src.as_static::<Mono8>() {
                                 mono8
@@ -953,12 +968,19 @@ pub(crate) async fn frame_process_task<'a>(
                                 eyre::bail!("imops only implemented for Mono8 pixel format");
                             };
 
-                            let detection = ImOpsProcessor::new(ImOpsProcessorConfig {
-                                threshold: store_cache_ref.im_ops_state.threshold,
-                                center_x: store_cache_ref.im_ops_state.center_x,
-                                center_y: store_cache_ref.im_ops_state.center_y,
-                            })
-                            .process(
+                            let processor_config = direct_imops_configuration
+                                .map(|configuration| configuration.processor)
+                                .unwrap_or_else(|| {
+                                    let store_cache_ref = store_cache
+                                        .as_ref()
+                                        .expect("legacy ImOps requires shared store state");
+                                    ImOpsProcessorConfig {
+                                        threshold: store_cache_ref.im_ops_state.threshold,
+                                        center_x: store_cache_ref.im_ops_state.center_x,
+                                        center_y: store_cache_ref.im_ops_state.center_y,
+                                    }
+                                });
+                            let detection = ImOpsProcessor::new(processor_config).process(
                                 OImage::copy_from(&mono8),
                                 ImOpsFrameMetadata {
                                     frame_number: framenumber,
@@ -975,8 +997,11 @@ pub(crate) async fn frame_process_task<'a>(
                                     theta: None,
                                 });
                             }
-                            if let Some(detection_tx) = &direct_imops_detection_tx {
-                                match try_deliver_direct_imops_detection(detection_tx, detection) {
+                            if let Some(direct_imops) = &direct_imops {
+                                match try_deliver_direct_imops_detection(
+                                    &direct_imops.detection_tx,
+                                    detection,
+                                ) {
                                     DirectImOpsDelivery::Delivered => {}
                                     DirectImOpsDelivery::DroppedFull => {
                                         trace!(
@@ -988,6 +1013,9 @@ pub(crate) async fn frame_process_task<'a>(
                                     }
                                 }
                             } else {
+                                let store_cache_ref = store_cache
+                                    .as_ref()
+                                    .expect("legacy ImOps requires shared store state");
                                 let mc = CentroidToDevice::Centroid(MomentCentroid {
                                     schema_version: MOMENT_CENTROID_SCHEMA_VERSION,
                                     framenumber: detection.metadata.frame_number,
@@ -1871,5 +1899,57 @@ mod tests {
         );
         assert!(rx.try_recv().is_ok());
         assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn direct_imops_configuration_is_updated_live() {
+        let disabled = ImOpsHostConfiguration {
+            enabled: false,
+            processor: ImOpsProcessorConfig {
+                threshold: 255,
+                center_x: 0,
+                center_y: 0,
+            },
+        };
+        let (configuration_tx, configuration_rx) = tokio::sync::watch::channel(disabled);
+        let (detection_tx, _detection_rx) = tokio::sync::mpsc::channel(1);
+        let mut direct_imops = Some(ImOpsHostOptions {
+            configuration_rx,
+            detection_tx,
+        });
+
+        assert!(
+            !current_direct_imops_configuration(&mut direct_imops)
+                .unwrap()
+                .enabled
+        );
+
+        let enabled = ImOpsHostConfiguration {
+            enabled: true,
+            processor: ImOpsProcessorConfig {
+                threshold: 100,
+                center_x: 12,
+                center_y: 34,
+            },
+        };
+        configuration_tx.send(enabled).unwrap();
+
+        let configuration = current_direct_imops_configuration(&mut direct_imops).unwrap();
+        assert_eq!(configuration, enabled);
+        let image = OImage::<Mono8>::new(2, 1, 2, vec![0, 200]).unwrap();
+        let detection = ImOpsProcessor::new(configuration.processor).process(
+            image,
+            ImOpsFrameMetadata {
+                frame_number: 1,
+                timestamp: chrono::DateTime::UNIX_EPOCH,
+                timestamp_source: TimestampSource::HostAcquiredTimestamp,
+                camera_name: "test-camera".to_owned(),
+            },
+        );
+        assert_eq!(
+            detection.centroid,
+            Some(crate::imops_processor::ImagePoint { x: 1.0, y: 0.0 })
+        );
+        assert_eq!((detection.center_x, detection.center_y), (12, 34));
     }
 }
