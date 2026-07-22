@@ -1814,17 +1814,14 @@ dependencies = [
  "braid-types",
  "console_error_panic_hook",
  "gloo-events 0.1.2",
- "gloo-timers 0.3.0",
  "gloo-utils 0.1.7",
  "js-sys",
  "log",
  "serde",
  "serde_json",
  "serde_yaml",
- "strand-bui-backend-session-types",
+ "strand-cam-bui-components",
  "strand-cam-bui-types",
- "strand-cam-storetype",
- "strand-http-video-streaming-types",
  "uuid",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -14625,6 +14622,26 @@ dependencies = [
  "ufmf",
  "v4l",
  "webbrowser",
+]
+
+[[package]]
+name = "strand-cam-bui-components"
+version = "1.0.0-rc.5"
+dependencies = [
+ "ads-webasm",
+ "gloo-events 0.1.2",
+ "gloo-timers 0.3.0",
+ "gloo-utils 0.1.7",
+ "js-sys",
+ "log",
+ "serde_json",
+ "strand-bui-backend-session-types",
+ "strand-cam-storetype",
+ "strand-http-video-streaming-types",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+ "yew",
 ]
 
 [[package]]
