@@ -768,14 +768,31 @@ get_browser_href() {
 # close button.
 navigate_browser() {
     local cdp_port="$1" url="$2"
-    local lib_dir
+    local lib_dir attempt
     lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-    python3 -c "
+    # This eval's own CDP reply races the navigation it triggers: Chrome can
+    # tear down the evaluating page's execution context (navigation
+    # starting) before it sends back Runtime.evaluate's response, timing
+    # out cdp_locate.py's socket read even though `window.location.href`
+    # already ran -- confirmed via repeated real runs timing out here at
+    # the same camera-cycling iteration every time. Retry a couple of times
+    # rather than treating this as fatal: re-assigning the same href to
+    # whatever URL the page already navigated to is a harmless no-op if the
+    # first attempt actually succeeded.
+    for attempt in 1 2 3; do
+        if python3 -c "
 import sys, json
 sys.path.insert(0, sys.argv[1])
 import cdp_locate
 cdp_locate.cdp_evaluate(int(sys.argv[2]), 'window.location.href = ' + json.dumps(sys.argv[3]) + ';')
-" "$lib_dir" "$cdp_port" "$url"
+" "$lib_dir" "$cdp_port" "$url"; then
+            return 0
+        fi
+        echo "WARNING: navigate_browser attempt $attempt failed (CDP reply likely lost to the navigation itself), retrying..." >&2
+        sleep 1
+    done
+    echo "ERROR: navigate_browser could not navigate to $url after 3 attempts" >&2
+    return 1
 }
 
 # click_browser_element CDP_PORT NEEDLE [ANCESTOR_TAG=button]: finds the
