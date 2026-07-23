@@ -813,6 +813,61 @@ came back to the expected ~211s duration with no `LIMIT_FRAMERATE` log line
 at all, confirming zero behavior change on the default path. Both runs
 clean: no CDP-lookup warnings, no leftover processes.
 
+## Update 2026-07-23 (yet later): scroll-to-center, a real scroll-into-view
+## bug found and fixed, a longer pre-playback pause, and a sweep on the
+## calibration file
+
+Four more changes this session, in response to direct feedback watching
+the generated video, each verified via a real end-to-end `record.sh` run:
+
+**1. The scroll-into-view fix from the update above was upgraded from
+`{block:'nearest'}` to `{block:'center'}`.** On request ("the scrolling
+down in the navigator window is a little difficult to follow"): `nearest`
+scrolls the bare minimum, which can land a target flush against the
+viewport's edge -- hard to visually follow in the recording. `center`
+overshoots on purpose so the target ends up with clear margin around it.
+Still a no-op if the target is already fully visible (unchanged from the
+update above).
+
+**2. A real bug in that same fix, found from a separate piece of direct
+feedback** ("you scrolled too far down in the yaml window and seemed to
+point at the location of the distance text before the window resized"):
+the "already visible" check measured `bestNode.parentElement`'s
+`getBoundingClientRect()`, not the matched `Range`'s own. For the YAML
+viewer, that parent is the single `<pre>` wrapping the *entire* file --
+its box always spans past the viewport regardless of where the matched
+text sits, so "already visible" was false almost every time, and the
+resulting `scrollIntoView({block:'center'})` centered the *file's* own
+vertical midpoint instead of the matched line. Confirmed via a captured
+frame: pointing at `"distance:"` (line 2 of the file) landed several dozen
+lines down, near `distortion_coefficients:`. Not a window-resize timing
+issue as it first appeared -- the window was already correctly sized by
+the time the pointer moved; the scroll target itself was just wrong.
+Fixed by measuring/scrolling based on the matched `Range`'s own
+`getBoundingClientRect()` and replacing the parent-element
+`scrollIntoView` call with a manual `scrollTop` adjustment on the nearest
+real scrollable ancestor (falling back to `window.scrollBy`) -- `Range`
+has no reliable standard `scrollIntoView()`. Verified with two standalone
+isolated-Chrome tests (already-visible text stays untouched, confirmed via
+`scrollY` staying `0`; text genuinely off-screen scrolls correctly to
+center, confirmed via the returned position landing near
+`window.innerHeight/2`) plus a real end-to-end `record.sh` run showing the
+mouse correctly resting on `"# Mean reprojection distance: ..."` itself.
+
+**3. The pause between the "Save debug information" confirmation and
+playback starting** was increased from 1.5s to 3s, on request.
+
+**4. The calibration file's own `point_at_browser_text` call** now sweeps
++/-50px left-right before "clicking" it (`SWEEP_WIDTH=100` --
+`point_at`'s own `half = SWEEP_WIDTH/2` math means a true +/-50px wiggle
+needs `100`, not `50`), on request. Deliberately NOT applied to the three
+folder-navigation points, which stay at sweep width `0` (real navigation
+clicks, not text-indicating gestures).
+
+All four changes live in `lib/cdp_locate.py`/`checkerboard-calibration/record.sh`
+only. Verified via multiple real end-to-end runs this session, each clean
+(no CDP-lookup warnings, no leftover processes).
+
 ## Solid (verified via source, not tuned-by-eye)
 
 - The BUI markup for the "Checkerboard Calibration" panel
@@ -837,13 +892,14 @@ clean: no CDP-lookup warnings, no leftover processes.
   confirm a fixed needle is present, not read a value that changes over
   time (the count itself). Added `cdp_locate.py --get-text` (prints the
   matching text node's parent's full `textContent`) and a
-  `get_browser_text` wrapper in `session.sh`; `record.sh`'s own
-  `wait_for_checkerboard_count()` polls that and regex-extracts the number.
-  Untested against the real page structure — if the surrounding
-  `<div>{num_checkerboards_collected}</div>` (main.rs:1303-1305) doesn't
-  round-trip cleanly through `--get-text`, this is the first thing to check.
+  `get_browser_text` wrapper in `session.sh`. Confirmed working against the
+  real page structure via many real runs (round-trips cleanly through
+  `--get-text`). Not a polling gate, though -- `record.sh` no longer waits
+  for a target count at all (see the 2026-07-21 update below on switching
+  end-of-video detection to a marker file); `get_browser_text` is used only
+  for a one-time informational log of the final count once the video ends.
 
-## Unverified / needs a real run
+## Still open
 
 - **All `point_at_browser_text` calls still have no fallback pixel
   coordinates** (unlike every other scenario's `POINTING-NOTES.md`-tracked
@@ -857,27 +913,18 @@ clean: no CDP-lookup warnings, no leftover processes.
   but it also means a firefox-fallback run (no CDP at all) would silently
   skip every pointing step in this scenario. Add real fallback coordinates
   once there's a captured frame to measure them from.
-- **Whether `scroll_until_visible ... 60` is enough** to reach the
-  "Checkerboard Calibration" heading — chosen by analogy to
-  `braid-intro`'s `BROWSER_QUIT_SCROLL_CLICKS=30` (a similarly-deep BUI-page
-  scroll, not a terminal-log scroll where `braid-intro`'s `400` applies),
-  doubled for margin since this panel may sit further down the page than
-  braid-run's Quit button. A stated judgment call, not a measurement —
-  revisit if the first run's log shows `scroll_until_visible` exhausting
-  its max without finding the heading.
-- **Detection timing**: `checkerboard_loop_dur` in
-  `strand-cam/src/frame_process_task.rs` samples at most once every 500ms —
-  whatever `CHECKERBOARD_VIDEO` ends up being needs genuinely distinct,
-  reasonably-held (>=1s) checkerboard poses, not continuous fast motion, or
-  the "checkerboards collected" counter may barely move. Worth checking the
-  counter's growth rate in the first real run's own stderr
-  (`wait_for_checkerboard_count`'s progress line) before assuming the video
-  itself is fine.
-- **`CHECKERBOARD_MIN_COUNT=10`** (matches the docs' "say, at least 10") is
-  a stated default, not something confirmed to produce a good calibration
-  with whatever footage ends up being used — the real
-  `docs/user-docs/users-guide/src/braid_calibration.md:64-65` phrasing is
-  itself just a rule of thumb, not a hard requirement.
+- ~~Whether `scroll_until_visible ... 60` is enough to reach the
+  "Checkerboard Calibration" heading~~ — resolved by practice: confirmed
+  sufficient across many real runs (never once exhausted its max without
+  finding the heading).
+- ~~Detection timing~~ — resolved: `CHECKERBOARD_VIDEO`'s poses hold long
+  enough for `checkerboard_loop_dur`'s 500ms sampling to register cleanly;
+  real runs have consistently collected 15-29 checkerboards (see the
+  `LIMIT_FRAMERATE` update below for why the range varies).
+- ~~`CHECKERBOARD_MIN_COUNT=10`~~ — no longer applicable: `record.sh` no
+  longer gates on a target count at all (see the 2026-07-21 update below);
+  whatever a full play-through of `CHECKERBOARD_VIDEO` collects is however
+  many there are.
 
 ## Known gap vs. what a "regenerated" tutorial video would normally mean
 
@@ -888,6 +935,5 @@ the kind of thing" this should show, plus an example calibration debug
 folder from a real session (`Basler-40454395.yaml`,
 `checkerboard_debug_*/input_8_6_*.png`) alongside it, but that reference
 hasn't been frame-reviewed against this script's own pacing/captions the
-way `strand-cam-intro/COMPARISON-NOTES.md` did for `Video_1.mp4`. Worth a
-comparison pass once both a real `CHECKERBOARD_VIDEO` and a first real
-`record.sh` output exist.
+way `strand-cam-intro/COMPARISON-NOTES.md` did for `Video_1.mp4`. Still a
+gap as of this writing -- no comparison pass has happened yet.

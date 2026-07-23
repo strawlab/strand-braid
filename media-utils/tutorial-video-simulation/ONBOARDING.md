@@ -150,6 +150,40 @@ Always push to `origin` (should already point at
   Also the only one of the three that isn't regenerating a pre-existing
   tutorial video — there's no earlier "Video_3.mp4" in this repo.
 
+  **Update 2026-07-23 (yet later): scroll-to-center, a real scroll-into-view
+  bug found and fixed, plus a longer pre-playback pause and a sweep on the
+  calibration file.** From direct video-review feedback: the navigator's
+  scroll-into-view (added earlier this session) now overshoots to
+  `{block:'center'}` instead of `{block:'nearest'}`, so a target that needs
+  scrolling ends up with clear margin instead of flush against the
+  viewport edge. That same fix also had a real bug, found from a separate
+  piece of feedback ("pointed at the location of the distance text before
+  the window resized") — it measured the wrong element's bounding box
+  (the YAML viewer's whole enclosing `<pre>`, not the matched text itself),
+  so it almost always scrolled, centering the *file's* vertical midpoint
+  instead of the matched line. Fixed by measuring/scrolling based on the
+  matched `Range`'s own position instead — see `POINTING-NOTES.md`'s own
+  dated update for the full diagnosis and how it was verified (two
+  standalone isolated-Chrome tests plus a real run). Also: the pause
+  before playback starts went from 1.5s to 3s, and the calibration file's
+  own point now sweeps +/-50px before "clicking" it — both on request.
+
+  **Update 2026-07-23 (a documentation pass, not a functional change):**
+  checked comments/help text/READMEs across this whole directory for
+  correctness and conciseness. Fixed several stale claims that had drifted
+  from reality as the scenario matured (a "written on macOS, UNVERIFIED"
+  header claim long since disproven by dozens of real runs; a
+  `POINTING-NOTES.md` reference to a `wait_for_checkerboard_count()`
+  function that no longer exists — `record.sh` now waits for the whole
+  video via a marker file instead of a target count; two broken source
+  file paths missing a `braid/` directory prefix) and trimmed duplicated
+  header comments in `checkerboard-calibration/record.sh` and
+  `braid-intro/record.sh` that re-explained things `README.md` already
+  covers (the exact kind of drift that caused the same `LIMIT_FRAMERATE`
+  wording to need fixing in two places this session). Left
+  `POINTING-NOTES.md`/`COMPARISON-NOTES.md` files otherwise alone —
+  they're dated historical logs, not living docs meant to be concise.
+
 ## Before running either script
 
 Check for a real `braid-run`/`strand-cam` process already using the
@@ -300,11 +334,13 @@ what's still outstanding (mainly: a first real end-to-end run).
 - **`point_at_browser_text`'s click target isn't automatically in view;
   `click_browser_element`'s is.** The former measures a viewport-relative
   `getClientRects()`, so a needle scrolled out of view would move the mouse
-  to the wrong on-screen spot (fixed generally in `lib/cdp_locate.py` via a
-  `scrollIntoView({block:'nearest'})` before measuring — see
-  `checkerboard-calibration/POINTING-NOTES.md`'s 2026-07-23 update for the
-  full before/after proof). The latter dispatches a real DOM event directly
-  on the element handle, so it always works regardless of scroll position.
+  to the wrong on-screen spot (fixed generally in `lib/cdp_locate.py` --
+  scrolls the matched *text's own* position into view, centered, when it
+  isn't already visible; see `checkerboard-calibration/POINTING-NOTES.md`'s
+  2026-07-23 updates -- an earlier version of this same fix measured the
+  wrong element and had a real bug as a result, also documented there). The
+  latter dispatches a real DOM event directly on the element handle, so it
+  always works regardless of scroll position.
   Worth remembering before assuming a new pointing call needs the same
   treatment as an existing one.
 
