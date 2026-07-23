@@ -535,22 +535,27 @@ below, now out of date for offsets specifically). Current values, all in
 |---|---|---|---|
 | "Checkerboard Calibration" (panel expand) | 0 | 0 | -2 |
 | "Input: Checkerboard Size" (info only) | 50 (default) | 0 | 6 (default, untouched) |
-| "Enable checkerboard calibration" (enable + disable, both occurrences) | 0 | 0 | -3 |
-| "Save debug information" (enable) | 0 | 0 | -3 |
-| "Save debug information" (disable) | 0 | 0 | 0 |
+| "Enable checkerboard calibration" (enable + disable, both occurrences) | 0 | 0 | -9 |
+| "Save debug information" (enable) | 0 | 0 | -9 |
+| "Save debug information" (disable) | 0 | 0 | -6 |
 | "Number of checkerboards collected" | 100 | 15 | -10 |
-| "Perform and Save Calibration" | 0 | 0 | -3 |
+| "Perform and Save Calibration" | 0 | 0 | -9 |
 | Navigator: ".config" / "strand-cam" / "camera_info" (each) | 0 | 0 | -10 |
 | Navigator: calibration filename | 0 | 0 | -10 |
 | Viewer: needle changed from "Mean reprojection distance" to **"distance:"** | 50 (default) | 50 | 6 |
 
 Note the asymmetry deliberately left in place: "Save debug information"'s
-enable-click offset (`Y=-3`) was never applied to its disable-click
-(`Y=0`) -- the user's tuning requests named specific call sites, not "all
-occurrences of this needle," so don't assume the two should match without
-asking. Same reasoning for why the two "Enable checkerboard calibration"
-occurrences (enable/disable) DO share `Y=-3` here -- that one was
-requested for both explicitly.
+enable-click offset was never applied to its disable-click at the same
+absolute value -- the user's tuning requests named specific call sites, not
+"all occurrences of this needle," so don't assume the two should match
+without asking. Same reasoning for why the two "Enable checkerboard
+calibration" occurrences (enable/disable) DO share one value here -- that
+one was requested for both explicitly. (A later session, see the
+2026-07-23 update below, shifted every one of these five points up by a
+further `-6`, applied uniformly to each occurrence's then-current value --
+that's how the enable-toggle's `-3` and the disable-debug-toggle's `0`
+above ended up at `-9`/`-6` respectively, preserving the original 3px gap
+between them.)
 
 **Click captioning completed.** Previously only the panel-expand,
 Perform-and-Save, and navigator/viewer clicks had a "LEFT CLICK" caption;
@@ -612,6 +617,125 @@ checkerboard-calibration tuning -- click captions, debug-save wait,
 deferred capture start") on top of `c753d8de` (the offset-only tuning
 commit from earlier the same session), both pushed to `origin/main` (the
 fork).
+
+## Update 2026-07-23: five points nudged up by 6, and the file navigator
+## restyled to look like a real Linux file manager
+
+Two changes this session, both from live video review, each verified via a
+real end-to-end `record.sh` run against `CHECKERBOARD_VIDEO=
+Basler-81011970.mp4` (clean: no CDP-lookup warnings, no leftover processes,
+calibration saved each time).
+
+**Offset tuning:** the "Perform and Save Calibration" button, both
+occurrences of "Save debug information", and both occurrences of "Enable
+checkerboard calibration" were all nudged up (`OFFSET_Y -= 6`) from
+whatever their prior value was -- see the updated table above. Applied as a
+uniform delta to each occurrence's own then-current value (not reset to a
+shared number), so the pre-existing 3px gap between "Save debug
+information"'s enable (`-3`) and disable (`0`) occurrences is preserved at
+their new values (`-9`/`-6`).
+
+**File navigator restyled as a fake GNOME Files ("Nautilus") window,
+rather than Chrome's own bare `file://` directory listing.** Watching a
+fresh run, the user flagged that the navigator step still read as "a
+browser showing a raw file listing," not a native Linux file manager --
+and specifically that no real file manager would let you casually open a
+`.yaml` the way that looked like it was about to. Considered (again) and
+re-rejected automating the real Nautilus app, for the same isolation
+reasons as before (see the historical BLOCKED-adjacent section above:
+AT-SPI's GApplication-singleton problems). Built instead: a new
+`lib/render_nautilus_listing.py` (stdlib-only) that generates one HTML
+page per directory level in the scenario's known navigation chain
+(`$HOME` -> `.config` -> `strand-cam` -> `camera_info`), each page listing
+that directory's **real** contents (`os.scandir`, sorted directories-first
+then alphabetically, matching Nautilus's default icon-view sort) with real
+folder/file icons pulled from this machine's actual installed `Yaru` icon
+theme (`/usr/share/icons/Yaru`, falling back to `Adwaita`/`hicolor`, then a
+minimal inline-SVG glyph if no theme is found at all -- confirmed this
+machine has real `places/folder.png`/`mimetypes/application-x-yaml.png`
+assets to use). Exactly one entry per page -- the scenario's known next
+hop -- gets a genuine `<a href="file://...">` to the next generated page,
+keeping `record.sh`'s existing `click_browser_element(needle,
+ancestor_tag="a")` calls working completely unchanged; every other real
+entry in the directory is still listed (name + icon) but inert, preserving
+the existing "real clutter visible, real step-by-step navigation" property
+rather than showing a fabricated listing. Breadcrumb ("Home ▸ .config ▸
+strand-cam ▸ camera_info"), sidebar (the standard Nautilus bookmark list --
+Recent/Starred/Home/Documents/Downloads/Music/Pictures/Videos/Trash), and
+header back/forward buttons are all decorative/inert -- the recording
+never navigates backward, so wiring real functionality there wasn't worth
+the complexity.
+
+One real efficiency bug found and fixed before this was verified against
+this machine's actual home directory: the first version embedded a full
+base64-encoded icon on every single grid item, and this machine's real
+`$HOME` turns out to have **over 5000 entries** directly in it (years of
+`.braid-*.log` files from real usage) -- that bloated the "Home" page to
+7.3MB and would have made Chrome noticeably slow to render it. Fixed by
+declaring each *distinct* icon exactly once as a CSS class
+(`background-image: url(data:...)`) and referencing it by class per grid
+item instead of repeating the data URI -- dropped the same page to 693KB,
+generation time ~0.04s. Worth remembering if this script is ever extended:
+never put a per-entry data URI directly in an `<img src>` for a listing
+whose size isn't bounded.
+
+Known, deliberate simplification: real Nautilus hides dotfiles by default
+(needs Ctrl+H) -- this generator always shows them, same as the old raw
+Chrome `file://` listing already did (the chain relies on `.config` being
+visible with no "reveal hidden files" step). Not a regression, just not
+literally stock Nautilus's default.
+
+Scope was explicitly limited to the navigator window, confirmed with the
+user -- the follow-on YAML viewer window (`open_file_viewer`/
+`render_file_viewer.py`, plain `<pre>`-in-a-white-page, still shown in a
+normal, non-`--app`-mode Chrome window) is unchanged and was explicitly
+left out of this pass.
+
+Verified via a real end-to-end run plus forward-seek `ffmpeg -ss` frame
+extraction at all four navigation steps: real Yaru folder/YAML icons
+rendered correctly (no broken-image icons), breadcrumb text correct at
+each level, and the actual click targets still landed on the right real
+directory entries throughout.
+
+**Follow-on hardening, same session, prompted by the user asking directly
+"will the target of our clicks always be in the visible portion of the
+window?"** Answer required distinguishing two different mechanisms in
+`lib/cdp_locate.py`: `click_browser_element` (used for the actual folder
+navigation) dispatches a real DOM `mousedown`/`mouseup`/`.click()` directly
+on the matched element handle -- this works regardless of scroll position,
+since it's a programmatic DOM event, not a simulated click at a screen
+pixel. `point_at_browser_text`'s underlying lookup (the plain,
+non-`--click` mode), by contrast, measures the needle's `Range` via
+`getClientRects()`, which is viewport-relative -- if the matched text were
+ever scrolled out of view (e.g. a target sorting below the fold in a very
+long generated listing), the mouse would visibly move to the wrong
+on-screen position even though the click right after would still silently
+succeed. For this scenario's current three folders this wasn't actually
+happening (confirmed via the frame captures above -- all three sort near
+the top of their respective real listings on this machine), but it wasn't
+a guaranteed property of the design, so on request it was hardened at the
+shared-library level rather than left as a known limitation: the lookup
+now calls `bestNode.parentElement.scrollIntoView({block:'nearest',
+inline:'nearest'})` on the matched node before measuring its `Range` --
+a no-op if already fully visible (so it doesn't disturb any existing tuned
+offset elsewhere in this pipeline that assumed no scrolling would occur),
+and otherwise scrolls the minimum amount needed, walking every scrollable
+ancestor (works for a plain page scroll AND an element nested in its own
+`overflow:auto` container, e.g. this scenario's own `.content` div).
+
+Verified with a standalone isolated reproduction (Xvfb + an isolated
+Chrome window + a synthetic 200-row page with a target buried in a nested
+`overflow-y:auto` div, ~8000px into its content, well past the container's
+1083px viewport height) rather than trusting the fix by inspection alone:
+confirmed the nested div's `scrollTop` was `0` before the lookup (target
+would have measured at y≈8000 -- nowhere near the real, ~1083px-tall
+viewport) and `6840` immediately after the lookup call, with the returned
+bounding box (`y=1043, height=17`) landing right at the bottom edge of the
+visible viewport as `{block:'nearest'}` should produce. Also reran this
+scenario's own real `record.sh` afterward to confirm no regression --
+clean, no leftover processes, same as every other run this session. This
+change lives in the shared `lib/cdp_locate.py`, so it benefits every
+scenario using `point_at_browser_text`, not just this one.
 
 ## Solid (verified via source, not tuned-by-eye)
 

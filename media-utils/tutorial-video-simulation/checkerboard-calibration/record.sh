@@ -413,14 +413,14 @@ echo "=== Enabling checkerboard calibration and debug output ==="
 # their own "LEFT CLICK" caption, same as every other simulated click in
 # this pipeline.
 # Sweep width 0 -- about to click, not indicating text.
-point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Enable checkerboard calibration" "" "" "0" "-3" 0
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Enable checkerboard calibration" "" "" "0" "-9" 0
 log_event "LEFT CLICK" 1.5
 sleep 1.5
 # ANCESTOR_TAG "label", not the default "button" -- this is a <Toggle>
 # (web/ads-webasm/src/components/toggle.rs), which renders
 # <label><input type=checkbox></label> with no <button> in its DOM at all.
 click_browser_element "$BROWSER_CDP_PORT" "Enable checkerboard calibration" label
-point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Save debug information" "" "" "0" "-3" 0
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Save debug information" "" "" "0" "-9" 0
 log_event "LEFT CLICK" 1.5
 sleep 1.5
 click_browser_element "$BROWSER_CDP_PORT" "Save debug information" label
@@ -493,11 +493,11 @@ echo "=== Disabling checkerboard calibration and debug output ==="
 # toggles back off before computing/saving the calibration (which runs on
 # the corner sets already collected, not on live detection) -- same
 # point/caption/click pattern as enabling them above.
-point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Enable checkerboard calibration" "" "" "0" "-3" 0
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Enable checkerboard calibration" "" "" "0" "-9" 0
 log_event "LEFT CLICK" 1.5
 sleep 1.5
 click_browser_element "$BROWSER_CDP_PORT" "Enable checkerboard calibration" label
-point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Save debug information" "" "" "0" "0" 0
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Save debug information" "" "" "0" "-6" 0
 log_event "LEFT CLICK" 1.5
 sleep 1.5
 click_browser_element "$BROWSER_CDP_PORT" "Save debug information" label
@@ -522,7 +522,7 @@ CHECKERBOARD_CAL_YAML_BASELINE_MTIME=$(stat -c %Y "$CHECKERBOARD_CAL_YAML" 2>/de
 
 echo "=== Performing and saving the calibration ==="
 # Sweep width 0 -- about to click, not indicating text.
-point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Perform and Save Calibration" "" "" "0" "-3" 0
+point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Perform and Save Calibration" "" "" "0" "-9" 0
 log_event "LEFT CLICK" 1.5
 sleep 1.5
 click_browser_element "$BROWSER_CDP_PORT" "Perform and Save Calibration"
@@ -540,31 +540,35 @@ if wait_for_file_newer_than "$CHECKERBOARD_CAL_YAML" "$CHECKERBOARD_CAL_YAML_BAS
     echo "=== Saved: $CHECKERBOARD_CAL_YAML ==="
 
     echo "=== Opening a file navigator to browse to the calibration file ==="
-    # Chrome's own built-in file:// directory listing, not a real file
-    # manager (Nautilus et al. have no CDP/DOM to query, and turned out to
-    # have real GApplication-singleton isolation problems -- see
-    # POINTING-NOTES.md) -- --app mode hides the tab strip/address bar so
-    # it doesn't read as an obvious browser tab, same trick open_terminal
-    # uses for ttyd. Starts at $HOME so the recording shows real
-    # step-by-step folder navigation down to the calibration file, the same
-    # "watch a user browse there" principle as a real file manager demo,
-    # just backed by real, CDP-verified clicks the whole way. No preceding
-    # mouse move here -- the navigator now opens wherever Chrome defaults
-    # to (see open_file_navigator's own comment), not a known pane, so
-    # heading toward the old left-pane spot first no longer makes sense;
-    # the first point_at_browser_text call below moves the mouse to
-    # wherever the window actually landed.
-    open_file_navigator "$HOME"
+    # A generated chain of GNOME-Files ("Nautilus")-styled HTML pages, not
+    # Chrome's own bare file:// directory listing (legible as exactly what
+    # it is -- a browser page) or a real file manager (Nautilus et al. have
+    # no CDP/DOM to query, and turned out to have real GApplication-
+    # singleton isolation problems -- see POINTING-NOTES.md). See
+    # open_file_navigator's own comment (lib/session.sh) for the full
+    # reasoning -- --app mode hides the tab strip/address bar so it doesn't
+    # read as an obvious browser tab, same trick open_terminal uses for
+    # ttyd. Starts at $HOME so the recording shows real step-by-step folder
+    # navigation down to the calibration file (each page's real directory
+    # contents, not a fabricated listing), the same "watch a user browse
+    # there" principle as a real file manager demo, just backed by real,
+    # CDP-verified clicks the whole way. No preceding mouse move here -- the
+    # navigator now opens wherever Chrome defaults to (see
+    # open_file_navigator's own comment), not a known pane, so heading
+    # toward the old left-pane spot first no longer makes sense; the first
+    # point_at_browser_text call below moves the mouse to wherever the
+    # window actually landed.
+    open_file_navigator "$HOME" ".config" "strand-cam" "camera_info"
     sleep 1
 
     for folder in ".config" "strand-cam" "camera_info"; do
         point_at_browser_text "$NAV_WIN" "$NAV_CDP_PORT" "$folder" "" "" "0" "-10" 0
         log_event "LEFT CLICK" 1.5
         sleep 1.5
-        # ANCESTOR_TAG "a": these are Chrome's own real <a> links for each
-        # directory-listing row (confirmed via a live DOM query before
-        # writing this), so clicking one fires a real navigation to that
-        # subfolder, no different from any other link click in this
+        # ANCESTOR_TAG "a": each generated page wraps its one real "next
+        # hop" entry in a genuine <a href> to the next page in the chain
+        # (render_nautilus_listing.py) -- clicking it fires a real
+        # navigation, no different from any other link click in this
         # pipeline.
         click_browser_element "$NAV_CDP_PORT" "$folder" a
         sleep 1
