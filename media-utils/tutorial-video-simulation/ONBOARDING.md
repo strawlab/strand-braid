@@ -117,6 +117,23 @@ Always push to `origin` (should already point at
   base64 icons) found and fixed against this machine's actual ~5000-entry
   home directory.
 
+  **Update 2026-07-23 (still later): new `LIMIT_FRAMERATE` env var**, for
+  when strand-cam struggles to keep up with `CHECKERBOARD_VIDEO`'s
+  real-time playback + checkerboard detection on a given machine. A genuine
+  new capability of `camera/ci2-video-file` itself (`STRAND_CAM_VIDEO_FILE_
+  LIMIT_FRAMERATE`), not a script-only hack: paces playback at a fixed,
+  lower rate instead of the source's native one, without changing which
+  frames are decoded/held/looped. `record.sh` passes a friendlier
+  `LIMIT_FRAMERATE` through, and its own "video finished" wait bound now
+  scales with it (previously a fixed 200s, which `LIMIT_FRAMERATE=5` alone
+  would already exceed for this scenario's own `CHECKERBOARD_VIDEO`). Caught
+  a real stale-binary trap during verification — see `POINTING-NOTES.md`'s
+  own dated update for the full story, including a genuinely useful side
+  effect confirmed via a real run: at `LIMIT_FRAMERATE=5` the checkerboard
+  count collected roughly doubled (15-19 → 29), since the slower feed gives
+  the 500ms-interval detection loop far more chances to sample distinct
+  poses cleanly.
+
   **Unlike every other scenario here, this one does NOT default to
   preferring an installed strand-cam.** The `video-file` backend is new and
   not yet reviewed/merged upstream, so the real installed `.deb` build on

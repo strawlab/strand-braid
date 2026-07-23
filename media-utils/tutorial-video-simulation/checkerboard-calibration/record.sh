@@ -43,6 +43,21 @@
 #     ../../../strand-cam/src/frame_process_task.rs), so continuous fast
 #     motion may never let it collect a clean detection at any single pose.
 #     No default; the script errors out immediately if unset.
+#   - LIMIT_FRAMERATE (optional, default unset/"None", i.e. native-rate
+#     real-time playback): strand-cam has been observed on this machine to
+#     sometimes struggle keeping up with CHECKERBOARD_VIDEO's real-time
+#     (native ~8.57fps) playback while also running checkerboard detection
+#     on every frame -- if that happens, set this to a lower fixed rate
+#     (e.g. "5") to pace playback at that rate instead; as a side effect
+#     this also gives the 500ms-interval detection loop more time per pose,
+#     collecting more checkerboards overall (confirmed via a real run:
+#     15-19 at native rate vs 29 at LIMIT_FRAMERATE=5). Passed straight
+#     through to the video-file backend's own
+#     STRAND_CAM_VIDEO_FILE_LIMIT_FRAMERATE (see
+#     ../../../camera/ci2-video-file/src/lib.rs's docs) -- every decoded
+#     frame is still served, in the same order, so this plays back in slow
+#     motion rather than skipping frames; holding on the first/last frame is
+#     unaffected.
 #   - A strand-cam build with both the `checkercal` cargo feature (NOT in
 #     strand-cam's default feature set -- see ../../../strand-cam/Cargo.toml
 #     and ../../../strand-cam/README.md's release build command) AND the
@@ -195,6 +210,48 @@ export STRAND_CAM_VIDEO_FILE_LOOP=false
 # of it appearing. A plain file's existence can't scroll away.
 CHECKERBOARD_DONE_MARKER="$SESSION_WORK_DIR/video-file-ended"
 export STRAND_CAM_VIDEO_FILE_DONE_MARKER="$CHECKERBOARD_DONE_MARKER"
+# Optional: cap playback pacing to a fixed, lower frame rate (see this
+# script's own header comment) instead of CHECKERBOARD_VIDEO's native rate.
+# "${LIMIT_FRAMERATE:-None}" (not a bare passthrough) so this stays safe
+# under `set -o nounset` whether or not the caller set LIMIT_FRAMERATE at
+# all -- ci2-video-file treats unset and "None" identically (see its docs).
+export STRAND_CAM_VIDEO_FILE_LIMIT_FRAMERATE="${LIMIT_FRAMERATE:-None}"
+
+# The "video finished" wait below (see "Watching checkerboard detections
+# accumulate") needs a bound comfortably longer than CHECKERBOARD_VIDEO's
+# own expected playback duration -- which LIMIT_FRAMERATE can stretch well
+# past the file's native running time, since every decoded frame is still
+# served, just paced slower (see this script's own header comment). Left at
+# the previous fixed 200 tries (matching CHECKERBOARD_VIDEO's native ~120s
+# runtime with margin, as before) when LIMIT_FRAMERATE is unset/"None";
+# otherwise scaled by the ratio between the file's native frame rate and
+# LIMIT_FRAMERATE, with a 30% margin for encode/decode overhead on top.
+# `avg_frame_rate`/duration come from ffprobe (already a hard dependency of
+# this whole pipeline) rather than strand-cam's own log output, since this
+# needs to be known before strand-cam has even opened the camera; a missing/
+# malformed value degrades to the same 200-try floor rather than erroring,
+# since this is just a wait bound, not the actual playback pacing (that's
+# entirely the Rust side's job -- see camera/ci2-video-file/src/lib.rs).
+CHECKERBOARD_DONE_WAIT_TRIES=200
+if [ "$STRAND_CAM_VIDEO_FILE_LIMIT_FRAMERATE" != "None" ]; then
+    CHECKERBOARD_VIDEO_DURATION=$(ffprobe -v error -show_entries format=duration \
+        -of default=noprint_wrappers=1:nokey=1 "$CHECKERBOARD_VIDEO" 2>/dev/null) || CHECKERBOARD_VIDEO_DURATION=""
+    CHECKERBOARD_VIDEO_NATIVE_FPS=$(ffprobe -v error -select_streams v:0 -show_entries stream=avg_frame_rate \
+        -of default=noprint_wrappers=1:nokey=1 "$CHECKERBOARD_VIDEO" 2>/dev/null) || CHECKERBOARD_VIDEO_NATIVE_FPS=""
+    CHECKERBOARD_DONE_WAIT_TRIES=$(awk \
+        -v dur="${CHECKERBOARD_VIDEO_DURATION:-0}" \
+        -v fr="${CHECKERBOARD_VIDEO_NATIVE_FPS:-0}" \
+        -v limit="$STRAND_CAM_VIDEO_FILE_LIMIT_FRAMERATE" \
+        'BEGIN {
+            split(fr, parts, "/");
+            native_fps = (parts[2] > 0) ? parts[1] / parts[2] : parts[1];
+            bound = (dur * native_fps / limit) * 1.3;
+            if (bound < 200) bound = 200;
+            printf "%d", bound + 1;
+        }')
+    echo "=== LIMIT_FRAMERATE=$STRAND_CAM_VIDEO_FILE_LIMIT_FRAMERATE set -- waiting up to ${CHECKERBOARD_DONE_WAIT_TRIES}s for playback to finish (vs the default 200s) ==="
+fi
+
 echo "=== Detecting the video-file camera name ==="
 CHECKERBOARD_LIST_OUTPUT=$("$TARGET_DIR/strand-cam" --camera-backend video-file --list-cameras 2>&1) || true
 CHECKERBOARD_CAM_NAME=$(echo "$CHECKERBOARD_LIST_OUTPUT" | grep -E '^  [^ ]+  \(model:' | head -1 | awk '{print $1}')
@@ -469,11 +526,12 @@ echo "=== Watching checkerboard detections accumulate until the video ends ==="
 # ~4 lines/second of logging scrolls a one-time terminal line like this out
 # of the ttyd-rendered DOM long before a poll can see it (see the export
 # comment above and POINTING-NOTES.md's dated update for the full
-# diagnosis). Bounded to 200 tries * 1s = 200s: comfortably above
-# CHECKERBOARD_VIDEO's own known ~120s duration (check with `ffprobe -v
-# error -show_entries format=duration CHECKERBOARD_VIDEO` if using a
-# different file) with margin, but not truly open-ended.
-if ! wait_for_file "$CHECKERBOARD_DONE_MARKER" 200 1; then
+# diagnosis). Bounded to CHECKERBOARD_DONE_WAIT_TRIES tries * 1s (computed
+# above, right after the LIMIT_FRAMERATE export -- 200s by default,
+# comfortably above CHECKERBOARD_VIDEO's own known ~120s native duration
+# with margin, but not truly open-ended; scaled up automatically when
+# LIMIT_FRAMERATE stretches playback past that).
+if ! wait_for_file "$CHECKERBOARD_DONE_MARKER" "$CHECKERBOARD_DONE_WAIT_TRIES" 1; then
     echo "ERROR: CHECKERBOARD_VIDEO never reached its end within the timeout." >&2
     echo "Is STRAND_CAM_VIDEO_FILE_LOOP=false actually reaching strand-cam? Check the terminal log." >&2
     exit 1
