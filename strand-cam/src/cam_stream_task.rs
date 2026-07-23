@@ -10,7 +10,7 @@
 
 use std::sync::{
     Arc, RwLock,
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicU8, Ordering},
 };
 
 use futures::stream::StreamExt;
@@ -22,7 +22,10 @@ use async_change_tracker::ChangeTracker;
 use strand_cam_storetype::StoreType;
 use strand_dynamic_frame::DynamicFrame;
 
-use crate::{FrameProcessingErrorState, Msg, to_eyre};
+use crate::{
+    FRAME_PROCESSOR_PROCESSING_FIRST_FRAME, FRAME_PROCESSOR_READY,
+    FRAME_PROCESSOR_WAITING_FOR_FIRST_FRAME, FrameProcessingErrorState, Msg, to_eyre,
+};
 
 /// Drive the camera frame stream until it ends.
 #[expect(
@@ -32,7 +35,7 @@ use crate::{FrameProcessingErrorState, Msg, to_eyre};
 pub(crate) async fn run_cam_stream_task(
     mut frame_stream: Box<dyn futures::Stream<Item = ci2_async::FrameResult> + Send + Unpin>,
     tx_frame: tokio::sync::mpsc::Sender<Msg>,
-    frame_processor_ready: Arc<AtomicBool>,
+    frame_processor_state: Arc<AtomicU8>,
     shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
     frame_processing_error_state: Arc<RwLock<FrameProcessingErrorState>>,
     mut transmit_msg_tx: Option<tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>>,
@@ -78,10 +81,28 @@ pub(crate) async fn run_cam_stream_task(
                     }
                 }
 
-                if !frame_processor_ready.load(Ordering::Acquire) {
-                    // The processor has not consumed its initial Store message
-                    // yet. Discard startup frames rather than filling the
-                    // bounded queue and reporting a false processing error.
+                let processor_state = frame_processor_state.load(Ordering::Acquire);
+                if processor_state == FRAME_PROCESSOR_WAITING_FOR_FIRST_FRAME {
+                    // Let the processor establish a baseline with exactly one
+                    // frame. A fast camera otherwise fills the queue before
+                    // that first frame has finished processing.
+                    if frame_processor_state
+                        .compare_exchange(
+                            FRAME_PROCESSOR_WAITING_FOR_FIRST_FRAME,
+                            FRAME_PROCESSOR_PROCESSING_FIRST_FRAME,
+                            Ordering::AcqRel,
+                            Ordering::Acquire,
+                        )
+                        .is_ok()
+                    {
+                        tx_frame
+                            .send(Msg::Mframe(fframe.clone()))
+                            .await
+                            .map_err(to_eyre)?;
+                    }
+                } else if processor_state != FRAME_PROCESSOR_READY {
+                    // The processor has not yet consumed its initial Store
+                    // message, or is still processing its first frame.
                     trace!("dropping frame while frame processor starts");
                     tokio::task::yield_now().await;
                 } else if tx_frame.capacity() == 0 {

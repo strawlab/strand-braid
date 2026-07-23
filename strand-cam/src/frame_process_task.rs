@@ -19,7 +19,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         Arc, RwLock,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicU8, Ordering},
     },
 };
 use tracing::{debug, error, info, trace};
@@ -45,7 +45,8 @@ use crate::imops_processor::{
     ImOpsProcessorConfig,
 };
 use crate::{
-    CentroidToDevice, FinalMp4RecordingConfig, FmfWriteInfo, FpsCalc,
+    CentroidToDevice, FRAME_PROCESSOR_PROCESSING_FIRST_FRAME, FRAME_PROCESSOR_READY,
+    FRAME_PROCESSOR_WAITING_FOR_FIRST_FRAME, FinalMp4RecordingConfig, FmfWriteInfo, FpsCalc,
     LED_BOX_HEARTBEAT_INTERVAL_MSEC, MOMENT_CENTROID_SCHEMA_VERSION, MomentCentroid, Msg,
     TimestampSource, convert_stream, open_braid_destination_addr, post_trigger_buffer,
     video_streaming,
@@ -95,7 +96,7 @@ pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydra_feat_detect")] width: u32,
     #[cfg(feature = "flydra_feat_detect")] height: u32,
     mut incoming_frame_rx: tokio::sync::mpsc::Receiver<Msg>,
-    frame_processor_ready: Arc<AtomicBool>,
+    frame_processor_state: Arc<AtomicU8>,
     #[cfg(feature = "flydra_feat_detect")] im_pt_detect_cfg: ImPtDetectCfg,
     #[cfg(feature = "flydra_feat_detect")] csv_save_pathbuf: std::path::PathBuf,
     firehose_tx: tokio::sync::mpsc::Sender<AnnotatedFrame>,
@@ -542,7 +543,8 @@ pub(crate) async fn frame_process_task<'a>(
                     post_trig_buffer.set_size(shared.post_trigger_buffer_size);
                 }
                 shared_store_arc = Some(stor);
-                frame_processor_ready.store(true, Ordering::Release);
+                frame_processor_state
+                    .store(FRAME_PROCESSOR_WAITING_FOR_FIRST_FRAME, Ordering::Release);
             }
             Msg::StartFMF((dest, recording_framerate)) => {
                 let path = Path::new(&dest);
@@ -1506,6 +1508,11 @@ pub(crate) async fn frame_process_task<'a>(
                             );
                         }
                     }
+                }
+                if frame_processor_state.load(Ordering::Acquire)
+                    == FRAME_PROCESSOR_PROCESSING_FIRST_FRAME
+                {
+                    frame_processor_state.store(FRAME_PROCESSOR_READY, Ordering::Release);
                 }
             }
             #[cfg(feature = "flydra_feat_detect")]
