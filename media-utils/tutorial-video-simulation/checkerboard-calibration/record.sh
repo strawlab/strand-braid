@@ -497,7 +497,7 @@ click_browser_element "$BROWSER_CDP_PORT" "Save debug information" label
 # detail.
 wait_for_browser_text "$BROWSER_CDP_PORT" "Saving debug data to" 20 1 \
     || echo "WARNING: 'Saving debug data to' never appeared within 20s -- proceeding anyway" >&2
-sleep 1.5
+sleep 3
 
 echo "=== Starting checkerboard video playback ==="
 # Everything is configured now (other panels collapsed, error modal handled,
@@ -633,12 +633,18 @@ if wait_for_file_newer_than "$CHECKERBOARD_CAL_YAML" "$CHECKERBOARD_CAL_YAML_BAS
     done
 
     echo "=== Selecting the calibration file (opens in a new window, like a real double-click) ==="
-    # Sweep width 0 (about to "click"), and deliberately NOT a real
-    # click_browser_element call: Chrome has no built-in viewer for .yaml,
-    # confirmed it silently downloads the file instead of displaying it
-    # (see POINTING-NOTES.md) -- so the actual "open" action below is a
+    # SWEEP_WIDTH 100 (point_at's own half=SWEEP_WIDTH/2 math -- 100 gives a
+    # true +/-50px wiggle, as requested) -- on request, so the mouse visibly
+    # sweeps left-right over the calibration file's own name before
+    # "clicking" it, same as text-indicating sweeps elsewhere in this
+    # pipeline; deliberately NOT applied to the three folder-navigation
+    # points above (still sweep width 0), which are real navigation clicks,
+    # not indicating text. Deliberately NOT a real click_browser_element
+    # call either: Chrome has no built-in viewer for .yaml, confirmed it
+    # silently downloads the file instead of displaying it (see
+    # POINTING-NOTES.md) -- so the actual "open" action below is a
     # generated viewer page, not letting this link's own href navigate.
-    point_at_browser_text "$NAV_WIN" "$NAV_CDP_PORT" "$(basename "$CHECKERBOARD_CAL_YAML")" "" "" "0" "-10" 0
+    point_at_browser_text "$NAV_WIN" "$NAV_CDP_PORT" "$(basename "$CHECKERBOARD_CAL_YAML")" "" "" "0" "-10" 100
     log_event "LEFT CLICK" 1.5
     sleep 1.5
     open_file_viewer "$CHECKERBOARD_CAL_YAML"
