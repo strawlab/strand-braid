@@ -2627,9 +2627,6 @@ where
         debug!("version check future spawned {}:{}", file!(), line!());
     }
 
-    tokio::spawn(Box::pin(cam_stream_future));
-    debug!("cam_stream_future future spawned {}:{}", file!(), line!());
-
     let cam_arg_future = {
         #[cfg(feature = "checkercal")]
         let cam_name2 = raw_cam_name.clone();
@@ -2736,6 +2733,14 @@ where
     // Now run until first future returns, then exit.
     info!("Strand Cam launched.");
     launched_tx.send(())?;
+
+    // Start acquiring frames only once the frame-processing future is about to
+    // be polled by the select below. Starting the producer earlier lets a fast
+    // camera fill the bounded processing queue while the remaining startup
+    // tasks (notably LED-box setup) are still being installed.
+    tokio::spawn(Box::pin(cam_stream_future));
+    debug!("cam_stream_future future spawned {}:{}", file!(), line!());
+
     tokio::select! {
         res = async { if let Some(http_serve_future) = http_serve_future { http_serve_future.await } else { std::future::pending().await } } => {res?},
         res = cam_arg_future => {res?},
