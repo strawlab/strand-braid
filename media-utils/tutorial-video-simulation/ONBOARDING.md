@@ -100,6 +100,23 @@ Always push to `origin` (should already point at
   coordinates (used only if a CDP lookup itself fails) are still unset —
   see `POINTING-NOTES.md`'s "Unverified" section.
 
+  **Update 2026-07-23 (a later session): the file navigator now looks like
+  a real GNOME Files ("Nautilus") window instead of Chrome's own bare
+  `file://` listing.** A new `lib/render_nautilus_listing.py` generates a
+  chain of Nautilus-styled HTML pages (real directory contents, real
+  folder/YAML icons from this machine's installed `Yaru` theme, one real
+  functional link per page continuing the scenario's known navigation
+  chain) — `open_file_navigator` (`lib/session.sh`) now renders and
+  navigates to this chain instead of a raw directory listing. Scope
+  deliberately limited to the navigator; the follow-on YAML viewer window
+  is unchanged. Five more `point_at_browser_text` offsets (the calibration
+  toggles and the "Perform and Save Calibration" button) were also nudged
+  up by 6px each from live video review — see `POINTING-NOTES.md`'s own
+  dated update for the full current-value table and the file-navigator
+  redesign's full writeup, including a real efficiency bug (per-entry
+  base64 icons) found and fixed against this machine's actual ~5000-entry
+  home directory.
+
   **Unlike every other scenario here, this one does NOT default to
   preferring an installed strand-cam.** The `video-file` backend is new and
   not yet reviewed/merged upstream, so the real installed `.deb` build on
@@ -263,6 +280,16 @@ what's still outstanding (mainly: a first real end-to-end run).
 - **Don't go spelunking through git history for "this seems lost"-type
   reports** — ask the user what they actually want restored/checked
   instead of guessing via `git log`/`git blame`.
+- **`point_at_browser_text`'s click target isn't automatically in view;
+  `click_browser_element`'s is.** The former measures a viewport-relative
+  `getClientRects()`, so a needle scrolled out of view would move the mouse
+  to the wrong on-screen spot (fixed generally in `lib/cdp_locate.py` via a
+  `scrollIntoView({block:'nearest'})` before measuring — see
+  `checkerboard-calibration/POINTING-NOTES.md`'s 2026-07-23 update for the
+  full before/after proof). The latter dispatches a real DOM event directly
+  on the element handle, so it always works regardless of scroll position.
+  Worth remembering before assuming a new pointing call needs the same
+  treatment as an existing one.
 
 ## What's not done yet
 

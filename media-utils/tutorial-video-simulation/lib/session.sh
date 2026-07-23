@@ -434,12 +434,15 @@ open_live_view_window() {
     xdotool windowsize "$LIVEVIEW_WIN" "$SESSION_PANE_WIDTH" $((SESSION_PANE_HEIGHT + top))
 }
 
-# open_file_navigator START_DIR: launches an isolated Chrome window (--app
-# mode, same "hide the tab strip/address bar so it doesn't read as an
-# obvious browser tab" trick open_terminal uses for ttyd) pointed at
-# Chrome's own built-in file:// directory listing for START_DIR. Sets the
-# globals NAV_WIN/NAV_CDP_PORT. Deliberately left wherever Chrome opens it
-# by default -- NOT repositioned/resized into the right-hand pane the way
+# open_file_navigator START_DIR [SUBDIR...]: launches an isolated Chrome
+# window (--app mode, same "hide the tab strip/address bar so it doesn't
+# read as an obvious browser tab" trick open_terminal uses for ttyd) pointed
+# at a generated chain of GNOME-Files ("Nautilus")-styled HTML pages
+# (lib/render_nautilus_listing.py) -- one page per directory level, from
+# START_DIR down through START_DIR/SUBDIR[0]/SUBDIR[1]/... -- rather than
+# Chrome's own built-in file:// directory listing. Sets the globals
+# NAV_WIN/NAV_CDP_PORT. Deliberately left wherever Chrome opens it by
+# default -- NOT repositioned/resized into the right-hand pane the way
 # open_browser's window is: a real recording showed that windowmove/
 # windowsize call visibly relocating the window a moment after it first
 # appeared, which read as an odd jump right as the mouse was also moving
@@ -447,25 +450,33 @@ open_live_view_window() {
 # a plain `sleep 1`) after this returns before pointing/clicking anything,
 # so its own page has actually rendered first.
 #
-# Why Chrome instead of a real file manager (e.g. Nautilus): a native
+# Why a generated page instead of Chrome's raw file:// listing: the raw
+# listing is legible as exactly what it is -- a bare browser page -- not a
+# native Linux file manager (flagged directly from watching a real
+# recording). Why not a real file manager (e.g. Nautilus) instead: a native
 # desktop file manager has no CDP/DOM to query, so pointing/clicking would
 # mean either a new accessibility-API integration (AT-SPI -- tried and
 # abandoned, see checkerboard-calibration/POINTING-NOTES.md for the real
 # isolation problems this hit: a GApplication singleton service that
 # ignores the isolated DISPLAY, same class of bug as gnome-terminal/Chrome-
-# on-Wayland years ago) or untuned pixel guesses. Chrome's own file://
-# listing is a real, CDP-queryable DOM (confirmed: folder/file rows are
-# genuine <a> elements with exact bounding boxes, same as every other
-# click in this pipeline), so it reuses 100% of the existing
-# cdp_locate.py/point_at_browser_text/click_browser_element machinery with
-# no new dependency and no shared-desktop risk at all.
+# on-Wayland years ago) or untuned pixel guesses. render_nautilus_listing.py
+# instead fakes the LOOK of Nautilus (real Yaru theme icons, a header
+# breadcrumb, a decorative sidebar) while listing each directory's REAL
+# contents and keeping exactly one real, functional <a> per page (the
+# scenario's own known next hop) -- still a real, CDP-queryable DOM, so it
+# reuses 100% of the existing cdp_locate.py/point_at_browser_text/
+# click_browser_element machinery with no new dependency and no
+# shared-desktop risk at all.
 #
 # Deliberately NOT called via command substitution -- see open_terminal's
 # own comment for why (the subshell problem).
 open_file_navigator() {
     local start_dir="$1"
-    local win_and_port
-    win_and_port=$(_open_isolated_browser_window "file://$start_dir/" 1)
+    shift
+    local lib_dir first_html win_and_port
+    lib_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+    first_html=$(python3 "$lib_dir/render_nautilus_listing.py" "$SESSION_WORK_DIR/nautilus" "$start_dir" "$@")
+    win_and_port=$(_open_isolated_browser_window "file://$first_html" 1)
     NAV_WIN=$(echo "$win_and_port" | awk '{print $1}')
     NAV_CDP_PORT=$(echo "$win_and_port" | awk '{print $2}')
 }

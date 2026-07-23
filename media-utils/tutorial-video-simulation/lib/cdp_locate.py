@@ -314,23 +314,42 @@ def main():
             "})()"
         )
     else:
+        # Scrolls the matched node into view (via its parent element) BEFORE
+        # measuring the Range -- getClientRects() is viewport-relative, so a
+        # needle that's currently scrolled out of view (e.g. a long
+        # directory listing where the target sorts below the fold) would
+        # otherwise measure to an off-screen/wrong position, and the caller
+        # would move the mouse there instead of to the text's real, visible
+        # location. `{block:'nearest',inline:'nearest'}` is a no-op if the
+        # node is already fully visible (matches every existing tuned
+        # pixel offset elsewhere in this pipeline, which assumed no
+        # scrolling would happen for content already on-screen) and scrolls
+        # the minimum amount otherwise -- works for both a plain scrolled
+        # page and an element inside its own scrollable container (e.g. a
+        # directory listing's own overflow:auto div), since scrollIntoView
+        # walks every scrollable ancestor, not just the page itself.
         expression = (
             "(function(){"
             f"var needle={needle};"
             "var walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);"
-            "var node,best=null;"
+            "var node,bestNode=null,bestIdx=-1;"
             "while(node=walker.nextNode()){"
             "var idx=node.nodeValue.lastIndexOf(needle);"
             "if(idx===-1)continue;"
-            "var range=document.createRange();"
-            "range.setStart(node,idx);"
-            "range.setEnd(node,idx+needle.length);"
-            "var rects=range.getClientRects();"
-            "if(!rects.length)continue;"
-            "var r=rects[rects.length-1];"
-            "if(r.width>0&&r.height>0){best={x:r.x,y:r.y,width:r.width,height:r.height};}"
+            "bestNode=node;bestIdx=idx;"
             "}"
-            "if(!best)return null;"
+            "if(!bestNode)return null;"
+            "if(bestNode.parentElement){"
+            "bestNode.parentElement.scrollIntoView({block:'nearest',inline:'nearest'});"
+            "}"
+            "var range=document.createRange();"
+            "range.setStart(bestNode,bestIdx);"
+            "range.setEnd(bestNode,bestIdx+needle.length);"
+            "var rects=range.getClientRects();"
+            "if(!rects.length)return null;"
+            "var r=rects[rects.length-1];"
+            "if(!(r.width>0&&r.height>0))return null;"
+            "var best={x:r.x,y:r.y,width:r.width,height:r.height};"
             "best.chromeY=window.outerHeight-window.innerHeight;"
             "return best;"
             "})()"
