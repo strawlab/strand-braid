@@ -27,7 +27,7 @@ use ci2::{Camera, CameraInfo, CameraModule, DynamicFrameWithInfo};
 use ci2_async::AsyncCamera;
 use fmf::FMFWriter;
 use formats::PixFmt;
-use strand_bui_backend_session_types::{BuiServerAddrInfo, ConnectionKey};
+use strand_bui_backend_session_types::{AccessToken, BuiServerAddrInfo, ConnectionKey};
 use strand_dynamic_frame::DynamicFrame;
 
 use video_streaming::AnnotatedFrame;
@@ -68,6 +68,13 @@ use strand_cam_storetype::{
 use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
 
 pub use imops_processor::{ImOpsHostConfiguration, ImOpsHostOptions};
+
+/// HTTP integration supplied by a host which serves Strand Camera's router
+/// itself. This keeps camera acquisition independent while avoiding a second
+/// listener for an in-process composition.
+pub struct EmbeddedHttpOptions {
+    pub router_tx: tokio::sync::oneshot::Sender<axum::Router>,
+}
 
 use std::{
     io::Write,
@@ -1189,6 +1196,7 @@ where
                         shutdown_rx: None,
                         data_dir: legacy_data_dir,
                         imops: None,
+                        embedded_http: None,
                     },
                 ))?;
 
@@ -1233,6 +1241,7 @@ where
                 shutdown_rx: None,
                 data_dir: legacy_data_dir,
                 imops: None,
+                embedded_http: None,
             },
         ))?;
 
@@ -1263,7 +1272,7 @@ where
     C: 'static + ci2::Camera + Send,
     G: Send,
 {
-    run_strand_cam_app_async_with_host_options(mymod, args, app_name, shutdown_rx, None).await
+    run_strand_cam_app_async_with_host_options(mymod, args, app_name, shutdown_rx, None, None).await
 }
 
 /// Run Strand Camera on the caller's Tokio runtime with optional local ImOps
@@ -1274,6 +1283,7 @@ pub async fn run_strand_cam_app_async_with_host_options<M, C, G>(
     app_name: &'static str,
     shutdown_rx: tokio::sync::oneshot::Receiver<()>,
     imops: Option<ImOpsHostOptions>,
+    embedded_http: Option<EmbeddedHttpOptions>,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
@@ -1293,6 +1303,7 @@ where
             shutdown_rx: Some(shutdown_rx),
             data_dir,
             imops,
+            embedded_http,
         },
     )
     .await
@@ -1378,6 +1389,7 @@ struct RunAfterOptions {
     shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
     data_dir: PathBuf,
     imops: Option<ImOpsHostOptions>,
+    embedded_http: Option<EmbeddedHttpOptions>,
 }
 
 /// First, connect to Braid if requested, then run.
@@ -1399,6 +1411,7 @@ where
         shutdown_rx,
         data_dir,
         imops,
+        embedded_http,
     } = host;
     let cfg_from_braid;
     let strand_cam_bui_http_address_string = match &args.standalone_or_braid {
@@ -1505,6 +1518,7 @@ where
         data_dir,
         shutdown_rx,
         imops,
+        embedded_http,
     )
     .await
 }
@@ -1553,6 +1567,7 @@ async fn run<M, C, G>(
     data_dir: PathBuf,
     shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
     mut imops: Option<ImOpsHostOptions>,
+    embedded_http: Option<EmbeddedHttpOptions>,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
@@ -2051,10 +2066,21 @@ where
     // token in `start_listener` and validates it in the auth layer below.
     let persistent_secret = http_router::load_persistent_secret(args.secret.clone())?;
 
-    let (listener, http_camserver_info) =
-        braid_types::start_listener(&strand_cam_bui_http_address_string, &persistent_secret)
-            .await?;
-    let listen_addr = listener.local_addr()?;
+    let embedded_http_enabled = embedded_http.is_some();
+    let (listener, http_camserver_info, listen_addr) = if embedded_http_enabled {
+        let listen_addr = strand_cam_bui_http_address_string.parse::<SocketAddr>()?;
+        (
+            None,
+            BuiServerAddrInfo::new(listen_addr, AccessToken::NoToken),
+            listen_addr,
+        )
+    } else {
+        let (listener, http_camserver_info) =
+            braid_types::start_listener(&strand_cam_bui_http_address_string, &persistent_secret)
+                .await?;
+        let listen_addr = listener.local_addr()?;
+        (Some(listener), http_camserver_info, listen_addr)
+    };
 
     let mut transmit_msg_tx = None;
     if let Some(first_msg_tx) = first_msg_tx {
@@ -2388,16 +2414,24 @@ where
         trusted_networks,
         http_camserver_info.token(),
         app_state,
+        embedded_http.is_none(),
     )?;
 
-    // create future for our app
-    let http_serve_future = {
+    let http_serve_future = if let Some(embedded_http) = embedded_http {
+        embedded_http
+            .router_tx
+            .send(router)
+            .map_err(|_| eyre::eyre!("embedded host stopped waiting for Strand Camera router"))?;
+        None
+    } else {
         use std::future::IntoFuture;
-        axum::serve(
-            listener,
-            router.into_make_service_with_connect_info::<SocketAddr>(),
+        Some(
+            axum::serve(
+                listener.expect("standalone and Braid modes have an HTTP listener"),
+                router.into_make_service_with_connect_info::<SocketAddr>(),
+            )
+            .into_future(),
         )
-        .into_future()
     };
 
     let urls = strand_bui_backend_session::build_urls(&http_camserver_info)?;
@@ -2429,8 +2463,10 @@ where
     #[cfg_attr(not(feature = "eframe-gui"), expect(clippy::let_unit_value))]
     let _ = gui_singleton;
 
-    // Display where we are listening.
-    if is_braid {
+    // Display where the browser UI is available.
+    if embedded_http_enabled {
+        info!("Strand Cam router is mounted by its embedding host");
+    } else if is_braid {
         debug!("Strand Cam listening at {listen_addr}");
     } else {
         info!("Strand Cam listening at {listen_addr}");
@@ -2701,7 +2737,7 @@ where
     info!("Strand Cam launched.");
     launched_tx.send(())?;
     tokio::select! {
-        res = http_serve_future => {res?},
+        res = async { if let Some(http_serve_future) = http_serve_future { http_serve_future.await } else { std::future::pending().await } } => {res?},
         res = cam_arg_future => {res?},
         _ = host_cam_arg_future => {},
         res = forward_to_mainbrain_fut => {res?},

@@ -56,7 +56,9 @@ pub(crate) fn load_persistent_secret(secret_override: Option<String>) -> Result<
     Ok(cookie::Key::try_from(persistent_secret.as_slice())?)
 }
 
-/// Build the axum router for the web UI, including the auth layer.
+/// Build the axum router for the web UI. `apply_auth` is false only when an
+/// embedding host has already authenticated every request before nesting this
+/// router beneath its own authenticated application.
 ///
 /// `persistent_secret` must be the same key that minted the access token in
 /// [`braid_types::start_listener`]; the auth layer validates tokens by
@@ -66,6 +68,7 @@ pub(crate) fn build_http_router(
     trusted_networks: Vec<axum_token_auth::CidrBlock>,
     access_token: &AccessToken,
     app_state: StrandCamAppState,
+    apply_auth: bool,
 ) -> Result<axum::Router> {
     #[cfg(feature = "bundle_files")]
     let serve_dir = tower_serve_static::ServeDir::new(&crate::ASSETS_DIR);
@@ -108,8 +111,10 @@ pub(crate) fn build_http_router(
             axum::routing::get(device_connect_urls_handler),
         )
         .route("/callback", axum::routing::post(callback_handler))
-        .fallback_service(serve_dir)
-        .layer(
+        .fallback_service(serve_dir);
+
+    let router = if apply_auth {
+        router.layer(
             tower::ServiceBuilder::new()
                 .layer(TraceLayer::new_for_http())
                 // Auth layer will produce an error if the request cannot be
@@ -119,7 +124,10 @@ pub(crate) fn build_http_router(
                 ))
                 .layer(auth_layer),
         )
-        .with_state(app_state);
+    } else {
+        router
+    }
+    .with_state(app_state);
 
     Ok(router)
 }
