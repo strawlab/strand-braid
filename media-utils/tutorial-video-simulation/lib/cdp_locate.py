@@ -314,20 +314,44 @@ def main():
             "})()"
         )
     else:
-        # Scrolls the matched node into view (via its parent element) BEFORE
-        # measuring the Range -- getClientRects() is viewport-relative, so a
-        # needle that's currently scrolled out of view (e.g. a long
-        # directory listing where the target sorts below the fold) would
-        # otherwise measure to an off-screen/wrong position, and the caller
-        # would move the mouse there instead of to the text's real, visible
-        # location. `{block:'nearest',inline:'nearest'}` is a no-op if the
-        # node is already fully visible (matches every existing tuned
-        # pixel offset elsewhere in this pipeline, which assumed no
-        # scrolling would happen for content already on-screen) and scrolls
-        # the minimum amount otherwise -- works for both a plain scrolled
-        # page and an element inside its own scrollable container (e.g. a
-        # directory listing's own overflow:auto div), since scrollIntoView
-        # walks every scrollable ancestor, not just the page itself.
+        # Scrolls the matched TEXT (not any enclosing element) into view
+        # BEFORE measuring its final Range -- getClientRects() is
+        # viewport-relative, so a needle that's currently scrolled out of
+        # view (e.g. a long directory listing where the target sorts below
+        # the fold) would otherwise measure to an off-screen/wrong position,
+        # and the caller would move the mouse there instead of to the
+        # text's real, visible location.
+        #
+        # Deliberately checks/scrolls based on the matched Range's OWN
+        # `getBoundingClientRect()`, not `bestNode.parentElement`'s -- an
+        # earlier version used the parent element and broke badly for a
+        # single long text node wrapped in one big container (e.g.
+        # render_file_viewer.py's whole-file `<pre>`): the *parent*
+        # `<pre>`'s own box spans the entire file, far taller than the
+        # viewport, so "already visible" was false even when the matched
+        # text itself (e.g. a header line) was already on-screen, and the
+        # resulting `scrollIntoView({block:'center'})` on that whole `<pre>`
+        # centered the FILE's vertical midpoint in the viewport instead of
+        # the matched text -- confirmed via a real captured frame: pointing
+        # at "distance:" (line 2 of the file) landed the mouse many lines
+        # down, at the file's own middle. Measuring/scrolling the Range
+        # itself fixes this for any wrapper size.
+        #
+        # No `Range.scrollIntoView()` (not reliably standard) -- instead
+        # walks up from the matched node for the nearest scrollable
+        # ancestor (checking computed overflow-y and a real overflow
+        # condition) and adjusts its scrollTop by exactly the delta needed
+        # to center the matched text, falling back to `window.scrollBy` if
+        # no such ancestor is found (a plain, page-level scroll). A no-op
+        # if the matched text is already fully visible, matching every
+        # existing tuned pixel offset elsewhere in this pipeline, which
+        # assumed no scrolling would happen for content already on-screen.
+        # When a scroll IS needed, centers rather than edge-aligns (on
+        # request, after a real long-listing scroll landed a target right
+        # at the viewport's edge, which read as hard to follow in the
+        # recording) -- overshoots past the bare minimum so the target ends
+        # up with clear margin around it instead of sitting flush against a
+        # boundary.
         expression = (
             "(function(){"
             f"var needle={needle};"
@@ -339,12 +363,24 @@ def main():
             "bestNode=node;bestIdx=idx;"
             "}"
             "if(!bestNode)return null;"
-            "if(bestNode.parentElement){"
-            "bestNode.parentElement.scrollIntoView({block:'nearest',inline:'nearest'});"
-            "}"
             "var range=document.createRange();"
             "range.setStart(bestNode,bestIdx);"
             "range.setEnd(bestNode,bestIdx+needle.length);"
+            "var rect0=range.getBoundingClientRect();"
+            "var alreadyVisible=rect0.top>=0&&rect0.bottom<=window.innerHeight;"
+            "if(!alreadyVisible){"
+            "var targetY=rect0.top+rect0.height/2;"
+            "var delta=targetY-window.innerHeight/2;"
+            "var el=bestNode.parentElement;var scrolled=false;"
+            "while(el&&el!==document.body){"
+            "var cs=getComputedStyle(el);"
+            "if(/(auto|scroll)/.test(cs.overflowY)&&el.scrollHeight>el.clientHeight){"
+            "el.scrollTop+=delta;scrolled=true;break;"
+            "}"
+            "el=el.parentElement;"
+            "}"
+            "if(!scrolled){window.scrollBy(0,delta);}"
+            "}"
             "var rects=range.getClientRects();"
             "if(!rects.length)return null;"
             "var r=rects[rects.length-1];"
