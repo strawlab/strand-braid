@@ -4,72 +4,27 @@
 # launch strand-cam, scroll to the "Checkerboard Calibration" panel, enable
 # it, watch the live "checkerboards collected" counter increase as a
 # checkerboard is shown to the camera at different distances/angles, then
-# click "Perform and Save Calibration" and point at the terminal's own
-# confirmation log line. See ../README.md for the general architecture and
-# ../ONBOARDING.md for this scenario's current status -- unlike
-# strand-cam-intro/braid-intro, this one is NOT regenerating a pre-existing
-# tutorial video (no "Video_3.mp4" exists in this repo); it's new content,
-# and this first pass is UNVERIFIED (written on macOS, where this pipeline
-# cannot run at all -- see ../README.md's Prerequisites).
-#
-# Unlike strand-cam-intro (real Basler hardware or the hardware-free `sim`
-# backend) and braid-intro (real Basler hardware only), this scenario has no
-# camera hardware of its own at all: it needs a real, moving checkerboard on
-# screen for strand-cam's calibration algorithm to actually detect corners
-# from, which the synthetic `sim` backend's procedurally-generated insect-blob
-# frames (ci2-sim) cannot provide. Instead, it plays a real recorded
-# checkerboard video directly through strand-cam's `video-file` backend
-# (`camera/ci2-video-file`, --camera-backend video-file), which decodes the
-# file itself via the `media-utils/frame-source` crate and paces playback to
-# its own native frame rate -- no virtual camera device, `ffmpeg` feeder
-# process, or `nokhwa` involved at all.
-#
-# (An earlier attempt fed the video through a `v4l2loopback` virtual webcam
-# into strand-cam's `webcam` backend instead; `nokhwa` failed to open that
-# device at all -- see checkerboard-calibration/POINTING-NOTES.md's BLOCKED
-# section for the full diagnosis -- so this scenario switched to the
-# video-file backend, added specifically to unblock this, instead.)
+# click "Perform and Save Calibration" and browse to the saved file. See
+# ../README.md's "Checkerboard calibration and the video-file backend"
+# section for the full architecture (why no camera hardware is needed here,
+# BUILD_NEW_STRANDBRAID, LIMIT_FRAMERATE, the checkercal feature
+# requirement) and ../ONBOARDING.md for current status. Unlike
+# strand-cam-intro/braid-intro, this isn't regenerating a pre-existing
+# tutorial video (no "Video_3.mp4" exists in this repo) -- it's new content.
 #
 # Requires everything strand-cam-intro/braid-intro require (see
-# ../README.md's Prerequisites -- ffmpeg, xdotool, Xvfb, openbox, ttyd,
-# x11-utils, a browser), PLUS:
+# ../README.md's Prerequisites), plus:
 #
-#   - CHECKERBOARD_VIDEO: a video file (any container/codec the
-#     `media-utils/frame-source` crate can decode, e.g. mp4) of a real
-#     checkerboard held at varying distances/angles, including into the
-#     corners of frame, ideally with brief (>=1s) pauses at each distinct
-#     pose -- strand-cam's checkerboard-detection loop only samples at most
-#     once every 500ms (`checkerboard_loop_dur` in
-#     ../../../strand-cam/src/frame_process_task.rs), so continuous fast
-#     motion may never let it collect a clean detection at any single pose.
-#     No default; the script errors out immediately if unset.
-#   - LIMIT_FRAMERATE (optional, default unset/"None", i.e. native-rate
-#     real-time playback): strand-cam has been observed on this machine to
-#     sometimes struggle keeping up with CHECKERBOARD_VIDEO's real-time
-#     (native ~8.57fps) playback while also running checkerboard detection
-#     on every frame -- if that happens, set this to a lower fixed rate
-#     (e.g. "5") to pace playback at that rate instead; as a side effect
-#     this also gives the 500ms-interval detection loop more time per pose,
-#     collecting more checkerboards overall (confirmed via a real run:
-#     15-19 at native rate vs 29 at LIMIT_FRAMERATE=5). Passed straight
-#     through to the video-file backend's own
-#     STRAND_CAM_VIDEO_FILE_LIMIT_FRAMERATE (see
-#     ../../../camera/ci2-video-file/src/lib.rs's docs) -- every decoded
-#     frame is still served, in the same order, so this plays back in slow
-#     motion rather than skipping frames; holding on the first/last frame is
-#     unaffected.
-#   - A strand-cam build with both the `checkercal` cargo feature (NOT in
-#     strand-cam's default feature set -- see ../../../strand-cam/Cargo.toml
-#     and ../../../strand-cam/README.md's release build command) AND the
-#     `video-file` backend (a plain dependency, not gated by any cargo
-#     feature, but new enough that it's not yet in any *installed* build --
-#     see BUILD_NEW_STRANDBRAID just below). If this script ends up building
-#     from source (see TARGET_DIR resolution below) it adds --features
-#     checkercal itself; if it finds strand-cam already installed/on PATH,
-#     it trusts that build but VERIFIES the "Checkerboard Calibration" panel
-#     actually renders once the BUI is up (see below) and errors out with a
-#     clear message if not, rather than recording a video of a missing
-#     feature.
+#   - CHECKERBOARD_VIDEO (required, no default): a real checkerboard video,
+#     held at varying distances/angles with brief (>=1s) pauses at each
+#     pose -- strand-cam's detection loop samples at most once every 500ms
+#     (`checkerboard_loop_dur` in
+#     ../../../strand-cam/src/frame_process_task.rs).
+#   - LIMIT_FRAMERATE (optional, default unset/"None"): caps playback to a
+#     fixed, lower rate if strand-cam struggles to keep up with real-time
+#     playback + detection -- see README.md's own section for details.
+#   - A strand-cam build with the `checkercal` cargo feature and the
+#     `video-file` backend -- see BUILD_NEW_STRANDBRAID below.
 #
 # Usage:
 #   CHECKERBOARD_VIDEO=/path/to/checkerboard.mp4 ./record.sh [OUTPUT_DIR]
@@ -77,17 +32,11 @@
 # OUTPUT_DIR defaults to a directory named 'out' next to this script. It is
 # created if missing and is not, and should not be, committed to the repo.
 #
-# BUILD_NEW_STRANDBRAID (default "true"): the `video-file` backend is new
-# (added as part of this tutorial-video work) and not yet reviewed/merged
-# upstream, so it's deliberately NOT part of whatever build is installed on
-# PATH (e.g. the real .deb package, built by this project's primary
-# developer -- this script must never rebuild or overwrite that). While
-# true, this script builds and uses its own local copy from this repo
-# instead (in $REPO_ROOT/target/release, never on PATH). Once the
-# video-file backend is approved and lands in whatever build ends up
-# installed, set BUILD_NEW_STRANDBRAID=false to switch back to the normal
-# prefer-the-installed-build behavior strand-cam-intro/braid-intro already
-# use.
+# BUILD_NEW_STRANDBRAID (default "true"): builds/uses this repo's own local
+# strand-cam (target/release) rather than an installed one, since the
+# video-file backend and LIMIT_FRAMERATE aren't in any installed build yet
+# -- see README.md's own section for the full reasoning. Set to "false"
+# once that's no longer true.
 
 set -o errexit
 set -o nounset

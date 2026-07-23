@@ -23,17 +23,12 @@
 # hardware" section for the full story.
 #
 # Requires everything strand-cam-intro/record.sh requires (ffmpeg, xdotool,
-# Xvfb, openbox, ttyd, xprop, a browser -- see ../README.md Prerequisites),
-# plus a `braid-run` binary with a `strand-cam` binary alongside it in the
-# same directory: `braid-run` resolves its own per-camera `strand-cam`
-# child next to its own executable path (`std::env::current_exe().parent()`
-# in braid-run/src/main.rs's `launch_strand_cam`), NOT via `$PATH` -- so an
-# installed package needs to already ship both together (it does, via the
-# .deb), and a from-source build needs both built into the same directory.
-# The sim fallback additionally needs a `braid-sim` binary -- a dev-only
-# generator tool, not shipped in the .deb, so it's built from source
-# on-demand (see the `braid-sim` resolution below) regardless of whether
-# braid-run/strand-cam themselves came from an installed package.
+# Xvfb, openbox, ttyd, xprop, a browser -- see ../README.md Prerequisites)
+# and braid-run installed. The sim fallback additionally needs a
+# `braid-sim` binary -- a dev-only generator tool, not shipped in the .deb,
+# so it's built from source on-demand (see the `braid-sim` resolution below)
+# regardless of whether braid-run/strand-cam themselves came from an
+# installed package.
 #
 # Usage:
 #   ./record.sh [OUTPUT_DIR]

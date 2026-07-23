@@ -29,7 +29,7 @@ truth for current behavior** if this file ever goes stale relative to them
   real navigation (the dashboard stayed on the camera-list page the whole
   time, frame counters still climbing, URL bar never changing). The
   camera name IS a genuine `<a href="/cam-proxy/{encoded_name}/">` per
-  source (`braid_frontend/src/main.rs`) — `{encoded_name}` is
+  source (`braid/braid-run/braid_frontend/src/main.rs`) — `{encoded_name}` is
   percent-encoded (confirmed live: `Basler-40290626` renders as
   `Basler%2D40290626` in the resolved href), so reconstructing it by hand
   in bash wasn't worth it either. Fixed by reading the anchor's real
@@ -121,6 +121,53 @@ truth for current behavior** if this file ever goes stale relative to them
   switched to `scroll_until_visible` — could be, using needle `"Quit
   Braid"` — but wasn't flagged as causing a visible freeze the way the
   terminal QR scrolls were, so left as-is.
+
+## Update 2026-07-22: sim-camera fallback, capture-timing fix, and a
+## post-Quit-Braid terminal scroll (not yet in the sections above)
+
+Three changes this session, committed as `f67a7264`/`aac9c214`/`7d62415b`,
+not folded into the "Solid"/"Verified good" sections above since they
+weren't re-tuned as part of that same tuning pass:
+
+- **Hardware-free sim fallback added** (`f67a7264`): `record.sh` now
+  auto-detects real Basler hardware + the real config file (same
+  `--list-cameras` check `strand-cam-intro` uses) and falls back to a
+  generated sim config otherwise (`braid-sim generate` -- 5 `ci2-sim`
+  cameras, `FakeSync` triggering, no PTP hardware needed).
+  `BRAID_CAMERAS=sim` forces the fallback explicitly; an explicit
+  `BRAID_CONFIG_TOML` still always wins outright. Two real bugs found and
+  fixed via actual end-to-end runs: the generated sim config bound
+  `http_api_server_addr` to `127.0.0.1` only, so `braid-run`'s "QR code for
+  {url}" needle (only printed for a non-loopback URL) was never found and
+  the script hung -- fixed by binding `0.0.0.0` instead. Separately,
+  `navigate_browser`'s `window.location.href` eval can lose its own CDP
+  reply when Chrome tears down the page's execution context to start
+  navigating, timing out under `set -e` even though the navigation itself
+  already happened -- reproduced deterministically on the 5th camera
+  across two runs; fixed with a bounded retry in `lib/session.sh` (shared
+  code, so this also hardens the real-hardware path).
+- **Screen capture now starts after the terminal window settles**
+  (`aac9c214`, shared with `strand-cam-intro`): both scenarios used to
+  start capture before `open_terminal` ran, showing the ttyd-bridged
+  Chrome window jump from its default size/position into its final tiled
+  layout on camera. Now `open_terminal` runs first, capture starts after,
+  plus a 0.5s hold on the placed, empty terminal before typing begins.
+  Also fixed a related artifact: `open_terminal`'s own
+  `windowmove`/`windowsize` calls trigger openbox's transient
+  "WIDTHxHEIGHT" resize-indicator overlay, which was still fading in the
+  opening ~0.3-0.5s of the recording -- added a settle sleep at the end of
+  `open_terminal` itself (in `lib/session.sh`, so every scenario benefits).
+- **Terminal scrolled to bottom after "Quit Braid"** (`7d62415b`): after
+  clicking Quit Braid and confirming the quit text, the mouse moves to the
+  terminal and scrolls it to the bottom (reusing
+  `QR_SCROLL_CLICKS`/`DELAY`, the same fixed-count `scroll_by` already used
+  to reliably reach the real bottom before Ctrl+C), showing `braid-run`'s
+  own shutdown log output before capture stops.
+
+All three verified via real end-to-end runs against the installed
+`braid-run`/`strand-cam` and the real 5-camera rig (the sim-fallback
+addition also against the hardware-free path) -- clean, no leftover
+processes.
 
 ## Known deviations from the original Video_2.mp4 (intentional)
 

@@ -999,6 +999,16 @@ scroll_by() {
 # current position naturally finds the nearest (bottom-most, most recent)
 # occurrence first, before ever reaching the older one.
 #
+# CAVEAT, already the real cause of two bugs -- use scroll_by instead for a
+# normal (non-ttyd) browser page: this checks whether NEEDLE is present
+# ANYWHERE in the DOM, not whether it's actually scrolled into the
+# viewport. That distinction doesn't matter for ttyd's terminal (its DOM
+# renderer only ever materializes the current viewport, so "in the DOM"
+# and "on screen" are the same thing there) -- but on a normal browser
+# page, scrolled-off content is still present in the DOM, so this stops
+# after the very first short scroll burst and clicks/points at something
+# never actually shown on screen.
+#
 # Caption is logged AFTER scrolling stops, not before -- unlike scroll_by
 # (which always runs the full declared duration, so logging it upfront is
 # accurate), the real duration here depends on where the match turns up and

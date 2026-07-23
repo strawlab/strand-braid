@@ -173,8 +173,8 @@ checkerboard-calibration/
                         # and Save Calibration". See "Checkerboard
                         # calibration and the video-file backend" below.
   POINTING-NOTES.md    # same purpose as the other scenarios' own --
-                        # currently all-unverified, since this one hasn't
-                        # been run yet (see the file itself).
+                        # dated history of tuning fixes; read this before
+                        # touching record.sh's own tuned constants.
 ```
 
 ## Running instructions
@@ -380,7 +380,7 @@ themselves came from an installed package.
 
 `braid-run` also resolves its own per-camera `strand-cam` child next to its
 own executable path (`std::env::current_exe().parent()` in
-`braid-run/src/main.rs`'s `launch_strand_cam`), **not** via `$PATH` — so
+`braid/braid-run/src/main.rs`'s `launch_strand_cam`), **not** via `$PATH` — so
 whichever `braid-run` binary ends up on `PATH` (installed package or a
 from-source build) needs a `strand-cam` binary sitting right next to it.
 The `.deb` package ships both together already; a from-source build needs
@@ -541,11 +541,7 @@ CHECKERBOARD_VIDEO=/path/to/checkerboard.mp4 ./record.sh
 ```
 
 Output is `out/checkerboard-calibration.mp4` (plus `out/raw.mp4` and
-`out/events.jsonl`), same as the other two scenarios. Unlike them, this one
-is not regenerating a pre-existing tutorial video — there's no earlier
-"Video_3.mp4" in this repo — so there's no original to compare pacing
-against yet; see `checkerboard-calibration/POINTING-NOTES.md` for exactly
-what's untested about this first pass.
+`out/events.jsonl`), same as the other two scenarios.
 
 ## Adding another tutorial
 
