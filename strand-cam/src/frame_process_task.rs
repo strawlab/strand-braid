@@ -17,7 +17,10 @@ use std::{
     fs::File,
     net::SocketAddr,
     path::{Path, PathBuf},
-    sync::{Arc, RwLock},
+    sync::{
+        Arc, RwLock,
+        atomic::{AtomicBool, Ordering},
+    },
 };
 use tracing::{debug, error, info, trace};
 
@@ -92,6 +95,7 @@ pub(crate) async fn frame_process_task<'a>(
     #[cfg(feature = "flydra_feat_detect")] width: u32,
     #[cfg(feature = "flydra_feat_detect")] height: u32,
     mut incoming_frame_rx: tokio::sync::mpsc::Receiver<Msg>,
+    frame_processor_ready: Arc<AtomicBool>,
     #[cfg(feature = "flydra_feat_detect")] im_pt_detect_cfg: ImPtDetectCfg,
     #[cfg(feature = "flydra_feat_detect")] csv_save_pathbuf: std::path::PathBuf,
     firehose_tx: tokio::sync::mpsc::Sender<AnnotatedFrame>,
@@ -538,6 +542,7 @@ pub(crate) async fn frame_process_task<'a>(
                     post_trig_buffer.set_size(shared.post_trigger_buffer_size);
                 }
                 shared_store_arc = Some(stor);
+                frame_processor_ready.store(true, Ordering::Release);
             }
             Msg::StartFMF((dest, recording_framerate)) => {
                 let path = Path::new(&dest);

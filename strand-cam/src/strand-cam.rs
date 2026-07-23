@@ -2483,6 +2483,7 @@ where
     #[cfg(feature = "checkercal")]
     let collected_corners_arc: CollectedCornersArc = Arc::new(RwLock::new(Vec::new()));
 
+    let frame_processor_ready = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let frame_process_task_fut = {
         #[cfg(feature = "flydra_feat_detect")]
         let csv_save_dir = args.csv_save_dir.clone();
@@ -2516,6 +2517,7 @@ where
             #[cfg(feature = "flydra_feat_detect")]
             image_height,
             rx_frame,
+            frame_processor_ready.clone(),
             #[cfg(feature = "flydra_feat_detect")]
             im_pt_detect_cfg,
             #[cfg(feature = "flydra_feat_detect")]
@@ -2560,6 +2562,7 @@ where
     let cam_stream_future = cam_stream_task::run_cam_stream_task(
         frame_stream,
         tx_frame,
+        frame_processor_ready,
         shared_store_arc.clone(),
         frame_processing_error_state.clone(),
         transmit_msg_tx.clone(),

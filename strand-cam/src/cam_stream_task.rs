@@ -8,7 +8,10 @@
 //! frame-processing task, optionally hands frames to the local eframe GUI, and
 //! periodically pushes a PNG snapshot of the current image up to Braid.
 
-use std::sync::{Arc, RwLock};
+use std::sync::{
+    Arc, RwLock,
+    atomic::{AtomicBool, Ordering},
+};
 
 use futures::stream::StreamExt;
 use tracing::{debug, error, trace};
@@ -29,6 +32,7 @@ use crate::{FrameProcessingErrorState, Msg, to_eyre};
 pub(crate) async fn run_cam_stream_task(
     mut frame_stream: Box<dyn futures::Stream<Item = ci2_async::FrameResult> + Send + Unpin>,
     tx_frame: tokio::sync::mpsc::Sender<Msg>,
+    frame_processor_ready: Arc<AtomicBool>,
     shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
     frame_processing_error_state: Arc<RwLock<FrameProcessingErrorState>>,
     mut transmit_msg_tx: Option<tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>>,
@@ -74,7 +78,13 @@ pub(crate) async fn run_cam_stream_task(
                     }
                 }
 
-                if tx_frame.capacity() == 0 {
+                if !frame_processor_ready.load(Ordering::Acquire) {
+                    // The processor has not consumed its initial Store message
+                    // yet. Discard startup frames rather than filling the
+                    // bounded queue and reporting a false processing error.
+                    trace!("dropping frame while frame processor starts");
+                    tokio::task::yield_now().await;
+                } else if tx_frame.capacity() == 0 {
                     let mut tracker = shared_store_arc.write().unwrap();
                     tracker.modify(|tracker| {
                         let mut state = frame_processing_error_state.write().unwrap();
