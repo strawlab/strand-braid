@@ -62,6 +62,7 @@
  - ci2-sim (camera/ci2-sim) - ci2 camera backend that renders synthetic images of simulated insects for end-to-end Braid testing.
  - ci2-simple-async-demo (camera/ci2-simple-async-demo) - simple demonstration of the ci2 asynchronous camera API
  - ci2-simple-demo (camera/ci2-simple-demo) - simple demonstration of the ci2 camera API
+ - ci2-video-file (camera/ci2-video-file) - ci2 camera backend that plays back a video file (MP4, FMF, MKV, ...) as a live camera feed, for testing/demos without real camera hardware.
  - ci2-vimba (camera/ci2-vimba) - ci2 camera backend using the Allied Vision Vimba SDK
  - ci2-vimba-types (camera/ci2-vimba-types) - Vimba-specific type definitions for the ci2 camera interface
  - ci2-webcam (camera/ci2-webcam) - ci2 camera backend for consumer webcams (UVC etc.), intended for development use
