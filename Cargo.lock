@@ -2532,6 +2532,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ci2-video-file"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "ci2",
+ "frame-source",
+ "machine-vision-formats",
+ "strand-dynamic-frame",
+ "tracing",
+]
+
+[[package]]
 name = "ci2-vimba"
 version = "0.1.0"
 dependencies = [
@@ -14551,6 +14564,7 @@ dependencies = [
  "ci2-pylon",
  "ci2-pylon-types",
  "ci2-sim",
+ "ci2-video-file",
  "ci2-vimba",
  "ci2-vimba-types",
  "ci2-webcam",
