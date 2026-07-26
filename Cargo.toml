@@ -97,6 +97,7 @@ members = [
     "media-utils/nvenc/dynlink-cuda",
     "media-utils/nvenc/dynlink-nvidia-encode",
     "media-utils/nvenc/dynlink-nvidia-encode/gen-nvenc-bindings",
+    "media-utils/rtp-h264-streamer",
     "media-utils/show-timestamps",
     "media-utils/srt-writer",
     "media-utils/strand-convert",
@@ -363,6 +364,7 @@ ncollide-geom = { path = "geometry/freemovr-calibration/ncollide-geom" }
 nvenc = { path = "media-utils/nvenc" }
 parry-geom = { path = "geometry/parry-geom" }
 refraction = { path = "geometry/refraction" }
+rtp-h264-streamer = { path = "media-utils/rtp-h264-streamer" }
 simple-obj-parse = { path = "geometry/simple-obj-parse" }
 srt-writer = { path = "media-utils/srt-writer" }
 strand-bui-backend-session = { path = "web/strand-bui-backend-session", version = "0.1.0" }
