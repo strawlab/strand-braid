@@ -149,7 +149,7 @@ impl FfmpegCodecArgs {
     /// above, this is not meant to be overridable, so codec presets (see
     /// `from_str` below) must not also set `-color_range` in their own args —
     /// it would just be redundant.
-    fn to_args(&self, input_args: &[String]) -> Vec<String> {
+    pub fn to_args(&self, input_args: &[String]) -> Vec<String> {
         const VIDEO_CODEC: &str = "-c:v";
         let output_color_range = zq(&["-color_range", "pc"]);
         let input: Vec<String> = input_args.to_vec();
@@ -267,6 +267,29 @@ pub fn platform_hardware_encoder() -> Result<FfmpegCodecArgs> {
     })
 }
 
+/// Write one frame's pixel rows to `w`, stripping any stride padding.
+///
+/// This is the raw-video framing ffmpeg's `-f rawvideo` demuxer expects on
+/// stdin: each row's bytes back-to-back, with no stride/alignment padding.
+pub fn write_frame_rows<W: Write>(
+    frame: &strand_dynamic_frame::DynamicFrame,
+    w: &mut W,
+) -> Result<()> {
+    strand_dynamic_frame::match_all_dynamic_fmts!(
+        frame,
+        x,
+        {
+            use machine_vision_formats::iter::HasRowChunksExact;
+            for row in x.rowchunks_exact() {
+                w.write_all(row)?;
+            }
+            Ok(())
+        },
+        // Reached only for formats `FfmpegWriter::start` did not already reject.
+        Error::UnimplementedPixelFormat(frame.pixel_format())
+    )
+}
+
 impl FfmpegWriter {
     pub fn new(
         fname: &str,
@@ -357,33 +380,13 @@ impl FfmpegWriter {
             return Err(Error::FormatOrSizeChanged);
         }
 
-        // Pipe the raw frame data row by row (stripping any stride padding).
-        let stdin = &mut running.stdin;
-        let io_result: std::io::Result<()> = strand_dynamic_frame::match_all_dynamic_fmts!(
-            frame,
-            x,
-            {
-                use machine_vision_formats::iter::HasRowChunksExact;
-                let mut res = Ok(());
-                for row in x.rowchunks_exact() {
-                    if let Err(e) = stdin.write_all(row) {
-                        res = Err(e);
-                        break;
-                    }
-                }
-                res
-            },
-            // Reached only for formats start() did not already reject.
-            Error::UnimplementedPixelFormat(frame.pixel_format())
-        );
-
-        match io_result {
+        match write_frame_rows(frame, &mut running.stdin) {
             Ok(()) => {}
-            Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
+            Err(Error::Io(e)) if e.kind() == std::io::ErrorKind::BrokenPipe => {
                 // ffmpeg apparently died; surface its output as the error.
                 return Err(self.collect_ffmpeg_error());
             }
-            Err(e) => return Err(e.into()),
+            Err(e) => return Err(e),
         }
 
         let num = self.rated * self.count;
