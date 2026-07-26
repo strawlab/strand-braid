@@ -18,10 +18,12 @@
 //! See [`encoder::H264StreamEncoder`] for the pluggable encoder seam.
 
 mod encoder;
+mod encoder_ffmpeg;
 mod encoder_openh264;
 mod sender;
 
 pub use encoder::H264StreamEncoder;
+pub use encoder_ffmpeg::FfmpegEncoderConfig;
 pub use encoder_openh264::OpenH264EncoderConfig;
 pub use h264_rtp::RtpSessionConfig;
 
@@ -75,6 +77,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum EncoderKind {
     /// In-process encoding via the local `openh264-rs` fork.
     OpenH264(OpenH264EncoderConfig),
+    /// An `ffmpeg` child process, spawned lazily on the first frame and
+    /// respawned on `set_bitrate`/`request_keyframe`.
+    Ffmpeg(FfmpegEncoderConfig),
 }
 
 /// Configuration for one RTP H.264 stream.
@@ -83,9 +88,8 @@ pub struct StreamConfig {
     pub dest: std::net::SocketAddr,
     /// Initial target bitrate in bits per second.
     pub bitrate_bps: u32,
-    /// Source frame rate. Only consulted by encoder backends that need it as
-    /// an explicit argument (currently none; kept for the ffmpeg backend,
-    /// which passes it as `-framerate`).
+    /// Source frame rate. Passed to the ffmpeg backend as `-framerate` and
+    /// used to size its VBV `-bufsize`; the openh264 backend does not need it.
     pub fps: f32,
     /// Interval, in frames, between forced keyframes (IDR). `0` lets the
     /// encoder decide.
@@ -228,7 +232,7 @@ impl RtpH264Streamer {
 fn make_encoder(
     encoder_kind: EncoderKind,
     bitrate_bps: u32,
-    _fps: f32,
+    fps: f32,
     idr_interval_frames: u32,
     payload_budget: usize,
     au_tx: SyncSender<AccessUnit>,
@@ -239,6 +243,13 @@ fn make_encoder(
             bitrate_bps,
             idr_interval_frames,
             payload_budget,
+            au_tx,
+        )?)),
+        EncoderKind::Ffmpeg(cfg) => Ok(Box::new(encoder_ffmpeg::FfmpegStreamEncoder::new(
+            cfg,
+            bitrate_bps,
+            fps,
+            idr_interval_frames,
             au_tx,
         )?)),
     }
@@ -314,11 +325,10 @@ mod tests {
     /// loopback socket as well-formed RTP packets starting at the configured
     /// initial sequence number. This does not prove the H.264 bitstream itself
     /// decodes (see `tests/loopback.rs` for that, via a real ffmpeg receiver).
-    #[test]
-    fn openh264_stream_produces_rtp_packets() {
+    fn assert_stream_produces_rtp_packets(encoder: EncoderKind) {
         let socket = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
         socket
-            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+            .set_read_timeout(Some(std::time::Duration::from_secs(10)))
             .unwrap();
         let dest = socket.local_addr().unwrap();
 
@@ -327,7 +337,7 @@ mod tests {
             bitrate_bps: 500_000,
             fps: 30.0,
             idr_interval_frames: 30,
-            encoder: EncoderKind::OpenH264(OpenH264EncoderConfig::default()),
+            encoder,
             rtp: RtpSessionConfig {
                 initial_sequence: 1000,
                 ..Default::default()
@@ -364,5 +374,15 @@ mod tests {
             seq, 1000,
             "first packet must use the configured initial sequence number"
         );
+    }
+
+    #[test]
+    fn openh264_stream_produces_rtp_packets() {
+        assert_stream_produces_rtp_packets(EncoderKind::OpenH264(OpenH264EncoderConfig::default()));
+    }
+
+    #[test]
+    fn ffmpeg_stream_produces_rtp_packets() {
+        assert_stream_produces_rtp_packets(EncoderKind::Ffmpeg(FfmpegEncoderConfig::default()));
     }
 }
