@@ -10,4 +10,9 @@ machine-vision-formats.workspace = true
 thiserror.workspace = true
 convert-image.workspace = true
 y4m.workspace = true
+openh264 = { workspace = true, optional = true }
+
 strand-dynamic-frame.workspace = true
+
+[features]
+openh264 = ["dep:openh264"]

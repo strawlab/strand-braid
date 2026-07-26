@@ -475,6 +475,58 @@ impl Y4MFrame {
     }
 }
 
+/// Lets a [`Y4MFrame`] feed an [`openh264::encoder::Encoder`] directly, with no
+/// intermediate copy into a second planar-YUV buffer.
+#[cfg(feature = "openh264")]
+impl openh264::formats::YUVSource for Y4MFrame {
+    fn dimensions(&self) -> (usize, usize) {
+        (self.width() as usize, self.height() as usize)
+    }
+    fn strides(&self) -> (usize, usize, usize) {
+        (self.y_stride(), self.u_stride(), self.v_stride())
+    }
+    fn y(&self) -> &[u8] {
+        self.y_plane_data()
+    }
+    fn u(&self) -> &[u8] {
+        self.u_plane_data()
+    }
+    fn v(&self) -> &[u8] {
+        self.v_plane_data()
+    }
+}
+
+#[cfg(all(test, feature = "openh264"))]
+mod openh264_yuv_source_tests {
+    use super::*;
+    use machine_vision_formats::PixFmt;
+    use strand_dynamic_frame::DynamicFrame;
+
+    /// A `Y4MFrame` fed straight to a real OpenH264 encoder (no intermediate
+    /// copy into a second planar buffer) must produce a decodable IDR frame at
+    /// the source's own dimensions.
+    #[test]
+    fn y4m_frame_encodes_via_openh264() {
+        let (width, height) = (32u32, 24u32);
+        let mut buf = vec![0u8; (width * height * 3) as usize];
+        for (i, b) in buf.iter_mut().enumerate() {
+            *b = (i % 256) as u8;
+        }
+        let frame =
+            DynamicFrame::from_buf(width, height, (width * 3) as usize, buf, PixFmt::RGB8).unwrap();
+        let y4m = encode_y4m_dynamic_frame(&frame, y4m::Colorspace::C420paldv, None).unwrap();
+
+        let mut encoder = openh264::encoder::Encoder::with_api_config(
+            openh264::OpenH264API::from_source(),
+            openh264::encoder::EncoderConfig::new(),
+        )
+        .unwrap();
+        let encoded = encoder.encode(&y4m).unwrap();
+        assert!(encoded.frame_type() == openh264::encoder::FrameType::IDR);
+        assert!(!encoded.to_vec().is_empty());
+    }
+}
+
 fn generic_to_c420paldv_macroblocks<FMT>(
     frame: &dyn HasRowChunksExact<FMT>,
     block_size: u32,
