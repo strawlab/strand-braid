@@ -6,6 +6,7 @@ license = "MIT OR Apache-2.0"
 description = "low-latency H.264 RTP/UDP streaming with pluggable encoders and runtime bitrate control"
 
 [dependencies]
+anyhow.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 chrono.workspace = true
@@ -14,14 +15,14 @@ h264-reader.workspace = true
 machine-vision-formats.workspace = true
 openh264.workspace = true
 clap.workspace = true
-frame-source.workspace = true
+frame-source = { workspace = true, features = ["openh264"] }
 y4m.workspace = true
 
+env-tracing-logger.workspace = true
 ffmpeg-writer.workspace = true
 h264-rtp.workspace = true
 strand-dynamic-frame.workspace = true
 y4m-writer = { workspace = true, features = ["openh264"] }
 
 [dev-dependencies]
-env-tracing-logger.workspace = true
 tempfile.workspace = true

@@ -27,13 +27,43 @@ const SLICE_LEN_MARGIN: usize = 32;
 #[derive(Debug, Clone, Default)]
 pub struct OpenH264EncoderConfig {}
 
-/// In-process encoder using the local `openh264-rs` fork's `set_bitrate` and
-/// `force_intra_frame`. One [`openh264::encoder::EncodedBitStream`] is exactly
-/// one access unit, so AU boundaries and the marker bit are exact with no
-/// stream re-parsing.
+/// In-process encoder using the local `openh264-rs` fork's `force_intra_frame`.
+/// One [`openh264::encoder::EncodedBitStream`] is exactly one access unit, so
+/// AU boundaries and the marker bit are exact with no stream re-parsing.
+///
+/// [`Self::set_bitrate`] does *not* use the fork's `Encoder::set_bitrate`.
+/// Verified experimentally: OpenH264's native `SetOption(ENCODER_OPTION_BITRATE)`
+/// on an already-initialized encoder only succeeds when the new bitrate is
+/// less than or equal to the one the encoder currently holds -- any increase
+/// fails with a native error (undocumented upstream; not a bug in the Rust
+/// binding). Since a live stream must be able to ramp bitrate up as well as
+/// down, `set_bitrate` instead reinitializes a fresh `Encoder` at the new
+/// bitrate, which works in both directions and, as a bonus, makes the next
+/// frame a natural IDR (every fresh encoder's first frame is one) --
+/// consistent with the ffmpeg backend's own respawn-on-`set_bitrate` behavior.
 pub(crate) struct OpenH264StreamEncoder {
     encoder: Encoder,
     au_tx: SyncSender<AccessUnit>,
+    idr_interval_frames: u32,
+    max_slice_len: u32,
+}
+
+fn build_encoder(
+    bitrate_bps: u32,
+    idr_interval_frames: u32,
+    max_slice_len: u32,
+) -> Result<Encoder> {
+    let enc_cfg = EncoderConfig::new()
+        .usage_type(UsageType::CameraVideoRealTime)
+        .rate_control_mode(RateControlMode::Bitrate)
+        .bitrate(BitRate::from_bps(bitrate_bps))
+        .intra_frame_period(IntraFramePeriod::from_num_frames(idr_interval_frames))
+        .max_slice_len(max_slice_len)
+        .num_threads(1);
+    Ok(Encoder::with_api_config(
+        OpenH264API::from_source(),
+        enc_cfg,
+    )?)
 }
 
 impl OpenH264StreamEncoder {
@@ -44,16 +74,14 @@ impl OpenH264StreamEncoder {
         payload_budget: usize,
         au_tx: SyncSender<AccessUnit>,
     ) -> Result<Self> {
-        let max_slice_len = payload_budget.saturating_sub(SLICE_LEN_MARGIN);
-        let enc_cfg = EncoderConfig::new()
-            .usage_type(UsageType::CameraVideoRealTime)
-            .rate_control_mode(RateControlMode::Bitrate)
-            .bitrate(BitRate::from_bps(bitrate_bps))
-            .intra_frame_period(IntraFramePeriod::from_num_frames(idr_interval_frames))
-            .max_slice_len(max_slice_len as u32)
-            .num_threads(1);
-        let encoder = Encoder::with_api_config(OpenH264API::from_source(), enc_cfg)?;
-        Ok(Self { encoder, au_tx })
+        let max_slice_len = payload_budget.saturating_sub(SLICE_LEN_MARGIN) as u32;
+        let encoder = build_encoder(bitrate_bps, idr_interval_frames, max_slice_len)?;
+        Ok(Self {
+            encoder,
+            au_tx,
+            idr_interval_frames,
+            max_slice_len,
+        })
     }
 }
 
@@ -102,7 +130,7 @@ impl H264StreamEncoder for OpenH264StreamEncoder {
     }
 
     fn set_bitrate(&mut self, bps: u32) -> Result<()> {
-        self.encoder.set_bitrate(BitRate::from_bps(bps))?;
+        self.encoder = build_encoder(bps, self.idr_interval_frames, self.max_slice_len)?;
         Ok(())
     }
 
@@ -115,5 +143,62 @@ impl H264StreamEncoder for OpenH264StreamEncoder {
         // No child process or file handle to flush; dropping the encoder is
         // enough.
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::mpsc::sync_channel;
+
+    fn new_test_encoder(
+        bitrate_bps: u32,
+    ) -> (OpenH264StreamEncoder, std::sync::mpsc::Receiver<AccessUnit>) {
+        let (au_tx, au_rx) = sync_channel(8);
+        let encoder = OpenH264StreamEncoder::new(
+            OpenH264EncoderConfig::default(),
+            bitrate_bps,
+            30,
+            1360,
+            au_tx,
+        )
+        .unwrap();
+        (encoder, au_rx)
+    }
+
+    fn encode_one_frame(encoder: &mut OpenH264StreamEncoder) {
+        let (width, height) = (64u32, 48u32);
+        let buf = vec![0u8; (width * height * 3) as usize];
+        let frame = strand_dynamic_frame::DynamicFrameOwned::from_buf(
+            width,
+            height,
+            (width * 3) as usize,
+            buf,
+            machine_vision_formats::PixFmt::RGB8,
+        )
+        .unwrap();
+        encoder
+            .submit(&frame.borrow(), std::time::Duration::ZERO)
+            .unwrap();
+    }
+
+    /// Regression test: OpenH264's native `SetOption(ENCODER_OPTION_BITRATE)`
+    /// silently fails (returns a native error) when asked to *increase* an
+    /// already-initialized encoder's bitrate, even though decreasing it
+    /// works fine -- verified experimentally against the openh264-rs fork
+    /// directly, not just through this crate. `set_bitrate` must not regress
+    /// to calling that API path directly, in either direction.
+    #[test]
+    fn set_bitrate_succeeds_for_both_increase_and_decrease_after_encoding() {
+        let (mut encoder, _au_rx) = new_test_encoder(500_000);
+        encode_one_frame(&mut encoder);
+
+        encoder
+            .set_bitrate(1_000_000)
+            .expect("increase must succeed");
+        encode_one_frame(&mut encoder);
+
+        encoder.set_bitrate(200_000).expect("decrease must succeed");
+        encode_one_frame(&mut encoder);
     }
 }

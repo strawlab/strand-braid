@@ -86,8 +86,8 @@ pub enum EncoderKind {
 pub struct StreamConfig {
     /// Destination address for the RTP/UDP datagrams.
     pub dest: std::net::SocketAddr,
-    /// Initial target bitrate in bits per second.
-    pub bitrate_bps: u32,
+    /// Initial target bitrate in kilo bits per second.
+    pub bitrate_kbps: u32,
     /// Source frame rate. Passed to the ffmpeg backend as `-framerate` and
     /// used to size its VBV `-bufsize`; the openh264 backend does not need it.
     pub fps: f32,
@@ -276,7 +276,7 @@ fn run_feeder(
 
     let mut encoder = make_encoder(
         cfg.encoder,
-        cfg.bitrate_bps,
+        cfg.bitrate_kbps,
         cfg.fps,
         cfg.idr_interval_frames,
         payload_budget,
@@ -334,7 +334,7 @@ mod tests {
 
         let cfg = StreamConfig {
             dest,
-            bitrate_bps: 500_000,
+            bitrate_kbps: 500,
             fps: 30.0,
             idr_interval_frames: 30,
             encoder,
