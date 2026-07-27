@@ -131,7 +131,7 @@ macro_rules! poll_err {
 /// [`Self::finish`] return immediately, even though their work is not done yet.
 pub struct RtpH264Streamer {
     tx: SyncSender<Msg>,
-    pending_bitrate_bps: Arc<AtomicU32>,
+    pending_bitrate_kbps: Arc<AtomicU32>,
     keyframe_requested: Arc<AtomicBool>,
     is_done: bool,
     err_from_worker: Arc<Mutex<Option<Error>>>,
@@ -141,11 +141,11 @@ impl RtpH264Streamer {
     pub fn new(cfg: StreamConfig) -> Result<Self> {
         let err_to_worker = Arc::new(Mutex::new(None));
         let err_from_worker = err_to_worker.clone();
-        let pending_bitrate_bps = Arc::new(AtomicU32::new(0));
+        let pending_bitrate_kbps = Arc::new(AtomicU32::new(0));
         let keyframe_requested = Arc::new(AtomicBool::new(false));
         let (tx, rx) = std::sync::mpsc::sync_channel::<Msg>(cfg.queue_size);
 
-        let feeder_pending_bitrate = pending_bitrate_bps.clone();
+        let feeder_pending_bitrate = pending_bitrate_kbps.clone();
         let feeder_keyframe_requested = keyframe_requested.clone();
         std::thread::spawn(move || {
             if let Err(e) = run_feeder(cfg, rx, feeder_pending_bitrate, feeder_keyframe_requested) {
@@ -155,7 +155,7 @@ impl RtpH264Streamer {
 
         Ok(Self {
             tx,
-            pending_bitrate_bps,
+            pending_bitrate_kbps,
             keyframe_requested,
             is_done: false,
             err_from_worker,
@@ -195,14 +195,14 @@ impl RtpH264Streamer {
     /// Request a new target bitrate. Coalescing: if called again before the
     /// feeder thread has applied a pending change, the newer value wins and
     /// the older one is never applied. Never dropped, unlike `send`.
-    pub fn set_bitrate(&mut self, bps: u32) -> Result<()> {
+    pub fn set_bitrate_kbps(&mut self, kbps: u32) -> Result<()> {
         poll_err!(self.err_from_worker);
         // 0 is reserved to mean "no pending change"; reject it rather than
         // silently ignoring a real request.
-        if bps == 0 {
+        if kbps == 0 {
             return Err(Error::ZeroBitrate);
         }
-        self.pending_bitrate_bps.store(bps, Ordering::Release);
+        self.pending_bitrate_kbps.store(kbps, Ordering::Release);
         Ok(())
     }
 
@@ -299,7 +299,7 @@ fn run_feeder(
 
                 let pending = pending_bitrate_bps.swap(0, Ordering::AcqRel);
                 if pending != 0 {
-                    encoder.set_bitrate(pending)?;
+                    encoder.set_bitrate_kbps(pending)?;
                     target_bitrate_bps.store(pending, Ordering::Release);
                 }
                 if keyframe_requested.swap(false, Ordering::AcqRel) {

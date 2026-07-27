@@ -26,7 +26,7 @@ pub trait H264StreamEncoder: Send {
     /// the ffmpeg implementation respawns the child process, which loses a few
     /// frames but keeps the RTP session (and thus the receiver's decoder state)
     /// intact.
-    fn set_bitrate(&mut self, bps: u32) -> Result<()>;
+    fn set_bitrate_kbps(&mut self, kbps: u32) -> Result<()>;
 
     /// Force the next encoded frame to be a keyframe (IDR).
     fn request_keyframe(&mut self) -> Result<()>;

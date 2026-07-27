@@ -45,7 +45,7 @@ pub struct FfmpegEncoderConfig {}
 /// leaves the session (and thus the receiver's decoder state) untouched — the
 /// receiver just sees a fresh IDR once the new child's first frame arrives.
 pub(crate) struct FfmpegStreamEncoder {
-    bitrate_bps: u32,
+    bitrate_kbps: u32,
     fps: f32,
     idr_interval_frames: u32,
     au_tx: SyncSender<AccessUnit>,
@@ -71,13 +71,13 @@ struct Running {
 impl FfmpegStreamEncoder {
     pub(crate) fn new(
         _cfg: FfmpegEncoderConfig,
-        bitrate_bps: u32,
+        bitrate_kbps: u32,
         fps: f32,
         idr_interval_frames: u32,
         au_tx: SyncSender<AccessUnit>,
     ) -> Result<Self> {
         Ok(Self {
-            bitrate_bps,
+            bitrate_kbps,
             fps,
             idr_interval_frames,
             au_tx,
@@ -96,7 +96,7 @@ impl FfmpegStreamEncoder {
 
         // bufsize = 2 seconds' worth of frames at the target bitrate, a
         // conventional VBV buffer size for low-latency live encoding.
-        let bufsize_bits = (self.bitrate_bps as f64 / self.fps as f64 * 2.0).round() as u64;
+        let bufsize_bits = ((self.bitrate_kbps as f64 * 1000.0) / self.fps as f64 * 2.0).round() as u64;
         let codec_args = FfmpegCodecArgs {
             codec: Some("libx264".to_string()),
             max_bframes: Some(0),
@@ -104,8 +104,8 @@ impl FfmpegStreamEncoder {
                 ("-preset".into(), "ultrafast".into()),
                 ("-tune".into(), "zerolatency".into()),
                 ("-g".into(), self.idr_interval_frames.to_string()),
-                ("-b:v".into(), format!("{}", self.bitrate_bps)),
-                ("-maxrate".into(), format!("{}", self.bitrate_bps)),
+                ("-b:v".into(), format!("{}", self.bitrate_kbps.saturating_mul(1000))),
+                ("-maxrate".into(), format!("{}", self.bitrate_kbps.saturating_mul(1000))),
                 ("-bufsize".into(), bufsize_bits.to_string()),
                 // repeat-headers is the Annex-B default (not disabled here),
                 // so SPS/PPS precede every IDR with no extra flag; aud=1 gives
@@ -222,8 +222,8 @@ impl H264StreamEncoder for FfmpegStreamEncoder {
         Ok(())
     }
 
-    fn set_bitrate(&mut self, bps: u32) -> Result<()> {
-        self.bitrate_bps = bps;
+    fn set_bitrate_kbps(&mut self, kbps: u32) -> Result<()> {
+        self.bitrate_kbps = kbps;
         self.stop()
     }
 

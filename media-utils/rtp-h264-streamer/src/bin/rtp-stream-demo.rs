@@ -110,7 +110,7 @@ fn parse_size(s: &str) -> anyhow::Result<(u32, u32)> {
 
 /// A handful of bitrates to cycle through under `--ramp-bitrate`, chosen to
 /// span a visibly different range (250 kbps to 8 Mbps) rather than a subtle one.
-const RAMP_BITRATES_BPS: &[u32] = &[250_000, 1_000_000, 4_000_000, 8_000_000];
+const RAMP_BITRATES_KBPS: &[u32] = &[250, 1_000, 4_000, 8_000];
 const RAMP_PERIOD: Duration = Duration::from_secs(5);
 
 fn main() -> anyhow::Result<()> {
@@ -133,7 +133,7 @@ fn main() -> anyhow::Result<()> {
             ..Default::default()
         },
         queue_size: 8,
-        dump_annexb: args.dump_annexb.clone(),
+        dump_annexb: args.dump_annexb.clone()
     };
     let mut streamer = RtpH264Streamer::new(cfg)?;
     tracing::info!(
@@ -217,10 +217,10 @@ fn maybe_ramp_bitrate(
     if start.elapsed() < *next_ramp_at {
         return Ok(());
     }
-    *ramp_idx = (*ramp_idx + 1) % RAMP_BITRATES_BPS.len();
-    let bps = RAMP_BITRATES_BPS[*ramp_idx];
-    tracing::info!("ramping bitrate to {} kbps", bps / 1000);
-    streamer.set_bitrate(bps)?;
+    *ramp_idx = (*ramp_idx + 1) % RAMP_BITRATES_KBPS.len();
+    let kbps = RAMP_BITRATES_KBPS[*ramp_idx];
+    tracing::info!("ramping bitrate to {} kbps", kbps);
+    streamer.set_bitrate_kbps(kbps)?;
     *next_ramp_at += RAMP_PERIOD;
     Ok(())
 }

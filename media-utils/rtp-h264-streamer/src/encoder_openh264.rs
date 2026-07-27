@@ -49,14 +49,14 @@ pub(crate) struct OpenH264StreamEncoder {
 }
 
 fn build_encoder(
-    bitrate_bps: u32,
+    bitrate_kbps: u32,
     idr_interval_frames: u32,
     max_slice_len: u32,
 ) -> Result<Encoder> {
     let enc_cfg = EncoderConfig::new()
         .usage_type(UsageType::CameraVideoRealTime)
         .rate_control_mode(RateControlMode::Bitrate)
-        .bitrate(BitRate::from_bps(bitrate_bps))
+        .bitrate(BitRate::from_bps(bitrate_kbps.saturating_mul(1000)))
         .intra_frame_period(IntraFramePeriod::from_num_frames(idr_interval_frames))
         .max_slice_len(max_slice_len)
         .num_threads(1);
@@ -129,8 +129,8 @@ impl H264StreamEncoder for OpenH264StreamEncoder {
         Ok(())
     }
 
-    fn set_bitrate(&mut self, bps: u32) -> Result<()> {
-        self.encoder = build_encoder(bps, self.idr_interval_frames, self.max_slice_len)?;
+    fn set_bitrate_kbps(&mut self, kbps: u32) -> Result<()> {
+        self.encoder = build_encoder(kbps, self.idr_interval_frames, self.max_slice_len)?;
         Ok(())
     }
 
@@ -194,11 +194,11 @@ mod tests {
         encode_one_frame(&mut encoder);
 
         encoder
-            .set_bitrate(1_000_000)
+            .set_bitrate_kbps(1_000)
             .expect("increase must succeed");
         encode_one_frame(&mut encoder);
 
-        encoder.set_bitrate(200_000).expect("decrease must succeed");
+        encoder.set_bitrate_kbps(200).expect("decrease must succeed");
         encode_one_frame(&mut encoder);
     }
 }
