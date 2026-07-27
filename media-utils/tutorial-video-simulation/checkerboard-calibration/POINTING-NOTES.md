@@ -737,6 +737,82 @@ clean, no leftover processes, same as every other run this session. This
 change lives in the shared `lib/cdp_locate.py`, so it benefits every
 scenario using `point_at_browser_text`, not just this one.
 
+## Update 2026-07-23 (later still): `LIMIT_FRAMERATE`, for when strand-cam
+## can't keep up with real-time playback + checkerboard detection
+
+Added on request: the user reported strand-cam sometimes struggling to
+keep up with `CHECKERBOARD_VIDEO`'s real-time playback while also running
+checkerboard detection on every frame (plausibly the detection algorithm's
+own CPU cost on a loaded machine). New `LIMIT_FRAMERATE` env var (e.g.
+`LIMIT_FRAMERATE=5`) paces playback at that fixed, lower rate instead of
+the source's native one -- every decoded frame is still served, in the
+same order, so this plays back in slow motion rather than skipping frames;
+holding on the first/last frame is unaffected. Unset (or `"None"`) keeps
+today's native-rate real-time playback exactly as before.
+
+Implemented as a genuine capability of the backend itself, not a
+tutorial-only script hack: `camera/ci2-video-file/src/lib.rs` gained a new
+`VIDEO_FILE_LIMIT_FRAMERATE_ENV` (`STRAND_CAM_VIDEO_FILE_LIMIT_FRAMERATE`)
+that overrides the `fps` field computed at camera-open time (the same field
+`acquisition_frame_rate`/`set_acquisition_frame_rate` already exposed) --
+nothing about which frames are decoded, held, or looped changes at all.
+`record.sh` exports it from a friendlier `LIMIT_FRAMERATE` (defaulting to
+`"None"` under `set -o nounset`), matching this project's decision (see the
+2026-07-20 update further up) to extend `ci2-video-file` itself rather than
+patch around it in scripts -- consistent with
+[[feedback_mp4_backend_scope_for_tutorials]].
+
+Added a `#[cfg(test)]` unit test in `ci2-video-file` for the parsing
+function itself (unset/`"None"` -> no override; a positive number ->
+`Some(fps)`; zero/negative/NaN/unparseable -> a clear error rather than
+silently keeping native pacing) -- `cargo test -p ci2-video-file` passes,
+`cargo clippy -p ci2-video-file --all-targets` clean (one lint fixed along
+the way: `!(fps > 0.0)` silently lets `NaN` through since every comparison
+against `NaN` is `false` -- clippy's `neg_cmp_op_on_partial_ord` caught
+this; rewritten as `fps.is_nan() || fps <= 0.0`, which correctly rejects
+NaN too).
+
+**A real second-order bug found and fixed while wiring this into
+`record.sh`, not just the Rust side:** the "video finished" wait
+(`wait_for_file "$CHECKERBOARD_DONE_MARKER" 200 1`, a fixed 200s bound
+sized for `CHECKERBOARD_VIDEO`'s native ~120s runtime) doesn't scale with
+`LIMIT_FRAMERATE` at all -- at `LIMIT_FRAMERATE=5` this file's real
+~8.57fps native rate stretches playback to ~207s, *already exceeding* the
+old fixed 200s bound before any of the rest of the pipeline even runs.
+Caught this via `ffprobe`-based arithmetic before ever running the real
+test, not after a failure: `record.sh` now computes
+`CHECKERBOARD_DONE_WAIT_TRIES` from `ffprobe`'s own duration/
+`avg_frame_rate` for `CHECKERBOARD_VIDEO`, scaled by
+`native_fps / LIMIT_FRAMERATE` plus a 30% margin, only when
+`LIMIT_FRAMERATE` is actually set (the unset/`"None"` path keeps the exact
+same fixed 200 as before, verified unchanged). A missing/malformed
+`ffprobe` value degrades to the same 200-try floor rather than erroring,
+since this is only a wait bound, not the real playback pacing.
+
+**A real "stale binary" trap hit and caught during verification, not
+shipped:** the first end-to-end test of this feature "passed" (clean exit,
+~210s duration, no different from every prior native-rate run) --
+suspicious on its face, since `LIMIT_FRAMERATE=5` should have made playback
+take noticeably longer. Root cause: `record.sh`'s own
+`[ ! -x "$TARGET_DIR/strand-cam" ]` build check only detects a *missing*
+binary, not a *stale* one (already flagged as a real gotcha in this file's
+2026-07-21 update, and re-hit here by not re-reading that warning before
+trusting a run) -- `target/release/strand-cam` was still the binary built
+two days earlier, before any of today's Rust changes existed, confirmed via
+`stat`'s mtime and a `strings` search for the new tracing message (absent).
+Forced a real rebuild (`cargo build --release -p strand-cam --features
+checkercal`), confirmed the new strings were present in the freshly built
+binary, then reran: this time playback genuinely took ~207s (raw capture
+duration jumped from ~210s to **294.9s**), and the checkerboard-collected
+count jumped from the usual 15-19 to **29** -- a real, useful side effect
+of this feature, not just an artifact: pacing the video's own detection
+loop (500ms minimum sample interval) against a much slower feed gives it
+far more chances to sample distinct poses cleanly. A follow-up regression
+run with `LIMIT_FRAMERATE` unset, against this same freshly built binary,
+came back to the expected ~211s duration with no `LIMIT_FRAMERATE` log line
+at all, confirming zero behavior change on the default path. Both runs
+clean: no CDP-lookup warnings, no leftover processes.
+
 ## Solid (verified via source, not tuned-by-eye)
 
 - The BUI markup for the "Checkerboard Calibration" panel

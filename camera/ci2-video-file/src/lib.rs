@@ -39,7 +39,14 @@
 //! [`DEFAULT_FPS`] -- using the same `Instant`-based sleep-until-target
 //! idiom `ci2-sim` uses (with a resync guard so a delayed caller doesn't
 //! trigger a burst of frames to "catch up"), and can be overridden the same
-//! way (`acquisition_frame_rate_enable`/`set_acquisition_frame_rate`).
+//! way (`acquisition_frame_rate_enable`/`set_acquisition_frame_rate`), or by
+//! setting [`VIDEO_FILE_LIMIT_FRAMERATE_ENV`] at open time (e.g. because a
+//! downstream processing pipeline -- checkerboard detection, ... -- can't
+//! keep up with the source's native rate on a given machine). Either way
+//! this only changes how fast frames are served: every decoded frame is
+//! still served, in the same order, so a lower rate plays back in slow
+//! motion rather than skipping frames, and holding on the first/last frame
+//! (see below) is unaffected.
 //!
 //! # Pixel formats
 //!
@@ -136,6 +143,41 @@ pub const VIDEO_FILE_LOOP_ENV: &str = "STRAND_CAM_VIDEO_FILE_LOOP";
 /// written unless a caller opts in. See the module-level "Signaling end of
 /// playback" docs above.
 pub const VIDEO_FILE_DONE_MARKER_ENV: &str = "STRAND_CAM_VIDEO_FILE_DONE_MARKER";
+
+/// The environment variable overriding playback pacing to a fixed frame
+/// rate, instead of the source's native rate (see the module-level
+/// "Pacing" docs). Unset, or set to the literal string `"None"` -- both the
+/// default -- keep native-rate pacing exactly as before. Set to a positive
+/// number (e.g. `"5"`) to pace at that fixed rate instead: every decoded
+/// frame is still served, in the same order, so a lower value plays back in
+/// slow motion rather than skipping frames.
+pub const VIDEO_FILE_LIMIT_FRAMERATE_ENV: &str = "STRAND_CAM_VIDEO_FILE_LIMIT_FRAMERATE";
+
+/// Parses [`VIDEO_FILE_LIMIT_FRAMERATE_ENV`]. Unset or `"None"` -> `Ok(None)`
+/// (no override). A positive number -> `Ok(Some(fps))`. Anything else is a
+/// clear error -- fail loudly on a typo rather than silently keeping
+/// native-rate pacing, since a caller who set this expects it to take
+/// effect.
+fn limit_framerate_override() -> ci2::Result<Option<f64>> {
+    let Some(value) = std::env::var_os(VIDEO_FILE_LIMIT_FRAMERATE_ENV) else {
+        return Ok(None);
+    };
+    let value = value.to_string_lossy();
+    if value == "None" {
+        return Ok(None);
+    }
+    let fps: f64 = value.parse().map_err(|_| {
+        ci2::Error::from(format!(
+            "{VIDEO_FILE_LIMIT_FRAMERATE_ENV}={value:?} is not a number or \"None\""
+        ))
+    })?;
+    if fps.is_nan() || fps <= 0.0 {
+        return Err(ci2::Error::from(format!(
+            "{VIDEO_FILE_LIMIT_FRAMERATE_ENV}={value:?} must be a positive number"
+        )));
+    }
+    Ok(Some(fps))
+}
 
 /// Frame rate used when the source has no known average frame rate (e.g. FMF).
 const DEFAULT_FPS: f64 = 30.0;
@@ -523,6 +565,23 @@ impl WrappedCamera {
             fps
         };
 
+        // Optional override: pace at a fixed rate instead of the native one
+        // just computed above, e.g. because a downstream processing
+        // pipeline can't keep up with the source's native rate on this
+        // machine. Doesn't change which frames are decoded/held/looped --
+        // only how fast `next_frame` serves them (see the module-level
+        // "Pacing" docs).
+        let fps = match limit_framerate_override()? {
+            Some(limited) => {
+                tracing::info!(
+                    "video-file backend: pacing playback at {limited} fps \
+                     ({VIDEO_FILE_LIMIT_FRAMERATE_ENV}) instead of the source's native {fps} fps"
+                );
+                limited
+            }
+            None => fps,
+        };
+
         Ok(Self {
             info: VideoFileCameraInfo::new(&path),
             width,
@@ -805,5 +864,60 @@ impl ci2::Camera for WrappedCamera {
             },
             backend_data: None,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // A single test, not several, deliberately: `limit_framerate_override`
+    // reads real process-global environment state, and running independent
+    // #[test] fns that each set/unset the same variable could race under
+    // cargo's default parallel test execution. One sequential test avoids
+    // that entirely.
+    #[test]
+    fn limit_framerate_override_parses_expected_values() {
+        // SAFETY: this test does not run any other threads/tests
+        // concurrently with these env var mutations (see the comment
+        // above) -- the sequential ordering here is what makes it sound.
+        unsafe {
+            std::env::remove_var(VIDEO_FILE_LIMIT_FRAMERATE_ENV);
+        }
+        assert_eq!(limit_framerate_override().unwrap(), None);
+
+        unsafe {
+            std::env::set_var(VIDEO_FILE_LIMIT_FRAMERATE_ENV, "None");
+        }
+        assert_eq!(limit_framerate_override().unwrap(), None);
+
+        unsafe {
+            std::env::set_var(VIDEO_FILE_LIMIT_FRAMERATE_ENV, "5");
+        }
+        assert_eq!(limit_framerate_override().unwrap(), Some(5.0));
+
+        unsafe {
+            std::env::set_var(VIDEO_FILE_LIMIT_FRAMERATE_ENV, "2.5");
+        }
+        assert_eq!(limit_framerate_override().unwrap(), Some(2.5));
+
+        unsafe {
+            std::env::set_var(VIDEO_FILE_LIMIT_FRAMERATE_ENV, "0");
+        }
+        assert!(limit_framerate_override().is_err());
+
+        unsafe {
+            std::env::set_var(VIDEO_FILE_LIMIT_FRAMERATE_ENV, "-5");
+        }
+        assert!(limit_framerate_override().is_err());
+
+        unsafe {
+            std::env::set_var(VIDEO_FILE_LIMIT_FRAMERATE_ENV, "not-a-number");
+        }
+        assert!(limit_framerate_override().is_err());
+
+        unsafe {
+            std::env::remove_var(VIDEO_FILE_LIMIT_FRAMERATE_ENV);
+        }
     }
 }

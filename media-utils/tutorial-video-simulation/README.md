@@ -513,6 +513,20 @@ playback") for the backend-side mechanism, and
 `checkerboard-calibration/POINTING-NOTES.md`'s dated update for the full
 diagnosis.
 
+**If strand-cam is struggling to keep up with real-time playback +
+checkerboard detection** (visible as e.g. "Channel full... Dropping frame
+data" in the terminal log), set `LIMIT_FRAMERATE` (e.g. `LIMIT_FRAMERATE=5`)
+to pace `CHECKERBOARD_VIDEO` at that fixed, lower rate instead of its native
+one — passed straight through to `ci2-video-file`'s own
+`STRAND_CAM_VIDEO_FILE_LIMIT_FRAMERATE`. This only changes how fast frames
+are served: every decoded frame is still served, in the same order, so a
+lower rate plays back in slow motion rather than skipping frames, and
+holding on the first/last frame (both described just above) is unaffected —
+as a side effect it also gives more time per pose to the 500ms-interval
+detection loop, collecting more checkerboards overall (confirmed via a real
+run: 15-19 at native rate vs 29 at `LIMIT_FRAMERATE=5`). Unset (or
+`LIMIT_FRAMERATE=None`) keeps today's native-rate real-time playback.
+
 ## Running `checkerboard-calibration`
 
 Same Prerequisites as `strand-cam-intro`/`braid-intro` (see above), plus
