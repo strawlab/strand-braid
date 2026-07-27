@@ -247,6 +247,42 @@ Always push to `origin` (should already point at
   got the same defensive call but wasn't run end-to-end this session (needs
   the real 5-camera rig) — only syntax-checked.
 
+  **Update 2026-07-27 (later still): `Basler-81011970.mp4` purged from git
+  history entirely, not just deleted going forward.** Now that `record.sh`
+  auto-downloads and verifies it if missing (previous update above), keeping
+  the 30MB blob in history was no longer necessary — and it would have
+  meant carrying that blob along in any future upstream PR of this fork's
+  work. The blob was added exactly once (`859e91a6`, no earlier or later
+  version under any other filename — the rename in `2cb845e0` happened
+  while the file was still untracked, so there was nothing to purge from
+  before that) and confirmed entirely fork-local (never part of any commit
+  shared with `strawlab/strand-braid` upstream), so this only ever rewrote
+  this fork's own commits, not anything upstream depends on.
+
+  Done with `git-filter-repo` (`pip install --user git-filter-repo`; git's
+  own docs recommend it over the deprecated `git filter-branch`) run in an
+  isolated scratch clone of `origin` alone (not this checkout, and without
+  `upstream`'s fetched tags, to keep the operation scoped): `git filter-repo
+  --path media-utils/tutorial-video-simulation/checkerboard-calibration/Basler-81011970.mp4
+  --invert-paths`. Verified there before touching anything real -- the blob
+  gone (`git rev-list --objects --all`), `.git` down from ~54M to ~18M, and
+  every commit subject/count along `main`'s actual ancestry identical to the
+  original (3465 commits both before and after, confirmed by diffing the
+  full subject-line lists) -- before force-pushing. This checkout was then
+  resynced (`git fetch` + `git reset --hard origin/main`, then
+  `git reflog expire --expire=now --all` + `git gc --prune=now --aggressive`
+  locally too, since a plain `gc` alone left the reflog still holding the
+  old blob reachable). `git reset --hard` actually **removed the file from
+  disk** here, since it was tracked in the old `HEAD` and isn't part of the
+  new tree at all -- not left behind as a convenient already-present cache
+  the way a plain `git rm` commit would have; `record.sh`'s own
+  auto-download re-fetches it fresh on the next run, verified working.
+  `Basler-81011970.mp4`'s exact path is now in the root `.gitignore` so it
+  can never be accidentally re-added. A full backup bundle of the pre-purge
+  state (`git bundle create ... --all`) was made first and kept outside the
+  repo, in case anything needed to be rolled back -- wasn't needed. No other
+  clones of this fork existed to resync (confirmed with the user first).
+
 ## Before running either script
 
 Check for a real `braid-run`/`strand-cam` process already using the
