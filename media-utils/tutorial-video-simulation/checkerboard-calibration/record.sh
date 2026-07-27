@@ -275,6 +275,17 @@ SESSION_CAPTURE_START_EPOCH=$(python3 -c 'import time; print(time.time())')
 # its ttyd/strand-cam children only; deleted by session_cleanup along with
 # the rest of SESSION_WORK_DIR.
 #
+# Also injects --no-browser: strand-cam's own StandaloneOrBraid-dependent
+# default (strand-cam/src/cli_app.rs) is to open a browser itself when run
+# standalone (not under Braid) and neither --browser nor --no-browser is
+# passed -- confirmed as the real cause of a second, unmanaged "Strand Cam"
+# window appearing in a real strand-cam-intro recording (with its own
+# "Restore pages?" bubble, since it uses a real/default Chrome profile
+# rather than this pipeline's isolated one), and this scenario runs
+# standalone strand-cam the same way. record.sh already opens its own
+# properly-positioned, isolated browser window via open_browser right after
+# launch, so strand-cam's own auto-opened one is never wanted here.
+#
 # Built and exported to PATH *before* open_terminal, not after: open_terminal
 # launches ttyd's shell as its own process, which only ever sees the PATH
 # record.sh had at that moment -- a later `export PATH=...` in record.sh's
@@ -285,7 +296,7 @@ WRAPPER_DIR="$SESSION_WORK_DIR/bin"
 mkdir -p "$WRAPPER_DIR"
 cat >"$WRAPPER_DIR/strand-cam" <<EOF
 #!/bin/bash
-exec "$TARGET_DIR/strand-cam" --camera-backend video-file "\$@"
+exec "$TARGET_DIR/strand-cam" --camera-backend video-file --no-browser "\$@"
 EOF
 chmod +x "$WRAPPER_DIR/strand-cam"
 export PATH="$WRAPPER_DIR:$TARGET_DIR:$PATH"

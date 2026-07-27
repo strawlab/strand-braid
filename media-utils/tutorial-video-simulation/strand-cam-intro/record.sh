@@ -212,26 +212,39 @@ fi
 # *non-default* backend (sim, or a real backend other than pylon) and would
 # confuse readers about what the real command is. A tiny wrapper script
 # named `strand-cam`, placed earlier on PATH than the real binary, silently
-# injects --camera-backend $CAMERA_BACKEND while forwarding everything else
-# -- skipped entirely for "pylon", strand-cam's actual default, where the
-# bare command is already exactly correct with no wrapper needed. This
-# wrapper is only ever on PATH for this script's own process and the
-# xterm/strand-cam it launches as children -- it cannot affect how
-# strand-cam runs anywhere else on this machine, during or after this run,
-# and session_cleanup deletes it (along with the rest of SESSION_WORK_DIR)
-# once everything's confirmed stopped.
+# injects --camera-backend $CAMERA_BACKEND (skipped for "pylon", strand-cam's
+# actual default, where that flag is already exactly correct) while
+# forwarding everything else. This wrapper is only ever on PATH for this
+# script's own process and the xterm/strand-cam it launches as children -- it
+# cannot affect how strand-cam runs anywhere else on this machine, during or
+# after this run, and session_cleanup deletes it (along with the rest of
+# SESSION_WORK_DIR) once everything's confirmed stopped.
+#
+# Always injects --no-browser too, regardless of backend: strand-cam's own
+# StandaloneOrBraid-dependent default (strand-cam/src/cli_app.rs) is to open
+# a browser itself when run standalone (not under Braid) and neither
+# --browser nor --no-browser is passed -- confirmed as the real cause of a
+# second, unmanaged "Strand Cam" window appearing in a real recording (with
+# its own "Restore pages?" bubble, since it uses a real/default Chrome
+# profile rather than this pipeline's isolated one). record.sh already opens
+# its own properly-positioned, isolated browser window via open_browser
+# right after each launch, so strand-cam's own auto-opened one is never
+# wanted here.
+WRAPPER_DIR="$SESSION_WORK_DIR/bin"
+mkdir -p "$WRAPPER_DIR"
 if [ "$CAMERA_BACKEND" = "pylon" ]; then
-    export PATH="$TARGET_DIR:$PATH"
-else
-    WRAPPER_DIR="$SESSION_WORK_DIR/bin"
-    mkdir -p "$WRAPPER_DIR"
     cat >"$WRAPPER_DIR/strand-cam" <<EOF
 #!/bin/bash
-exec "$TARGET_DIR/strand-cam" --camera-backend $CAMERA_BACKEND "\$@"
+exec "$TARGET_DIR/strand-cam" --no-browser "\$@"
 EOF
-    chmod +x "$WRAPPER_DIR/strand-cam"
-    export PATH="$WRAPPER_DIR:$TARGET_DIR:$PATH"
+else
+    cat >"$WRAPPER_DIR/strand-cam" <<EOF
+#!/bin/bash
+exec "$TARGET_DIR/strand-cam" --camera-backend $CAMERA_BACKEND --no-browser "\$@"
+EOF
 fi
+chmod +x "$WRAPPER_DIR/strand-cam"
+export PATH="$WRAPPER_DIR:$TARGET_DIR:$PATH"
 BUI_URL="http://127.0.0.1:3440/"
 
 echo "=== Starting virtual display ==="
