@@ -15,11 +15,15 @@
 # Requires everything strand-cam-intro/braid-intro require (see
 # ../README.md's Prerequisites), plus:
 #
-#   - CHECKERBOARD_VIDEO (required, no default): a real checkerboard video,
-#     held at varying distances/angles with brief (>=1s) pauses at each
-#     pose -- strand-cam's detection loop samples at most once every 500ms
+#   - CHECKERBOARD_VIDEO (optional): a real checkerboard video, held at
+#     varying distances/angles with brief (>=1s) pauses at each pose --
+#     strand-cam's detection loop samples at most once every 500ms
 #     (`checkerboard_loop_dur` in
-#     ../../../strand-cam/src/frame_process_task.rs).
+#     ../../../strand-cam/src/frame_process_task.rs). Defaults to
+#     Basler-81011970.mp4 next to this script; if that file isn't present,
+#     it's fetched from strawlab-cdn.com and verified via the
+#     `download-verify` crate (the same mechanism this workspace's own tests
+#     use to fetch fixtures) -- see CHECKERBOARD_VIDEO_URL/_SHA256 below.
 #   - LIMIT_FRAMERATE (optional, default unset/"None"): caps playback to a
 #     fixed, lower rate if strand-cam struggles to keep up with real-time
 #     playback + detection -- see README.md's own section for details.
@@ -27,7 +31,8 @@
 #     `video-file` backend -- see BUILD_NEW_STRANDBRAID below.
 #
 # Usage:
-#   CHECKERBOARD_VIDEO=/path/to/checkerboard.mp4 ./record.sh [OUTPUT_DIR]
+#   ./record.sh [OUTPUT_DIR]
+#   CHECKERBOARD_VIDEO=/path/to/checkerboard.mp4 ./record.sh [OUTPUT_DIR]  # override the default video
 #
 # OUTPUT_DIR defaults to a directory named 'out' next to this script. It is
 # created if missing and is not, and should not be, committed to the repo.
@@ -48,7 +53,28 @@ REPO_ROOT=$(cd "$SCRIPT_DIR/../../.." && pwd)
 OUT_DIR=$(cd "$(dirname "${1:-$SCRIPT_DIR/out}")" && pwd)/$(basename "${1:-$SCRIPT_DIR/out}")
 mkdir -p "$OUT_DIR"
 
-: "${CHECKERBOARD_VIDEO:?ERROR: set CHECKERBOARD_VIDEO to a video of a checkerboard shown at varying distances/angles (see the header comment in this script)}"
+# The same video already checked into this directory as Basler-81011970.mp4,
+# re-hosted so it can be fetched instead of requiring a manually-placed file
+# (see the download step below). Its filename's stem becomes strand-cam's
+# reported camera name (camera/ci2-video-file/src/lib.rs's
+# VideoFileCameraInfo::default_name), which is why the download destination
+# below is named Basler-81011970.mp4 rather than reusing the URL's own name.
+CHECKERBOARD_VIDEO_URL="https://strawlab-cdn.com/assets/checkerboard-capture-demo.mp4"
+CHECKERBOARD_VIDEO_SHA256="12520fe85ce2ea69d7e8649854c0c99510dfb739f561199fb01ab2bdc1e39653"
+
+# An explicit CHECKERBOARD_VIDEO always wins and is used as-is (no download
+# attempted against a caller-supplied path). Only the default path below is
+# auto-fetched if missing.
+if [ -z "${CHECKERBOARD_VIDEO:-}" ]; then
+    CHECKERBOARD_VIDEO="$SCRIPT_DIR/Basler-81011970.mp4"
+    if [ ! -f "$CHECKERBOARD_VIDEO" ]; then
+        echo "=== $CHECKERBOARD_VIDEO not found -- downloading from $CHECKERBOARD_VIDEO_URL ==="
+        ( cd "$REPO_ROOT" && cargo run -q -p download-verify --bin download-verify -- \
+            --url "$CHECKERBOARD_VIDEO_URL" \
+            --sha256 "$CHECKERBOARD_VIDEO_SHA256" \
+            --dest "$CHECKERBOARD_VIDEO" )
+    fi
+fi
 [ -f "$CHECKERBOARD_VIDEO" ] || {
     echo "ERROR: CHECKERBOARD_VIDEO=$CHECKERBOARD_VIDEO not found" >&2
     exit 1
@@ -335,6 +361,13 @@ for panel in "Live view" "MP4 Recording Options" "Post Triggering" "Object Detec
     click_browser_element "$BROWSER_CDP_PORT" "$panel" label \
         || echo "WARNING: couldn't find/click the '$panel' panel label to collapse it -- continuing" >&2
 done
+
+echo "=== Closing any stray extra browser window before recording starts ==="
+# See close_unclaimed_windows's own comment (lib/session.sh) -- every window
+# this scenario actually wants (terminal, BUI, live-view) is open and
+# claimed by now, so anything else still visible at this point is
+# unambiguously an extra to remove before it can ever show up on screen.
+close_unclaimed_windows
 
 echo "=== Starting screen capture (right-hand window's panels are all collapsed now) ==="
 start_capture "$OUT_DIR/raw.mp4"

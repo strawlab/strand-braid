@@ -270,6 +270,16 @@ wait_for_url "$BUI_URL" || { echo "ERROR: strand-cam BUI did not come up"; exit 
 # Not "BROWSER_WIN=$(open_browser ...)" -- same subshell problem as
 # open_terminal above; open_browser sets BROWSER_WIN/BROWSER_CDP_PORT itself.
 open_browser "$BUI_URL" "$TERM_WIN"
+# See close_unclaimed_windows's own comment (lib/session.sh) -- a real,
+# confirmed Chrome/Chromium quirk against a brand-new profile dir, more
+# likely under real system load, can leave an extra un-positioned browser
+# window behind open_browser's own call above, on an unpredictable delay.
+# Recording is already running by this point (unlike
+# checkerboard-calibration's scenario), so this can't wait until just before
+# start_capture the way that scenario does -- a short pause first gives it
+# more time to have already appeared, if it's going to.
+sleep 1
+close_unclaimed_windows
 
 echo "=== Indicating the camera name (browser, then terminal) ==="
 point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Live view - " "$BROWSER_CAMNAME_X" "$BROWSER_CAMNAME_Y" "$BROWSER_HEADING_OFFSET_X" "$BROWSER_HEADING_OFFSET_Y"
@@ -364,6 +374,7 @@ log_event "LEFT CLICK" 1.5
 sleep 1.5
 open_browser "$BUI_URL" "$TERM_WIN"
 wait_for_url "$BUI_URL" || { echo "ERROR: strand-cam BUI did not reconnect after reopening"; exit 1; }
+close_unclaimed_windows # see close_unclaimed_windows's own comment (lib/session.sh)
 sleep 3
 
 # New relative to the original Video_1.mp4 (which stops here): demonstrate

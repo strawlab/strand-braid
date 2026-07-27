@@ -65,6 +65,20 @@ SESSION_PANE_HEIGHT=$((SESSION_HEIGHT - 2 * SESSION_MARGIN))
 SESSION_TERM_HEIGHT=$((SESSION_PANE_HEIGHT - 210))
 SESSION_PIDS=()
 SESSION_WORK_DIR=$(mktemp -d -t "${SCRIPT_NAME}-XXXXXX")
+# Every window ID any _open_isolated_browser_window call has ever returned as
+# its `win`, one per line -- so a later call's ghost-window cleanup (see
+# there) can never mistake an earlier call's real, in-use window for one of
+# its own, even if that window hasn't yet registered as "--onlyvisible" by
+# the time the later call takes its own before/after snapshot (a real,
+# confirmed timing race: xdotool can lag briefly behind a window actually
+# existing). A plain file, not a bash array: every caller of
+# _open_isolated_browser_window invokes it via command substitution to
+# capture its "win port" output, which runs the whole function in a
+# subshell -- an array mutated there would silently vanish the moment it
+# returns, the same subshell problem documented on open_terminal/open_browser
+# themselves, just one level deeper.
+SESSION_CLAIMED_WINDOWS_FILE="$SESSION_WORK_DIR/claimed_windows"
+: >"$SESSION_CLAIMED_WINDOWS_FILE"
 SESSION_EVENTS_FILE="$SESSION_WORK_DIR/events.jsonl"
 SESSION_CAPTURE_START_EPOCH=""
 : > "$SESSION_EVENTS_FILE"
@@ -304,7 +318,58 @@ EOF
 
     local win
     win=$(xdotool getactivewindow)
+    # Recorded so close_unclaimed_windows (below) can later tell this
+    # legitimate window apart from a same-launch ghost (see its own comment)
+    # -- appended to a file, not a variable: every caller here invokes this
+    # function via command substitution to capture its "win port" output,
+    # which runs the whole function in a subshell, so a plain variable/array
+    # assignment here would silently vanish the moment it returns (the same
+    # subshell problem documented on open_terminal/open_browser themselves,
+    # just one level deeper). A file write is a real filesystem side effect
+    # and survives that.
+    echo "$win" >>"$SESSION_CLAIMED_WINDOWS_FILE"
     echo "$win $cdp_port"
+}
+
+# close_unclaimed_windows: closes any currently visible, named top-level
+# window that isn't one this session has explicitly opened via
+# _open_isolated_browser_window (tracked in SESSION_CLAIMED_WINDOWS_FILE).
+#
+# Chrome/Chromium occasionally starts a second top-level window against a
+# brand-new --user-data-dir profile -- confirmed via a real end-to-end
+# recording (an extra, un-positioned "Strand Cam" browser window sitting at
+# Chrome's own default geometry, visible behind the intended one for the
+# whole video) and reproduced directly in isolation: a single
+# _open_isolated_browser_window launch can end up as two separate OS
+# processes (confirmed via `xdotool getwindowpid` on each -- distinct PIDs),
+# evidently a profile-lock startup race that's far more likely to actually
+# manifest under real system load than in a quiet standalone test. Its
+# timing is unpredictable enough (confirmed via repeated isolated testing)
+# that a single before/after window-list diff done once, immediately after
+# the launch that triggered it, isn't reliable -- the extra window can take
+# an unpredictable further few seconds to actually appear, well after that
+# check already ran (and by then looks like a pre-existing window to
+# whichever call happens to check next, not a new one it just created).
+#
+# Call this once every window a scenario actually wants is already open and
+# claimed, so anything else visible at that point is unambiguously an extra,
+# regardless of which earlier call's launch actually produced it or when it
+# finally appeared -- e.g. right before start_capture if every window opens
+# before recording starts (checkerboard-calibration), or right after each
+# open_browser call if recording is already running by then (strand-cam-
+# intro, braid-intro).
+close_unclaimed_windows() {
+    local w name pid
+    for w in $(xdotool search --onlyvisible ".*" 2>/dev/null); do
+        name=$(xdotool getwindowname "$w" 2>/dev/null || true)
+        [ -z "$name" ] && continue
+        grep -qx "$w" "$SESSION_CLAIMED_WINDOWS_FILE" 2>/dev/null && continue
+        pid=$(xdotool getwindowpid "$w" 2>/dev/null || true)
+        [ -z "$pid" ] && continue
+        xdotool windowkill "$w" 2>/dev/null || true
+        sleep 0.3
+        kill -9 "$pid" 2>/dev/null || true
+    done
 }
 
 # open_terminal: launches a browser-based terminal as a floating window on

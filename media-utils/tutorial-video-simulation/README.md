@@ -439,13 +439,19 @@ BLOCKED section for the full diagnosis — so this scenario switched to the
 extra system prerequisites beyond the ones listed above, and no `sudo`
 anywhere — just:
 
-- `CHECKERBOARD_VIDEO`, a video file (any container/codec the
+- `CHECKERBOARD_VIDEO` (optional), a video file (any container/codec the
   `media-utils/frame-source` crate can decode, e.g. `.mp4`) of a real
   checkerboard held at varying distances/angles, including into the corners
   of frame, with brief (>=1s) held pauses at each distinct pose —
   strand-cam's own detection loop only samples at most once every 500ms
   (`checkerboard_loop_dur` in `strand-cam/src/frame_process_task.rs`), so
-  continuous fast motion may never register a clean detection.
+  continuous fast motion may never register a clean detection. Defaults to
+  `Basler-81011970.mp4` next to `record.sh`; if that file isn't present, it's
+  fetched from `strawlab-cdn.com` and SHA-256-verified via the
+  `utils/download-verify` crate/CLI — the same mechanism this workspace's own
+  tests use to fetch fixtures (see `utils/download-verify/README.md`). An
+  explicit `CHECKERBOARD_VIDEO` always overrides this and is used as-is, with
+  no download attempted.
 
 Because it needs no kernel module or physical hardware, `checkerboard-
 calibration` is CI-friendly the same way `strand-cam-intro`'s and
@@ -529,14 +535,17 @@ run: 15-19 at native rate vs 29 at `LIMIT_FRAMERATE=5`). Unset (or
 
 ## Running `checkerboard-calibration`
 
-Same Prerequisites as `strand-cam-intro`/`braid-intro` (see above), plus
-`CHECKERBOARD_VIDEO` set (see just above). Same `STRAND_BRAID_TARGET_DIR`
-override for picking a specific `strand-cam` build, and see
-`BUILD_NEW_STRANDBRAID` just above for why this scenario builds its own copy
-by default rather than relying on an installed package.
+Same Prerequisites as `strand-cam-intro`/`braid-intro` (see above).
+`CHECKERBOARD_VIDEO` is optional (see just above) — omit it to use the
+default video, auto-downloaded on first run if not already present. Same
+`STRAND_BRAID_TARGET_DIR` override for picking a specific `strand-cam` build,
+and see `BUILD_NEW_STRANDBRAID` just above for why this scenario builds its
+own copy by default rather than relying on an installed package.
 
 ```sh
 cd media-utils/tutorial-video-simulation/checkerboard-calibration
+./record.sh
+# or, to use a different checkerboard video:
 CHECKERBOARD_VIDEO=/path/to/checkerboard.mp4 ./record.sh
 ```
 

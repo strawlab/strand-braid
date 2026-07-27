@@ -12,3 +12,8 @@ thiserror.workspace = true
 sha2 = "0.10.9"
 hex = "0.4.3"
 tempfile.workspace = true
+clap.workspace = true
+
+[[bin]]
+name = "download-verify"
+path = "src/bin/download-verify.rs"

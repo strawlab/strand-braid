@@ -184,6 +184,69 @@ Always push to `origin` (should already point at
   `POINTING-NOTES.md`/`COMPARISON-NOTES.md` files otherwise alone —
   they're dated historical logs, not living docs meant to be concise.
 
+  **Update 2026-07-27: `CHECKERBOARD_VIDEO` is now optional — auto-downloaded
+  from `strawlab-cdn.com` if not already present, instead of requiring a
+  manually-placed file.** The checked-in `Basler-81011970.mp4` was uploaded
+  to `https://strawlab-cdn.com/assets/checkerboard-capture-demo.mp4`
+  (confirmed byte-identical via `sha256sum` before wiring this in:
+  `12520fe8...39653` both ways). `utils/download-verify` (previously a
+  `[dev-dependencies]`-only library used from Rust test fixtures) gained a
+  small `[[bin]]` CLI (`src/bin/download-verify.rs`, `--url`/`--sha256`/
+  `--dest`) so `record.sh` — plain bash — can call the same
+  download-and-verify mechanism the workspace's own tests use, rather than
+  hand-rolling a `curl`+`sha256sum` check. `record.sh` now defaults
+  `CHECKERBOARD_VIDEO` to `$SCRIPT_DIR/Basler-81011970.mp4` and, only when
+  that default path is missing, runs `cargo run -p download-verify --bin
+  download-verify` to fetch it straight to that same filename — no separate
+  rename step needed, since `download_verify`'s `dest` argument fully
+  determines the local filename and that's exactly what `ci2-video-file`
+  derives the reported camera name from. An explicit `CHECKERBOARD_VIDEO`
+  still always overrides this and is used as-is, with no download attempted.
+  The checked-in file itself was deliberately left in git for now (the
+  user's call) — the download path is a fallback for whenever it's ever
+  missing, not a replacement for it today.
+
+  **Update 2026-07-27 (later the same day): a real, previously-unnoticed
+  extra "Strand Cam" browser window fixed, found from direct video review of
+  the run above.** The user spotted an extra window sitting in the
+  background of the generated video and asked for it to be root-caused, not
+  just dismissed as cosmetic. Root cause, confirmed via many isolated
+  repro runs against the real strand-cam binary (not just theorized):
+  Chrome/Chromium can start a second top-level window against a brand-new
+  `--user-data-dir` profile — confirmed via `xdotool getwindowpid` that the
+  two windows are genuinely separate OS processes, evidently a profile-lock
+  startup race, and confirmed to be far more likely to actually manifest
+  under real system load (a concurrent strand-cam process doing checkerboard
+  detection) than in a quiet standalone test — which is presumably why this
+  went unnoticed through many earlier sessions' runs. Its timing is
+  unpredictable enough (observed anywhere from immediate to several seconds
+  delayed) that a naive "diff visible windows immediately before/after this
+  one launch" check isn't reliable by itself — confirmed the hard way: a
+  first attempt at exactly that caused a *real* crash (`xdotool search
+  --onlyvisible` can lag behind a window that already exists, making an
+  older, still-in-use window look "new" to a later call and get closed out
+  from under its actual owner — reverted before landing).
+  Fixed instead with a much simpler, safer design in `lib/session.sh`:
+  `_open_isolated_browser_window` (unchanged otherwise -- still trusts
+  `xdotool getactivewindow`, proven reliable in every real full run) now
+  also appends its `win` to a new `SESSION_CLAIMED_WINDOWS_FILE` (a plain
+  file, not a bash array or other in-shell state — every caller here invokes
+  it via command substitution, which runs the whole function in a subshell,
+  so anything written to a shell variable there would silently vanish the
+  moment it returns). A new `close_unclaimed_windows` closes any visible,
+  named window *not* in that file — called once per scenario, at the point
+  where every window it actually wants is already open and claimed
+  (`checkerboard-calibration/record.sh`: right before `start_capture`, since
+  every window opens before recording starts there; `strand-cam-intro`/
+  `braid-intro`: right after each `open_browser` call instead, since
+  recording is already running by then in those two). Verified via 10
+  isolated repro runs (no crashes, ghost reliably cleaned every time) plus
+  full real end-to-end runs of `checkerboard-calibration` and
+  `strand-cam-intro` — frame-inspected clean at multiple timestamps in both,
+  including checkerboard-calibration's file-navigator step. `braid-intro`
+  got the same defensive call but wasn't run end-to-end this session (needs
+  the real 5-camera rig) — only syntax-checked.
+
 ## Before running either script
 
 Check for a real `braid-run`/`strand-cam` process already using the
@@ -367,7 +430,7 @@ what's still outstanding (mainly: a first real end-to-end run).
 ```
 cd media-utils/tutorial-video-simulation/strand-cam-intro && ./record.sh   # works anywhere
 cd media-utils/tutorial-video-simulation/braid-intro && ./record.sh       # needs the real 5-camera rig
-cd media-utils/tutorial-video-simulation/checkerboard-calibration && CHECKERBOARD_VIDEO=... ./record.sh  # run many times successfully; still mid-tuning, see POINTING-NOTES.md
+cd media-utils/tutorial-video-simulation/checkerboard-calibration && ./record.sh  # works anywhere (video auto-downloads if missing); run many times successfully, still mid-tuning, see POINTING-NOTES.md
 ```
 
 Watch `out/*.mp4`, get feedback, adjust the tuned constants at the top of

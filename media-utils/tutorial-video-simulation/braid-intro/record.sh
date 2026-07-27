@@ -355,6 +355,16 @@ echo "=== Launch 1: braid-run ==="
 BRAID_URL_1=$(launch_braid "braid-run '$BRAID_CONFIG'") || { echo "ERROR: launch 1 failed"; exit 1; }
 open_browser "$BRAID_URL_1" "$TERM_WIN"
 wait_for_url "$BRAID_URL_1" || { echo "ERROR: Braid GUI did not come up"; exit 1; }
+# See close_unclaimed_windows's own comment (lib/session.sh) -- a real,
+# confirmed Chrome/Chromium quirk against a brand-new profile dir, more
+# likely under real system load, can leave an extra un-positioned browser
+# window behind open_browser's own call above, on an unpredictable delay --
+# placed after wait_for_url's own polling (not immediately after
+# open_browser) to give it more time to have already appeared, if it's going
+# to. Recording is already running by this point (unlike
+# checkerboard-calibration's scenario), so this can't wait until just before
+# start_capture the way that scenario does.
+close_unclaimed_windows
 move_mouse_gradual_into "$BROWSER_WIN"
 
 echo "=== Cycling through each camera ==="
@@ -463,6 +473,7 @@ log_event "Ctrl + LEFT CLICK" 1.5
 sleep 1.5
 open_browser "$BRAID_URL_2" "$TERM_WIN"
 wait_for_url "$BRAID_URL_2" || { echo "ERROR: Braid GUI did not reconnect after reopening"; exit 1; }
+close_unclaimed_windows # see close_unclaimed_windows's own comment (lib/session.sh)
 sleep 3
 
 echo "=== Scrolling to the bottom to quit Braid ==="
