@@ -266,8 +266,15 @@ fn run_feeder(
     let dest = cfg.dest;
     let rtp_cfg = cfg.rtp.clone();
     let dump_annexb = cfg.dump_annexb;
-    let sender_handle =
-        std::thread::spawn(move || sender::run_sender(dest, rtp_cfg, au_rx, dump_annexb));
+    // Tracks whatever bitrate the encoder is actually configured for right
+    // now (unlike `pending_bitrate_bps`, which resets to 0 once applied), so
+    // the sender thread's periodic stats log has a target to compare its own
+    // wire-byte measurement against.
+    let target_bitrate_bps = Arc::new(AtomicU32::new(cfg.bitrate_kbps.saturating_mul(1000)));
+    let sender_target_bitrate_bps = target_bitrate_bps.clone();
+    let sender_handle = std::thread::spawn(move || {
+        sender::run_sender(dest, rtp_cfg, au_rx, dump_annexb, sender_target_bitrate_bps)
+    });
 
     // Mirror h264_rtp::H264Payloader::payload_budget so the encoder's own
     // slice-length budget matches what the payloader will actually emit as a
@@ -293,6 +300,7 @@ fn run_feeder(
                 let pending = pending_bitrate_bps.swap(0, Ordering::AcqRel);
                 if pending != 0 {
                     encoder.set_bitrate(pending)?;
+                    target_bitrate_bps.store(pending, Ordering::Release);
                 }
                 if keyframe_requested.swap(false, Ordering::AcqRel) {
                     encoder.request_keyframe()?;
