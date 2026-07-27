@@ -1,0 +1,11 @@
+[package]
+name = "h264-rtp"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "RFC 6184 H.264 RTP payloader (pure packetization, no I/O)"
+
+[dependencies]
+rtp-rs.workspace = true
+thiserror.workspace = true
+rand.workspace = true

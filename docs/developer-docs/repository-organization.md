@@ -89,6 +89,7 @@
  - font-drawing (media-utils/font-drawing) - draw text onto images
  - frame-source (media-utils/frame-source) - read video frames from MP4, FMF, MKV, and TIFF stack sources
  - gen-nvenc-bindings (media-utils/nvenc/dynlink-nvidia-encode/gen-nvenc-bindings) - code generator for NVIDIA NVENC FFI bindings
+ - h264-rtp (media-utils/h264-rtp) - RFC 6184 H.264 RTP payloader (pure packetization, no I/O)
  - less-avc-wrapper (media-utils/less-avc-wrapper) - encode video frames to H.264 using the less-avc library
  - mkv-parser-kit (media-utils/mkv-parser-kit) - Library for building Matroska (MKV) file parsers
  - mkv-strand-reader (media-utils/mkv-strand-reader) - read Strand Camera MKV video files with embedded metadata
@@ -96,6 +97,7 @@
  - mp4-misp-inserter (media-utils/mp4-misp-inserter) - insert MISPmicrosectime precision-timestamp SEI NAL units into an MP4's H.264 stream, without re-encoding
  - mp4-writer (media-utils/mp4-writer) - write MP4 video files with H.264 encoding
  - nvenc (media-utils/nvenc) - GPU-accelerated H.264 video encoding using NVIDIA NVENC
+ - rtp-h264-streamer (media-utils/rtp-h264-streamer) - low-latency H.264 RTP/UDP streaming with pluggable encoders and runtime bitrate control
  - show-timestamps (media-utils/show-timestamps) - display timestamps embedded in Strand Camera video files
  - srt-writer (media-utils/srt-writer) - write SubRip (SRT) subtitle files with timestamp data
  - strand-convert (media-utils/strand-convert) - convert between video formats used in the Strand Camera ecosystem
