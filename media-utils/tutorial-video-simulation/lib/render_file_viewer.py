@@ -8,12 +8,11 @@ a <video>.
 
 Exists so record.sh can show a file's real content in an isolated Chrome
 window without depending on Chrome's own native file-open handling (which
-downloads unrecognized types like .yaml instead of displaying them -- see
-checkerboard-calibration/POINTING-NOTES.md) or a native desktop app (no CDP,
-so no way to verify/point at anything inside it -- see the same notes for
-why AT-SPI wasn't used instead). Because the result is plain HTML rendered
-by Chrome, cdp_locate.py/point_at_browser_text work on its content exactly
-like everywhere else in this pipeline.
+downloads unrecognized types like .yaml instead of displaying them) or a
+native desktop app (no CDP, so no way to verify/point at anything inside
+it). Because the result is plain HTML rendered by Chrome,
+cdp_locate.py/point_at_browser_text work on its content exactly like
+everywhere else in this pipeline.
 
 Usage: render_file_viewer.py FILE_PATH OUTPUT_HTML_PATH
 """

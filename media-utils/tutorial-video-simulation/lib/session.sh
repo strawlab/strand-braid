@@ -253,18 +253,17 @@ _open_isolated_browser_window() {
         #     Chrome didn't shut down correctly" infobar outright, seen in a
         #     real recording once this pipeline started keeping 4 isolated
         #     Chrome instances open at once instead of 2 (terminal, BUI,
-        #     file navigator, file viewer -- see checkerboard-calibration/
-        #     POINTING-NOTES.md). Applied regardless of root cause: even
-        #     with this, a renderer crash would still just show an empty/
-        #     reloaded page rather than a distracting on-screen prompt.
+        #     file navigator, file viewer). Applied regardless of root
+        #     cause: even with this, a renderer crash would still just show
+        #     an empty/reloaded page rather than a distracting on-screen
+        #     prompt.
         #   --disable-background-networking / --disable-component-update /
         #     --no-default-browser-check: this machine has real internet
         #     access, so a fresh profile can genuinely reach Google's update
         #     servers and show a "Chrome is out of date"/relaunch-to-update
-        #     nag -- a long-known cosmetic gap in this pipeline (see
-        #     strand-cam-intro/POINTING-NOTES.md's original 2026-07-16
-        #     history), not fixed until now. These stop it from ever
-        #     checking at all, rather than trying to dismiss a popup that
+        #     nag -- a long-known cosmetic gap in this pipeline, not fixed
+        #     until now. These stop it from ever checking at all, rather
+        #     than trying to dismiss a popup that
         #     may or may not appear depending on network timing.
         #
         # --disable-session-crashed-bubble alone turned out NOT to be
@@ -387,7 +386,7 @@ close_unclaimed_windows() {
 # Why a browser instead of a real terminal emulator (xterm): a real
 # terminal has no DOM to query, so pointing at its own log output (e.g.
 # strand-cam's "run{cam=...}" line) needed a tuned pixel guess with no way
-# to verify it -- see strand-cam-intro/POINTING-NOTES.md. Bridging the
+# to verify it. Bridging the
 # terminal's real PTY into a browser tab via ttyd, using xterm.js's DOM
 # renderer (each line/character becomes a real DOM element, unlike its
 # default canvas/WebGL renderer), lets point_at_browser_text() query
@@ -521,10 +520,9 @@ open_live_view_window() {
 # recording). Why not a real file manager (e.g. Nautilus) instead: a native
 # desktop file manager has no CDP/DOM to query, so pointing/clicking would
 # mean either a new accessibility-API integration (AT-SPI -- tried and
-# abandoned, see checkerboard-calibration/POINTING-NOTES.md for the real
-# isolation problems this hit: a GApplication singleton service that
-# ignores the isolated DISPLAY, same class of bug as gnome-terminal/Chrome-
-# on-Wayland years ago) or untuned pixel guesses. render_nautilus_listing.py
+# abandoned: a GApplication singleton service ignored the isolated DISPLAY,
+# same class of bug as gnome-terminal/Chrome-on-Wayland years ago) or
+# untuned pixel guesses. render_nautilus_listing.py
 # instead fakes the LOOK of Nautilus (real Yaru theme icons, a header
 # breadcrumb, a decorative sidebar) while listing each directory's REAL
 # contents and keeping exactly one real, functional <a> per page (the
@@ -810,8 +808,7 @@ wait_for_log_match() {
 # xterm.js's DOM renderer only ever materializes the currently visible
 # viewport as DOM nodes, so a busy log can evict a one-time line from the
 # DOM (and thus from what cdp_locate.py can see) well before a poll catches
-# it. See checkerboard-calibration/POINTING-NOTES.md for the concrete case
-# this was added for.
+# it.
 wait_for_file() {
     local file_path="$1" tries="${2:-150}" interval="${3:-2}" i
     for ((i = 0; i < tries; i++)); do

@@ -7,10 +7,10 @@ step.
 Chrome's own built-in file:// directory listing (the previous approach) is
 legible as exactly what it is -- a bare browser page -- not a native Linux
 file manager. Automating the real GNOME Files app instead was tried and
-abandoned (see checkerboard-calibration/POINTING-NOTES.md): AT-SPI hit
-real, escalating isolation problems (a GApplication singleton service that
-leaked a window onto the real desktop, then a redundant AT-SPI stack, then
-an unexplained accessibility-bus connection failure). This script fakes the
+abandoned: AT-SPI hit real, escalating isolation problems (a GApplication
+singleton service that leaked a window onto the real desktop, then a
+redundant AT-SPI stack, then an unexplained accessibility-bus connection
+failure). This script fakes the
 LOOK of Nautilus instead, using this machine's real installed Yaru icon
 theme, while remaining a real, CDP-queryable HTML page like everywhere else
 in this pipeline.

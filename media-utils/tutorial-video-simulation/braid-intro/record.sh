@@ -53,7 +53,7 @@
 # that does have real cameras, or in CI).
 
 # Tuned pixel/click-count constants -- expect to retune all of these after
-# watching a first real run (see POINTING-NOTES.md). Units/convention match
+# watching a first real run. Units/convention match
 # strand-cam-intro/record.sh's own header comment: standard top-left-origin
 # screen pixels at lib/session.sh's SESSION_WIDTH/HEIGHT (1920x1200 as of
 # this writing), +X right +Y down.
@@ -521,4 +521,4 @@ python3 "$SCRIPT_DIR/../lib/burn_captions.py" \
 echo "=== Done: $OUT_DIR/braid-intro.mp4 ==="
 echo "Compare it against the original before deciding it's ready; adjust the"
 echo "tuned constants at the top of this script and rerun if the pointing/"
-echo "scrolling/pacing looks off -- see POINTING-NOTES.md."
+echo "scrolling/pacing looks off."

@@ -290,8 +290,8 @@ point_at_browser_text "$BROWSER_WIN" "$BROWSER_CDP_PORT" "Live view - " "$BROWSE
 # anchor -- confirmed live: it matched whichever such line happened to be
 # last, nowhere near where "got camera" itself is. "got camera" is a
 # one-time message, logged exactly once. Previously a tuned pixel guess
-# with no way to verify it (see POINTING-NOTES.md); now a real CDP text
-# lookup against the ttyd terminal, the same as the browser heading above.
+# with no way to verify it; now a real CDP text lookup against the ttyd
+# terminal, the same as the browser heading above.
 point_at_browser_text "$TERM_WIN" "$TERM_CDP_PORT" "got camera" "$TERM_CAMNAME_X" "$TERM_CAMNAME_Y" "$TERM_GOTCAMERA_OFFSET_X" "$TERM_GOTCAMERA_OFFSET_Y"
 
 # Visible travel from the terminal (where the mouse just was) to the

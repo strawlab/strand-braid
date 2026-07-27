@@ -6,11 +6,6 @@ through the GUI) against the *current* CLI and GUI, whenever those drift from
 what an older recorded video shows. Not a Cargo crate — nothing here is added
 to the workspace `[workspace] members` list.
 
-This README covers the architecture/prerequisites. For current status,
-hardware caveats, and conventions learned while building this (useful if
-you're picking the work back up, especially on a different machine), see
-[`ONBOARDING.md`](ONBOARDING.md).
-
 ## Why
 
 Tutorial videos go stale: CLI flags get renamed, GUIs get redesigned. Rather
@@ -70,8 +65,7 @@ camera name in the terminal's own log output) via the Chrome DevTools
 Protocol (`lib/cdp_locate.py`) the exact same way it already does for BUI
 text, instead of a tuned pixel guess with no way to verify it. A native
 terminal emulator has no DOM to query, so this only works because the
-terminal is *also* just a browser page — see
-`strand-cam-intro/POINTING-NOTES.md` for the full history of that decision.
+terminal is *also* just a browser page.
 The terminal's browser window is also launched in Chrome's **app mode**
 (`--app=URL`), which hides the tab strip/address bar/back-forward buttons
 entirely, so it reads as a real terminal window rather than an obvious
@@ -159,10 +153,6 @@ braid-intro/
                         # close the GUI window and reopen it via the
                         # terminal's printed URL. Real camera hardware only
                         # -- see "Braid and camera hardware" below.
-  POINTING-NOTES.md    # tuned constants (scroll-click counts, fallback
-                        # pixel coordinates, per-camera dwell) that need
-                        # retuning after watching a real run -- read this
-                        # before touching record.sh's own tuned constants.
 checkerboard-calibration/
   record.sh            # regenerates a new "intrinsic checkerboard
                         # calibration" tutorial video: launch strand-cam,
@@ -172,9 +162,6 @@ checkerboard-calibration/
                         # (no real camera hardware needed), click "Perform
                         # and Save Calibration". See "Checkerboard
                         # calibration and the video-file backend" below.
-  POINTING-NOTES.md    # same purpose as the other scenarios' own --
-                        # dated history of tuning fixes; read this before
-                        # touching record.sh's own tuned constants.
 ```
 
 ## Running instructions
@@ -408,10 +395,10 @@ BRAID_CONFIG_TOML=/path/to/other-config.TOML ./record.sh
 Output is `out/braid-intro.mp4` (plus `out/raw.mp4` and `out/events.jsonl`,
 same as `strand-cam-intro`), with the `braid-run --version` output used to
 generate it written into the `comment` metadata tag the same way. Given how
-many pixel/scroll-count constants this scenario tunes by eye (see
-`braid-intro/POINTING-NOTES.md`) and how slow each iteration is (real PTP
-hardware has to actually resynchronize on every run), expect a first attempt
-to need a few rounds of "watch the video, adjust a constant, rerun."
+many pixel/scroll-count constants this scenario tunes by eye, and how slow
+each iteration is (real PTP hardware has to actually resynchronize on every
+run), expect a first attempt to need a few rounds of "watch the video,
+adjust a constant, rerun."
 
 ## Checkerboard calibration and the `video-file` backend
 
@@ -433,9 +420,8 @@ rate — no virtual camera device, `ffmpeg` feeder process, kernel module, or
 `nokhwa` involved at all. (An earlier version of this scenario fed the video
 through a [`v4l2loopback`](https://github.com/umlaeute/v4l2loopback) virtual
 webcam into strand-cam's `webcam` backend instead; `nokhwa` failed to open
-that device at all — see `checkerboard-calibration/POINTING-NOTES.md`'s
-BLOCKED section for the full diagnosis — so this scenario switched to the
-`video-file` backend, added specifically to unblock this.) This needs no
+that device at all, so this scenario switched to the `video-file` backend,
+added specifically to unblock this.) This needs no
 extra system prerequisites beyond the ones listed above, and no `sudo`
 anywhere — just:
 
@@ -515,9 +501,7 @@ the frozen last frame) scrolls a one-time line like that out of view --
 and thus out of reach of any DOM query -- within a few seconds of it
 appearing. A plain file's existence can't scroll away. See
 `camera/ci2-video-file/src/lib.rs`'s module doc ("Signaling end of
-playback") for the backend-side mechanism, and
-`checkerboard-calibration/POINTING-NOTES.md`'s dated update for the full
-diagnosis.
+playback") for the backend-side mechanism.
 
 **If strand-cam is struggling to keep up with real-time playback +
 checkerboard detection** (visible as e.g. "Channel full... Dropping frame
