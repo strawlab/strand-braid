@@ -7,6 +7,8 @@ use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
 use eyre::{self as anyhow, Context, Result};
 use image::{GenericImageView, Rgb, RgbImage};
+use nalgebra::{Dyn, OMatrix, U2};
+use opencv_ros_camera::{RosOpenCvIntrinsics, UndistortedPixels};
 use tracing::info;
 
 use camcal::CalibrationResult;
@@ -79,6 +81,70 @@ fn annotated_dirname(dirname: &Utf8Path) -> Utf8PathBuf {
     let mut d = dirname.to_owned();
     d.set_file_name(new_name);
     d
+}
+
+/// Directory into which undistorted images are saved, as a sibling of
+/// `dirname`.
+fn undistorted_dirname(dirname: &Utf8Path) -> Utf8PathBuf {
+    let new_name = format!(
+        "{}-undistorted",
+        dirname.file_name().unwrap_or("checkerboard-images")
+    );
+    let mut d = dirname.to_owned();
+    d.set_file_name(new_name);
+    d
+}
+
+/// Bilinear-sample `img` at floating-point coordinates `(x, y)`, or `None` if
+/// they fall outside the image (leaving those output pixels black, which
+/// shows up as the usual undistortion border).
+fn sample_bilinear(img: &RgbImage, x: f32, y: f32) -> Option<Rgb<u8>> {
+    let (w, h) = img.dimensions();
+    if !(0.0..(w as f32 - 1.0)).contains(&x) || !(0.0..(h as f32 - 1.0)).contains(&y) {
+        return None;
+    }
+    let x0 = x.floor() as u32;
+    let y0 = y.floor() as u32;
+    let fx = x - x0 as f32;
+    let fy = y - y0 as f32;
+    let p00 = img.get_pixel(x0, y0).0;
+    let p10 = img.get_pixel(x0 + 1, y0).0;
+    let p01 = img.get_pixel(x0, y0 + 1).0;
+    let p11 = img.get_pixel(x0 + 1, y0 + 1).0;
+    let mut out = [0u8; 3];
+    for c in 0..3 {
+        let top = p00[c] as f32 * (1.0 - fx) + p10[c] as f32 * fx;
+        let bot = p01[c] as f32 * (1.0 - fx) + p11[c] as f32 * fx;
+        out[c] = (top * (1.0 - fy) + bot * fy).round() as u8;
+    }
+    Some(Rgb(out))
+}
+
+/// Undistort `src` using the fitted `intrinsics`, via a backward map: for
+/// each output pixel, apply the calibration's forward (undistorted ->
+/// distorted) model to find where to sample in the original, distorted
+/// image. Straight lines in the scene should look straight in the result if
+/// the distortion model is sane.
+fn undistort_image(src: &RgbImage, intrinsics: &RosOpenCvIntrinsics<f64>) -> RgbImage {
+    let (w, h) = src.dimensions();
+    let mut out = RgbImage::new(w, h);
+    for y in 0..h {
+        let mut row = OMatrix::<f64, Dyn, U2>::zeros(w as usize);
+        for x in 0..w {
+            row[(x as usize, 0)] = x as f64;
+            row[(x as usize, 1)] = y as f64;
+        }
+        let undistorted = UndistortedPixels { data: row };
+        let distorted = intrinsics.distort(&undistorted);
+        for x in 0..w {
+            let sx = distorted.data[(x as usize, 0)] as f32;
+            let sy = distorted.data[(x as usize, 1)] as f32;
+            if let Some(px) = sample_bilinear(src, sx, sy) {
+                out.put_pixel(x, y, px);
+            }
+        }
+    }
+    out
 }
 
 /// Output path for the annotated version of `fname`. Images in which no
@@ -233,6 +299,21 @@ pub fn run_cal(cli: Cli) -> Result<CalibrationResult> {
                 info!("  {}: reprojection error {dist:.3} px", fname.display());
             }
             info!("got calibrated intrinsics: {:?}", intrinsics);
+
+            let undistorted_dir = undistorted_dirname(&dirname);
+            std::fs::create_dir_all(&undistorted_dir)
+                .with_context(|| format!("Creating directory {undistorted_dir}"))?;
+            info!("Saving undistorted images to: {undistorted_dir}");
+            for fname in &good_fnames {
+                let img =
+                    image::open(fname).with_context(|| format!("Opening {}", fname.display()))?;
+                let undistorted = undistort_image(&img.to_rgb8(), &intrinsics);
+                let file_name = fname.file_name().unwrap().to_string_lossy();
+                let out_path = undistorted_dir.join(file_name.as_ref());
+                undistorted
+                    .save(out_path.as_std_path())
+                    .with_context(|| format!("Saving undistorted image {out_path}"))?;
+            }
 
             let cam_name = dirname.to_string();
 
