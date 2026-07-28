@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
 use eyre::{self as anyhow, Context, Result};
-use image::GenericImageView;
+use image::{GenericImageView, Rgb, RgbImage};
 use tracing::info;
 
 use camcal::CalibrationResult;
@@ -69,6 +69,86 @@ fn get_image_files(dirname: &Utf8Path) -> Result<Vec<PathBuf>> {
     Ok(paths)
 }
 
+/// Directory into which annotated (corner-overlay) images are saved, as a
+/// sibling of `dirname`.
+fn annotated_dirname(dirname: &Utf8Path) -> Utf8PathBuf {
+    let new_name = format!(
+        "{}-annotated",
+        dirname.file_name().unwrap_or("checkerboard-images")
+    );
+    let mut d = dirname.to_owned();
+    d.set_file_name(new_name);
+    d
+}
+
+/// Output path for the annotated version of `fname`. Images in which no
+/// checkerboard was found get a `_NO_CORNERS_FOUND` suffix so they stand out
+/// when browsing the directory.
+fn annotated_path(annotated_dir: &Utf8Path, fname: &std::path::Path, found: bool) -> Utf8PathBuf {
+    if found {
+        let file_name = fname.file_name().unwrap().to_string_lossy();
+        annotated_dir.join(file_name.as_ref())
+    } else {
+        let stem = fname.file_stem().unwrap().to_string_lossy();
+        let ext = fname
+            .extension()
+            .map(|e| e.to_string_lossy().to_string())
+            .unwrap_or_default();
+        annotated_dir.join(format!("{stem}_NO_CORNERS_FOUND.{ext}"))
+    }
+}
+
+/// Rainbow color for corner `i` of `n`, used so that the corner order (and
+/// thus board orientation) is visible in the saved image.
+fn corner_color(i: usize, n: usize) -> Rgb<u8> {
+    let hue = 300.0 * (i as f32) / (n.max(1) as f32);
+    hsv_to_rgb(hue, 1.0, 1.0)
+}
+
+fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Rgb<u8> {
+    let c = v * s;
+    let hp = h / 60.0;
+    let x = c * (1.0 - ((hp % 2.0) - 1.0).abs());
+    let (r1, g1, b1) = if hp < 1.0 {
+        (c, x, 0.0)
+    } else if hp < 2.0 {
+        (x, c, 0.0)
+    } else if hp < 3.0 {
+        (0.0, c, x)
+    } else if hp < 4.0 {
+        (0.0, x, c)
+    } else if hp < 5.0 {
+        (x, 0.0, c)
+    } else {
+        (c, 0.0, x)
+    };
+    let m = v - c;
+    Rgb([
+        ((r1 + m) * 255.0).round() as u8,
+        ((g1 + m) * 255.0).round() as u8,
+        ((b1 + m) * 255.0).round() as u8,
+    ])
+}
+
+/// Draws the detected corners (colored circles, in detection order) and
+/// connects corners within each row with a line, mirroring the style used by
+/// ROS's `camera_calibration` monocular calibration tool.
+fn draw_corners(img: &mut RgbImage, corners: &[(f32, f32)], n_cols: usize) {
+    for (i, &(x, y)) in corners.iter().enumerate() {
+        let color = corner_color(i, corners.len());
+        if i % n_cols != 0 {
+            let (px, py) = corners[i - 1];
+            imageproc::drawing::draw_line_segment_mut(img, (px, py), (x, y), Rgb([0, 255, 0]));
+        }
+        imageproc::drawing::draw_filled_circle_mut(
+            img,
+            (x.round() as i32, y.round() as i32),
+            5,
+            color,
+        );
+    }
+}
+
 pub fn run_cal(cli: Cli) -> Result<CalibrationResult> {
     let dirname = cli.input_dirname;
     let fnames = get_image_files(&dirname)?;
@@ -87,6 +167,11 @@ pub fn run_cal(cli: Cli) -> Result<CalibrationResult> {
     let mut image_width = 0;
     let mut image_height = 0;
 
+    let annotated_dir = annotated_dirname(&dirname);
+    std::fs::create_dir_all(&annotated_dir)
+        .with_context(|| format!("Creating directory {annotated_dir}"))?;
+    info!("Saving corner-annotated images to: {annotated_dir}");
+
     let mut collected_corners = Vec::with_capacity(fnames.len());
     for fname in fnames.iter() {
         info!("{}", fname.display());
@@ -94,16 +179,25 @@ pub fn run_cal(cli: Cli) -> Result<CalibrationResult> {
         let (w, h) = img.dimensions();
         image_width = w;
         image_height = h;
-        let rgb = img.to_rgb8().into_raw();
+        let mut rgb_img = img.to_rgb8();
 
         let corners = camcal::find_chessboard_corners(
-            &rgb,
+            rgb_img.as_raw(),
             w,
             h,
             checkerboard_data.width as usize,
             checkerboard_data.height as usize,
         )?;
-        info!("    {:?} corners.", corners.as_ref().map(|x| x.len()));
+        info!("{:?} corners.", corners.as_ref().map(|x| x.len()));
+
+        if let Some(corners) = &corners {
+            draw_corners(&mut rgb_img, corners, checkerboard_data.width as usize);
+        }
+        let out_path = annotated_path(&annotated_dir, fname, corners.is_some());
+        rgb_img
+            .save(out_path.as_std_path())
+            .with_context(|| format!("Saving annotated image {out_path}"))?;
+
         if let Some(corners) = corners {
             collected_corners.push(corners);
         }
