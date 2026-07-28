@@ -57,10 +57,39 @@ fn draw_border(img: &mut [u8], w: usize, h: usize, value: u8, thickness: usize) 
     }
 }
 
+/// Re-index a detected `pattern_h`-columns by `pattern_w`-rows grid (the shape
+/// found when a `pattern_w x pattern_h` board is imaged rotated 90 degrees, so
+/// rows and columns come out swapped) into the canonical `pattern_w`-columns
+/// by `pattern_h`-rows layout.
+///
+/// A plain transpose would flip the grid's handedness (determinant -1), which
+/// no rigid camera rotation can produce, so this also reverses one axis to
+/// keep it a proper rotation (determinant +1) of the board's local coordinate
+/// frame. Either of the two 90-degree directions works equally well for
+/// calibration: whichever one is picked here, the relabeling is just absorbed
+/// into that image's own independently-fit extrinsics, so the true rotation
+/// direction of the camera never needs to be known.
+fn rotate90_grid(corners: &[(f32, f32)], pattern_w: usize, pattern_h: usize) -> Vec<(f32, f32)> {
+    debug_assert_eq!(corners.len(), pattern_w * pattern_h);
+    let mut out = vec![(0.0, 0.0); corners.len()];
+    for row_out in 0..pattern_h {
+        for col_out in 0..pattern_w {
+            let src = (pattern_w - 1 - col_out) * pattern_h + row_out;
+            out[row_out * pattern_w + col_out] = corners[src];
+        }
+    }
+    out
+}
+
 /// Detect a `pattern_w x pattern_h` (inner corners) chessboard in a grayscale
 /// image. Returns the inner corners row-major, or `None` if no board is found.
 ///
-/// `pattern_w`/`pattern_h` are the inner-corner counts (e.g. 9x6).
+/// `pattern_w`/`pattern_h` are the inner-corner counts (e.g. 9x6). If the
+/// board is found rotated 90 degrees (so the raw detection comes out as
+/// `pattern_h x pattern_w`), the corners are re-indexed back to
+/// `pattern_w x pattern_h` via [`rotate90_grid`] so callers always see a
+/// consistent row length, regardless of how the camera was rotated when a
+/// particular image was captured.
 pub fn find_chessboard_corners(
     gray: &[u8],
     w: usize,
@@ -112,12 +141,65 @@ pub fn find_chessboard_corners(
                     if let Some(corners) = extract_board(&linked, &grid, pattern_w, pattern_h) {
                         return Some(corners);
                     }
-                    if let Some(corners) = extract_board(&linked, &grid, pattern_h, pattern_w) {
-                        return Some(corners);
+                    if pattern_w != pattern_h
+                        && let Some(corners) = extract_board(&linked, &grid, pattern_h, pattern_w)
+                    {
+                        return Some(rotate90_grid(&corners, pattern_w, pattern_h));
                     }
                 }
             }
         }
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::board::check_board_monotony;
+    use super::*;
+
+    #[test]
+    fn rotate90_grid_preserves_a_valid_monotone_grid() {
+        let pattern_w = 9;
+        let pattern_h = 6;
+
+        // A grid as it would come back from `extract_board(pattern_h,
+        // pattern_w)` when the board was imaged rotated 90 degrees: evenly
+        // spaced points, laid out row-major with `pattern_h` columns and
+        // `pattern_w` rows.
+        let rotated: Vec<(f32, f32)> = (0..pattern_w)
+            .flat_map(|r| (0..pattern_h).map(move |c| ((c * 10) as f32, (r * 10) as f32)))
+            .collect();
+
+        let fixed = rotate90_grid(&rotated, pattern_w, pattern_h);
+
+        assert_eq!(fixed.len(), pattern_w * pattern_h);
+        // Every detected point must survive, just re-indexed.
+        let mut got = fixed.clone();
+        got.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let mut want = rotated.clone();
+        want.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        assert_eq!(got, want);
+
+        // The re-indexed grid must read out as a valid, non-self-intersecting
+        // pattern_w x pattern_h raster (this is exactly what would be wrong
+        // if the fix scrambled rows/columns instead of properly rotating).
+        assert!(check_board_monotony(&fixed, pattern_w, pattern_h));
+    }
+
+    #[test]
+    fn rotate90_grid_is_a_bijection_on_indices() {
+        let pattern_w = 4;
+        let pattern_h = 3;
+        let input: Vec<(f32, f32)> = (0..pattern_w * pattern_h)
+            .map(|i| (i as f32, (i * 2) as f32))
+            .collect();
+        let out = rotate90_grid(&input, pattern_w, pattern_h);
+
+        let mut got = out;
+        got.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let mut want = input;
+        want.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        assert_eq!(got, want);
+    }
 }

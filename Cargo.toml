@@ -206,6 +206,7 @@ image = { version = "0.25.6", default-features = false, features = [
     "png",
     "tiff",
 ] }
+imageproc = { version = "0.25", default-features = false }
 include_dir = "0.7.3"
 indicatif = "0.17.1"
 itertools = "0.14"

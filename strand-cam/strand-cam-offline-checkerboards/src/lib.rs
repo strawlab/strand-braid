@@ -6,7 +6,9 @@ use std::path::PathBuf;
 use camino::{Utf8Path, Utf8PathBuf};
 use clap::Parser;
 use eyre::{self as anyhow, Context, Result};
-use image::GenericImageView;
+use image::{GenericImageView, Rgb, RgbImage};
+use nalgebra::{Dyn, OMatrix, U2};
+use opencv_ros_camera::{RosOpenCvIntrinsics, UndistortedPixels};
 use tracing::info;
 
 use camcal::CalibrationResult;
@@ -69,6 +71,150 @@ fn get_image_files(dirname: &Utf8Path) -> Result<Vec<PathBuf>> {
     Ok(paths)
 }
 
+/// Directory into which annotated (corner-overlay) images are saved, as a
+/// sibling of `dirname`.
+fn annotated_dirname(dirname: &Utf8Path) -> Utf8PathBuf {
+    let new_name = format!(
+        "{}-annotated",
+        dirname.file_name().unwrap_or("checkerboard-images")
+    );
+    let mut d = dirname.to_owned();
+    d.set_file_name(new_name);
+    d
+}
+
+/// Directory into which undistorted images are saved, as a sibling of
+/// `dirname`.
+fn undistorted_dirname(dirname: &Utf8Path) -> Utf8PathBuf {
+    let new_name = format!(
+        "{}-undistorted",
+        dirname.file_name().unwrap_or("checkerboard-images")
+    );
+    let mut d = dirname.to_owned();
+    d.set_file_name(new_name);
+    d
+}
+
+/// Bilinear-sample `img` at floating-point coordinates `(x, y)`, or `None` if
+/// they fall outside the image (leaving those output pixels black, which
+/// shows up as the usual undistortion border).
+fn sample_bilinear(img: &RgbImage, x: f32, y: f32) -> Option<Rgb<u8>> {
+    let (w, h) = img.dimensions();
+    if !(0.0..(w as f32 - 1.0)).contains(&x) || !(0.0..(h as f32 - 1.0)).contains(&y) {
+        return None;
+    }
+    let x0 = x.floor() as u32;
+    let y0 = y.floor() as u32;
+    let fx = x - x0 as f32;
+    let fy = y - y0 as f32;
+    let p00 = img.get_pixel(x0, y0).0;
+    let p10 = img.get_pixel(x0 + 1, y0).0;
+    let p01 = img.get_pixel(x0, y0 + 1).0;
+    let p11 = img.get_pixel(x0 + 1, y0 + 1).0;
+    let mut out = [0u8; 3];
+    for c in 0..3 {
+        let top = p00[c] as f32 * (1.0 - fx) + p10[c] as f32 * fx;
+        let bot = p01[c] as f32 * (1.0 - fx) + p11[c] as f32 * fx;
+        out[c] = (top * (1.0 - fy) + bot * fy).round() as u8;
+    }
+    Some(Rgb(out))
+}
+
+/// Undistort `src` using the fitted `intrinsics`, via a backward map: for
+/// each output pixel, apply the calibration's forward (undistorted ->
+/// distorted) model to find where to sample in the original, distorted
+/// image. Straight lines in the scene should look straight in the result if
+/// the distortion model is sane.
+fn undistort_image(src: &RgbImage, intrinsics: &RosOpenCvIntrinsics<f64>) -> RgbImage {
+    let (w, h) = src.dimensions();
+    let mut out = RgbImage::new(w, h);
+    for y in 0..h {
+        let mut row = OMatrix::<f64, Dyn, U2>::zeros(w as usize);
+        for x in 0..w {
+            row[(x as usize, 0)] = x as f64;
+            row[(x as usize, 1)] = y as f64;
+        }
+        let undistorted = UndistortedPixels { data: row };
+        let distorted = intrinsics.distort(&undistorted);
+        for x in 0..w {
+            let sx = distorted.data[(x as usize, 0)] as f32;
+            let sy = distorted.data[(x as usize, 1)] as f32;
+            if let Some(px) = sample_bilinear(src, sx, sy) {
+                out.put_pixel(x, y, px);
+            }
+        }
+    }
+    out
+}
+
+/// Output path for the annotated version of `fname`. Images in which no
+/// checkerboard was found get a `_NO_CORNERS_FOUND` suffix so they stand out
+/// when browsing the directory.
+fn annotated_path(annotated_dir: &Utf8Path, fname: &std::path::Path, found: bool) -> Utf8PathBuf {
+    if found {
+        let file_name = fname.file_name().unwrap().to_string_lossy();
+        annotated_dir.join(file_name.as_ref())
+    } else {
+        let stem = fname.file_stem().unwrap().to_string_lossy();
+        let ext = fname
+            .extension()
+            .map(|e| e.to_string_lossy().to_string())
+            .unwrap_or_default();
+        annotated_dir.join(format!("{stem}_NO_CORNERS_FOUND.{ext}"))
+    }
+}
+
+/// Rainbow color for corner `i` of `n`, used so that the corner order (and
+/// thus board orientation) is visible in the saved image.
+fn corner_color(i: usize, n: usize) -> Rgb<u8> {
+    let hue = 300.0 * (i as f32) / (n.max(1) as f32);
+    hsv_to_rgb(hue, 1.0, 1.0)
+}
+
+fn hsv_to_rgb(h: f32, s: f32, v: f32) -> Rgb<u8> {
+    let c = v * s;
+    let hp = h / 60.0;
+    let x = c * (1.0 - ((hp % 2.0) - 1.0).abs());
+    let (r1, g1, b1) = if hp < 1.0 {
+        (c, x, 0.0)
+    } else if hp < 2.0 {
+        (x, c, 0.0)
+    } else if hp < 3.0 {
+        (0.0, c, x)
+    } else if hp < 4.0 {
+        (0.0, x, c)
+    } else if hp < 5.0 {
+        (x, 0.0, c)
+    } else {
+        (c, 0.0, x)
+    };
+    let m = v - c;
+    Rgb([
+        ((r1 + m) * 255.0).round() as u8,
+        ((g1 + m) * 255.0).round() as u8,
+        ((b1 + m) * 255.0).round() as u8,
+    ])
+}
+
+/// Draws the detected corners (colored circles, in detection order) and
+/// connects corners within each row with a line, mirroring the style used by
+/// ROS's `camera_calibration` monocular calibration tool.
+fn draw_corners(img: &mut RgbImage, corners: &[(f32, f32)], n_cols: usize) {
+    for (i, &(x, y)) in corners.iter().enumerate() {
+        let color = corner_color(i, corners.len());
+        if i % n_cols != 0 {
+            let (px, py) = corners[i - 1];
+            imageproc::drawing::draw_line_segment_mut(img, (px, py), (x, y), Rgb([0, 255, 0]));
+        }
+        imageproc::drawing::draw_filled_circle_mut(
+            img,
+            (x.round() as i32, y.round() as i32),
+            5,
+            color,
+        );
+    }
+}
+
 pub fn run_cal(cli: Cli) -> Result<CalibrationResult> {
     let dirname = cli.input_dirname;
     let fnames = get_image_files(&dirname)?;
@@ -87,25 +233,41 @@ pub fn run_cal(cli: Cli) -> Result<CalibrationResult> {
     let mut image_width = 0;
     let mut image_height = 0;
 
+    let annotated_dir = annotated_dirname(&dirname);
+    std::fs::create_dir_all(&annotated_dir)
+        .with_context(|| format!("Creating directory {annotated_dir}"))?;
+    info!("Saving corner-annotated images to: {annotated_dir}");
+
     let mut collected_corners = Vec::with_capacity(fnames.len());
+    let mut good_fnames = Vec::with_capacity(fnames.len());
     for fname in fnames.iter() {
         info!("{}", fname.display());
         let img = image::open(fname).with_context(|| format!("Opening {}", fname.display()))?;
         let (w, h) = img.dimensions();
         image_width = w;
         image_height = h;
-        let rgb = img.to_rgb8().into_raw();
+        let mut rgb_img = img.to_rgb8();
 
         let corners = camcal::find_chessboard_corners(
-            &rgb,
+            rgb_img.as_raw(),
             w,
             h,
             checkerboard_data.width as usize,
             checkerboard_data.height as usize,
         )?;
-        info!("    {:?} corners.", corners.as_ref().map(|x| x.len()));
+        info!("{:?} corners.", corners.as_ref().map(|x| x.len()));
+
+        if let Some(corners) = &corners {
+            draw_corners(&mut rgb_img, corners, checkerboard_data.width as usize);
+        }
+        let out_path = annotated_path(&annotated_dir, fname, corners.is_some());
+        rgb_img
+            .save(out_path.as_std_path())
+            .with_context(|| format!("Saving annotated image {out_path}"))?;
+
         if let Some(corners) = corners {
             collected_corners.push(corners);
+            good_fnames.push(fname.clone());
         }
     }
 
@@ -130,7 +292,28 @@ pub fn run_cal(cli: Cli) -> Result<CalibrationResult> {
                 "Mean reprojection error: {}",
                 raw_opencv_cal.mean_reprojection_distance_pixels
             );
+            for (fname, dist) in good_fnames
+                .iter()
+                .zip(&raw_opencv_cal.per_image_reprojection_distances_pixels)
+            {
+                info!("  {}: reprojection error {dist:.3} px", fname.display());
+            }
             info!("got calibrated intrinsics: {:?}", intrinsics);
+
+            let undistorted_dir = undistorted_dirname(&dirname);
+            std::fs::create_dir_all(&undistorted_dir)
+                .with_context(|| format!("Creating directory {undistorted_dir}"))?;
+            info!("Saving undistorted images to: {undistorted_dir}");
+            for fname in &good_fnames {
+                let img =
+                    image::open(fname).with_context(|| format!("Opening {}", fname.display()))?;
+                let undistorted = undistort_image(&img.to_rgb8(), &intrinsics);
+                let file_name = fname.file_name().unwrap().to_string_lossy();
+                let out_path = undistorted_dir.join(file_name.as_ref());
+                undistorted
+                    .save(out_path.as_std_path())
+                    .with_context(|| format!("Saving undistorted image {out_path}"))?;
+            }
 
             let cam_name = dirname.to_string();
 
