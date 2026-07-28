@@ -173,6 +173,7 @@ pub fn run_cal(cli: Cli) -> Result<CalibrationResult> {
     info!("Saving corner-annotated images to: {annotated_dir}");
 
     let mut collected_corners = Vec::with_capacity(fnames.len());
+    let mut good_fnames = Vec::with_capacity(fnames.len());
     for fname in fnames.iter() {
         info!("{}", fname.display());
         let img = image::open(fname).with_context(|| format!("Opening {}", fname.display()))?;
@@ -200,6 +201,7 @@ pub fn run_cal(cli: Cli) -> Result<CalibrationResult> {
 
         if let Some(corners) = corners {
             collected_corners.push(corners);
+            good_fnames.push(fname.clone());
         }
     }
 
@@ -224,6 +226,12 @@ pub fn run_cal(cli: Cli) -> Result<CalibrationResult> {
                 "Mean reprojection error: {}",
                 raw_opencv_cal.mean_reprojection_distance_pixels
             );
+            for (fname, dist) in good_fnames
+                .iter()
+                .zip(&raw_opencv_cal.per_image_reprojection_distances_pixels)
+            {
+                info!("  {}: reprojection error {dist:.3} px", fname.display());
+            }
             info!("got calibrated intrinsics: {:?}", intrinsics);
 
             let cam_name = dirname.to_string();

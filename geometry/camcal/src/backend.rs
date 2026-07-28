@@ -21,6 +21,9 @@ pub struct CalibrationResult {
     pub camera_matrix: [f64; 9],
     /// Distortion coefficients `(k1, k2, p1, p2, k3)`.
     pub distortion_coeffs: [f64; 5],
+    /// Per-image RMS reprojection error in pixels, in the same order as the
+    /// input views.
+    pub per_image_reprojection_distances_pixels: Vec<f64>,
     pub image_width: u32,
     pub image_height: u32,
 }
@@ -112,6 +115,7 @@ pub fn calibrate_camera(
         mean_reprojection_distance_pixels: res.rms_reprojection_error,
         camera_matrix: res.camera_matrix,
         distortion_coeffs: res.distortion_coeffs,
+        per_image_reprojection_distances_pixels: res.per_view_rms_reprojection_error,
         image_width: res.image_width,
         image_height: res.image_height,
     })

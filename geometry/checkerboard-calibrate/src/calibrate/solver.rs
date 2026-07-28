@@ -43,6 +43,8 @@ pub struct CalibrationResult {
     pub rvecs: Vec<[f64; 3]>,
     /// Per-view translation vectors.
     pub tvecs: Vec<[f64; 3]>,
+    /// Per-view RMS reprojection error in pixels.
+    pub per_view_rms_reprojection_error: Vec<f64>,
     pub image_width: u32,
     pub image_height: u32,
 }
@@ -224,15 +226,24 @@ pub fn calibrate_camera(
     let (problem, _report) = LevenbergMarquardt::new().minimize(problem);
 
     let p = problem.params();
-    let ssq: f64 = problem.residuals_at(&p).iter().map(|r| r * r).sum();
+    let residuals = problem.residuals_at(&p);
+    let ssq: f64 = residuals.iter().map(|r| r * r).sum();
     let rms = (ssq / num_points as f64).sqrt();
 
     let mut rvecs = Vec::with_capacity(n);
     let mut tvecs = Vec::with_capacity(n);
-    for vi in 0..n {
+    let mut per_view_rms_reprojection_error = Vec::with_capacity(n);
+    let mut offset = 0usize;
+    for (vi, view) in views.iter().enumerate() {
         let base = NUM_SHARED + vi * NUM_PER_VIEW;
         rvecs.push([p[base], p[base + 1], p[base + 2]]);
         tvecs.push([p[base + 3], p[base + 4], p[base + 5]]);
+
+        let view_len = view.len();
+        let m = 2 * view_len;
+        let view_ssq: f64 = residuals.rows(offset, m).iter().map(|r| r * r).sum();
+        per_view_rms_reprojection_error.push((view_ssq / view_len as f64).sqrt());
+        offset += m;
     }
 
     Ok(CalibrationResult {
@@ -241,6 +252,7 @@ pub fn calibrate_camera(
         distortion_coeffs: [p[4], p[5], p[6], p[7], 0.0],
         rvecs,
         tvecs,
+        per_view_rms_reprojection_error,
         image_width: width,
         image_height: height,
     })
@@ -317,5 +329,10 @@ mod tests {
             "rms {}",
             res.rms_reprojection_error
         );
+
+        assert_eq!(res.per_view_rms_reprojection_error.len(), poses.len());
+        for (vi, &view_rms) in res.per_view_rms_reprojection_error.iter().enumerate() {
+            assert!(view_rms < 1e-3, "view {vi} rms {view_rms}");
+        }
     }
 }
