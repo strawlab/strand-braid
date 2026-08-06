@@ -347,7 +347,7 @@ where
                 CmpOp::GreaterEqual => y.simd_ge(thresh_vec),
                 CmpOp::GreaterThan => y.simd_gt(thresh_vec),
             };
-            *y = indicator.blend(avec, bvec);
+            *y = indicator.select(avec, bvec);
         }
 
         scalar_cmp(tail, thresh, a, b, op);
