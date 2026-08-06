@@ -51,10 +51,32 @@ pub struct ToClient {
     pub valid_display: Option<Shape>,
     /// Annotations associated with this particular image, e.g. from tracking.
     pub annotations: Vec<DrawableShape>,
+    /// Set when some of `annotations` were contributed by an embedding host
+    /// rather than found in this image.
+    #[serde(default)]
+    pub host_annotation: Option<HostAnnotationProvenance>,
     /// Timestamp in RFC3339 format when the frame was sent
     pub ts_rfc3339: String,
     /// Connection key identifying the client connection
     pub ck: ConnectionKey,
+}
+
+/// Which frame a host-contributed annotation actually describes.
+///
+/// An application embedding the camera can run its own detector and send the
+/// results back for display. It necessarily runs behind: it is handed a frame
+/// only after the server has already published that frame here, so its marks
+/// describe an earlier image than the one they are drawn on. This says which,
+/// so the client can show the marks as the lagging measurement they are rather
+/// than as a property of the displayed image.
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone)]
+pub struct HostAnnotationProvenance {
+    /// Camera frame number the host's marks were found in.
+    pub frame_number: u64,
+    /// Acquisition timestamp of that frame, RFC3339, when the host supplied one.
+    pub ts_rfc3339: Option<String>,
+    /// How many frames back that is from the image being displayed.
+    pub age_frames: u64,
 }
 
 /// Parameters defining a circle shape.

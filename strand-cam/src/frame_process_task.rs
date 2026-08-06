@@ -40,10 +40,10 @@ use strand_cam_storetype::StoreType;
 #[cfg(feature = "fiducial")]
 use ads_apriltag as apriltag;
 
-use crate::imops_processor::{
-    ImOpsDetection, ImOpsFrameMetadata, ImOpsHostConfiguration, ImOpsHostOptions, ImOpsProcessor,
-    ImOpsProcessorConfig,
-};
+use crate::host_annotation::HostAnnotation;
+use crate::host_frame_sink::HostFrame;
+use crate::host_options::StrandCamHostOptions;
+use crate::imops_processor::{ImOpsFrameMetadata, ImOpsProcessor, ImOpsProcessorConfig};
 use crate::{
     CentroidToDevice, FRAME_PROCESSOR_PROCESSING_FIRST_FRAME, FRAME_PROCESSOR_READY,
     FRAME_PROCESSOR_WAITING_FOR_FIRST_FRAME, FinalMp4RecordingConfig, FmfWriteInfo, FpsCalc,
@@ -52,31 +52,34 @@ use crate::{
     video_streaming,
 };
 
-#[derive(Debug, PartialEq, Eq)]
-enum DirectImOpsDelivery {
-    Delivered,
-    DroppedFull,
-    SinkClosed,
-}
-
-/// Deliver without awaiting so host-side processing cannot delay acquisition.
-fn try_deliver_direct_imops_detection(
-    detection_tx: &tokio::sync::mpsc::Sender<ImOpsDetection>,
-    detection: ImOpsDetection,
-) -> DirectImOpsDelivery {
-    match detection_tx.try_send(detection) {
-        Ok(()) => DirectImOpsDelivery::Delivered,
-        Err(tokio::sync::mpsc::error::TrySendError::Full(_)) => DirectImOpsDelivery::DroppedFull,
-        Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => DirectImOpsDelivery::SinkClosed,
-    }
-}
-
-fn current_direct_imops_configuration(
-    direct_imops: &mut Option<ImOpsHostOptions>,
-) -> Option<ImOpsHostConfiguration> {
-    direct_imops
-        .as_mut()
-        .map(|direct_imops| *direct_imops.configuration_rx.borrow_and_update())
+/// Add whatever the embedding host's detector found to the points drawn on the
+/// browser preview, and describe where they came from.
+///
+/// The host's marks always describe an earlier frame than the one being
+/// published: the host is handed frame N over the frame sink and cannot report
+/// on it before this function runs for frame N. Returning the provenance lets
+/// the preview say how far behind they are instead of implying they are current.
+///
+/// An annotation with no points is not "nothing to say" — it is the host saying
+/// it looked and found nothing, which should clear the previous mark. It
+/// contributes no points and no provenance.
+fn merge_host_annotation(
+    annotation: Option<HostAnnotation>,
+    displayed_frame_number: u64,
+    found_points: &mut Vec<video_streaming::Point>,
+) -> Option<video_streaming::HostAnnotationProvenance> {
+    let annotation = annotation.filter(|annotation| !annotation.points.is_empty())?;
+    found_points.extend(annotation.points.iter().map(|pt| video_streaming::Point {
+        x: pt.x,
+        y: pt.y,
+        theta: pt.theta,
+        area: pt.area,
+    }));
+    Some(video_streaming::HostAnnotationProvenance {
+        frame_number: annotation.frame_number,
+        ts_rfc3339: annotation.timestamp.map(|ts| ts.to_rfc3339()),
+        age_frames: displayed_frame_number.saturating_sub(annotation.frame_number),
+    })
 }
 
 /// Perform image analysis
@@ -105,7 +108,7 @@ pub(crate) async fn frame_process_task<'a>(
     http_camserver_info: strand_bui_backend_session_types::BuiServerAddrInfo,
     transmit_msg_tx: Option<tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>>,
     camdata_udp_addr: Option<SocketAddr>,
-    mut direct_imops: Option<ImOpsHostOptions>,
+    host_options: Option<StrandCamHostOptions>,
     led_box_heartbeat_update_arc: Arc<RwLock<Option<std::time::Instant>>>,
     #[cfg(feature = "checkercal")] collected_corners_arc: crate::CollectedCornersArc,
     #[cfg(feature = "flydratrax")] args: &crate::StrandCamArgs,
@@ -781,6 +784,32 @@ pub(crate) async fn frame_process_task<'a>(
                     }
                 }
 
+                // Hand the frame to the embedding host, if it registered a
+                // sink. Here, and not down with the browser preview, because a
+                // host runs its own detector on this frame: everything below
+                // (MP4 and FMF writing especially) would otherwise sit in the
+                // host's tracking latency.
+                //
+                // An `Arc` clone, so a registered sink with nothing to do costs
+                // a refcount bump. `send` and not `try_send`: this is lossless,
+                // and a host that falls behind slows us down rather than
+                // silently missing a detection. See `crate::host_frame_sink`.
+                if let Some(frame_sink) = host_options.as_ref().and_then(|o| o.frame_sink.as_ref())
+                    && frame_sink
+                        .send(HostFrame {
+                            image: frame.image.clone(),
+                            frame_number: frame.host_timing.fno as u64,
+                            timestamp: save_mp4_fmf_stamp,
+                            timestamp_source: timestamp_source.clone(),
+                        })
+                        .await
+                        .is_err()
+                {
+                    // Only reachable once the host has dropped its receiver,
+                    // which is how it says it is done. Not fatal to acquisition.
+                    debug!("host frame sink closed; dropping frame");
+                }
+
                 post_trig_buffer.push(&frame); // If buffer size larger than 0, copies data.
 
                 #[cfg(target_os = "linux")]
@@ -958,16 +987,14 @@ pub(crate) async fn frame_process_task<'a>(
                     let mut blkajdsfads = None;
 
                     {
-                        let direct_imops_configuration =
-                            current_direct_imops_configuration(&mut direct_imops);
-                        let is_doing_imops = direct_imops_configuration
-                            .map(|configuration| configuration.enabled)
-                            .unwrap_or_else(|| {
-                                store_cache
-                                    .as_ref()
-                                    .is_some_and(|store| store.im_ops_state.do_detection)
-                            });
-                        if let (true, Some(framenumber)) = (is_doing_imops, block_id) {
+                        // The standalone, store-driven ImOps detector: enabled and
+                        // tuned from the browser UI, results delivered over UDP.
+                        // An embedding host does not use this path; it runs its
+                        // own detector over `crate::host_frame_sink`.
+                        if let Some(store_cache_ref) = store_cache.as_ref()
+                            && store_cache_ref.im_ops_state.do_detection
+                            && let Some(framenumber) = block_id
+                        {
                             let src = frame.image.borrow();
                             let mono8 = if let Some(mono8) = src.as_static::<Mono8>() {
                                 mono8
@@ -975,19 +1002,12 @@ pub(crate) async fn frame_process_task<'a>(
                                 eyre::bail!("imops only implemented for Mono8 pixel format");
                             };
 
-                            let processor_config = direct_imops_configuration
-                                .map(|configuration| configuration.processor)
-                                .unwrap_or_else(|| {
-                                    let store_cache_ref = store_cache
-                                        .as_ref()
-                                        .expect("legacy ImOps requires shared store state");
-                                    ImOpsProcessorConfig {
-                                        threshold: store_cache_ref.im_ops_state.threshold,
-                                        center_x: store_cache_ref.im_ops_state.center_x,
-                                        center_y: store_cache_ref.im_ops_state.center_y,
-                                    }
-                                });
-                            let detection = ImOpsProcessor::new(processor_config).process(
+                            let detection = ImOpsProcessor::new(ImOpsProcessorConfig {
+                                threshold: store_cache_ref.im_ops_state.threshold,
+                                center_x: store_cache_ref.im_ops_state.center_x,
+                                center_y: store_cache_ref.im_ops_state.center_y,
+                            })
+                            .process(
                                 OImage::copy_from(&mono8),
                                 ImOpsFrameMetadata {
                                     frame_number: framenumber,
@@ -1004,69 +1024,49 @@ pub(crate) async fn frame_process_task<'a>(
                                     theta: None,
                                 });
                             }
-                            if let Some(direct_imops) = &direct_imops {
-                                match try_deliver_direct_imops_detection(
-                                    &direct_imops.detection_tx,
-                                    detection,
-                                ) {
-                                    DirectImOpsDelivery::Delivered => {}
-                                    DirectImOpsDelivery::DroppedFull => {
-                                        trace!(
-                                            "dropping ImOps detection because the host sink is full"
-                                        );
-                                    }
-                                    DirectImOpsDelivery::SinkClosed => {
-                                        debug!("ImOps host sink closed; dropping detection");
-                                    }
-                                }
+
+                            let mc = CentroidToDevice::Centroid(MomentCentroid {
+                                schema_version: MOMENT_CENTROID_SCHEMA_VERSION,
+                                framenumber: detection.metadata.frame_number,
+                                timestamp: detection.metadata.timestamp,
+                                timestamp_source: detection.metadata.timestamp_source,
+                                mu00: detection.mu00,
+                                mu01: detection.mu01,
+                                mu10: detection.mu10,
+                                center_x: detection.center_x,
+                                center_y: detection.center_y,
+                                cam_name: detection.metadata.camera_name,
+                            });
+
+                            let need_new_socket = if let Some(socket) = &im_ops_socket {
+                                socket.local_addr().unwrap().ip()
+                                    != store_cache_ref.im_ops_state.source
                             } else {
-                                let store_cache_ref = store_cache
-                                    .as_ref()
-                                    .expect("legacy ImOps requires shared store state");
-                                let mc = CentroidToDevice::Centroid(MomentCentroid {
-                                    schema_version: MOMENT_CENTROID_SCHEMA_VERSION,
-                                    framenumber: detection.metadata.frame_number,
-                                    timestamp: detection.metadata.timestamp,
-                                    timestamp_source: detection.metadata.timestamp_source,
-                                    mu00: detection.mu00,
-                                    mu01: detection.mu01,
-                                    mu10: detection.mu10,
-                                    center_x: detection.center_x,
-                                    center_y: detection.center_y,
-                                    cam_name: detection.metadata.camera_name,
-                                });
+                                true
+                            };
 
-                                let need_new_socket = if let Some(socket) = &im_ops_socket {
-                                    socket.local_addr().unwrap().ip()
-                                        != store_cache_ref.im_ops_state.source
-                                } else {
-                                    true
-                                };
+                            if need_new_socket {
+                                let mut iter = std::net::ToSocketAddrs::to_socket_addrs(&(
+                                    store_cache_ref.im_ops_state.source,
+                                    0u16,
+                                ))
+                                .unwrap();
+                                let sockaddr = iter.next().unwrap();
 
-                                if need_new_socket {
-                                    let mut iter = std::net::ToSocketAddrs::to_socket_addrs(&(
-                                        store_cache_ref.im_ops_state.source,
-                                        0u16,
-                                    ))
-                                    .unwrap();
-                                    let sockaddr = iter.next().unwrap();
+                                im_ops_socket = std::net::UdpSocket::bind(sockaddr)
+                                    .map_err(|e| {
+                                        error!("failed opening socket: {}", e);
+                                    })
+                                    .ok();
+                            }
 
-                                    im_ops_socket = std::net::UdpSocket::bind(sockaddr)
-                                        .map_err(|e| {
-                                            error!("failed opening socket: {}", e);
-                                        })
-                                        .ok();
-                                }
-
-                                if let Some(socket) = &mut im_ops_socket {
-                                    let buf = serde_cbor::to_vec(&mc).unwrap();
-                                    match socket
-                                        .send_to(&buf, store_cache_ref.im_ops_state.destination)
-                                    {
-                                        Ok(_n_bytes) => {}
-                                        Err(e) => {
-                                            error!("Unable to send image moment data. {}", e);
-                                        }
+                            if let Some(socket) = &mut im_ops_socket {
+                                let buf = serde_cbor::to_vec(&mc).unwrap();
+                                match socket.send_to(&buf, store_cache_ref.im_ops_state.destination)
+                                {
+                                    Ok(_n_bytes) => {}
+                                    Err(e) => {
+                                        error!("Unable to send image moment data. {}", e);
                                     }
                                 }
                             }
@@ -1445,7 +1445,7 @@ pub(crate) async fn frame_process_task<'a>(
                     }
                 }
 
-                let found_points = found_points
+                let mut found_points: Vec<video_streaming::Point> = found_points
                     .iter()
                     .map(
                         |pt: &strand_http_video_streaming_types::Point| video_streaming::Point {
@@ -1456,6 +1456,15 @@ pub(crate) async fn frame_process_task<'a>(
                         },
                     )
                     .collect();
+
+                let host_annotation = merge_host_annotation(
+                    host_options
+                        .as_ref()
+                        .and_then(|options| options.annotation_rx.as_ref())
+                        .map(|annotation_rx| annotation_rx.borrow().clone()),
+                    frame.host_timing.fno as u64,
+                    &mut found_points,
+                );
 
                 // check led_box device heartbeat
                 if let Some(reader) = *led_box_heartbeat_update_arc.read().unwrap() {
@@ -1498,6 +1507,7 @@ pub(crate) async fn frame_process_task<'a>(
                             found_points,
                             valid_display,
                             annotations,
+                            host_annotation,
                         })
                         .await;
                     match result {
@@ -1880,89 +1890,108 @@ fn calc_braid_timestamp(
 mod tests {
     use super::*;
 
-    fn detection() -> ImOpsDetection {
-        ImOpsDetection {
-            metadata: ImOpsFrameMetadata {
-                frame_number: 1,
-                timestamp: chrono::DateTime::UNIX_EPOCH,
-                timestamp_source: TimestampSource::HostAcquiredTimestamp,
-                camera_name: "test-camera".to_owned(),
-            },
-            mu00: 0.0,
-            mu01: 0.0,
-            mu10: 0.0,
-            center_x: 0,
-            center_y: 0,
-            centroid: None,
+    /// The host frame sink is lossless by contract: a full channel must make the
+    /// producer wait, not silently discard the frame a host's detector needs.
+    #[tokio::test]
+    async fn full_host_frame_sink_blocks_instead_of_dropping() {
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<HostFrame>(1);
+        let frame = |frame_number| HostFrame {
+            image: std::sync::Arc::new(strand_dynamic_frame::DynamicFrameOwned::from_static(
+                OImage::<Mono8>::new(2, 1, 2, vec![0, 200]).unwrap(),
+            )),
+            frame_number,
+            timestamp: chrono::DateTime::UNIX_EPOCH,
+            timestamp_source: TimestampSource::HostAcquiredTimestamp,
+        };
+
+        tx.send(frame(1)).await.unwrap();
+
+        // The second send cannot complete until the host drains the first.
+        let mut blocked = Box::pin(tx.send(frame(2)));
+        assert!(
+            futures::poll!(&mut blocked).is_pending(),
+            "a full sink must not accept a frame"
+        );
+        assert_eq!(rx.recv().await.unwrap().frame_number, 1);
+        blocked.await.unwrap();
+        assert_eq!(rx.recv().await.unwrap().frame_number, 2);
+    }
+
+    fn host_point(x: f32) -> strand_http_video_streaming_types::Point {
+        strand_http_video_streaming_types::Point {
+            x,
+            y: 0.0,
+            theta: None,
+            area: None,
         }
     }
 
     #[test]
-    fn direct_imops_sink_drops_new_detection_when_full() {
-        let (tx, mut rx) = tokio::sync::mpsc::channel(1);
+    fn host_annotation_reports_how_far_behind_it_is() {
+        let mut found_points = vec![];
+        let provenance = merge_host_annotation(
+            Some(HostAnnotation {
+                points: vec![host_point(1.0), host_point(2.0)],
+                frame_number: 40,
+                timestamp: Some(chrono::DateTime::UNIX_EPOCH),
+            }),
+            42,
+            &mut found_points,
+        )
+        .unwrap();
 
+        assert_eq!(found_points.len(), 2);
+        assert_eq!(provenance.frame_number, 40);
+        assert_eq!(provenance.age_frames, 2);
         assert_eq!(
-            try_deliver_direct_imops_detection(&tx, detection()),
-            DirectImOpsDelivery::Delivered
+            provenance.ts_rfc3339.as_deref(),
+            Some("1970-01-01T00:00:00+00:00")
         );
-        assert_eq!(
-            try_deliver_direct_imops_detection(&tx, detection()),
-            DirectImOpsDelivery::DroppedFull
-        );
-        assert!(rx.try_recv().is_ok());
-        assert!(rx.try_recv().is_err());
     }
 
+    /// A host that is somehow ahead of us must not report a negative age as a
+    /// huge unsigned one.
     #[test]
-    fn direct_imops_configuration_is_updated_live() {
-        let disabled = ImOpsHostConfiguration {
-            enabled: false,
-            processor: ImOpsProcessorConfig {
-                threshold: 255,
-                center_x: 0,
-                center_y: 0,
-            },
-        };
-        let (configuration_tx, configuration_rx) = tokio::sync::watch::channel(disabled);
-        let (detection_tx, _detection_rx) = tokio::sync::mpsc::channel(1);
-        let mut direct_imops = Some(ImOpsHostOptions {
-            configuration_rx,
-            detection_tx,
-            cam_args_rx: None,
-        });
+    fn host_annotation_age_saturates_rather_than_wrapping() {
+        let mut found_points = vec![];
+        let provenance = merge_host_annotation(
+            Some(HostAnnotation {
+                points: vec![host_point(1.0)],
+                frame_number: 43,
+                timestamp: None,
+            }),
+            42,
+            &mut found_points,
+        )
+        .unwrap();
+        assert_eq!(provenance.age_frames, 0);
+    }
 
+    /// "I looked and found nothing" clears the mark and claims no provenance.
+    #[test]
+    fn empty_host_annotation_contributes_nothing() {
+        let mut found_points = vec![host_point(9.0)]
+            .into_iter()
+            .map(|pt| video_streaming::Point {
+                x: pt.x,
+                y: pt.y,
+                theta: None,
+                area: None,
+            })
+            .collect::<Vec<_>>();
         assert!(
-            !current_direct_imops_configuration(&mut direct_imops)
-                .unwrap()
-                .enabled
+            merge_host_annotation(
+                Some(HostAnnotation {
+                    points: vec![],
+                    frame_number: 40,
+                    timestamp: None,
+                }),
+                42,
+                &mut found_points,
+            )
+            .is_none()
         );
-
-        let enabled = ImOpsHostConfiguration {
-            enabled: true,
-            processor: ImOpsProcessorConfig {
-                threshold: 100,
-                center_x: 12,
-                center_y: 34,
-            },
-        };
-        configuration_tx.send(enabled).unwrap();
-
-        let configuration = current_direct_imops_configuration(&mut direct_imops).unwrap();
-        assert_eq!(configuration, enabled);
-        let image = OImage::<Mono8>::new(2, 1, 2, vec![0, 200]).unwrap();
-        let detection = ImOpsProcessor::new(configuration.processor).process(
-            image,
-            ImOpsFrameMetadata {
-                frame_number: 1,
-                timestamp: chrono::DateTime::UNIX_EPOCH,
-                timestamp_source: TimestampSource::HostAcquiredTimestamp,
-                camera_name: "test-camera".to_owned(),
-            },
-        );
-        assert_eq!(
-            detection.centroid,
-            Some(crate::imops_processor::ImagePoint { x: 1.0, y: 0.0 })
-        );
-        assert_eq!((detection.center_x, detection.center_y), (12, 34));
+        assert!(merge_host_annotation(None, 42, &mut found_points).is_none());
+        assert_eq!(found_points.len(), 1, "the camera's own points are kept");
     }
 }

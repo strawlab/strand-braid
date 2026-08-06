@@ -27,6 +27,14 @@ colors now come from the shared tokens (see `_tokens.scss`). */
         flex-grow: 1;
     }
 
+    /* Only present when an embedding application contributed the marks on the
+    image. It reports which frame they came from, which is never the frame being
+    displayed. */
+    .video-field-host-annotation {
+        display: inline-block;
+        flex-grow: 1;
+    }
+
     .video-field-canvas {
         padding: 1px;
         box-sizing: border-box;
