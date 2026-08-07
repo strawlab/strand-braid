@@ -101,16 +101,18 @@ fn validate_build_metadata(hash: &str) -> Result<(), Box<dyn std::error::Error>>
 /// - Probes for `trunk` and returns a helpful error if it is missing.
 /// - Warns if the installed trunk is not the expected 0.21.x series.
 /// - Runs `trunk build --release --dist dist` inside `frontend_dir`, using a
-///   dedicated `trunk-target` subdirectory of `OUT_DIR` and forcing the nested
-///   cargo offline (`CARGO_NET_OFFLINE=true`) to avoid deadlocking the outer
-///   workspace cargo build on the target-dir and package-cache locks. Trunk
-///   first runs `cargo metadata`, which resolves the whole workspace graph for
-///   every platform, so the entire dependency graph (not just the wasm32
-///   subset) must already be in the cargo cache; on a cold cache, pre-fetch it
-///   once with `cargo fetch`.
+///   shared `trunk-target` directory beside the profile directory and forcing
+///   the nested cargo offline (`CARGO_NET_OFFLINE=true`) to avoid deadlocking
+///   the outer workspace cargo build on the target-dir and package-cache locks.
+///   Trunk first runs `cargo metadata`, which resolves the whole workspace
+///   graph for every platform, so the entire dependency graph (not just the
+///   wasm32 subset) must already be in the cargo cache; on a cold cache,
+///   pre-fetch it once with `cargo fetch`.
 /// - Verifies each required asset is present in the dist directory.
 /// - Emits `cargo:rerun-if-changed` directives for the frontend sources,
-///   `index.html`, `Trunk.toml`, `scss/`, and the calling `build.rs`.
+///   `index.html`, `Trunk.toml`, `scss/`, the calling `build.rs`, and every
+///   in-tree Rust source that actually went into the wasm build (read back from
+///   the nested cargo's dependency-info files).
 pub fn trunk_build(
     frontend_dir: &str,
     required_assets: &[&str],
@@ -119,10 +121,19 @@ pub fn trunk_build(
     use std::path::PathBuf;
     use std::process::Command;
 
-    let out_dir = std::env::var("OUT_DIR")?;
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR")?);
     // Avoid deadlocking with the outer workspace cargo build by using a separate
     // target directory for trunk's nested cargo invocation.
-    let trunk_target_dir: PathBuf = PathBuf::from(&out_dir).join("trunk-target");
+    //
+    // Keep that directory beside the profile directory rather than inside
+    // OUT_DIR. OUT_DIR is keyed by a build-script hash that moves whenever the
+    // *caller's* features, profile or dependencies change — none of which the
+    // frontend depends on — so an OUT_DIR-local target directory rebuilt the
+    // identical wasm from scratch several times a day and left a stale ~350 MB
+    // copy behind each time. Both frontends share this one directory, which is
+    // safe (trunk invocations are serialized by TrunkBuildLock, and cargo locks
+    // the target directory itself) and lets them share compiled dependencies.
+    let trunk_target_dir = shared_trunk_target_dir(&out_dir)?;
     std::fs::create_dir_all(&trunk_target_dir)?;
 
     // Serialize trunk invocations across the whole machine. Multiple frontend
@@ -245,7 +256,223 @@ pub fn trunk_build(
     }
     println!("cargo:rerun-if-changed=build.rs");
 
+    // The frontend also compiles workspace crates that live outside
+    // `frontend_dir` — braid-types, strand-cam-types, ads-webasm, braid-mvg and
+    // so on. Cargo's own dependency graph cannot notice when those change,
+    // because the *caller* often does not depend on them at all (braid-run has
+    // no native dependency on ads-webasm), and even when it does, rebuilding
+    // the caller does not re-run its build script. Without the directives
+    // below, editing a shared crate silently leaves a stale `dist/` embedded in
+    // the binary — including a frontend that disagrees with the backend about
+    // the wire types in braid-types. The nested cargo has just recorded exactly
+    // which sources it read, so read them back rather than maintaining a list
+    // here that would drift out of date the same way.
+    // Dependency-info paths are absolute, built by the nested cargo from the
+    // working directory this build script gave it, so anchor the frontend root
+    // the same way rather than canonicalizing (which would resolve symlinks the
+    // nested cargo did not).
+    let frontend_root = normalize_lexically(
+        &PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?).join(frontend_dir),
+    );
+    emit_rerun_for_wasm_sources(&trunk_target_dir, &frontend_root);
+
     Ok(())
+}
+
+/// The target directory for trunk's nested cargo invocation: `trunk-target`
+/// beside the profile directory, i.e. `target/trunk-target`, or
+/// `target/<triple>/trunk-target` when the outer build is cross-compiling.
+///
+/// `OUT_DIR` is `<base>/<profile>/build/<pkg>-<hash>/out`, so `<base>` is its
+/// fifth ancestor.
+fn shared_trunk_target_dir(
+    out_dir: &std::path::Path,
+) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+    let base = out_dir.ancestors().nth(4).ok_or_else(|| {
+        format!(
+            "cannot derive the target directory from OUT_DIR {}",
+            out_dir.display()
+        )
+    })?;
+    Ok(base.join("trunk-target"))
+}
+
+/// Emit a `cargo:rerun-if-changed` directive for every in-tree source that the
+/// nested wasm build read, as recorded in the dependency-info (`.d`) files that
+/// cargo writes next to the wasm artifacts.
+///
+/// Sources under the cargo home (registry and git checkouts) and under the
+/// nested target directory itself are skipped: they are immutable or generated,
+/// and pointing cargo at a file that later disappears would make the build
+/// script perpetually out of date.
+///
+/// Both frontends share `trunk_target_dir`, so it holds a dependency-info file
+/// per frontend. Only the ones that actually name a source inside
+/// `frontend_root` describe *this* frontend; without that filter, braid-run
+/// would rebuild its frontend whenever a strand-cam-only frontend source
+/// changed.
+fn emit_rerun_for_wasm_sources(
+    trunk_target_dir: &std::path::Path,
+    frontend_root: &std::path::Path,
+) {
+    let artifact_dir = trunk_target_dir
+        .join("wasm32-unknown-unknown")
+        .join("release");
+
+    let entries = match std::fs::read_dir(&artifact_dir) {
+        Ok(entries) => entries,
+        Err(err) => {
+            println!(
+                "cargo:warning=Cannot watch the frontend's shared sources: {} is unreadable ({err}). \
+                 Changes to crates outside the frontend directory may not trigger a rebuild.",
+                artifact_dir.display()
+            );
+            return;
+        }
+    };
+
+    let skip_prefixes: Vec<std::path::PathBuf> = cargo_home()
+        .into_iter()
+        .chain(std::iter::once(trunk_target_dir.to_path_buf()))
+        .collect();
+
+    let mut sources = std::collections::BTreeSet::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path.extension().is_none_or(|ext| ext != "d") {
+            continue;
+        }
+        let Ok(contents) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        let listed: Vec<std::path::PathBuf> = dep_info_sources(&contents)
+            .into_iter()
+            .map(std::path::PathBuf::from)
+            .collect();
+        if !describes_frontend(&listed, frontend_root) {
+            continue;
+        }
+        for source in listed {
+            if skip_prefixes
+                .iter()
+                .any(|prefix| source.starts_with(prefix))
+            {
+                continue;
+            }
+            if source.is_file() {
+                sources.insert(source);
+            }
+        }
+    }
+
+    if sources.is_empty() {
+        println!(
+            "cargo:warning=Found no dependency-info for the frontend build in {}. \
+             Changes to crates outside the frontend directory may not trigger a rebuild.",
+            artifact_dir.display()
+        );
+        return;
+    }
+
+    for source in sources {
+        println!("cargo:rerun-if-changed={}", source.display());
+    }
+}
+
+/// Resolve `.` and `..` in `path` without consulting the filesystem.
+///
+/// `frontend_dir` is relative to the caller's crate, and callers whose frontend
+/// is a sibling reach sideways with `..` (flo builds `../flo-bui`). Joining that
+/// onto `CARGO_MANIFEST_DIR` leaves a `..` in the middle of the path, and
+/// `Path::starts_with` compares components literally, so the unresolved form
+/// prefix-matches nothing in the dependency-info files.
+///
+/// Resolving lexically rather than with `canonicalize` deliberately preserves
+/// any symlinked prefix: the nested cargo recorded its paths through whatever
+/// prefix the outer build used, and rewriting one side but not the other would
+/// reintroduce the same mismatch.
+fn normalize_lexically(path: &std::path::Path) -> std::path::PathBuf {
+    use std::path::Component;
+
+    let mut out = std::path::PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => match out.components().next_back() {
+                // Only a real directory name can be popped.
+                Some(Component::Normal(_)) => {
+                    out.pop();
+                }
+                // There is nothing above the root, so `/..` is just `/`.
+                Some(Component::RootDir) => {}
+                // A leading `..` in a relative path has nothing to resolve
+                // against, so it has to be kept.
+                _ => out.push(component),
+            },
+            other => out.push(other),
+        }
+    }
+    out
+}
+
+/// Whether a dependency-info file belongs to the frontend rooted at
+/// `frontend_root`, i.e. whether the wasm binary it describes was compiled from
+/// at least one source inside that directory.
+fn describes_frontend(sources: &[std::path::PathBuf], frontend_root: &std::path::Path) -> bool {
+    sources
+        .iter()
+        .any(|source| source.starts_with(frontend_root))
+}
+
+/// The dependency paths listed in a makefile-style dependency-info file. Lines
+/// have the form `<target>: <dep> <dep> ...`, so tokens ending in `:` are
+/// targets rather than dependencies. Matching on a trailing colon (rather than
+/// splitting on the first one) keeps Windows paths such as `C:\src\main.rs`
+/// intact.
+fn dep_info_sources(contents: &str) -> Vec<String> {
+    contents
+        .lines()
+        .flat_map(dep_info_tokens)
+        .filter(|token| !token.ends_with(':'))
+        .collect()
+}
+
+/// Split one dependency-info line into paths. Following GNU make, only a
+/// backslash immediately before a space escapes it; a backslash before anything
+/// else is literal, which is what keeps Windows path separators intact.
+fn dep_info_tokens(line: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        match c {
+            '\\' if chars.peek() == Some(&' ') => {
+                chars.next();
+                current.push(' ');
+            }
+            c if c.is_whitespace() => {
+                if !current.is_empty() {
+                    tokens.push(std::mem::take(&mut current));
+                }
+            }
+            c => current.push(c),
+        }
+    }
+    if !current.is_empty() {
+        tokens.push(current);
+    }
+    tokens
+}
+
+/// The cargo home directory, used only to recognise (and skip) immutable
+/// registry and git-checkout sources. `None` when it cannot be determined, in
+/// which case those sources are watched too — wasteful, but not wrong.
+fn cargo_home() -> Option<std::path::PathBuf> {
+    if let Some(dir) = std::env::var_os("CARGO_HOME") {
+        return Some(std::path::PathBuf::from(dir));
+    }
+    let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE"))?;
+    Some(std::path::PathBuf::from(home).join(".cargo"))
 }
 
 fn trunk_missing_error_message() -> String {
@@ -403,7 +630,98 @@ impl Drop for TrunkBuildLock {
 
 #[cfg(test)]
 mod tests {
-    use super::validate_build_metadata;
+    use super::{
+        dep_info_sources, describes_frontend, normalize_lexically, shared_trunk_target_dir,
+        validate_build_metadata,
+    };
+
+    #[test]
+    fn resolves_a_sideways_frontend_dir() {
+        // flo builds `../flo-bui` from crates/flo-webserver.
+        assert_eq!(
+            normalize_lexically(std::path::Path::new("/flo/crates/flo-webserver/../flo-bui")),
+            std::path::Path::new("/flo/crates/flo-bui")
+        );
+        assert_eq!(
+            normalize_lexically(std::path::Path::new("/a/./b/")),
+            std::path::Path::new("/a/b")
+        );
+    }
+
+    #[test]
+    fn keeps_parent_components_it_cannot_resolve() {
+        assert_eq!(
+            normalize_lexically(std::path::Path::new("../a/b")),
+            std::path::Path::new("../a/b")
+        );
+        assert_eq!(
+            normalize_lexically(std::path::Path::new("/../a")),
+            std::path::Path::new("/a")
+        );
+    }
+
+    #[test]
+    fn a_sideways_frontend_root_matches_its_dep_info() {
+        let sources = [std::path::PathBuf::from("/flo/crates/flo-bui/src/main.rs")];
+        let unresolved = std::path::Path::new("/flo/crates/flo-webserver/../flo-bui");
+        // The unresolved form is what silently matched nothing.
+        assert!(!describes_frontend(&sources, unresolved));
+        assert!(describes_frontend(
+            &sources,
+            &normalize_lexically(unresolved)
+        ));
+    }
+
+    #[test]
+    fn tells_the_two_frontends_dep_info_apart() {
+        let braid = [
+            std::path::PathBuf::from("/w/braid/braid-run/braid_frontend/src/main.rs"),
+            std::path::PathBuf::from("/w/braid/braid-types/src/lib.rs"),
+        ];
+        let braid_root = std::path::Path::new("/w/braid/braid-run/braid_frontend");
+        let strand_cam_root = std::path::Path::new("/w/strand-cam/yew_frontend");
+        assert!(describes_frontend(&braid, braid_root));
+        assert!(!describes_frontend(&braid, strand_cam_root));
+    }
+
+    #[test]
+    fn derives_a_shared_trunk_target_dir() {
+        let out_dir = std::path::Path::new("target/release/build/pkg-hash/out");
+        assert_eq!(
+            shared_trunk_target_dir(out_dir).unwrap(),
+            std::path::Path::new("target/trunk-target")
+        );
+    }
+
+    #[test]
+    fn keeps_the_trunk_target_dir_per_cross_compilation_triple() {
+        let out_dir = std::path::Path::new("target/wasm32-unknown-unknown/release/build/p-h/out");
+        assert_eq!(
+            shared_trunk_target_dir(out_dir).unwrap(),
+            std::path::Path::new("target/wasm32-unknown-unknown/trunk-target")
+        );
+    }
+
+    #[test]
+    fn reads_dependencies_but_not_the_target_from_dep_info() {
+        let contents = "/w/target/f.wasm: /w/src/main.rs /w/braid-types/src/lib.rs\n";
+        assert_eq!(
+            dep_info_sources(contents),
+            ["/w/src/main.rs", "/w/braid-types/src/lib.rs"]
+        );
+    }
+
+    #[test]
+    fn unescapes_spaces_but_keeps_windows_separators() {
+        let contents = r"C:\w\f.wasm: C:\My\ Code\src\main.rs";
+        assert_eq!(dep_info_sources(contents), [r"C:\My Code\src\main.rs"]);
+    }
+
+    #[test]
+    fn ignores_phony_target_lines() {
+        let contents = "/w/f.wasm: /w/src/main.rs\n/w/src/main.rs:\n";
+        assert_eq!(dep_info_sources(contents), ["/w/src/main.rs"]);
+    }
 
     #[test]
     fn accepts_a_git_hash() {
