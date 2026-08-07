@@ -11,23 +11,17 @@ tracing.workspace = true
 thiserror.workspace = true
 machine-vision-formats.workspace = true
 strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
-num-traits.workspace = true
 cast.workspace = true
-serde.workspace = true
-serde_yaml.workspace = true
 tokio.workspace = true
 nalgebra.workspace = true
 parry2d-f64 = { workspace = true, features = ["default"] }
 
 fastfreeimage.workspace = true
-strand-cam-bui-types.workspace = true
 braid-types.workspace = true
 ufmf.workspace = true
-byteorder.workspace = true
 chrono.workspace = true
 flydra-feature-detector-types.workspace = true
 strand-http-video-streaming-types.workspace = true
-strand-datetime-conversion.workspace = true
 
 parry-geom.workspace = true
 

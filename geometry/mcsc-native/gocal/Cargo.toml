@@ -9,7 +9,6 @@ description = "CLI tool to run multi-camera self calibration. Emulates the Multi
 camino.workspace = true
 clap.workspace = true
 eyre.workspace = true
-nalgebra.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 

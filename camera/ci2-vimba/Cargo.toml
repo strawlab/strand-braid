@@ -9,7 +9,6 @@ description = "ci2 camera backend using the Allied Vision Vimba SDK"
 [dependencies]
 vimba.workspace = true
 tracing.workspace = true
-thiserror.workspace = true
 anyhow.workspace = true
 machine-vision-formats.workspace = true
 chrono.workspace = true

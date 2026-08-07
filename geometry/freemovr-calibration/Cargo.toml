@@ -18,7 +18,6 @@ ncollide2d = { workspace = true, features = ["default"] }
 ncollide3d = { workspace = true, features = ["default", "serde-serialize"] }
 cam-geom.workspace = true
 opencv-ros-camera.workspace = true
-obj.workspace = true
 byteorder.workspace = true
 image.workspace = true
 csv.workspace = true

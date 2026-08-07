@@ -214,7 +214,6 @@ json-lines = { version = "0.1.0", features = ["codec"] }
 lazy_static = "1.4"
 less-avc = "0.1.4"
 levenberg-marquardt-sparse = { version = "0.1.2", features = ["tracing"] }
-libc = "0.2.176"
 libflate = "2.1.0"
 log = "0.4.28"
 lstsq = "0.7"
@@ -344,7 +343,6 @@ flydra-feature-detector-types = { path = "im-proc/flydra-feature-detector/flydra
 flydra-pt-detect-cfg = { path = "im-proc/flydra-feature-detector/flydra-pt-detect-cfg", version = "0.1.0" }
 flydra-mvg = { path = "geometry/flydra-mvg" }
 flydra2 = { path = "braid/flydra2", default-features = false }
-gocal = { path = "geometry/mcsc-native/gocal" }
 flytrax-apriltags-calibration = { path = "geometry/braid-april-cal/flytrax-apriltags-calibration" }
 fmf = { path = "media-utils/fmf" }
 font-drawing = { path = "media-utils/font-drawing" }

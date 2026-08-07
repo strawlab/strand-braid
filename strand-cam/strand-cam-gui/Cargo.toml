@@ -7,11 +7,6 @@ description = "Strand Camera with an eframe GUI, supporting the Basler Pylon and
 
 [dependencies]
 eyre.workspace = true
-tracing.workspace = true
-
-ci2-async.workspace = true
-ci2-pylon.workspace = true
-ci2-vimba.workspace = true
 
 strand-cam = { workspace = true, features = ["eframe-gui"] }
 

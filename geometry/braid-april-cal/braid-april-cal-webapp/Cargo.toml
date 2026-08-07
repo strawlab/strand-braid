@@ -18,7 +18,6 @@ web-sys = { workspace = true, features = [
 ] }
 tracing.workspace = true
 wasm-logger.workspace = true
-chrono.workspace = true
 
 ads-webasm = { workspace = true, features = ["csv-widget"] }
 apriltag-detection-writer.workspace = true

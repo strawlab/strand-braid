@@ -14,7 +14,6 @@ crate-type = ["cdylib"]
 pyo3 = { version = "0.24.1", features = ["extension-module", "abi3-py37"] }
 numpy = "0.24"
 csv.workspace = true
-chrono.workspace = true
 
 csv-eof.workspace = true
 braid-types.workspace = true

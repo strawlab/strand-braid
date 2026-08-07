@@ -8,12 +8,10 @@ description = "CLI program to interact with LED box hardware directly"
 
 [dependencies]
 anyhow.workspace = true
-byteorder.workspace = true
 clap.workspace = true
 futures.workspace = true
 json-lines.workspace = true
 tracing.workspace = true
-memchr.workspace = true
 tokio.workspace = true
 tokio-serial.workspace = true
 tokio-util.workspace = true
