@@ -150,7 +150,7 @@ exclude = [
 version = "1.0.0-rc.6"
 
 [workspace.dependencies]
-adskalman = "0.17"
+adskalman = "0.18"
 anyhow = "1.0.99"
 approx = "0.5"
 async-change-tracker = "0.3.4"
@@ -159,7 +159,7 @@ axum-token-auth = "0.3.0"
 base64 = "0.22.1"
 byteorder = "1.5"
 bytes = "1.11.1"
-cam-geom = { version = "0.16", features = ["serde-serialize"] }
+cam-geom = { version = "0.17", features = ["serde-serialize"] }
 camino = "1.2"
 cast = { version = "0.3", features = ["std"] }
 chrono = { version = "0.4.42", features = ["serde"] }
@@ -170,7 +170,7 @@ cookie_store = "0.21.0"
 csv = "1.1"
 convert-image = "0.1.3"
 delaunator = "1.0"
-dlt = "0.14"
+dlt = "0.15"
 dotenv = "0.15.0"
 dyn-clone = "1.0.11"
 env_logger = "0.11.8"
@@ -213,27 +213,27 @@ js-sys = "0.3.77"
 json-lines = { version = "0.1.0", features = ["codec"] }
 lazy_static = "1.4"
 less-avc = "0.1.4"
-levenberg-marquardt-sparse = { version = "0.1.2", features = ["tracing"] }
+levenberg-marquardt-sparse = { version = "0.2", features = ["tracing"] }
 libflate = "2.1.0"
 log = "0.4.28"
-lstsq = "0.7"
+lstsq = "0.8"
 machine-vision-formats = { version = "0.1.7", default-features = false }
 memchr = "2.7.4"
 mime = "0.3.17"
 mp4 = { git = "https://github.com/strawlab/mp4-rust", rev = "1a0475518bce38ff0ce506a42d6a06567195f365" }
-nalgebra = { version = "0.34", features = ["serde-serialize"] }
-nalgebra-mvn = "0.16"
-ncollide2d = { package = "ncollide2d-updated", version = "0.37.1" }
-ncollide3d = { package = "ncollide3d-updated", version = "0.37.1" }
+nalgebra = { version = "0.35", features = ["serde-serialize"] }
+nalgebra-mvn = "0.17"
+ncollide2d = { package = "ncollide2d-updated", version = "0.38" }
+ncollide3d = { package = "ncollide3d-updated", version = "0.38" }
 nokhwa = { version = "0.10.9", default-features = false }
 num-iter = "0.1.43"
 num-traits = "0.2.19"
 obj = { version = "0.10", features = ["genmesh"] }
-opencv-ros-camera = { version = "0.16", features = ["serde-serialize"] }
+opencv-ros-camera = { version = "0.17", features = ["serde-serialize"] }
 openh264 = "0.9.3"
 ordered-float = { version = "4.6", features = ["serde"] }
-parry2d-f64 = "0.23"
-parry3d-f64 = "0.23"
+parry2d-f64 = "0.30"
+parry3d-f64 = "0.30"
 pin-project = "1.0.11"
 preferences-serde1 = "2.0.0"
 pretty-print-nalgebra = "0.1.0"
@@ -256,7 +256,7 @@ serde_cbor = { version = "0.11.2" }
 serde_json = "1.0.142"
 serde_yaml = "0.9"
 shellexpand = "2.0"
-simba = { version = "0.9", default-features = false }
+simba = { version = "0.10", default-features = false }
 stream-cancel = "0.8"
 tabled = "0.20.0"
 tagger = "4.0"
@@ -307,7 +307,7 @@ braid-apriltag-types = { path = "geometry/braid-apriltag-types" }
 braid-config-data = { path = "braid/braid-config-data" }
 braid-http-session = { path = "web/braid-http-session" }
 braid-offline = { path = "braid/braid-offline" }
-braid-mvg = { path = "geometry/braid-mvg", version = "0.1.0" }
+braid-mvg = { path = "geometry/braid-mvg", version = "0.2.0" }
 braid-sim = { path = "braid/braid-sim" }
 braid-types = { path = "braid/braid-types", default-features = false }
 braidz-parser = { path = "braidz/braidz-parser" }
