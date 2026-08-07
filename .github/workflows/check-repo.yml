@@ -11,6 +11,17 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-cargo-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install cargo-audit
+        run: |
+          cargo install cargo-audit --version 0.22.2 --locked
+      - name: Check dependencies for known vulnerabilities
+        run: |
+          cargo audit
+
   check-readme-updated:
     runs-on: ubuntu-latest
     steps:
