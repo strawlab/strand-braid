@@ -44,13 +44,14 @@ impl StrandCamEguiApp {
 }
 
 impl eframe::App for StrandCamEguiApp {
-    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+    fn on_exit(&mut self) {
         // Ignore only possible error of SendError which we could get if the
         // receiver hung up.
         let _ = self.cmd_tx.blocking_send(());
     }
 
-    fn update(&mut self, ctx: &egui::Context, _egui_frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _egui_frame: &mut eframe::Frame) {
+        let ctx = ui.ctx().clone();
         let Self {
             cmd_tx,
             gui_singleton,
@@ -103,7 +104,7 @@ impl eframe::App for StrandCamEguiApp {
                 let screen_texture = screen_texture.get_or_insert_with(|| {
                     ctx.load_texture(
                         "screen",
-                        egui::ImageData::Color(Arc::new(ColorImage::new(
+                        egui::ImageData::Color(Arc::new(ColorImage::filled(
                             [w as usize, h as usize],
                             Color32::TRANSPARENT,
                         ))),
@@ -130,7 +131,7 @@ impl eframe::App for StrandCamEguiApp {
             }
         };
 
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             egui::ScrollArea::both().show(ui, |ui| {
                 egui::warn_if_debug_build(ui);
                 ui.heading("Strand Camera");
