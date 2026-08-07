@@ -42,6 +42,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: check
+      # Rerun's native viewer includes gamepad support, whose Linux backend
+      # links against libudev.
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install -y libudev-dev
       - name: Install Rust wasm target and trunk
         run: |
           rustup target add wasm32-unknown-unknown
@@ -73,6 +79,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: check
+      # Rerun's native viewer includes gamepad support, whose Linux backend
+      # links against libudev.
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install -y libudev-dev
       - name: Install clippy, the Rust wasm target, and trunk
         run: |
           rustup component add clippy
@@ -101,13 +113,13 @@ jobs:
         with:
           shared-key: test
       # Some workspace tests shell out to ffmpeg (e.g. apriltag-track-movie's
-      # test_detect_tags decodes a movie fixture), and the GitHub-hosted runner
-      # image does not ship it. The GitLab workspace-test job installs it the same
-      # way.
-      - name: Install ffmpeg (needed by movie-decoding tests)
+      # test_detect_tags decodes a movie fixture). Rerun's native viewer also
+      # includes gamepad support, whose Linux backend links against libudev.
+      # The GitHub-hosted runner image does not ship either dependency.
+      - name: Install native test dependencies
         run: |
           sudo apt-get update
-          DEBIAN_FRONTEND=noninteractive sudo apt-get install -y ffmpeg
+          DEBIAN_FRONTEND=noninteractive sudo apt-get install -y ffmpeg libudev-dev
       - name: Install uv (runs the smoke-test Python helper with its deps)
         run: |
           curl -LsSf https://astral.sh/uv/install.sh | sh
