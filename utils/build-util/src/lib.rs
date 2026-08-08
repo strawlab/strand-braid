@@ -125,15 +125,23 @@ pub fn trunk_build(
     // Avoid deadlocking with the outer workspace cargo build by using a separate
     // target directory for trunk's nested cargo invocation.
     //
+    // frontend_dist_dir is relative to the caller's working directory (i.e. the
+    // crate root).  trunk writes its output into frontend_dir/dist.
+    let frontend_path = PathBuf::from(frontend_dir);
+    let frontend_dist_dir = frontend_path.join("dist");
+
     // Keep that directory beside the profile directory rather than inside
     // OUT_DIR. OUT_DIR is keyed by a build-script hash that moves whenever the
     // *caller's* features, profile or dependencies change — none of which the
     // frontend depends on — so an OUT_DIR-local target directory rebuilt the
     // identical wasm from scratch several times a day and left a stale ~350 MB
-    // copy behind each time. Both frontends share this one directory, which is
-    // safe (trunk invocations are serialized by TrunkBuildLock, and cargo locks
-    // the target directory itself) and lets them share compiled dependencies.
-    let trunk_target_dir = shared_trunk_target_dir(&out_dir)?;
+    // copy behind each time. Both frontends of one checkout share this
+    // directory, which is safe (trunk invocations are serialized by
+    // TrunkBuildLock, and cargo locks the target directory itself) and lets them
+    // share compiled dependencies. See `shared_trunk_target_dir` for why it is
+    // keyed by checkout rather than shared by every build on the machine.
+    let trunk_target_dir =
+        shared_trunk_target_dir(&out_dir, &frontend_source_root(&frontend_path))?;
     std::fs::create_dir_all(&trunk_target_dir)?;
 
     // Serialize trunk invocations across the whole machine. Multiple frontend
@@ -147,11 +155,6 @@ pub fn trunk_build(
     // file". Holding this lock for the duration of the build guarantees the
     // tools are fully installed before any other trunk process touches them.
     let _trunk_lock = TrunkBuildLock::acquire()?;
-
-    // frontend_dist_dir is relative to the caller's working directory (i.e. the
-    // crate root).  trunk writes its output into frontend_dir/dist.
-    let frontend_path = PathBuf::from(frontend_dir);
-    let frontend_dist_dir = frontend_path.join("dist");
 
     // Probe for trunk before attempting a full build so we can surface a
     // helpful install hint rather than an opaque "command not found" error.
@@ -282,12 +285,28 @@ pub fn trunk_build(
 
 /// The target directory for trunk's nested cargo invocation: `trunk-target`
 /// beside the profile directory, i.e. `target/trunk-target`, or
-/// `target/<triple>/trunk-target` when the outer build is cross-compiling.
+/// `target/<triple>/trunk-target/...` when the outer build is cross-compiling.
 ///
 /// `OUT_DIR` is `<base>/<profile>/build/<pkg>-<hash>/out`, so `<base>` is its
 /// fifth ancestor.
+///
+/// The directory is keyed by the frontend's workspace root, which is what makes
+/// it safe to share. Cargo's unit hashes do not include the absolute path of a
+/// workspace member, and it treats a git checkout as immutable rather than
+/// mtime-checking it — so two cargo git checkouts of one repository at different
+/// revisions produce *the same* hash for the same member. Sharing a single
+/// directory across revisions therefore let a frontend built from revision B
+/// link a dependency compiled from revision A, which fails as a type error in
+/// code that looks correct, or silently links stale code that happens to still
+/// compile. Keying by workspace root gives each checkout its own directory while
+/// both frontends of one checkout still share, and an in-tree build keeps one
+/// stable directory rather than a new one per rebuild.
+///
+/// They accumulate: one per revision ever built here. They are all under
+/// `trunk-target`, so `rm -rf <target>/trunk-target` reclaims the lot.
 fn shared_trunk_target_dir(
     out_dir: &std::path::Path,
+    source_root: &std::path::Path,
 ) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
     let base = out_dir.ancestors().nth(4).ok_or_else(|| {
         format!(
@@ -295,7 +314,52 @@ fn shared_trunk_target_dir(
             out_dir.display()
         )
     })?;
-    Ok(base.join("trunk-target"))
+    Ok(base
+        .join("trunk-target")
+        .join(format!("{:016x}", path_key(source_root))))
+}
+
+/// A stable key for `path`.
+///
+/// FNV-1a rather than `DefaultHasher` because this names a directory on disk:
+/// the standard hasher makes no promise across toolchain versions, so an
+/// upgrade would silently strand the previous directory and rebuild.
+fn path_key(path: &std::path::Path) -> u64 {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in path.to_string_lossy().as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100_0000_01b3);
+    }
+    hash
+}
+
+/// The root of the workspace `frontend_path` belongs to, which is shared by
+/// every frontend in one checkout and differs between checkouts.
+///
+/// Falls back to the frontend directory itself when cargo cannot say. That is
+/// still per-checkout — the point of the key — and only costs the two frontends
+/// of a checkout their shared dependency builds.
+fn frontend_source_root(frontend_path: &std::path::Path) -> std::path::PathBuf {
+    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
+    let manifest = frontend_path.join("Cargo.toml");
+    // `locate-project` only parses manifests. It resolves nothing and downloads
+    // nothing, so it cannot contend for the package-cache lock the way the
+    // nested build could.
+    let located = std::process::Command::new(cargo)
+        .args(["locate-project", "--workspace", "--message-format", "plain"])
+        .arg("--manifest-path")
+        .arg(&manifest)
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .and_then(|output| String::from_utf8(output.stdout).ok());
+    match located {
+        Some(path) if !path.trim().is_empty() => std::path::PathBuf::from(path.trim())
+            .parent()
+            .map(std::path::Path::to_path_buf)
+            .unwrap_or_else(|| frontend_path.to_path_buf()),
+        _ => frontend_path.to_path_buf(),
+    }
 }
 
 /// Emit a `cargo:rerun-if-changed` directive for every in-tree source that the
@@ -688,8 +752,10 @@ mod tests {
     #[test]
     fn derives_a_shared_trunk_target_dir() {
         let out_dir = std::path::Path::new("target/release/build/pkg-hash/out");
+        let root = std::path::Path::new("/w");
+        let dir = shared_trunk_target_dir(out_dir, root).unwrap();
         assert_eq!(
-            shared_trunk_target_dir(out_dir).unwrap(),
+            dir.parent().unwrap(),
             std::path::Path::new("target/trunk-target")
         );
     }
@@ -697,9 +763,37 @@ mod tests {
     #[test]
     fn keeps_the_trunk_target_dir_per_cross_compilation_triple() {
         let out_dir = std::path::Path::new("target/wasm32-unknown-unknown/release/build/p-h/out");
+        let root = std::path::Path::new("/w");
+        let dir = shared_trunk_target_dir(out_dir, root).unwrap();
         assert_eq!(
-            shared_trunk_target_dir(out_dir).unwrap(),
+            dir.parent().unwrap(),
             std::path::Path::new("target/wasm32-unknown-unknown/trunk-target")
+        );
+    }
+
+    /// Two checkouts of one repository must not share a directory: cargo would
+    /// hand the second the first's compiled dependencies, because a workspace
+    /// member's unit hash does not include where it lives.
+    #[test]
+    fn each_checkout_gets_its_own_trunk_target_dir() {
+        let out_dir = std::path::Path::new("target/release/build/pkg-hash/out");
+        let a = std::path::Path::new("/home/u/.cargo/git/checkouts/strand-braid-1234/ec1a564");
+        let b = std::path::Path::new("/home/u/.cargo/git/checkouts/strand-braid-1234/9c0f6f2");
+        assert_ne!(
+            shared_trunk_target_dir(out_dir, a).unwrap(),
+            shared_trunk_target_dir(out_dir, b).unwrap()
+        );
+    }
+
+    /// The same source root has to keep the same directory, or every build would
+    /// compile the frontend from scratch.
+    #[test]
+    fn one_checkout_keeps_one_trunk_target_dir() {
+        let out_dir = std::path::Path::new("target/release/build/pkg-hash/out");
+        let root = std::path::Path::new("/home/u/src/strand-braid");
+        assert_eq!(
+            shared_trunk_target_dir(out_dir, root).unwrap(),
+            shared_trunk_target_dir(out_dir, root).unwrap()
         );
     }
 
