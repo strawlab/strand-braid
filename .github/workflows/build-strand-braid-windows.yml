@@ -190,6 +190,49 @@ jobs:
           cargo build --release -p strand-cam-gui --no-default-features \
             --features "strand-cam/bundle_files,strand-cam/flydratrax,strand-cam/checkercal,strand-cam/fiducial,strand-cam/flydra_feat_detect"
 
+      # `bundle_files` is a default feature of both strand-cam and braid-run, so
+      # the steps above already build both Yew/WASM frontends here -- this step
+      # checks that the frontend build scripts did their bookkeeping correctly on
+      # Windows specifically.
+      #
+      # build-util derives each frontend's `cargo:rerun-if-changed` list from the
+      # dependency-info files written by trunk's nested cargo. Parsing those is
+      # the one genuinely platform-dependent part: the paths are backslash-
+      # separated, and spaces are escaped GNU-make style, so a backslash is a
+      # path separator in `C:\src\main.rs` but an escape in `My\ Code`. The
+      # frontend's own root is matched as a path prefix too, which is
+      # case-sensitive in Rust but not in Windows itself.
+      #
+      # A regression in any of that is silent: build-util emits a
+      # `cargo:warning`, keeps going, and the build still succeeds -- while the
+      # binary quietly goes back to embedding a stale `dist/` whenever a shared
+      # crate changes. So assert that the emitted list really does reach outside
+      # the frontend directory. ads-webasm is used by both frontends and by
+      # neither backend, making it the crate this must not miss.
+      - name: Check that the frontends watch their shared crates
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=0
+          for pkg in braid-run strand-cam; do
+            outputs=$(find target/release/build -maxdepth 2 -name output -path "*/$pkg-*" || true)
+            if [ -z "$outputs" ]; then
+              echo "::error::no build-script output found for $pkg"
+              status=1
+              continue
+            fi
+            if grep -l 'rerun-if-changed=.*ads-webasm' $outputs >/dev/null; then
+              echo "OK: $pkg watches ads-webasm outside its frontend directory"
+            else
+              echo "::error::$pkg does not watch ads-webasm; build-util failed to read \
+          the frontend's dependency-info (see build_util::emit_rerun_for_wasm_sources). \
+          Editing a shared crate would leave a stale frontend embedded in the binary."
+              grep -h 'rerun-if-changed' $outputs || echo "(no rerun-if-changed directives at all)"
+              status=1
+            fi
+          done
+          exit $status
+
       - name: Collect binaries
         shell: bash
         run: |
