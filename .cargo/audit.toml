@@ -20,18 +20,8 @@
 # Removal condition: a stable Rerun/importer release used by this workspace no
 # longer resolves quick-xml below 0.41, or Rerun exposes feature controls that
 # let the shipped viewer omit both vulnerable parser paths.
-#
-# RUSTSEC-2026-0176 and RUSTSEC-2026-0177 affect pyo3 0.24.2 through the direct
-# pybraidz-chunked-iter dependency (and numpy 0.24.0). The affected iterator and
-# PyCFunction closure APIs are not used by the extension, so current exposure is
-# limited; nevertheless, the package remains vulnerable. Its PyO3/NumPy 0.29
-# migration is Priority 3 in the pre-1.0 ecosystem-upgrades handoff because it
-# also requires choosing a new minimum Python ABI and validating release wheels.
-# Remove both exceptions when that migration lands.
 [advisories]
 ignore = [
-    "RUSTSEC-2026-0176",
-    "RUSTSEC-2026-0177",
     "RUSTSEC-2026-0194",
     "RUSTSEC-2026-0195",
 ]
