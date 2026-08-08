@@ -181,6 +181,7 @@ pub fn trunk_build(
     let status = match Command::new("trunk")
         .args(["build", "--release", "--dist", "dist"])
         .current_dir(&frontend_path)
+        .env("NO_COLOR", "true") // See https://github.com/trunk-rs/trunk/issues/1065
         .env("CARGO_TARGET_DIR", &trunk_target_dir)
         // Force trunk's nested wasm32 cargo invocation to run offline. The
         // outer workspace cargo holds a shared lock on the global package
