@@ -319,6 +319,16 @@ pub struct CliArgs {
     /// If set, `.mp4` videos and log files are saved to this directory.
     #[arg(long)]
     data_dir: Option<PathBuf>,
+
+    /// Do not run the built-in ImOps detector, and do not offer it in the
+    /// browser UI.
+    ///
+    /// The detector sends its moments over UDP. Disable it when something else
+    /// is doing the detection — an application embedding Strand Camera reads
+    /// frames directly — so that no frame is processed twice and the browser UI
+    /// offers no controls that cannot affect the detection actually in use.
+    #[arg(long)]
+    disable_imops: bool,
 }
 
 impl CliArgs {
@@ -431,6 +441,7 @@ impl CliArgs {
             #[cfg(target_os = "linux")]
             v4l2loopback: self.v4l2loopback,
             data_dir: self.data_dir,
+            disable_imops: self.disable_imops,
             ..Default::default()
         })
     }
@@ -503,6 +514,32 @@ mod tests {
         assert!(args.csv_save_dir.ends_with("DATA"));
         assert!(args.led_box_device_path.is_none());
         assert!(args.data_dir.is_none());
+        // The built-in ImOps detector is available unless asked otherwise, so
+        // the standalone deployment is unchanged by the flag existing.
+        assert!(!args.disable_imops);
+    }
+
+    /// The flag has to survive into [StrandCamArgs]: that is what leaves
+    /// `StoreType::im_ops_state` `None`, which is in turn what keeps the
+    /// detector out of the frame path and its panel out of the browser UI.
+    #[test]
+    fn disable_imops_reaches_the_application_arguments() {
+        assert!(parse(&["--disable-imops"]).unwrap().disable_imops);
+    }
+
+    /// Detection is not a Braid-mode concern, but the flag is not one of the
+    /// arguments Braid forbids either, so it must work in both modes.
+    #[test]
+    fn disable_imops_is_allowed_under_braid() {
+        let args = parse(&[
+            "--braid-url",
+            "http://127.0.0.1:1234/",
+            "--camera-name",
+            "cam",
+            "--disable-imops",
+        ])
+        .unwrap();
+        assert!(args.disable_imops);
     }
 
     #[test]

@@ -104,3 +104,16 @@ Detection. Strand Camera's own ImOps detector serves the standalone deployment,
 where it is enabled and tuned from the browser UI and sends moments over UDP. An
 embedding host reads `frame_sink` and runs whatever detector it wants, in
 whatever thread it wants.
+
+Set `StrandCamArgs::disable_imops` (`--disable-imops` on the command line) when
+you do. It leaves `StoreType::im_ops_state` as `None`, which keeps the built-in
+detector out of the frame path and its panel out of the browser UI. Both halves
+matter:
+
+- Left enabled, it is a second threshold-and-moments pass over every frame,
+  paid for nothing — the host is already detecting from `frame_sink`.
+- Its panel is worse than wasted. The two enable flags are independent, so the
+  panel's checkbox reads *unchecked* while the host's detector is running
+  happily. An operator who unchecks it to stop detection sees tracking
+  continue; one who checks it starts a detector whose results go to a UDP
+  socket the host is not reading.

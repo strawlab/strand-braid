@@ -990,9 +990,12 @@ pub(crate) async fn frame_process_task<'a>(
                         // The standalone, store-driven ImOps detector: enabled and
                         // tuned from the browser UI, results delivered over UDP.
                         // An embedding host does not use this path; it runs its
-                        // own detector over `crate::host_frame_sink`.
+                        // own detector over `crate::host_frame_sink`, and turns
+                        // this one off with `--disable-imops`, which is what
+                        // leaves `im_ops_state` `None`.
                         if let Some(store_cache_ref) = store_cache.as_ref()
-                            && store_cache_ref.im_ops_state.do_detection
+                            && let Some(im_ops_state) = store_cache_ref.im_ops_state.as_ref()
+                            && im_ops_state.do_detection
                             && let Some(framenumber) = block_id
                         {
                             let src = frame.image.borrow();
@@ -1003,9 +1006,9 @@ pub(crate) async fn frame_process_task<'a>(
                             };
 
                             let detection = ImOpsProcessor::new(ImOpsProcessorConfig {
-                                threshold: store_cache_ref.im_ops_state.threshold,
-                                center_x: store_cache_ref.im_ops_state.center_x,
-                                center_y: store_cache_ref.im_ops_state.center_y,
+                                threshold: im_ops_state.threshold,
+                                center_x: im_ops_state.center_x,
+                                center_y: im_ops_state.center_y,
                             })
                             .process(
                                 OImage::copy_from(&mono8),
@@ -1039,15 +1042,14 @@ pub(crate) async fn frame_process_task<'a>(
                             });
 
                             let need_new_socket = if let Some(socket) = &im_ops_socket {
-                                socket.local_addr().unwrap().ip()
-                                    != store_cache_ref.im_ops_state.source
+                                socket.local_addr().unwrap().ip() != im_ops_state.source
                             } else {
                                 true
                             };
 
                             if need_new_socket {
                                 let mut iter = std::net::ToSocketAddrs::to_socket_addrs(&(
-                                    store_cache_ref.im_ops_state.source,
+                                    im_ops_state.source,
                                     0u16,
                                 ))
                                 .unwrap();
@@ -1062,8 +1064,7 @@ pub(crate) async fn frame_process_task<'a>(
 
                             if let Some(socket) = &mut im_ops_socket {
                                 let buf = serde_cbor::to_vec(&mc).unwrap();
-                                match socket.send_to(&buf, store_cache_ref.im_ops_state.destination)
-                                {
+                                match socket.send_to(&buf, im_ops_state.destination) {
                                     Ok(_n_bytes) => {}
                                     Err(e) => {
                                         error!("Unable to send image moment data. {}", e);

@@ -697,6 +697,16 @@ pub struct StrandCamArgs {
     pub fmf_filename_template: String,
     pub ufmf_filename_template: String,
     pub disable_console: bool,
+    /// Do not run the built-in ImOps detector, and do not offer it in the
+    /// browser UI.
+    ///
+    /// The detector reports its moments over UDP, which suits the standalone
+    /// deployment. An embedding host reads frames from
+    /// [`host_options::StrandCamHostOptions::frame_sink`] and runs its own
+    /// detector instead; leaving this one enabled there costs a second
+    /// threshold-and-moments pass over every frame and offers the operator a
+    /// panel of controls that changes nothing the host does.
+    pub disable_imops: bool,
     pub csv_save_dir: String,
     pub led_box_device_path: Option<String>,
     #[cfg(feature = "flydratrax")]
@@ -739,6 +749,7 @@ impl Default for StrandCamArgs {
             fmf_filename_template: FMF_FILENAME_TEMPLATE_DEFAULT.to_string(),
             ufmf_filename_template: UFMF_FILENAME_TEMPLATE_DEFAULT.to_string(),
             disable_console: false,
+            disable_imops: false,
             #[cfg(feature = "fiducial")]
             apriltag_csv_filename_template: strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT
                 .to_string(),
@@ -2355,7 +2366,7 @@ where
         post_trigger_buffer_size: 0,
         cuda_devices,
         apriltag_state,
-        im_ops_state: ImOpsState::default(),
+        im_ops_state: (!args.disable_imops).then(ImOpsState::default),
         had_frame_processing_error: false,
         camera_calibration: None,
         version_update: None,
