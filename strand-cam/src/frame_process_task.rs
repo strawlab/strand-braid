@@ -588,11 +588,11 @@ pub(crate) async fn frame_process_task<'a>(
                 let filename = creation_time.format(format_str_mp4.as_str()).to_string();
                 let is_recording_mp4 = Some(RecordingPath::new(filename.clone()));
 
-                let mp4_path = {
-                    let local = chrono::Local::now();
-                    let formatted_filename = local.format(&format_str_mp4).to_string();
-                    data_dir.join(formatted_filename)
-                };
+                // Same name as reported in `is_recording_mp4`. For a post
+                // trigger recording, `creation_time` is the capture time of the
+                // oldest buffered frame, so this differs from the current time
+                // by the duration of the buffer.
+                let mp4_path = data_dir.join(&filename);
 
                 let mut raw = bg_movie_writer::BgMovieWriter::new(
                     mp4_recording_config.final_cfg,
