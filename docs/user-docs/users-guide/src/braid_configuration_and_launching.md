@@ -40,6 +40,11 @@ strand-cam --list-cameras
 This prints the available cameras (name, model, and serial) for the selected
 `--camera-backend` (Basler Pylon by default) and exits. Use a printed name as
 the `name` of a `[[cameras]]` entry above, or with `strand-cam --camera-name`.
+For machine-readable output, add `--json`:
+
+```sh
+strand-cam --list-cameras --json
+```
 
 ## Camera synchronization (the `[trigger]` table)
 

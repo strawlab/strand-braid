@@ -4,6 +4,7 @@
 use std::path::PathBuf;
 
 use clap::{CommandFactory, FromArgMatches, Parser, ValueEnum};
+use serde::Serialize;
 
 use crate::{BraidArgs, StandaloneArgs, StandaloneOrBraid, StrandCamArgs, run_strand_cam_app};
 
@@ -32,12 +33,22 @@ pub enum CameraBackend {
     Sim,
 }
 
+#[derive(Serialize)]
+struct ListedCamera<'a> {
+    name: &'a str,
+    model: &'a str,
+    serial: &'a str,
+}
+
 /// Enumerate the cameras visible to `mymod` and print them to stdout.
 ///
 /// The first column of each row is the camera's name, which is exactly the
 /// value to pass to `--camera-name` (and to use as a camera `name` in a Braid
 /// configuration file).
-fn list_cameras<M, C, G>(mymod: &ci2_async::ThreadedAsyncCameraModule<M, C, G>) -> Result<()>
+fn list_cameras<M, C, G>(
+    mymod: &ci2_async::ThreadedAsyncCameraModule<M, C, G>,
+    json: bool,
+) -> Result<()>
 where
     M: ci2::CameraModule<CameraType = C, Guard = G>,
     C: ci2::Camera,
@@ -51,6 +62,20 @@ where
     let infos = mymod
         .camera_infos()
         .with_context(|| format!("enumerating cameras for the '{backend}' backend"))?;
+
+    if json {
+        let cameras: Vec<_> = infos
+            .iter()
+            .map(|info| ListedCamera {
+                name: info.name(),
+                model: info.model(),
+                serial: info.serial(),
+            })
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&cameras)?);
+        return Ok(());
+    }
+
     if infos.is_empty() {
         println!("No cameras found for the '{backend}' backend.");
         return Ok(());
@@ -171,7 +196,7 @@ where
     // Enumerate cameras and exit, without launching the application or opening a
     // browser.
     if cli.list_cameras {
-        return list_cameras(&mymod).map(|()| mymod);
+        return list_cameras(&mymod, cli.json).map(|()| mymod);
     }
 
     let args = cli
@@ -233,6 +258,10 @@ pub struct CliArgs {
     /// launching the application or opening a browser.
     #[arg(long)]
     list_cameras: bool,
+
+    /// Print the camera list as JSON. Requires `--list-cameras`.
+    #[arg(long, requires = "list_cameras")]
+    json: bool,
 
     /// Path to a file with camera settings which will be loaded.
     #[arg(long)]
@@ -576,6 +605,31 @@ mod tests {
     fn list_cameras_flag() {
         assert!(parse_cli_args(&["--list-cameras"]).unwrap().list_cameras);
         assert!(!parse_cli_args(&[]).unwrap().list_cameras);
+    }
+
+    #[test]
+    fn json_flag_requires_list_cameras() {
+        let args = parse_cli_args(&["--list-cameras", "--json"]).unwrap();
+        assert!(args.list_cameras);
+        assert!(args.json);
+        assert!(parse_cli_args(&["--json"]).is_err());
+    }
+
+    #[test]
+    fn listed_camera_serializes_to_expected_json() {
+        let camera = ListedCamera {
+            name: "Basler-1234",
+            model: "Example Model",
+            serial: "1234",
+        };
+        assert_eq!(
+            serde_json::to_value(camera).unwrap(),
+            serde_json::json!({
+                "name": "Basler-1234",
+                "model": "Example Model",
+                "serial": "1234",
+            })
+        );
     }
 
     #[test]
