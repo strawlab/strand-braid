@@ -2465,7 +2465,11 @@ where
         info!("Strand Cam listening at {listen_addr}");
 
         for url in urls.iter() {
-            info!(" * predicted URL {url}");
+            let url = url.to_string();
+            info!(
+                " * predicted URL {url}{}",
+                braid_types::token_expiry_note(&url)
+            );
         }
     }
 

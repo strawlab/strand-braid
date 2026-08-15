@@ -448,7 +448,11 @@ async fn launch_braid_http_backend(
 
     let urls = strand_bui_backend_session::build_urls(&mainbrain_server_info)?;
     for url in urls.iter() {
-        info!("Predicted URL: {url}");
+        let url = url.to_string();
+        info!(
+            "Predicted URL: {url}{}",
+            braid_types::token_expiry_note(&url)
+        );
     }
 
     Ok(http_serve_future)

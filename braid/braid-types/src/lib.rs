@@ -740,6 +740,54 @@ pub fn is_loopback(url: &http::Uri) -> bool {
 #[cfg(feature = "start-listener")]
 pub const ACCESS_TOKEN_TTL: std::time::Duration = std::time::Duration::from_secs(30 * 60);
 
+/// Extract the expiry of the access token carried in a URL's `token` query
+/// parameter, as local time.
+///
+/// The token's wire format belongs to `axum-token-auth`, so the decoding is
+/// [`axum_token_auth::token_expiry`]'s job; this only locates the parameter and
+/// converts the result for display. That expiry is NOT authenticated (see the
+/// upstream docs) and must never be used to decide whether a request is
+/// allowed — it exists to tell an operator when a URL stops working.
+///
+/// Returns `None` for a URL with no `token` parameter (a loopback URL has
+/// none), for anything the token decoder rejects, and for an expiry outside
+/// 2020-01-01 .. 2100-01-01: random bytes that happen to start with a valid
+/// version byte would otherwise be reported as a year-9999 date. Never panics.
+#[cfg(feature = "start-listener")]
+pub fn extract_token_expiry(url: &str) -> Option<chrono::DateTime<chrono::Local>> {
+    let query = url.split('?').nth(1)?;
+    let token = query
+        .split('&')
+        .find_map(|param| param.strip_prefix("token="))?;
+
+    let expiry_secs = axum_token_auth::token_expiry(token)?.unix_timestamp();
+    if !(1_577_836_800..=4_102_444_800).contains(&expiry_secs) {
+        return None;
+    }
+
+    let utc = chrono::DateTime::<chrono::Utc>::from_timestamp(expiry_secs, 0)?;
+    Some(utc.into())
+}
+
+/// The parenthetical to append to a logged URL saying when its access token
+/// stops working, or an empty string when the URL carries no readable token
+/// (a loopback URL has none at all).
+///
+/// Both Braid and Strand Cam log predicted URLs at startup and operators have
+/// tried them long afterwards, so the two call sites share this wording rather
+/// than each formatting their own.
+#[cfg(feature = "start-listener")]
+pub fn token_expiry_note(url: &str) -> String {
+    match extract_token_expiry(url) {
+        // Local time with the date: the process may have started yesterday.
+        Some(expiry) => format!(
+            " (link valid until {})",
+            expiry.format("%Y-%m-%d %H:%M:%S %:z")
+        ),
+        None => String::new(),
+    }
+}
+
 /// Start a TCP listener for an HTTP server, minting an access token if the
 /// listen address is not loopback.
 ///
@@ -1565,3 +1613,147 @@ pub const BRAID_EVENT_NAME: &str = "braid";
 /// that all clients (not only the one that initiated the quit) show the "Braid
 /// has quit" screen and stop trying to reconnect.
 pub const BRAID_QUIT_EVENT_NAME: &str = "braid-quit";
+
+#[cfg(all(test, feature = "start-listener"))]
+mod tests_token_expiry {
+    use super::*;
+    use base64::Engine;
+
+    /// Round-trip a token through the real minting path, so this stays honest
+    /// if `axum-token-auth` ever changes how an expiry is carried.
+    #[test]
+    fn test_extract_token_expiry_valid() {
+        let key = axum_token_auth::Key::generate();
+        let token = axum_token_auth::generate_token(&key, ACCESS_TOKEN_TTL);
+        let url = format!("http://example.com/path?token={token}");
+
+        let expected = chrono::Utc::now() + ACCESS_TOKEN_TTL;
+        let dt = extract_token_expiry(&url).expect("a freshly minted token has a readable expiry");
+        assert!(
+            (dt.timestamp() - expected.timestamp()).abs() <= 5,
+            "expected ~{expected}, got {dt}"
+        );
+    }
+
+    /// A token is only one of several query parameters, and only the last
+    /// segment of the URL, so it must be located rather than assumed.
+    #[test]
+    fn test_extract_token_expiry_among_other_params() {
+        let key = axum_token_auth::Key::generate();
+        let token = axum_token_auth::generate_token(&key, ACCESS_TOKEN_TTL);
+        let url = format!("http://example.com/path?first=1&token={token}&last=2");
+        assert!(extract_token_expiry(&url).is_some());
+    }
+
+    #[test]
+    fn test_extract_token_expiry_wrong_version() {
+        // Token with version byte 0x02 instead of 0x01.
+        let expiry_secs: i64 = 1787302331;
+        let mut token_bytes = vec![0x02]; // wrong version
+        token_bytes.extend_from_slice(&expiry_secs.to_le_bytes());
+        token_bytes.extend_from_slice(&[0u8; 32]);
+
+        let token_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&token_bytes);
+        let url = format!("http://example.com/path?token={token_b64}");
+
+        assert!(
+            extract_token_expiry(&url).is_none(),
+            "Token with wrong version should return None"
+        );
+    }
+
+    #[test]
+    fn test_extract_token_expiry_truncated() {
+        // Token with only 5 bytes (too short).
+        let token_bytes = vec![0x01, 0x02, 0x03, 0x04, 0x05];
+
+        let token_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&token_bytes);
+        let url = format!("http://example.com/path?token={token_b64}");
+
+        assert!(
+            extract_token_expiry(&url).is_none(),
+            "Truncated token should return None"
+        );
+    }
+
+    #[test]
+    fn test_extract_token_expiry_non_base64() {
+        let url = "http://example.com/path?token=!!!invalid!!!";
+
+        assert!(
+            extract_token_expiry(url).is_none(),
+            "Non-base64 token should return None"
+        );
+    }
+
+    #[test]
+    fn test_extract_token_expiry_no_token() {
+        let url = "http://example.com/path?other_param=value";
+
+        assert!(
+            extract_token_expiry(url).is_none(),
+            "URL without token parameter should return None"
+        );
+    }
+
+    #[test]
+    fn test_extract_token_expiry_no_query() {
+        let url = "http://example.com/path";
+
+        assert!(
+            extract_token_expiry(url).is_none(),
+            "URL without query string should return None"
+        );
+    }
+
+    #[test]
+    fn test_extract_token_expiry_implausible_timestamp_too_old() {
+        // Timestamp before 2020-01-01.
+        let expiry_secs: i64 = 1000000000; // 2001-09-09
+
+        let mut token_bytes = vec![0x01];
+        token_bytes.extend_from_slice(&expiry_secs.to_le_bytes());
+        token_bytes.extend_from_slice(&[0u8; 32]);
+
+        let token_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&token_bytes);
+        let url = format!("http://example.com/path?token={token_b64}");
+
+        assert!(
+            extract_token_expiry(&url).is_none(),
+            "Implausibly old timestamp should return None"
+        );
+    }
+
+    #[test]
+    fn test_extract_token_expiry_implausible_timestamp_too_far_future() {
+        // Timestamp after 2100-01-01.
+        let expiry_secs: i64 = 4102444801; // After 2100-01-01
+
+        let mut token_bytes = vec![0x01];
+        token_bytes.extend_from_slice(&expiry_secs.to_le_bytes());
+        token_bytes.extend_from_slice(&[0u8; 32]);
+
+        let token_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&token_bytes);
+        let url = format!("http://example.com/path?token={token_b64}");
+
+        assert!(
+            extract_token_expiry(&url).is_none(),
+            "Implausibly far future timestamp should return None"
+        );
+    }
+
+    #[test]
+    fn token_expiry_note_is_appendable() {
+        // A tokenless (e.g. loopback) URL must leave the log line untouched.
+        assert_eq!(token_expiry_note("http://127.0.0.1:3440/"), "");
+
+        let mut token_bytes = vec![0x01];
+        token_bytes.extend_from_slice(&1787302331i64.to_le_bytes());
+        token_bytes.extend_from_slice(&[0u8; 32]);
+        let token_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&token_bytes);
+        let note = token_expiry_note(&format!("http://192.168.1.1:3440/?token={token_b64}"));
+        println!("rendered note: {note:?}");
+        assert!(note.starts_with(" (link valid until 20"), "{note}");
+        assert!(note.ends_with(')'), "{note}");
+    }
+}
