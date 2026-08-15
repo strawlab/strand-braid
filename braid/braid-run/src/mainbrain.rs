@@ -135,22 +135,6 @@ async fn events_handler(
     body
 }
 
-async fn handle_auth_error(err: tower::BoxError) -> (StatusCode, &'static str) {
-    match err.downcast::<axum_token_auth::ValidationErrors>() {
-        Ok(err) => {
-            tracing::error!(
-                "Validation error(s): {:?}",
-                err.errors().collect::<Vec<_>>()
-            );
-            (StatusCode::UNAUTHORIZED, "Request is not authorized")
-        }
-        Err(orig_err) => {
-            tracing::error!("Unhandled internal error: {orig_err}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
-        }
-    }
-}
-
 /// Query the mainbrain configuration to get data required for camera settings.
 ///
 /// Note that this does not change the state of the mainbrain to register
@@ -429,7 +413,7 @@ async fn launch_braid_http_backend(
                 // Auth layer will produce an error if the request cannot be
                 // authorized so we must handle that.
                 .layer(axum::error_handling::HandleErrorLayer::new(
-                    handle_auth_error,
+                    braid_types::handle_auth_error,
                 ))
                 .layer(auth_layer),
         )

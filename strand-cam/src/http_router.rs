@@ -17,7 +17,7 @@ use eyre::Result;
 
 use crate::{
     APP_INFO, COOKIE_SECRET_KEY, StrandCamAppState, callback_handler, cam_name_handler,
-    device_connect_urls_handler, events_handler, handle_auth_error,
+    device_connect_urls_handler, events_handler,
 };
 
 /// Load the persistent cookie/token secret, generating and saving a fresh one
@@ -120,7 +120,7 @@ pub(crate) fn build_http_router(
                 // Auth layer will produce an error if the request cannot be
                 // authorized so we must handle that.
                 .layer(axum::error_handling::HandleErrorLayer::new(
-                    handle_auth_error,
+                    braid_types::handle_auth_error,
                 ))
                 .layer(auth_layer),
         )

@@ -820,6 +820,38 @@ pub async fn start_listener(
     Ok((listener, http_camserver_info))
 }
 
+/// Turn an authentication failure from the auth layer into a `401` naming the
+/// reason, and log the same reason.
+///
+/// Pass this to `axum::error_handling::HandleErrorLayer::new`. The reasons come
+/// from [`axum_token_auth::ValidationErrors`] and distinguish an expired token
+/// from a missing one, an expired session from an unreadable cookie, and so on.
+/// Reporting them is what makes a stale URL diagnosable without server access;
+/// they name categories and timestamps only, never a token or cookie value.
+///
+/// Logged at `warn`: an unauthorized request is a routine event, not a fault of
+/// the server.
+#[cfg(feature = "start-listener")]
+pub async fn handle_auth_error(
+    err: Box<dyn std::error::Error + Send + Sync>,
+) -> (http::StatusCode, String) {
+    match err.downcast::<axum_token_auth::ValidationErrors>() {
+        Ok(err) => {
+            let reasons = err.errors().collect::<Vec<_>>().join("; ");
+            let body = format!("Request is not authorized: {reasons}");
+            tracing::warn!("{body}");
+            (http::StatusCode::UNAUTHORIZED, body)
+        }
+        Err(orig_err) => {
+            tracing::error!("Unhandled internal error: {orig_err}");
+            (
+                http::StatusCode::INTERNAL_SERVER_ERROR,
+                "internal server error".to_string(),
+            )
+        }
+    }
+}
+
 /// Parse a list of CIDR strings (e.g. `"100.64.0.0/10"`) into the network type
 /// expected by [`axum_token_auth::AuthConfig::trusted_networks`], returning a
 /// descriptive error for the first one that fails to parse.
