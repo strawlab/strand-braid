@@ -79,7 +79,6 @@ pub struct EmbeddedHttpOptions {
 }
 
 use std::{
-    io::Write,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket},
     sync::{Arc, RwLock},
 };
@@ -559,23 +558,6 @@ struct StrandCamAppState {
     /// The cookie/token secret, used to mint a fresh short-lived access token
     /// when a device-connection QR code is requested.
     persistent_secret: cookie::Key,
-}
-
-fn display_qr_url(url: &str) -> Result<()> {
-    use qrcode::QrCode;
-    use qrcode::render::unicode;
-    use std::io::stdout;
-
-    let qr = QrCode::new(url)?;
-
-    let image = qr.render::<unicode::Dense1x2>().build();
-
-    let stdout = stdout();
-    let mut stdout_handle = stdout.lock();
-    writeln!(stdout_handle)?;
-    stdout_handle.write_all(image.as_bytes())?;
-    writeln!(stdout_handle)?;
-    Ok(())
 }
 
 #[derive(Debug, Clone)]
@@ -2484,10 +2466,6 @@ where
 
         for url in urls.iter() {
             info!(" * predicted URL {url}");
-            if !braid_types::is_loopback(url) {
-                println!("QR code for {url}");
-                display_qr_url(&format!("{url}"))?;
-            }
         }
     }
 

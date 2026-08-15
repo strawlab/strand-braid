@@ -449,10 +449,6 @@ async fn launch_braid_http_backend(
     let urls = strand_bui_backend_session::build_urls(&mainbrain_server_info)?;
     for url in urls.iter() {
         info!("Predicted URL: {url}");
-        if !braid_types::is_loopback(url) {
-            println!("QR code for {url}");
-            display_qr_url(&format!("{url}"))?;
-        }
     }
 
     Ok(http_serve_future)
@@ -479,23 +475,6 @@ impl flydra2::ConnectedCamCallback for SendConnectedCamToBuiBackend {
         let mut tracker = self.shared_store.write().unwrap();
         tracker.modify(|shared| shared.connected_cameras = new_cam_list.clone());
     }
-}
-
-fn display_qr_url(url: &str) -> Result<()> {
-    use qrcode::QrCode;
-    use qrcode::render::unicode;
-    use std::io::{Write, stdout};
-
-    let qr = QrCode::new(url)?;
-
-    let image = qr.render::<unicode::Dense1x2>().build();
-
-    let stdout = stdout();
-    let mut stdout_handle = stdout.lock();
-    writeln!(stdout_handle)?;
-    stdout_handle.write_all(image.as_bytes())?;
-    writeln!(stdout_handle)?;
-    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
