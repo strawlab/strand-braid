@@ -196,6 +196,18 @@ CSS custom properties defined in `_tokens.scss`. Components reference those
         color: var(--error, #b00);
     }
 
+    .connect-device-expiry {
+        font-size: 0.9em;
+        color: var(--muted);
+        margin: 0.25em 0 0 0;
+    }
+
+    .connect-device-expired {
+        font-size: 0.9em;
+        color: var(--error, #b00);
+        margin: 0.25em 0 0 0;
+    }
+
     .infoCircle {
         display: inline-block;
         width: 1.0em;

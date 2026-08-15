@@ -10,6 +10,7 @@
 //! and renders each (non-loopback) URL as a QR code that can be scanned by a
 //! phone on the same network to open the same UI directly.
 
+use base64::Engine;
 use strand_bui_backend_session_types::DeviceConnectUrls;
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
@@ -121,9 +122,12 @@ impl ConnectDevice {
         html! {
             <div class="modal-container connect-device-modal">
                 <h1>{ "Connect a device" }</h1>
-                <p>{ "Scan a QR code below with your phone's camera to open this \
-                      page on your phone. Your phone must be on the same network \
-                      as this computer." }</p>
+                <p>{ "Scan a QR code or copy a link below to open this page on \
+                      another device. If you open one of these links from an \
+                      in-app browser (like a chat app), your browser may not receive \
+                      the token. To bypass this problem, copy the link to your \
+                      clipboard and paste it directly into the browser or scan \
+                      the QR code with your camera app instead." }</p>
                 { body }
                 <p>
                     <Button
@@ -164,12 +168,25 @@ fn view_urls(info: &DeviceConnectUrls) -> Html {
         let qr = render_qr(url).unwrap_or_else(|| {
             html! { <p class="connect-device-error">{ "Failed to render QR code." }</p> }
         });
+
+        // Attempt to parse and display the token's expiry time.
+        let expiry_text = if let Some(timestamp) = parse_token_expiry(url) {
+            if let Some(time) = format_expiry(timestamp) {
+                html! { <p class="connect-device-expiry">{ format!("Valid until {}", time) }</p> }
+            } else {
+                html! { <p class="connect-device-expired">{ "Expired — reload this dialog for a fresh code" }</p> }
+            }
+        } else {
+            html! {}
+        };
+
         html! {
             <li class="connect-device-item">
                 { qr }
                 <p class="connect-device-link">
                     <a href={(*url).clone()} target="_blank" rel="noopener">{ (*url).clone() }</a>
                 </p>
+                { expiry_text }
             </li>
         }
     });
@@ -223,6 +240,77 @@ fn render_qr(url: &str) -> Option<Html> {
     })
 }
 
+/// Parse the device-connect token's expiry timestamp from a URL's query parameters.
+///
+/// The token format (from axum-token-auth) is:
+/// base64url-no-padding(version_u8 ‖ expiry_i64_le ‖ hmac_sha256)
+///
+/// Returns the Unix timestamp (seconds since epoch) when the token expires,
+/// or None if the token is missing, malformed, or has an unexpected format.
+/// This function degrades silently on any error.
+fn parse_token_expiry(url: &str) -> Option<i64> {
+    // Extract the token query parameter.
+    let query_start = url.find('?')?;
+    let query = &url[query_start + 1..];
+
+    // Find token=<value>, stopping at & or # if present.
+    let token_start = query.find("token=")?;
+    let token_value_start = token_start + 6; // "token=".len()
+    let token_value = query[token_value_start..].split(['&', '#']).next()?;
+
+    // Decode base64url without padding.
+    let decoded = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .decode(token_value)
+        .ok()?;
+
+    // Need at least 9 bytes: version (1) + timestamp (8).
+    if decoded.len() < 9 {
+        return None;
+    }
+
+    // Version byte must be 1.
+    if decoded[0] != 1 {
+        return None;
+    }
+
+    // Extract the i64 little-endian timestamp from bytes 1..9.
+    let timestamp_bytes: [u8; 8] = decoded[1..9].try_into().ok()?;
+    let timestamp = i64::from_le_bytes(timestamp_bytes);
+
+    // A token that passed the checks above can still be random bytes that
+    // happen to start with a 1, so reject any expiry outside a plausible range
+    // rather than rendering "Invalid Date" or a year-30000 timestamp.
+    if !(PLAUSIBLE_EXPIRY_RANGE_UNIX).contains(&timestamp) {
+        return None;
+    }
+
+    Some(timestamp)
+}
+
+/// Unix-second bounds an access-token expiry must fall within to be believed:
+/// 2020-01-01 through 2100-01-01.
+const PLAUSIBLE_EXPIRY_RANGE_UNIX: std::ops::RangeInclusive<i64> = 1_577_836_800..=4_102_444_800;
+
+/// Format an expiry timestamp as a human-readable time string suitable for display.
+/// Returns None if the token has already expired.
+fn format_expiry(timestamp: i64) -> Option<String> {
+    let now = js_sys::Date::now() / 1000.0; // now in seconds
+    if (timestamp as f64) <= now {
+        return None; // Already expired
+    }
+
+    // Create a JS Date from the timestamp (in milliseconds).
+    let ms = timestamp as f64 * 1000.0;
+    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms));
+    // Render in the browser's own locale: this dialog is read next to a wall
+    // clock, so 14:32 and 2:32 PM must match what the reader expects.
+    let locale = web_sys::window()
+        .and_then(|w| w.navigator().language())
+        .unwrap_or_else(|| "en-US".to_string());
+    let time_str: String = date.to_locale_time_string(&locale).into();
+    Some(time_str)
+}
+
 /// Fetch the connection URLs from the backend. The request is made to a
 /// relative URL so the browser sends the existing session cookie.
 async fn fetch_connect_urls() -> Result<DeviceConnectUrls, String> {
@@ -241,4 +329,67 @@ async fn fetch_connect_urls() -> Result<DeviceConnectUrls, String> {
         .map_err(|e| format!("{e:?}"))?;
     let text = text_value.as_string().ok_or("response was not text")?;
     serde_json::from_str(&text).map_err(|e| format!("invalid response: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Construct a synthetic valid token with the given expiry timestamp.
+    fn make_token(expiry: i64) -> String {
+        let mut payload = vec![1u8]; // version byte
+        payload.extend_from_slice(&expiry.to_le_bytes()); // i64 little-endian
+        payload.extend_from_slice(&[0u8; 32]); // dummy HMAC-SHA256
+        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&payload)
+    }
+
+    #[test]
+    fn test_parse_token_expiry_valid() {
+        let token = make_token(1700000000i64);
+        let url = format!("http://192.168.1.1:3440/ui?token={}", token);
+        let expiry = parse_token_expiry(&url);
+        assert_eq!(expiry, Some(1700000000i64));
+    }
+
+    #[test]
+    fn test_parse_token_expiry_wrong_version() {
+        // Create a token with version byte = 2 instead of 1.
+        let mut payload = vec![2u8]; // wrong version
+        payload.extend_from_slice(&1700000000i64.to_le_bytes());
+        payload.extend_from_slice(&[0u8; 32]);
+        let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&payload);
+        let url = format!("http://192.168.1.1:3440/ui?token={}", token);
+        assert_eq!(parse_token_expiry(&url), None);
+    }
+
+    #[test]
+    fn test_parse_token_expiry_truncated() {
+        // Create a token with only 4 bytes (less than the required 9).
+        let payload = vec![1u8, 2u8, 3u8, 4u8];
+        let token = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&payload);
+        let url = format!("http://192.168.1.1:3440/ui?token={}", token);
+        assert_eq!(parse_token_expiry(&url), None);
+    }
+
+    #[test]
+    fn test_parse_token_expiry_garbage() {
+        let url = "http://192.168.1.1:3440/ui?token=this_is_not_valid_base64!!!";
+        assert_eq!(parse_token_expiry(&url), None);
+    }
+
+    #[test]
+    fn test_parse_token_expiry_no_token() {
+        let url = "http://192.168.1.1:3440/ui?other=value";
+        assert_eq!(parse_token_expiry(&url), None);
+    }
+
+    #[test]
+    fn test_parse_token_expiry_implausible() {
+        // Random bytes that happen to begin with the version byte decode to a
+        // nonsense expiry; rather than render it, we show nothing.
+        for absurd in [0i64, -1, i64::MAX, 253_402_300_800] {
+            let url = format!("http://192.168.1.1:3440/ui?token={}", make_token(absurd));
+            assert_eq!(parse_token_expiry(&url), None, "expiry {absurd}");
+        }
+    }
 }

@@ -16,6 +16,7 @@ serde_json.workspace = true
 serde_yaml.workspace = true
 qrcode = { workspace = true, default-features = false, features = ["svg"] }
 chrono.workspace = true
+base64.workspace = true
 csv = { workspace = true, optional = true }
 gloo-file = { workspace = true }
 gloo-timers = "0.3.0"
@@ -45,6 +46,7 @@ features = [
     "HtmlCanvasElement",
     "HtmlImageElement",
     "MouseEvent",
+    "Navigator",
     "Request",
     "RequestCache",
     "RequestInit",
