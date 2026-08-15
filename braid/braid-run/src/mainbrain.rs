@@ -215,6 +215,14 @@ async fn device_connect_urls_handler(
             braid_types::ACCESS_TOKEN_TTL,
         ))
     };
+    // Tell the frontend when the token it is about to show a QR code for dies,
+    // so a code left on screen can say so rather than silently going stale.
+    let token_expires_unix = match &token {
+        AccessToken::NoToken => None,
+        AccessToken::PreSharedToken(token) => {
+            axum_token_auth::token_expiry(token).map(|expiry| expiry.unix_timestamp())
+        }
+    };
     let info = BuiServerAddrInfo::new(bound, token);
     let uris = match strand_bui_backend_session::build_urls(&info) {
         Ok(uris) => uris,
@@ -231,6 +239,7 @@ async fn device_connect_urls_handler(
         strand_bui_backend_session_types::DeviceConnectUrls {
             urls,
             loopback_only,
+            token_expires_unix,
         },
     ))
 }
