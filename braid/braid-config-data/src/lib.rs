@@ -391,6 +391,99 @@ points = [
         );
     }
 
+    /// The forms documented in the user's guide must parse. These are copied
+    /// from `docs/user-docs/users-guide/src/parameters_for_object_detection_and_tracking.md`.
+    #[test]
+    fn documented_valid_region_forms_parse() {
+        use strand_http_video_streaming_types::CircleParams;
+
+        let one_circle = r#"
+[[cameras]]
+name = "Basler-40116750"
+
+[cameras.point_detection_config.valid_region.Circle]
+center_x = 320
+center_y = 256
+radius = 200
+"#;
+        let cfg: BraidConfig = toml::from_str(one_circle).unwrap();
+        assert_eq!(
+            cfg.cameras[0].point_detection_config.valid_region,
+            Shape::Circle(CircleParams {
+                center_x: 320,
+                center_y: 256,
+                radius: 200,
+            })
+        );
+
+        let two_circles = r#"
+[[cameras]]
+name = "Basler-40116750"
+
+[[cameras.point_detection_config.valid_region.MultipleCircles]]
+center_x = 160
+center_y = 256
+radius = 120
+
+[[cameras.point_detection_config.valid_region.MultipleCircles]]
+center_x = 480
+center_y = 256
+radius = 120
+"#;
+        let cfg: BraidConfig = toml::from_str(two_circles).unwrap();
+        assert_eq!(
+            cfg.cameras[0].point_detection_config.valid_region,
+            Shape::MultipleCircles(vec![
+                CircleParams {
+                    center_x: 160,
+                    center_y: 256,
+                    radius: 120,
+                },
+                CircleParams {
+                    center_x: 480,
+                    center_y: 256,
+                    radius: 120,
+                },
+            ])
+        );
+
+        let everything = r#"
+[[cameras]]
+name = "Basler-40116750"
+
+[cameras.point_detection_config]
+valid_region = "Everything"
+"#;
+        let cfg: BraidConfig = toml::from_str(everything).unwrap();
+        assert_eq!(
+            cfg.cameras[0].point_detection_config.valid_region,
+            Shape::Everything
+        );
+
+        // The concave example from the guide.
+        let u_shape = r#"
+[[cameras]]
+name = "Basler-40116750"
+
+[cameras.point_detection_config.valid_region.Polygon]
+points = [
+    [0.0, 0.0],
+    [640.0, 0.0],
+    [640.0, 512.0],
+    [400.0, 512.0],
+    [400.0, 150.0],
+    [240.0, 150.0],
+    [240.0, 512.0],
+    [0.0, 512.0],
+]
+"#;
+        let cfg: BraidConfig = toml::from_str(u_shape).unwrap();
+        match &cfg.cameras[0].point_detection_config.valid_region {
+            Shape::Polygon(p) => assert_eq!(p.points.len(), 8),
+            other => panic!("expected a polygon, got {other:?}"),
+        }
+    }
+
     #[test]
     fn show_polygon_valid_region_yaml() {
         // Strand Camera's browser UI and its saved-to-disk object detection
