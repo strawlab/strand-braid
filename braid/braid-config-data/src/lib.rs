@@ -311,3 +311,105 @@ pub fn parse_config_file<P: AsRef<std::path::Path>>(fname: P) -> Result<BraidCon
     cfg.fixup_relative_paths(fname.as_ref())?;
     Ok(cfg)
 }
+
+#[cfg(test)]
+mod valid_region_tests {
+    use super::*;
+    use braid_types::BraidCameraConfig;
+    use flydra_feature_detector_types::ImPtDetectCfg;
+    use strand_http_video_streaming_types::{PolygonParams, Shape};
+
+    /// Build a camera config whose `valid_region` is a polygon.
+    fn polygon_camera_config() -> BraidCameraConfig {
+        let mut cam = BraidCameraConfig::default_absdiff_config("Basler-40116750".to_string());
+        cam.point_detection_config.valid_region = Shape::Polygon(PolygonParams {
+            points: vec![
+                (100.0, 50.0),
+                (600.0, 50.0),
+                (600.0, 400.0),
+                (350.0, 480.0),
+                (100.0, 400.0),
+            ],
+        });
+        cam
+    }
+
+    #[test]
+    fn show_polygon_valid_region_toml() {
+        let cfg = BraidConfig {
+            cameras: vec![polygon_camera_config()],
+            ..Default::default()
+        };
+        // toml 0.5's struct serializer emits fields in declaration order and
+        // errors with ValueAfterTable, so go through toml::Value, whose keys
+        // are sorted (tables last).
+        let value = toml::Value::try_from(&cfg).unwrap();
+        let buf = toml::to_string_pretty(&value).unwrap();
+        println!("--- full braid config .toml ---\n{buf}");
+
+        let cfg2: BraidConfig = toml::from_str(&buf).unwrap();
+        assert_eq!(cfg.cameras, cfg2.cameras);
+    }
+
+    #[test]
+    fn parse_polygon_valid_region_toml() {
+        // `ImPtDetectCfg` is `deny_unknown_fields` and has no per-field serde
+        // defaults, so as soon as `point_detection_config` is present, every
+        // one of its fields must be given.
+        let buf = r#"
+[mainbrain]
+output_base_dirname = "DATA"
+
+[[cameras]]
+name = "Basler-40116750"
+
+[cameras.point_detection_config]
+do_update_background_model = true
+polarity = "DetectAbsDiff"
+alpha = 0.01
+n_sigma = 7.0
+bright_non_gaussian_cutoff = 255
+bright_non_gaussian_replacement = 5
+bg_update_interval = 200
+diff_threshold = 30
+use_cmp = true
+max_num_points = 1
+feature_window_size = 30
+clear_fraction = 0.3
+despeckle_threshold = 5
+
+[cameras.point_detection_config.valid_region.Polygon]
+points = [
+    [100.0, 50.0],
+    [600.0, 50.0],
+    [600.0, 400.0],
+    [350.0, 480.0],
+    [100.0, 400.0],
+]
+"#;
+        let cfg: BraidConfig = toml::from_str(buf).unwrap();
+        assert_eq!(
+            cfg.cameras[0].point_detection_config.valid_region,
+            Shape::Polygon(PolygonParams {
+                points: vec![
+                    (100.0, 50.0),
+                    (600.0, 50.0),
+                    (600.0, 400.0),
+                    (350.0, 480.0),
+                    (100.0, 400.0),
+                ],
+            })
+        );
+    }
+
+    #[test]
+    fn show_polygon_valid_region_yaml() {
+        // Strand Camera's browser UI and its saved-to-disk object detection
+        // config use YAML rather than TOML.
+        let cfg: ImPtDetectCfg = polygon_camera_config().point_detection_config;
+        let buf = serde_yaml::to_string(&cfg).unwrap();
+        println!("--- ImPtDetectCfg .yaml ---\n{buf}");
+        let cfg2: ImPtDetectCfg = serde_yaml::from_str(&buf).unwrap();
+        assert_eq!(cfg, cfg2);
+    }
+}

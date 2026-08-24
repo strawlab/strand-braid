@@ -1030,3 +1030,39 @@ fn test_mask_multiple_circles() -> eyre::Result<()> {
     assert_eq!(mask, expected);
     Ok(())
 }
+
+#[test]
+fn test_mask_nonconvex_polygon_becomes_convex_hull() -> eyre::Result<()> {
+    // An L-shaped (non-convex) polygon. `parry_geom::mask_from_points`
+    // triangulates the *vertex set* with Delaunay, so the resulting mask is
+    // the convex hull of the vertices, not the polygon as drawn: the notch is
+    // filled in.
+    let roi_sz = FastImageSize::new(8, 8);
+    let l_shape = Shape::Polygon(strand_http_video_streaming_types::PolygonParams {
+        points: vec![
+            (1.0, 1.0),
+            (6.0, 1.0),
+            (6.0, 4.0),
+            (4.0, 4.0),
+            (4.0, 6.0),
+            (1.0, 6.0),
+        ],
+    });
+    let mask = compute_mask_image(roi_sz, &l_shape)?;
+    let mut out = String::new();
+    for row in 0..8 {
+        for col in 0..8 {
+            out.push(if mask.pixel_slice(row, col)[0] == 0 {
+                '.'
+            } else {
+                '#'
+            });
+        }
+        out.push('\n');
+    }
+    println!("L-shaped polygon mask ('.' = valid):\n{out}");
+    // the notch vertex (4,4) region is INSIDE the mask, i.e. the concavity was
+    // not honored:
+    assert_eq!(mask.pixel_slice(5, 5)[0], 0);
+    Ok(())
+}
