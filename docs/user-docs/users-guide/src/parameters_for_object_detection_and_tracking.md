@@ -50,9 +50,16 @@ points = [
 The vertices are `[x, y]` pixel coordinates in the full camera image. Since all
 other object detection parameters default, nothing else needs to be given.
 
-Note that only convex polygons behave as drawn: the mask is computed as the
-convex hull of the vertices you give, so a concave outline will be filled in.
-Use `MultipleCircles` or a convex outline if that matters.
+The vertices are read as a ring in the order given, and either winding
+direction works. Concave outlines are honored, so a polygon that excludes part
+of its own bounding area — an arena with a bite taken out of it, say — masks as
+drawn. The first and last vertex need not be repeated; the ring is closed for
+you.
+
+A ring that crosses itself, which includes a convex polygon whose vertices are
+listed out of order, has no well-defined interior. Such a polygon falls back to
+the convex hull of its vertices. A polygon with fewer than three distinct
+vertices, or whose vertices are all in a line, is rejected as an error.
 
 The region in use is drawn on the live image in the Strand Camera browser
 interface, and can be changed there by editing the YAML in the "Detailed

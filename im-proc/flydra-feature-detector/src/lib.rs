@@ -931,7 +931,7 @@ pub fn compute_mask_image(roi_sz: FastImageSize, shape: &Shape) -> Result<FastIm
             }
         }
         Shape::Polygon(shape) => {
-            let shape = parry_geom::mask_from_points(&shape.points);
+            let shape = parry_geom::mask_from_points(&shape.points)?;
             let m = parry2d_f64::math::Pose::IDENTITY;
             for (row, mask_row) in mask_row_iter.enumerate() {
                 for (col, row_item) in mask_row.iter_mut().enumerate() {
@@ -1032,37 +1032,45 @@ fn test_mask_multiple_circles() -> eyre::Result<()> {
 }
 
 #[test]
-fn test_mask_nonconvex_polygon_becomes_convex_hull() -> eyre::Result<()> {
-    // An L-shaped (non-convex) polygon. `parry_geom::mask_from_points`
-    // triangulates the *vertex set* with Delaunay, so the resulting mask is
-    // the convex hull of the vertices, not the polygon as drawn: the notch is
-    // filled in.
-    let roi_sz = FastImageSize::new(8, 8);
+fn test_mask_nonconvex_polygon_honors_the_notch() -> eyre::Result<()> {
+    // An L-shaped (non-convex) polygon masks as drawn: the bitten-out quadrant
+    // is invalid. This used to mask as the convex hull of the vertices, which
+    // filled the notch in.
+    let roi_sz = FastImageSize::new(12, 12);
     let l_shape = Shape::Polygon(strand_http_video_streaming_types::PolygonParams {
         points: vec![
             (1.0, 1.0),
-            (6.0, 1.0),
-            (6.0, 4.0),
-            (4.0, 4.0),
-            (4.0, 6.0),
-            (1.0, 6.0),
+            (10.0, 1.0),
+            (10.0, 5.0),
+            (5.0, 5.0),
+            (5.0, 10.0),
+            (1.0, 10.0),
         ],
     });
     let mask = compute_mask_image(roi_sz, &l_shape)?;
-    let mut out = String::new();
-    for row in 0..8 {
-        for col in 0..8 {
-            out.push(if mask.pixel_slice(row, col)[0] == 0 {
-                '.'
-            } else {
-                '#'
-            });
-        }
-        out.push('\n');
-    }
-    println!("L-shaped polygon mask ('.' = valid):\n{out}");
-    // the notch vertex (4,4) region is INSIDE the mask, i.e. the concavity was
-    // not honored:
-    assert_eq!(mask.pixel_slice(5, 5)[0], 0);
+    let valid = |row: usize, col: usize| mask.pixel_slice(row, col)[0] == 0;
+
+    // Both arms of the L are valid.
+    assert!(valid(3, 3), "inside the corner of the L");
+    assert!(valid(3, 8), "inside the horizontal arm");
+    assert!(valid(8, 3), "inside the vertical arm");
+    // The notch is not.
+    assert!(!valid(8, 8), "the notch must be excluded");
+    // Outside the outline entirely.
+    assert!(!valid(11, 11));
+    Ok(())
+}
+
+#[test]
+fn test_mask_polygon_with_too_few_points_is_an_error() -> eyre::Result<()> {
+    // Two points describe no region. This used to panic inside Parry.
+    let roi_sz = FastImageSize::new(12, 12);
+    let degenerate = Shape::Polygon(strand_http_video_streaming_types::PolygonParams {
+        points: vec![(1.0, 1.0), (10.0, 10.0)],
+    });
+    assert!(matches!(
+        compute_mask_image(roi_sz, &degenerate),
+        Err(crate::Error::InvalidPolygon(_))
+    ));
     Ok(())
 }

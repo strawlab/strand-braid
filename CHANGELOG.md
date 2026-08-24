@@ -8,6 +8,20 @@
   actually changes. Previously all fourteen fields were required as soon as the
   section was present. Misspelled parameters are still rejected.
 
+### Fixed
+
+* A `Polygon` `valid_region` now masks as drawn rather than as the convex hull
+  of its vertices, so concave outlines are honored. The vertices are read as a
+  ring in the order given, in either winding direction. A ring that crosses
+  itself (including a convex polygon whose vertices are listed out of order)
+  has no well-defined interior and keeps the previous convex-hull reading, so
+  any polygon that used to produce a sensible mask is unchanged. The browser
+  interface already drew the outline this way, so the displayed region and the
+  masked region now agree.
+* A `Polygon` `valid_region` with fewer than three distinct vertices, or with
+  all vertices in a line, is now reported as a configuration error instead of
+  panicking inside the geometry library.
+
 ### Removed
 
 * Removed the `flydra-pt-detect-cfg` crate. Its only export,
