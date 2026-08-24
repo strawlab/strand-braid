@@ -2081,6 +2081,16 @@ where
 
     let mut transmit_msg_tx = None;
     if let Some(first_msg_tx) = first_msg_tx {
+        // Tell Braid up front what object detection settings we are running,
+        // so a recording started before our first settings update still knows
+        // how this camera's 2D data was produced.
+        #[cfg(feature = "flydra_feat_detect")]
+        let feature_detect_settings = Some(braid_types::UpdateFeatureDetectSettings {
+            current_feature_detect_settings: im_pt_detect_cfg.clone(),
+        });
+        #[cfg(not(feature = "flydra_feat_detect"))]
+        let feature_detect_settings = None;
+
         let new_cam_data = braid_types::RegisterNewCamera {
             raw_cam_name: raw_cam_name.clone(),
             http_camserver_info: Some(BuiServerInfo::Server(http_camserver_info.clone())),
@@ -2088,6 +2098,7 @@ where
                 current_cam_settings_buf: settings_on_start,
                 current_cam_settings_extension: settings_file_ext,
             }),
+            feature_detect_settings,
             current_image_png: current_image_png.into(),
             camera_periodic_signal_period_usec,
         };

@@ -37,6 +37,7 @@ start-listener = ["eyre", "axum-token-auth", "cookie", "preferences-serde1", "to
 
 [dev-dependencies]
 base64.workspace = true
+serde_json.workspace = true
 eyre.workspace = true
 serde_cbor.workspace = true
 csv.workspace = true

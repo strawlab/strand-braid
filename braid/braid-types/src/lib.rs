@@ -520,6 +520,12 @@ pub struct RegisterNewCamera {
     pub http_camserver_info: Option<BuiServerInfo>,
     /// The camera settings.
     pub cam_settings_data: Option<UpdateCamSettings>,
+    /// The object detection settings the camera is starting with.
+    ///
+    /// `None` from a camera that does no feature detection, and from one
+    /// built before this field existed.
+    #[serde(default)]
+    pub feature_detect_settings: Option<UpdateFeatureDetectSettings>,
     /// The current image.
     pub current_image_png: PngImageData,
     /// The period of the periodic signal generator in the camera.
