@@ -455,11 +455,11 @@ where
                                     "Failed to read feature detection \
                                 settings: {e}. Using defaults."
                                 );
-                                flydra_pt_detect_cfg::default_absdiff()
+                                flydra_feature_detector_types::ImPtDetectCfg::default()
                             }
                         }
                     } else {
-                        flydra_pt_detect_cfg::default_absdiff()
+                        flydra_feature_detector_types::ImPtDetectCfg::default()
                     };
 
                 (

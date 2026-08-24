@@ -8,6 +8,13 @@
   actually changes. Previously all fourteen fields were required as soon as the
   section was present. Misspelled parameters are still rejected.
 
+### Removed
+
+* Removed the `flydra-pt-detect-cfg` crate. Its only export,
+  `default_absdiff()`, is now `ImPtDetectCfg::default()` in
+  `flydra-feature-detector-types`, which is also what serde fills in for
+  omitted fields.
+
 ## 1.0.0-rc.6 - 2026-07-25
 
 ### Added

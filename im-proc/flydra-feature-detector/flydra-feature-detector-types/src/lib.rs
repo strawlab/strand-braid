@@ -163,11 +163,9 @@ impl Default for ImPtDetectCfg {
     /// The default configuration: detect features brighter or darker than the
     /// background, anywhere in the image.
     ///
-    /// This is also what [`flydra_pt_detect_cfg::default_absdiff()`] returns,
-    /// and what fills in any field omitted when deserializing (see
-    /// "Deserialization" above).
-    ///
-    /// [`flydra_pt_detect_cfg::default_absdiff()`]: https://docs.rs/flydra-pt-detect-cfg
+    /// This is what fills in any field omitted when deserializing (see
+    /// "Deserialization" above), and what Braid and Strand Camera start from
+    /// when no configuration is given.
     fn default() -> Self {
         Self {
             do_update_background_model: true,

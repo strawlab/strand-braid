@@ -29,6 +29,5 @@ parry-geom.workspace = true
 fmf.workspace = true
 download-verify.workspace = true
 env_logger.workspace = true
-flydra-pt-detect-cfg.workspace = true
 eyre.workspace = true
 target.workspace = true

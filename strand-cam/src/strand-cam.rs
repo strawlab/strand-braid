@@ -88,8 +88,6 @@ pub const APP_INFO: AppInfo = AppInfo {
     author: "AndrewStraw",
 };
 
-pub use flydra_pt_detect_cfg::default_absdiff as default_im_pt_detect;
-
 #[cfg(feature = "bundle_files")]
 static ASSETS_DIR: include_dir::Dir<'static> =
     include_dir::include_dir!("$CARGO_MANIFEST_DIR/yew_frontend/dist");
@@ -574,7 +572,7 @@ pub enum ImPtDetectCfgSource {
 #[cfg(feature = "flydra_feat_detect")]
 impl Default for ImPtDetectCfgSource {
     fn default() -> Self {
-        ImPtDetectCfgSource::ChangesNotSavedToDisk(default_im_pt_detect())
+        ImPtDetectCfgSource::ChangesNotSavedToDisk(ImPtDetectCfg::default())
     }
 }
 
@@ -1761,7 +1759,7 @@ where
     // Here we just create some default, it does not matter what, because it
     // will not be used for anything.
     #[cfg(not(feature = "flydra_feat_detect"))]
-    let im_pt_detect_cfg = flydra_pt_detect_cfg::default_absdiff();
+    let im_pt_detect_cfg = ImPtDetectCfg::default();
 
     #[cfg(feature = "flydra_feat_detect")]
     let im_pt_detect_cfg = match &tracker_cfg_src {
@@ -1775,7 +1773,7 @@ where
                         "Failed loading image detection config ({}), using defaults.",
                         e
                     );
-                    default_im_pt_detect()
+                    ImPtDetectCfg::default()
                 }
             }
         }

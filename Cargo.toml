@@ -68,7 +68,6 @@ members = [
     "im-proc/fastfreeimage",
     "im-proc/flydra-feature-detector",
     "im-proc/flydra-feature-detector/flydra-feature-detector-types",
-    "im-proc/flydra-feature-detector/flydra-pt-detect-cfg",
     "im-proc/imops",
     "im-proc/strand-dynamic-frame",
     "led-box/led-box",
@@ -340,7 +339,6 @@ ffmpeg-rewriter = { path = "media-utils/ffmpeg-rewriter" }
 ffmpeg-writer = { path = "media-utils/ffmpeg-writer" }
 flydra-feature-detector = { path = "im-proc/flydra-feature-detector" }
 flydra-feature-detector-types = { path = "im-proc/flydra-feature-detector/flydra-feature-detector-types", version = "0.1.0" }
-flydra-pt-detect-cfg = { path = "im-proc/flydra-feature-detector/flydra-pt-detect-cfg", version = "0.1.0" }
 flydra-mvg = { path = "geometry/flydra-mvg" }
 flydra2 = { path = "braid/flydra2", default-features = false }
 flytrax-apriltags-calibration = { path = "geometry/braid-april-cal/flytrax-apriltags-calibration" }
