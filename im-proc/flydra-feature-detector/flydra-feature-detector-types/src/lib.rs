@@ -56,8 +56,23 @@ pub enum ContrastPolarity {
 /// each detected maximum, a window of `feature_window_size` is analyzed with
 /// image moments to extract the sub-pixel center of mass, area, and
 /// orientation of the feature.
+///
+/// # Deserialization
+///
+/// Every field is optional: a missing field takes its value from
+/// [`ImPtDetectCfg::default`], so a config need only mention the parameters it
+/// actually changes. For example, a Braid `.toml` config that only restricts
+/// the tracking region needs nothing but
+///
+/// ```toml
+/// [cameras.point_detection_config.valid_region.Polygon]
+/// points = [ [100.0, 50.0], [600.0, 50.0], [600.0, 400.0], [100.0, 400.0] ]
+/// ```
+///
+/// Unknown fields are still rejected, so a misspelled parameter is an error
+/// rather than a silently ignored one.
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, default)]
 pub struct ImPtDetectCfg {
     /// Switch whether to continuously update the background model or not.
     ///
@@ -142,4 +157,102 @@ pub struct ImPtDetectCfg {
     /// The shape of the reason over which detected points are checked.
     #[serde(with = "serde_yaml::with::singleton_map")]
     pub valid_region: Shape,
+}
+
+impl Default for ImPtDetectCfg {
+    /// The default configuration: detect features brighter or darker than the
+    /// background, anywhere in the image.
+    ///
+    /// This is also what [`flydra_pt_detect_cfg::default_absdiff()`] returns,
+    /// and what fills in any field omitted when deserializing (see
+    /// "Deserialization" above).
+    ///
+    /// [`flydra_pt_detect_cfg::default_absdiff()`]: https://docs.rs/flydra-pt-detect-cfg
+    fn default() -> Self {
+        Self {
+            do_update_background_model: true,
+            polarity: ContrastPolarity::DetectAbsDiff,
+            alpha: 0.01,
+            n_sigma: 7.0,
+            bright_non_gaussian_cutoff: 255,
+            bright_non_gaussian_replacement: 5,
+            bg_update_interval: 200,
+            diff_threshold: 30,
+            use_cmp: true,
+            max_num_points: 1,
+            feature_window_size: 30,
+            clear_fraction: 0.3,
+            despeckle_threshold: 5,
+            valid_region: Shape::Everything,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use strand_http_video_streaming_types::PolygonParams;
+
+    #[test]
+    fn empty_config_is_the_default() {
+        let cfg: ImPtDetectCfg = serde_yaml::from_str("{}").unwrap();
+        assert_eq!(cfg, ImPtDetectCfg::default());
+    }
+
+    #[test]
+    fn only_the_relevant_field_need_be_given() {
+        // The whole point of the per-field defaults: a user restricting the
+        // tracking region says only that.
+        let cfg: ImPtDetectCfg = serde_yaml::from_str(
+            "valid_region:
+  Polygon:
+    points:
+    - [100.0, 50.0]
+    - [600.0, 50.0]
+    - [600.0, 400.0]
+    - [100.0, 400.0]
+",
+        )
+        .unwrap();
+        assert_eq!(
+            cfg,
+            ImPtDetectCfg {
+                valid_region: Shape::Polygon(PolygonParams {
+                    points: vec![(100.0, 50.0), (600.0, 50.0), (600.0, 400.0), (100.0, 400.0),],
+                }),
+                ..Default::default()
+            }
+        );
+    }
+
+    #[test]
+    fn a_partial_config_keeps_other_defaults() {
+        let cfg: ImPtDetectCfg =
+            serde_yaml::from_str("diff_threshold: 15\nmax_num_points: 4\n").unwrap();
+        assert_eq!(cfg.diff_threshold, 15);
+        assert_eq!(cfg.max_num_points, 4);
+        assert_eq!(cfg.n_sigma, ImPtDetectCfg::default().n_sigma);
+        assert_eq!(cfg.valid_region, Shape::Everything);
+    }
+
+    #[test]
+    fn unknown_fields_are_still_rejected() {
+        // Defaulting must not turn a typo into a silently ignored parameter.
+        let err = serde_yaml::from_str::<ImPtDetectCfg>("diff_threshhold: 15\n").unwrap_err();
+        assert!(
+            err.to_string().contains("diff_threshhold"),
+            "unexpected error: {err}"
+        );
+    }
+
+    #[test]
+    fn full_config_still_round_trips() {
+        let orig = ImPtDetectCfg {
+            polarity: ContrastPolarity::DetectDark,
+            use_cmp: false,
+            ..Default::default()
+        };
+        let buf = serde_yaml::to_string(&orig).unwrap();
+        assert_eq!(orig, serde_yaml::from_str::<ImPtDetectCfg>(&buf).unwrap());
+    }
 }

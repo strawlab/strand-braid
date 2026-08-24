@@ -1,3 +1,13 @@
+## unreleased
+
+### Changed
+
+* Every field of the object detection configuration
+  (`point_detection_config` in a Braid `.toml` config, `ImPtDetectCfg` in the
+  API) now has a default, so a configuration need only list the parameters it
+  actually changes. Previously all fourteen fields were required as soon as the
+  section was present. Misspelled parameters are still rejected.
+
 ## 1.0.0-rc.6 - 2026-07-25
 
 ### Added

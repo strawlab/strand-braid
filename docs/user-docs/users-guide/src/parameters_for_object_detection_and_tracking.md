@@ -20,7 +20,54 @@ The details on implementation and parameters can be found in the
 [ImPtDetectCfg](https://strawlab.org/strand-braid-api-docs/latest/flydra_feature_detector_types/struct.ImPtDetectCfg.html)
 section of the API.
 
+Every parameter has a default value, so a configuration only needs to list the
+parameters it changes. A misspelled parameter name is an error rather than being
+silently ignored.
+
 A more technical account of this procedure can be found in [Straw et al. (2011)](http://dx.doi.org/10.1098/rsif.2010.0230).
+
+### Restricting detection to a region of the image
+
+By default, detected points from the entire image are used. The `valid_region`
+parameter restricts this to a circle, several circles, or a polygon; points
+outside the region are ignored. In a Braid `.toml` config file, a polygon region
+for one camera is specified like this:
+
+```toml
+[[cameras]]
+name = "Basler-40116750"
+
+[cameras.point_detection_config.valid_region.Polygon]
+points = [
+    [100.0, 50.0],
+    [600.0, 50.0],
+    [600.0, 400.0],
+    [350.0, 480.0],
+    [100.0, 400.0],
+]
+```
+
+The vertices are `[x, y]` pixel coordinates in the full camera image. Since all
+other object detection parameters default, nothing else needs to be given.
+
+Note that only convex polygons behave as drawn: the mask is computed as the
+convex hull of the vertices you give, so a concave outline will be filled in.
+Use `MultipleCircles` or a convex outline if that matters.
+
+The region in use is drawn on the live image in the Strand Camera browser
+interface, and can be changed there by editing the YAML in the "Detailed
+configuration" box of the object detection panel:
+
+```yaml
+valid_region:
+  Polygon:
+    points:
+    - [100.0, 50.0]
+    - [600.0, 50.0]
+    - [600.0, 400.0]
+    - [350.0, 480.0]
+    - [100.0, 400.0]
+```
 
 ### How background subtraction works
 

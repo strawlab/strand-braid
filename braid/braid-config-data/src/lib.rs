@@ -353,30 +353,14 @@ mod valid_region_tests {
 
     #[test]
     fn parse_polygon_valid_region_toml() {
-        // `ImPtDetectCfg` is `deny_unknown_fields` and has no per-field serde
-        // defaults, so as soon as `point_detection_config` is present, every
-        // one of its fields must be given.
+        // The minimal form: `ImPtDetectCfg` defaults every field, so a user
+        // restricting the tracking region writes only the region.
         let buf = r#"
 [mainbrain]
 output_base_dirname = "DATA"
 
 [[cameras]]
 name = "Basler-40116750"
-
-[cameras.point_detection_config]
-do_update_background_model = true
-polarity = "DetectAbsDiff"
-alpha = 0.01
-n_sigma = 7.0
-bright_non_gaussian_cutoff = 255
-bright_non_gaussian_replacement = 5
-bg_update_interval = 200
-diff_threshold = 30
-use_cmp = true
-max_num_points = 1
-feature_window_size = 30
-clear_fraction = 0.3
-despeckle_threshold = 5
 
 [cameras.point_detection_config.valid_region.Polygon]
 points = [
@@ -388,17 +372,22 @@ points = [
 ]
 "#;
         let cfg: BraidConfig = toml::from_str(buf).unwrap();
+        let expected_region = Shape::Polygon(PolygonParams {
+            points: vec![
+                (100.0, 50.0),
+                (600.0, 50.0),
+                (600.0, 400.0),
+                (350.0, 480.0),
+                (100.0, 400.0),
+            ],
+        });
         assert_eq!(
-            cfg.cameras[0].point_detection_config.valid_region,
-            Shape::Polygon(PolygonParams {
-                points: vec![
-                    (100.0, 50.0),
-                    (600.0, 50.0),
-                    (600.0, 400.0),
-                    (350.0, 480.0),
-                    (100.0, 400.0),
-                ],
-            })
+            cfg.cameras[0].point_detection_config,
+            ImPtDetectCfg {
+                valid_region: expected_region,
+                ..Default::default()
+            },
+            "only valid_region should differ from the defaults"
         );
     }
 

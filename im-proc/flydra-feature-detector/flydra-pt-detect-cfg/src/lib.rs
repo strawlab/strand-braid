@@ -9,25 +9,29 @@ use flydra_feature_detector_types::{ContrastPolarity, ImPtDetectCfg};
 use strand_http_video_streaming_types::Shape;
 
 fn my_default(polarity: ContrastPolarity, valid_region: Shape) -> ImPtDetectCfg {
+    // The field values live in `ImPtDetectCfg::default`, which is also what
+    // serde fills in for omitted fields. Keep them in that one place.
     ImPtDetectCfg {
-        do_update_background_model: true,
         polarity,
-        alpha: 0.01,
-        n_sigma: 7.0,
-        bright_non_gaussian_cutoff: 255,
-        bright_non_gaussian_replacement: 5,
-        bg_update_interval: 200,
-        diff_threshold: 30,
-        use_cmp: true,
-        max_num_points: 1,
-        feature_window_size: 30,
-        clear_fraction: 0.3,
-        despeckle_threshold: 5,
         valid_region,
+        ..Default::default()
     }
 }
 
 /// Default configuration for detecting features brighter or darker than background
 pub fn default_absdiff() -> ImPtDetectCfg {
     my_default(ContrastPolarity::DetectAbsDiff, Shape::Everything)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_absdiff_matches_the_serde_defaults() {
+        // Guards against these two notions of "default" drifting apart: the
+        // values serde fills in for omitted fields must be the ones Braid and
+        // Strand Camera start from.
+        assert_eq!(default_absdiff(), ImPtDetectCfg::default());
+    }
 }
