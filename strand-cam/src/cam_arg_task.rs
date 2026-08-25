@@ -184,6 +184,30 @@ where
                 tracker.modify(|tracker| tracker.mp4_bitrate = v);
             }
             CamArg::SetMp4Codec(v) => {
+                // Establish now, rather than when a recording starts, how this
+                // machine's ffmpeg handles a mono frame with these arguments:
+                // some releases record mono video with a green cast, and the
+                // way around it costs a chroma plane per frame that is worth
+                // avoiding where it is not needed. Deliberately not awaited --
+                // it runs ffmpeg twice and a recording must never wait for it.
+                // Until it lands, recording uses the framing that is right on
+                // every ffmpeg.
+                if let strand_cam_remote_control::CodecSelection::Ffmpeg(codec_args) = &v {
+                    match (cam.width(), cam.height()) {
+                        (Ok(width), Ok(height)) => {
+                            let codec_args = codec_args.clone();
+                            tokio::task::spawn_blocking(move || {
+                                bg_movie_writer::probe_mono_framing(&codec_args, width, height);
+                            });
+                        }
+                        _ => {
+                            debug!(
+                                "cannot read the camera geometry, so not probing how ffmpeg \
+                                 records mono video"
+                            );
+                        }
+                    }
+                }
                 let mut tracker = shared_store_arc.write().unwrap();
                 tracker.modify(|tracker| tracker.mp4_codec = v);
             }

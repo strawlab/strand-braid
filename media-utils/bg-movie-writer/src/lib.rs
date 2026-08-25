@@ -10,6 +10,37 @@ use strand_dynamic_frame::DynamicFrameOwned;
 
 mod movie_writer_thread;
 
+/// The same codec arguments in the form [`ffmpeg_writer`] takes.
+pub(crate) fn to_ffmpeg_writer_args(
+    args: &strand_cam_remote_control::FfmpegCodecArgs,
+) -> ffmpeg_writer::FfmpegCodecArgs {
+    ffmpeg_writer::FfmpegCodecArgs {
+        device_args: args.device_args.clone(),
+        codec: args.codec.clone(),
+        pre_codec_args: args.pre_codec_args.clone(),
+        post_codec_args: args.post_codec_args.clone(),
+        pixfmt: args.pixfmt.clone(),
+        max_bframes: args.max_bframes,
+    }
+}
+
+/// Ask this machine's ffmpeg how it records mono video with these codec
+/// arguments, so recording can use the cheaper framing wherever that is safe.
+///
+/// See [`ffmpeg_writer::probe_mono_framing`] for what is being established and
+/// why a version number will not do. Costs roughly 0.1 s and caches its answer
+/// for the process, so call it when a codec is chosen -- never on the path that
+/// starts a recording, which must not wait for it. An unprobed configuration
+/// records correctly regardless, just with a chroma plane it may not have
+/// needed.
+pub fn probe_mono_framing(
+    codec_args: &strand_cam_remote_control::FfmpegCodecArgs,
+    width: u32,
+    height: u32,
+) -> ffmpeg_writer::MonoFramingProbe {
+    ffmpeg_writer::probe_mono_framing(&to_ffmpeg_writer_args(codec_args), width, height)
+}
+
 /// Possible errors
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

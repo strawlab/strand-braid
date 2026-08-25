@@ -59,15 +59,7 @@ impl MyFfmpegWriter {
         if mp4_filename.extension().and_then(|x| x.to_str()) != Some("mp4") {
             return Err(Error::FilenameDoesNotEndWithMp4);
         }
-        let args = &cfg.codec_args;
-        let ffmpeg_codec_args = ffmpeg_writer::FfmpegCodecArgs {
-            device_args: args.device_args.clone(),
-            codec: args.codec.clone(),
-            pre_codec_args: args.pre_codec_args.clone(),
-            post_codec_args: args.post_codec_args.clone(),
-            pixfmt: args.pixfmt.clone(),
-            max_bframes: args.max_bframes,
-        };
+        let ffmpeg_codec_args = crate::to_ffmpeg_writer_args(&cfg.codec_args);
         use strand_cam_remote_control::RecordingFrameRate::*;
         let rate = match cfg.max_framerate {
             Fps1 => Some((1, 1)),
