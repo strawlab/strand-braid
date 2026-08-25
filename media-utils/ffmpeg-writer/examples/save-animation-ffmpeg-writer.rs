@@ -82,9 +82,7 @@ fn main() -> eyre::Result<()> {
                                 .unwrap(),
                             );
 
-                            my_ffmpeg_writer
-                                .write_dynamic_frame(&trimmed.borrow())
-                                .map_err(better_error)?;
+                            my_ffmpeg_writer.write_dynamic_frame(&trimmed.borrow())?;
                         }
                         "rgb8" => {
                             let trimmed = ImageRef::<RGB8>::new(
@@ -97,9 +95,7 @@ fn main() -> eyre::Result<()> {
                             let dy_trimmed =
                                 strand_dynamic_frame::DynamicFrame::from_static_ref(&trimmed);
 
-                            my_ffmpeg_writer
-                                .write_dynamic_frame(&dy_trimmed)
-                                .map_err(better_error)?;
+                            my_ffmpeg_writer.write_dynamic_frame(&dy_trimmed)?;
                         }
                         _ => {
                             panic!("unknown format");
@@ -113,18 +109,4 @@ fn main() -> eyre::Result<()> {
     }
 
     Ok(())
-}
-
-fn better_error(e: ffmpeg_writer::Error) -> eyre::Report {
-    match e {
-        ffmpeg_writer::Error::FfmpegError { output } => {
-            eyre::eyre!(
-                "ffmpeg writer error. Exit code {}.\nStdout:\n{}\nStderror:\n{}\n",
-                output.status,
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
-            )
-        }
-        e => e.into(),
-    }
 }

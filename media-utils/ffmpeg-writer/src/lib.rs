@@ -3,8 +3,9 @@
 
 use std::{
     collections::VecDeque,
-    io::Write,
-    process::{Child, ChildStdin, Command, Stdio},
+    io::{BufRead, BufReader, Write},
+    process::{Child, ChildStdin, ChildStdout, Command, Stdio},
+    sync::{Arc, Mutex},
 };
 
 use machine_vision_formats::pixel_format::PixFmt;
@@ -17,6 +18,15 @@ pub enum Error {
     Io(#[from] std::io::Error),
     #[error("ffmpeg error ({})", output.status)]
     FfmpegError { output: std::process::Output },
+    /// A streaming ffmpeg child died. Unlike [`Error::FfmpegError`], whose
+    /// one-shot command was waited on for its complete output, this child's
+    /// stderr was being drained line by line as it ran (see [`StderrTail`]), so
+    /// what we can report is the tail of it.
+    #[error("ffmpeg exited ({status}); last stderr:\n{stderr}")]
+    FfmpegExited {
+        status: std::process::ExitStatus,
+        stderr: String,
+    },
     #[error("string not valid UTF8")]
     FromUtf8Error(#[from] std::string::FromUtf8Error),
     #[error("unexpected ffmpeg output: {0}")]
@@ -406,24 +416,59 @@ fn raw_video_input_args(
 
 /// Saves video frames to a video file using ffmpeg.
 ///
-/// This spawns an ffmpeg process and pipes the frames as raw video
-/// (`-f rawvideo`) with no intermediate format conversion on our side; ffmpeg
-/// performs whatever conversion the chosen encoder requires. The ffmpeg process
-/// is spawned lazily on the first frame, once the frame width, height and pixel
-/// format are known.
+/// A thin layer over [`FfmpegFrameSink`] (which does the spawning and piping)
+/// adding the presentation timestamps a file recording needs. The ffmpeg
+/// process is spawned lazily on the first frame, once the frame width, height
+/// and pixel format are known.
 pub struct FfmpegWriter {
     fname: String,
     ffmpeg_codec_args: FfmpegCodecArgs,
     raten: usize,
     rated: usize,
     count: usize,
-    running: Option<Running>,
+    sink: Option<FfmpegFrameSink>,
 }
 
-/// State of the spawned ffmpeg process, created on the first frame.
-struct Running {
+/// Where a spawned ffmpeg writes its encoded output.
+pub enum FfmpegOutput {
+    /// A file, named by the path handed to ffmpeg as its output argument.
+    File(String),
+    /// ffmpeg's own stdout (`pipe:1`), for a caller that wants the encoded
+    /// bytes back rather than a file. Take the pipe with
+    /// [`FfmpegFrameSink::take_stdout`] and keep reading it: an undrained
+    /// stdout deadlocks the child exactly as an undrained stderr does.
+    Stdout,
+}
+
+/// How many lines of a child's stderr to keep for its epitaph.
+///
+/// ffmpeg repeats itself when it is unhappy, so the last few lines are
+/// generally the whole story; keeping all of them would let a chatty child grow
+/// this without bound over a long recording.
+const STDERR_TAIL_LINES: usize = 20;
+
+/// A spawned ffmpeg process being fed raw video frames on its stdin.
+///
+/// This owns everything that is the same whether the encoded result lands in a
+/// file or comes back to us on a pipe:
+///
+/// - choosing the raw-video framing for the frame's pixel format, including the
+///   mono `gray`-versus-NV12 decision (see [`probe_mono_framing`]) and the
+///   neutral chroma plane NV12 framing has to supply;
+/// - pinning the geometry the child was spawned for, so a mid-stream change is
+///   reported rather than silently producing garbled video;
+/// - draining stderr, which is not optional (see [`StderrTail`]);
+/// - turning a dead child into an error carrying ffmpeg's own complaint instead
+///   of a bare `BrokenPipe`.
+///
+/// Every ffmpeg process in this workspace that is fed frames on stdin should be
+/// one of these. Rolling the spawn by hand is how a caller ends up silently
+/// missing the mono framing decision and recording green video.
+pub struct FfmpegFrameSink {
     child: Child,
     stdin: ChildStdin,
+    /// Present only for [`FfmpegOutput::Stdout`], until the caller takes it.
+    stdout: Option<ChildStdout>,
     pixfmt: PixFmt,
     width: u32,
     height: u32,
@@ -431,6 +476,212 @@ struct Running {
     /// mono camera is being piped as NV12; allocated once for the recording,
     /// never rewritten.
     chroma: Vec<u8>,
+    /// Absent when ffmpeg's output was left attached to our own terminal (see
+    /// `FFMPEG_WRITER_SHOW`), in which case there is nothing to drain.
+    stderr: Option<StderrTail>,
+}
+
+/// A thread draining a child's stderr, keeping the tail of it.
+///
+/// Draining is mandatory rather than merely tidy: ffmpeg blocks once a piped
+/// stderr's buffer fills, and a blocked ffmpeg stops reading our frames, so the
+/// whole pipeline wedges. `-nostats` keeps ffmpeg quiet enough that this is
+/// unlikely, but "unlikely" over a multi-hour flight is not a guarantee worth
+/// relying on. Lines go to `tracing` at `debug`, and the last
+/// [`STDERR_TAIL_LINES`] are kept so that a child which later dies can say why.
+struct StderrTail {
+    thread: std::thread::JoinHandle<()>,
+    lines: Arc<Mutex<VecDeque<String>>>,
+}
+
+impl StderrTail {
+    fn spawn(stderr: std::process::ChildStderr) -> Self {
+        let lines = Arc::new(Mutex::new(VecDeque::with_capacity(STDERR_TAIL_LINES)));
+        let thread = {
+            let lines = lines.clone();
+            std::thread::spawn(move || {
+                for line in BufReader::new(stderr)
+                    .lines()
+                    .map_while(std::result::Result::ok)
+                {
+                    tracing::debug!("ffmpeg: {line}");
+                    let mut lines = lines.lock().unwrap_or_else(|e| e.into_inner());
+                    if lines.len() == STDERR_TAIL_LINES {
+                        lines.pop_front();
+                    }
+                    lines.push_back(line);
+                }
+            })
+        };
+        Self { thread, lines }
+    }
+
+    /// Wait for the draining thread to finish, then return what it collected.
+    ///
+    /// Joining first matters: the caller reaches here just after the child
+    /// died, so its stderr is at EOF and the thread is about to exit with the
+    /// last few lines -- exactly the interesting ones -- possibly still in
+    /// flight.
+    fn join_and_tail(self) -> String {
+        let Self { thread, lines } = self;
+        let _ = thread.join();
+        let lines = lines.lock().unwrap_or_else(|e| e.into_inner());
+        lines.iter().cloned().collect::<Vec<_>>().join("\n")
+    }
+}
+
+impl FfmpegFrameSink {
+    /// Spawn ffmpeg ready to receive frames of `frame`'s format and size.
+    ///
+    /// `frame` is inspected but not written; the first frame is normally passed
+    /// here and then to [`Self::send`].
+    pub fn new(
+        frame: &strand_dynamic_frame::DynamicFrame,
+        ffmpeg_codec_args: &FfmpegCodecArgs,
+        rate: (usize, usize),
+        output: FfmpegOutput,
+    ) -> Result<Self> {
+        let pixfmt = frame.pixel_format();
+        let width = frame.width();
+        let height = frame.height();
+        let (raten, rated) = rate;
+
+        // A mono camera is piped either as `gray` or, where this ffmpeg would
+        // turn that green, as NV12 with chroma supplied here. Everything else
+        // has real chroma of its own and goes as-is.
+        let framing = (ffmpeg_pixel_format(pixfmt)? == MonoFraming::Gray.ffmpeg_pixel_format())
+            .then(|| probed_mono_framing(ffmpeg_codec_args, width, height));
+        let ff_pixfmt = match framing {
+            Some(framing) => framing.ffmpeg_pixel_format(),
+            None => ffmpeg_pixel_format(pixfmt)?,
+        };
+        let chroma = vec![128u8; framing.map_or(0, |framing| framing.chroma_len(width, height))];
+
+        let input_args = raw_video_input_args(ff_pixfmt, width, height, raten, rated);
+        let mut args = ffmpeg_codec_args.to_args(&input_args);
+        args.push(match &output {
+            FfmpegOutput::File(fname) => fname.clone(),
+            FfmpegOutput::Stdout => "pipe:1".to_string(),
+        });
+
+        let show_ffmpeg = match std::env::var_os("FFMPEG_WRITER_SHOW") {
+            Some(v) => &v != "0",
+            None => false,
+        };
+        if show_ffmpeg {
+            println!("ffmpeg {}", args.join(" "));
+        }
+
+        // Piping stdout is not a choice when it carries the encoded stream;
+        // otherwise it is piped merely to keep ffmpeg's chatter off our
+        // terminal, which `FFMPEG_WRITER_SHOW` turns off.
+        let pipe_stdout = matches!(output, FfmpegOutput::Stdout) || !show_ffmpeg;
+        let mut cmd0 = Command::new(FFMPEG);
+        let cmd = cmd0.args(args).stdin(Stdio::piped());
+        let cmd = if pipe_stdout {
+            cmd.stdout(Stdio::piped())
+        } else {
+            cmd
+        };
+        let cmd = if show_ffmpeg {
+            cmd
+        } else {
+            cmd.stderr(Stdio::piped())
+        };
+        let mut child = cmd.spawn()?;
+        let stdin = child.stdin.take().expect("stdin was piped");
+        let stdout = match output {
+            FfmpegOutput::Stdout => Some(child.stdout.take().expect("stdout was piped")),
+            // Left on the child, unread: ffmpeg writing to a file says nothing
+            // on stdout, and `collect_error` wants whatever is there.
+            FfmpegOutput::File(_) => None,
+        };
+        let stderr = child.stderr.take().map(StderrTail::spawn);
+
+        Ok(Self {
+            child,
+            stdin,
+            stdout,
+            pixfmt,
+            width,
+            height,
+            chroma,
+            stderr,
+        })
+    }
+
+    /// Take ffmpeg's stdout pipe, for [`FfmpegOutput::Stdout`]. Returns `None`
+    /// on a file sink, or if it has already been taken.
+    pub fn take_stdout(&mut self) -> Option<ChildStdout> {
+        self.stdout.take()
+    }
+
+    /// The pixel format, width and height this child was spawned for. Frames
+    /// [`Self::send`] accepts must match.
+    pub fn geometry(&self) -> (PixFmt, u32, u32) {
+        (self.pixfmt, self.width, self.height)
+    }
+
+    /// Pipe one frame's rows (plus the neutral chroma plane, if this is a mono
+    /// camera framed as NV12) to ffmpeg's stdin.
+    pub fn send(&mut self, frame: &strand_dynamic_frame::DynamicFrame) -> Result<()> {
+        if frame.pixel_format() != self.pixfmt
+            || frame.width() != self.width
+            || frame.height() != self.height
+        {
+            return Err(Error::FormatOrSizeChanged);
+        }
+
+        let written = write_frame_rows(frame, &mut self.stdin).and_then(|()| {
+            // Empty unless this is a mono camera being piped as NV12.
+            self.stdin.write_all(&self.chroma)?;
+            Ok(())
+        });
+        match written {
+            Ok(()) => Ok(()),
+            Err(Error::Io(e)) if e.kind() == std::io::ErrorKind::BrokenPipe => {
+                // ffmpeg apparently died; surface its own complaint instead.
+                Err(self.collect_error())
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    /// Wait for the (apparently dead) ffmpeg process and describe why it died.
+    fn collect_error(&mut self) -> Error {
+        let status = match self.child.wait() {
+            Ok(status) => status,
+            Err(e) => return Error::Io(e),
+        };
+        Error::FfmpegExited {
+            status,
+            // `None` when output went to our terminal, in which case the user
+            // has already seen whatever ffmpeg had to say.
+            stderr: self
+                .stderr
+                .take()
+                .map_or_else(String::new, StderrTail::join_and_tail),
+        }
+    }
+
+    /// Tell ffmpeg to finish (by closing its stdin) and wait for it.
+    ///
+    /// A caller reading [`Self::take_stdout`] should keep reading until EOF and
+    /// join its reader thread after this returns, so no encoded output is lost.
+    pub fn close(mut self) -> Result<()> {
+        // Closing stdin is what tells ffmpeg to flush and exit.
+        drop(self.stdin);
+        let status = self.child.wait()?;
+        let stderr = self
+            .stderr
+            .take()
+            .map_or_else(String::new, StderrTail::join_and_tail);
+        if status.success() {
+            Ok(())
+        } else {
+            Err(Error::FfmpegExited { status, stderr })
+        }
+    }
 }
 
 type FfmpegCodecArgList = Option<Vec<(String, String)>>;
@@ -656,59 +907,8 @@ impl FfmpegWriter {
             raten,
             rated,
             count: 0,
-            running: None,
+            sink: None,
         })
-    }
-
-    /// Spawn ffmpeg configured to read raw video of this frame's format.
-    fn start(&mut self, frame: &strand_dynamic_frame::DynamicFrame) -> Result<()> {
-        let pixfmt = frame.pixel_format();
-        let width = frame.width();
-        let height = frame.height();
-
-        // A mono camera is piped either as `gray` or, where this ffmpeg would
-        // turn that green, as NV12 with chroma supplied here. Everything else
-        // has real chroma of its own and goes as-is.
-        let framing = (ffmpeg_pixel_format(pixfmt)? == MonoFraming::Gray.ffmpeg_pixel_format())
-            .then(|| probed_mono_framing(&self.ffmpeg_codec_args, width, height));
-        let ff_pixfmt = match framing {
-            Some(framing) => framing.ffmpeg_pixel_format(),
-            None => ffmpeg_pixel_format(pixfmt)?,
-        };
-        let chroma = vec![128u8; framing.map_or(0, |framing| framing.chroma_len(width, height))];
-
-        let input_args = raw_video_input_args(ff_pixfmt, width, height, self.raten, self.rated);
-
-        let mut args = self.ffmpeg_codec_args.to_args(&input_args);
-        args.push(self.fname.clone());
-
-        let show_ffmpeg = match std::env::var_os("FFMPEG_WRITER_SHOW") {
-            Some(v) => &v != "0",
-            None => false,
-        };
-        if show_ffmpeg {
-            println!("ffmpeg {}", args.join(" "));
-        }
-
-        let mut cmd0 = Command::new(FFMPEG);
-        let cmd = cmd0.args(args).stdin(Stdio::piped());
-        let cmd = if show_ffmpeg {
-            cmd
-        } else {
-            cmd.stdout(Stdio::piped()).stderr(Stdio::piped())
-        };
-        let mut child = cmd.spawn()?;
-        let stdin = child.stdin.take().expect("failed to get stdin");
-
-        self.running = Some(Running {
-            child,
-            stdin,
-            pixfmt,
-            width,
-            height,
-            chroma,
-        });
-        Ok(())
     }
 
     /// Write a frame. Return the presentation timestamp (PTS).
@@ -716,30 +916,16 @@ impl FfmpegWriter {
         &mut self,
         frame: &strand_dynamic_frame::DynamicFrame,
     ) -> Result<std::time::Duration> {
-        if self.running.is_none() {
-            self.start(frame)?;
-        }
-        let running = self.running.as_mut().unwrap();
-        if frame.pixel_format() != running.pixfmt
-            || frame.width() != running.width
-            || frame.height() != running.height
-        {
-            return Err(Error::FormatOrSizeChanged);
-        }
-
-        let written = write_frame_rows(frame, &mut running.stdin).and_then(|()| {
-            // Empty unless this is a mono camera being piped as NV12.
-            running.stdin.write_all(&running.chroma)?;
-            Ok(())
-        });
-        match written {
-            Ok(()) => {}
-            Err(Error::Io(e)) if e.kind() == std::io::ErrorKind::BrokenPipe => {
-                // ffmpeg apparently died; surface its output as the error.
-                return Err(self.collect_ffmpeg_error());
-            }
-            Err(e) => return Err(e),
-        }
+        let sink = match &mut self.sink {
+            Some(sink) => sink,
+            None => self.sink.insert(FfmpegFrameSink::new(
+                frame,
+                &self.ffmpeg_codec_args,
+                (self.raten, self.rated),
+                FfmpegOutput::File(self.fname.clone()),
+            )?),
+        };
+        sink.send(frame)?;
 
         let num = self.rated * self.count;
         let dur_sec = num as f64 / self.raten as f64;
@@ -748,43 +934,11 @@ impl FfmpegWriter {
         Ok(pts)
     }
 
-    /// Wait for the (apparently dead) ffmpeg process and collect its output.
-    fn collect_ffmpeg_error(&mut self) -> Error {
-        let mut running = self.running.take().unwrap();
-        let status = match running.child.wait() {
-            Ok(status) => status,
-            Err(e) => return Error::Io(e),
-        };
-        use std::io::Read;
-        let (mut stdout, mut stderr) = (Vec::new(), Vec::new());
-        if let Some(mut out) = running.child.stdout.take() {
-            let _ = out.read_to_end(&mut stdout);
-        }
-        if let Some(mut err) = running.child.stderr.take() {
-            let _ = err.read_to_end(&mut stderr);
-        }
-        Error::FfmpegError {
-            output: std::process::Output {
-                status,
-                stdout,
-                stderr,
-            },
-        }
-    }
-
     pub fn close(self) -> Result<()> {
-        // Close ffmpeg's stdin (telling it to finish) by dropping it, then wait.
-        let Some(running) = self.running else {
+        match self.sink {
+            Some(sink) => sink.close(),
             // No frames were ever written, so ffmpeg was never spawned.
-            return Ok(());
-        };
-        let Running { child, stdin, .. } = running;
-        std::mem::drop(stdin);
-        let output = child.wait_with_output()?;
-        if output.status.success() {
-            Ok(())
-        } else {
-            Err(Error::FfmpegError { output })
+            None => Ok(()),
         }
     }
 }
@@ -881,15 +1035,7 @@ mod test {
                 Some((25, 1)),
             )
             .unwrap();
-            let mut buf = vec![0u8; (width * height) as usize];
-            for y in 0..height as usize {
-                for x in 0..width as usize {
-                    buf[y * width as usize + x] = (x * 255 / (width as usize - 1)) as u8;
-                }
-            }
-            let frame =
-                DynamicFrameOwned::from_buf(width, height, width as usize, buf, PixFmt::Mono8)
-                    .unwrap();
+            let frame = mono_ramp(width, height);
             for _ in 0..3 {
                 wtr.write_dynamic_frame(&frame.borrow()).unwrap();
             }
@@ -944,6 +1090,120 @@ mod test {
             recorded_mono_chroma_is_neutral(&codec_args, width, height),
             "an unprobed configuration must fall back to a framing that is right \
              everywhere"
+        );
+    }
+
+    /// A mono ramp frame, the shape a tracking camera produces.
+    fn mono_ramp(width: u32, height: u32) -> DynamicFrameOwned {
+        let mut buf = vec![0u8; (width * height) as usize];
+        for y in 0..height as usize {
+            for x in 0..width as usize {
+                buf[y * width as usize + x] = (x * 255 / (width as usize - 1)) as u8;
+            }
+        }
+        DynamicFrameOwned::from_buf(width, height, width as usize, buf, PixFmt::Mono8).unwrap()
+    }
+
+    /// The whole reason the sink is shared: a caller taking the encoded stream
+    /// back on a pipe (as the RTP streamer does) gets the mono framing decision
+    /// for free, so it cannot record green video by forgetting to ask for it.
+    ///
+    /// Configured to force a semi-planar encoder input, which is where the bug
+    /// lives, and the same check applied as for a file recording: the chroma
+    /// that comes back out must be neutral.
+    #[test]
+    fn a_piped_sink_frames_mono_the_same_way_a_file_sink_does() {
+        // A size of its own, so this test's cache entry cannot be confused
+        // with another's.
+        let (width, height) = (192u32, 144u32);
+        let codec_args = FfmpegCodecArgs {
+            post_codec_args: Some(vec![("-f".into(), "h264".into())]),
+            ..forces_semi_planar_input()
+        };
+        let frame = mono_ramp(width, height);
+
+        let mut sink =
+            FfmpegFrameSink::new(&frame.borrow(), &codec_args, (25, 1), FfmpegOutput::Stdout)
+                .unwrap();
+        assert_eq!(sink.geometry(), (PixFmt::Mono8, width, height));
+
+        // Read stdout on a thread: an elementary stream that nobody drains
+        // fills the pipe and deadlocks the child mid-`send`.
+        let mut stdout = sink.take_stdout().expect("a piped sink has a stdout");
+        let reader = std::thread::spawn(move || {
+            let mut encoded = Vec::new();
+            std::io::Read::read_to_end(&mut stdout, &mut encoded).unwrap();
+            encoded
+        });
+        for _ in 0..3 {
+            sink.send(&frame.borrow()).unwrap();
+        }
+        sink.close().unwrap();
+        let encoded = reader.join().unwrap();
+
+        assert!(
+            encoded.starts_with(&[0, 0, 0, 1]) || encoded.starts_with(&[0, 0, 1]),
+            "expected an Annex-B elementary stream, got {:?}",
+            &encoded[..encoded.len().min(8)]
+        );
+
+        // Decoding wants a path, and this is an elementary stream rather than a
+        // container, so name it for what it is.
+        let tmp = tempfile::tempdir().unwrap();
+        let stream_path = tmp.path().join("piped.h264");
+        std::fs::write(&stream_path, &encoded).unwrap();
+        assert!(
+            decoded_chroma_is_neutral(&stream_path, width, height).unwrap(),
+            "a piped mono recording came out green"
+        );
+    }
+
+    /// A sink whose ffmpeg died must say why. Before the shared sink existed,
+    /// the streaming caller got a bare `BrokenPipe` with ffmpeg's actual
+    /// complaint discarded.
+    #[test]
+    fn a_dead_ffmpeg_reports_its_own_complaint() {
+        let (width, height) = (64u32, 48u32);
+        let frame = mono_ramp(width, height);
+        let codec_args = FfmpegCodecArgs {
+            codec: Some("no-such-codec".to_string()),
+            ..Default::default()
+        };
+        let mut sink = FfmpegFrameSink::new(
+            &frame.borrow(),
+            &codec_args,
+            (25, 1),
+            FfmpegOutput::File(
+                tempfile::tempdir()
+                    .unwrap()
+                    .path()
+                    .join("never-written.mp4")
+                    .to_str()
+                    .unwrap()
+                    .to_string(),
+            ),
+        )
+        .unwrap();
+
+        // ffmpeg rejects the codec and exits at startup, but the first frames
+        // may still land in the pipe buffer before the write fails, so keep
+        // sending until it does. A frame this size fills a pipe within a few
+        // sends.
+        let mut err = None;
+        for _ in 0..64 {
+            if let Err(e) = sink.send(&frame.borrow()) {
+                err = Some(e);
+                break;
+            }
+        }
+        let err = err.expect("sending to a dead ffmpeg must eventually fail");
+        let Error::FfmpegExited { status, stderr } = err else {
+            panic!("expected FfmpegExited, got {err:?}");
+        };
+        assert!(!status.success());
+        assert!(
+            stderr.contains("no-such-codec"),
+            "the error must carry ffmpeg's own complaint, got: {stderr:?}"
         );
     }
 
