@@ -30,6 +30,12 @@
 //! openh264's output pictures are bit-identical to ffmpeg's decode of the same
 //! fixture in display order (H.264 decoding is exactly specified), so these
 //! hashes pin both pixel content and frame order to an independent decoder.
+//!
+//! They were regenerated for openh264 0.9.8, which fixed a typo in the
+//! YUV->RGB green coefficient (`0.299/0.687` should have been `0.299/0.587`).
+//! The decoded YUV is unchanged - the Y-planes are still bit-identical to
+//! ffmpeg's - and the RGB output moved closer to ffmpeg's (mean absolute green
+//! error over this fixture dropped from 5.0 to 0.7).
 #![cfg(feature = "openh264")]
 
 use eyre::Result;
@@ -43,26 +49,26 @@ const H264_FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data/bfra
 /// FNV-1a hash of each decoded frame's RGB8 pixel data, in display order.
 /// See the module docs for how to regenerate and how these were validated.
 const GOLDEN_DISPLAY_FNV: [u64; 20] = [
-    0x1d415ec12859ceb9,
-    0xc6db4339d7555d65,
-    0xcfccc6f895bb9b6f,
-    0x62c5ada562ddd560,
-    0xf86ab932fb81b068,
-    0x841c640b611acee5,
-    0xd608e133f83bf9f0,
-    0x0d27e5eac5ac7996,
-    0x61ad189b56b2825c,
-    0x9f4add443c7c5330,
-    0x30b21d79ff5b0d07,
-    0x0a909a0a40cfcb12,
-    0x99819ddb93cfa04c,
-    0x7f80f8edd2f88cb5,
-    0x05b1deb35d90fa17,
-    0xe6416e5aad53e220,
-    0x0697c69dcd393332,
-    0xba4cb3a3de176916,
-    0x61340ff417e311a4,
-    0xa52aa5bb7ae81368,
+    0x0ee600f6adc7c041,
+    0x23732fe269acd1cf,
+    0xb10b114c1624dde9,
+    0xb17d32cb56af7274,
+    0x8bcf22be9d50db41,
+    0x9082682a1ddc57d8,
+    0x88c4b6ba50fb93db,
+    0x4ad350b0271fb8a9,
+    0x3aab74a1382abc57,
+    0x8907b3d05700b7e7,
+    0x03c9df1d38d864d6,
+    0x3e50f7ffca8bb292,
+    0x619b091520779578,
+    0xb93afe6fe041a60d,
+    0xb3324f3d31c957a6,
+    0x36f5bb36cd66f9d0,
+    0x8c2d7b73b010da9b,
+    0x71b04f03d473bd50,
+    0xb47f6d2f0c1747c0,
+    0x6a4aa5131fea7708,
 ];
 
 fn fnv1a64(data: &[u8]) -> u64 {
