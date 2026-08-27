@@ -9,7 +9,6 @@ description = "decode TIFF image stacks from Strand Camera recordings"
 eyre.workspace = true
 tiff.workspace = true
 clap.workspace = true
-chrono.workspace = true
 machine-vision-formats.workspace = true
 itertools.workspace = true
 

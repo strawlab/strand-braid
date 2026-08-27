@@ -345,7 +345,9 @@ fn run_sqpnp<'a>(
     let mut solver = sqpnp::Solver::<sqpnp::DefaultParameters>::new();
     if solver.solve(&p3ds, &p2ds, None) {
         let solution = solver.best_solution().unwrap();
-        let r = solution.rotation_matrix().as_dmat3().into();
+        let r = nalgebra::Matrix3::from_column_slice(
+            &solution.rotation_matrix().as_dmat3().to_cols_array(),
+        );
         let t = solution.translation();
 
         let extrin = {

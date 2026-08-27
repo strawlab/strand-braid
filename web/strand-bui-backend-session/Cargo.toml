@@ -14,7 +14,6 @@ readme = "README.md"
 tracing.workspace = true
 hyper.workspace = true
 http.workspace = true
-bytes.workspace = true
 serde.workspace = true
 hyper-util.workspace = true
 http-body-util.workspace = true

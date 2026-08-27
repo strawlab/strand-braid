@@ -10,8 +10,6 @@ less-avc.workspace = true
 convert-image.workspace = true
 strand-dynamic-frame.workspace = true
 y4m-writer.workspace = true
-
-machine-vision-formats.workspace = true
 thiserror.workspace = true
 y4m.workspace = true
 
@@ -26,3 +24,5 @@ ttf-firacode.workspace = true
 image.workspace = true
 
 font-drawing.workspace = true
+
+machine-vision-formats.workspace = true

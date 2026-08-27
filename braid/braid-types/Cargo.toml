@@ -7,7 +7,6 @@ license = "MIT OR Apache-2.0"
 description = "core type definitions for the Braid multi-camera tracking system"
 
 [dependencies]
-libc.workspace = true
 chrono.workspace = true
 thiserror.workspace = true
 serde.workspace = true

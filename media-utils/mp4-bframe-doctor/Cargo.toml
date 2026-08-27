@@ -10,7 +10,6 @@ clap.workspace = true
 eyre.workspace = true
 chrono.workspace = true
 camino.workspace = true
-tracing.workspace = true
 h264-reader.workspace = true
 
 frame-source.workspace = true

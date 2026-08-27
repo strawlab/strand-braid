@@ -18,10 +18,8 @@ clap.workspace = true
 resvg = { workspace = true, features = ["text"] }
 tagger.workspace = true
 usvg.workspace = true
-image.workspace = true
 base64.workspace = true
 ordered-float.workspace = true
-regex.workspace = true
 futures.workspace = true
 csv.workspace = true
 tracing-panic.workspace = true
@@ -38,9 +36,7 @@ mp4-writer = { workspace = true, features = ["openh264-encode", "nv-encode"] }
 braid-config-data.workspace = true
 braid-types.workspace = true
 convert-image.workspace = true
-strand-datetime-conversion.workspace = true
 strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
-fmf.workspace = true
 flydra2 = { workspace = true, default-features = true }
 flydra-mvg.workspace = true
 braid-mvg.workspace = true

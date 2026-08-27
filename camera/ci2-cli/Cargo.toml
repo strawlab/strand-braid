@@ -15,7 +15,6 @@ doc = false
 tracing.workspace = true
 env_logger.workspace = true
 clap.workspace = true
-chrono.workspace = true
 anyhow.workspace = true
 
 ci2.workspace = true

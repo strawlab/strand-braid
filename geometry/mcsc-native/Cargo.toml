@@ -14,7 +14,6 @@ rand_chacha.workspace = true
 camino.workspace = true
 
 [dev-dependencies]
-approx.workspace = true
 camino.workspace = true
 download-verify.workspace = true
 tempfile.workspace = true

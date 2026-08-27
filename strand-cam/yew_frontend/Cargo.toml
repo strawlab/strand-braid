@@ -15,7 +15,6 @@ js-sys.workspace = true
 gloo-events.workspace = true
 gloo-utils.workspace = true
 yew.workspace = true
-serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 yew-tincture.workspace = true
