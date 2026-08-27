@@ -2,13 +2,19 @@ name: Package strand-braid .deb
 description: >
   Build every packaged strand-braid binary, generate the THIRD-PARTY-LICENSES
   files, build the Debian package, and assemble (and on tags publish) the
-  per-Ubuntu-version release zip. Shared by the native and container build jobs;
-  the only thing that differs between them is the OS/toolchain setup that the
-  calling job performs before invoking this action.
+  per-platform release zip. Shared by the native and container build jobs; the
+  only thing that differs between them is the OS/toolchain setup that the calling
+  job performs before invoking this action.
 
 inputs:
-  ubuntu-version:
-    description: 'Ubuntu version label used in artifact/zip names, e.g. "2004".'
+  platform:
+    description: 'Lowercase platform name used in artifact/zip names, e.g. "ubuntu".'
+    required: true
+  platform-version:
+    description: 'Platform version used in artifact/zip names, e.g. "2404" or "trixie".'
+    required: true
+  distribution:
+    description: 'Debian changelog distribution codename, e.g. "noble" or "trixie".'
     required: true
 
 runs:
@@ -208,16 +214,7 @@ runs:
     - name: Build .deb
       shell: bash
       run: |
-        # Map the Ubuntu version label to its release codename for the
-        # debian/changelog Distribution field.
-        case "${{ inputs.ubuntu-version }}" in
-          2004) distribution=focal ;;
-          2204) distribution=jammy ;;
-          2404) distribution=noble ;;
-          2604) distribution=resolute ;;
-          *) echo "Unknown ubuntu-version '${{ inputs.ubuntu-version }}'" >&2; exit 1 ;;
-        esac
-        make -C _packaging DISTRIBUTION="$distribution"
+        make -C _packaging DISTRIBUTION="${{ inputs.distribution }}"
         for F in _packaging/*.deb; do echo; echo "$F"; dpkg-deb -I "$F"; done
 
     - name: Assemble release directory
@@ -225,7 +222,7 @@ runs:
       shell: bash
       run: |
         VERSION="${{ github.ref_type == 'tag' && github.ref_name || github.sha }}"
-        OUTDIR="strand-braid-ubuntu-${{ inputs.ubuntu-version }}-${VERSION}"
+        OUTDIR="strand-braid-${{ inputs.platform }}-${{ inputs.platform-version }}-${VERSION}"
         mkdir -p "$OUTDIR"
         cp -a _packaging/*.deb "$OUTDIR/"
         # The readme's example install command names the .deb file, which
@@ -236,11 +233,11 @@ runs:
         # the zip. There is exactly one .deb here (see `make -C _packaging`).
         deb_filename="$(basename _packaging/*.deb)"
         sed "s/@STRAND_BRAID_DEB_FILENAME@/$deb_filename/" \
-          _packaging/ubuntu-installer-zip-readme.txt > "$OUTDIR/README.txt"
+          _packaging/deb-installer-zip-readme.txt > "$OUTDIR/README.txt"
         cp -a _packaging/strand-braid/licenses "$OUTDIR/"
         ls -lh "$OUTDIR/"
         dpkg --contents "$OUTDIR"/*.deb
-        # Zip the directory; the zip name records the Ubuntu version (the .deb
+        # Zip the directory; the zip name records the target platform (the .deb
         # name does not).
         zip -r "${OUTDIR}.zip" "$OUTDIR"
         echo "outdir=$OUTDIR" >> "$GITHUB_OUTPUT"
@@ -248,10 +245,10 @@ runs:
 
     - uses: actions/upload-artifact@v6
       with:
-        name: strand-braid-ubuntu-${{ inputs.ubuntu-version }}
+        name: strand-braid-${{ inputs.platform }}-${{ inputs.platform-version }}
         path: ${{ steps.assemble.outputs.outdir }}
 
-    # On tag pushes, publish the per-Ubuntu-version .zip to the GitHub Release.
+    # On tag pushes, publish the per-platform .zip to the GitHub Release.
     - name: Publish to GitHub Release
       if: github.ref_type == 'tag'
       uses: softprops/action-gh-release@v2

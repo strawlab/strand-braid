@@ -25,3 +25,9 @@ downloaded [here](https://strawlab-cdn.com/assets/20201104_174158.braidz):
 ## Build a Python wheel
 
     maturin build
+
+CI builds each wheel on a native runner for its target architecture, then uses
+`scripts/test_artifact.py` to install it and exercise the compiled extension.
+The same smoke test can be run on a locally built artifact:
+
+    python scripts/test_artifact.py "target/wheels/*.whl"

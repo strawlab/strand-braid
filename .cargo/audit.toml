@@ -1,0 +1,27 @@
+# Temporary exceptions to the vulnerability gate. Keep each exception narrow,
+# documented, and remove it as soon as its stated removal condition is met.
+#
+# RUSTSEC-2026-0194 and RUSTSEC-2026-0195 affect quick-xml 0.36.2 through:
+#
+#   quick-xml -> urdf-rs -> re_importer -> re_sdk/re_viewer
+#   quick-xml -> minidom-14 -> dae-parser -> re_renderer -> re_viewer
+#
+# Both paths are part of Rerun 0.35.0. The importer API is required to register
+# the custom .braidz loader, and Rerun's spatial viewer enables DAE support even
+# without its top-level `importers` feature. Rerun 0.35.0 is the latest stable
+# release and its upstream lockfile still contains quick-xml 0.36.2:
+# https://github.com/rerun-io/rerun/blob/65b93e985d1dc902447ad58ac17761d9e108a666/Cargo.lock
+#
+# Risk: malicious XML/DAE/URDF data opened by the released desktop viewer can
+# exhaust memory or CPU. These are denial-of-service advisories, not code
+# execution or data disclosure. Until fixed, do not open untrusted recordings
+# or 3D asset files in rerun-braidz-viewer.
+#
+# Removal condition: a stable Rerun/importer release used by this workspace no
+# longer resolves quick-xml below 0.41, or Rerun exposes feature controls that
+# let the shipped viewer omit both vulnerable parser paths.
+[advisories]
+ignore = [
+    "RUSTSEC-2026-0194",
+    "RUSTSEC-2026-0195",
+]

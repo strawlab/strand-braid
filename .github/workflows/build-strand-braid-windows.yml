@@ -23,8 +23,8 @@ name: Build strand-braid Windows package
 # can be published missing Basler/Pylon support. See making-releases.md.
 #
 # Note: the auto-generated "Downloads" table in build-strand-braid-deb.yml only
-# lists the Ubuntu zips; the Windows zip is attached to the same GitHub Release
-# but is not (yet) added to that table.
+# lists the Debian and Ubuntu zips; the Windows zip is attached to the same
+# GitHub Release but is not (yet) added to that table.
 
 on:
   push:

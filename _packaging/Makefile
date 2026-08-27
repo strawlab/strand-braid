@@ -1,8 +1,8 @@
 BUILD_DIR := ../build
 
-# Ubuntu release codename written into debian/changelog (the `Distribution`
+# Distribution codename written into debian/changelog (the `Distribution`
 # field). Callers (e.g. the GitHub Actions packaging job) override this to match
-# the Ubuntu version being built; it defaults to focal for standalone use.
+# the target distribution; it defaults to focal for standalone use.
 DISTRIBUTION ?= focal
 
 # The file name with "VERSION" in it is wrong (because such files do not really

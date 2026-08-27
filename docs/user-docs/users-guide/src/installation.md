@@ -6,20 +6,19 @@ Download releases from [our releases
 page](https://github.com/strawlab/strand-braid/releases).
 
 Choose the correct installer for your operating system. We build releases of
-Strand Camera and Braid for recent Ubuntu Linux Long Term Support (LTS)
-releases. Each Ubuntu release has a version number (e.g. "24.04") and a code
-name (e.g. "Noble Numbat"). The installers at the releases page hosted on Github
-are available in the "Assets" section with names like:
-`strand-braid-ubuntu-<UBUNTU_VERSION>-<STRAND_BRAID_VERSION>.zip`. Here
-`UBUNTU_VERSION` could be something like `2404` which would correspond to Ubuntu
-24.04. Download and expand this `.zip` file. It contains a `README.txt` file
-with further instructions and a `.deb` file which can be installed by the Ubuntu
-operating system by double-clicking in the file manager.
+Strand Camera and Braid for recent Ubuntu Linux Long Term Support (LTS) releases
+and Debian 13 (Trixie). The installers on the GitHub releases page are available
+in the "Assets" section with names such as
+`strand-braid-ubuntu-2404-<STRAND_BRAID_VERSION>.zip` and
+`strand-braid-debian-trixie-<STRAND_BRAID_VERSION>.zip`. Download and expand the
+appropriate `.zip` file. It contains a `README.txt` file with further
+instructions and a `.deb` file which can be installed by double-clicking in the
+file manager.
 
 <!--
 
-Note: the source for the README.txt files included in the installler .zip are
-in _packaging/ubuntu-2404-installer-zip-readme.txt
+Note: the source for the README.txt files included in the installer .zip is
+in _packaging/deb-installer-zip-readme.txt
 
 -->
 
