@@ -67,7 +67,9 @@ use strand_cam_storetype::{
 
 use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
 
-pub use imops_processor::{ImOpsHostConfiguration, ImOpsHostOptions};
+pub use host_annotation::HostAnnotation;
+pub use host_frame_sink::HostFrame;
+pub use host_options::StrandCamHostOptions;
 
 /// HTTP integration supplied by a host which serves Strand Camera's router
 /// itself. This keeps camera acquisition independent while avoiding a second
@@ -113,6 +115,9 @@ mod post_trigger_buffer;
 mod gui_app;
 
 mod frame_process_task;
+pub mod host_annotation;
+pub mod host_frame_sink;
+pub mod host_options;
 pub mod imops_processor;
 
 mod cam_arg_task;
@@ -692,6 +697,16 @@ pub struct StrandCamArgs {
     pub fmf_filename_template: String,
     pub ufmf_filename_template: String,
     pub disable_console: bool,
+    /// Do not run the built-in ImOps detector, and do not offer it in the
+    /// browser UI.
+    ///
+    /// The detector reports its moments over UDP, which suits the standalone
+    /// deployment. An embedding host reads frames from
+    /// [`host_options::StrandCamHostOptions::frame_sink`] and runs its own
+    /// detector instead; leaving this one enabled there costs a second
+    /// threshold-and-moments pass over every frame and offers the operator a
+    /// panel of controls that changes nothing the host does.
+    pub disable_imops: bool,
     pub csv_save_dir: String,
     pub led_box_device_path: Option<String>,
     #[cfg(feature = "flydratrax")]
@@ -734,6 +749,7 @@ impl Default for StrandCamArgs {
             fmf_filename_template: FMF_FILENAME_TEMPLATE_DEFAULT.to_string(),
             ufmf_filename_template: UFMF_FILENAME_TEMPLATE_DEFAULT.to_string(),
             disable_console: false,
+            disable_imops: false,
             #[cfg(feature = "fiducial")]
             apriltag_csv_filename_template: strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT
                 .to_string(),
@@ -1200,7 +1216,7 @@ where
                         gui_singleton: gui_singleton2,
                         shutdown_rx: None,
                         data_dir: legacy_data_dir,
-                        imops: None,
+                        host_options: None,
                         embedded_http: None,
                     },
                 ))?;
@@ -1245,7 +1261,7 @@ where
                 gui_singleton,
                 shutdown_rx: None,
                 data_dir: legacy_data_dir,
-                imops: None,
+                host_options: None,
                 embedded_http: None,
             },
         ))?;
@@ -1287,7 +1303,7 @@ pub async fn run_strand_cam_app_async_with_host_options<M, C, G>(
     args: StrandCamArgs,
     app_name: &'static str,
     shutdown_rx: tokio::sync::oneshot::Receiver<()>,
-    imops: Option<ImOpsHostOptions>,
+    host_options: Option<StrandCamHostOptions>,
     embedded_http: Option<EmbeddedHttpOptions>,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
@@ -1307,7 +1323,7 @@ where
             gui_singleton: Default::default(),
             shutdown_rx: Some(shutdown_rx),
             data_dir,
-            imops,
+            host_options,
             embedded_http,
         },
     )
@@ -1393,7 +1409,7 @@ struct RunAfterOptions {
     gui_singleton: ArcMutGuiSingleton,
     shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
     data_dir: PathBuf,
-    imops: Option<ImOpsHostOptions>,
+    host_options: Option<StrandCamHostOptions>,
     embedded_http: Option<EmbeddedHttpOptions>,
 }
 
@@ -1415,7 +1431,7 @@ where
         gui_singleton,
         shutdown_rx,
         data_dir,
-        imops,
+        host_options,
         embedded_http,
     } = host;
     let cfg_from_braid;
@@ -1522,7 +1538,7 @@ where
         gui_singleton,
         data_dir,
         shutdown_rx,
-        imops,
+        host_options,
         embedded_http,
     )
     .await
@@ -1571,7 +1587,7 @@ async fn run<M, C, G>(
     gui_singleton: ArcMutGuiSingleton,
     data_dir: PathBuf,
     shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
-    mut imops: Option<ImOpsHostOptions>,
+    mut host_options: Option<StrandCamHostOptions>,
     embedded_http: Option<EmbeddedHttpOptions>,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
@@ -1924,6 +1940,7 @@ where
             found_points: vec![],
             valid_display: None,
             annotations: vec![],
+            host_annotation: None,
         })
         .await
         .unwrap();
@@ -2028,7 +2045,9 @@ where
     // callback. Forward those commands into the same queue used by
     // `CallbackType::ToCamera`, preserving their normal ordering and dispatch
     // path. A closed host channel is not a camera shutdown request.
-    let host_cam_args_rx = imops.as_mut().and_then(|imops| imops.cam_args_rx.take());
+    let host_cam_args_rx = host_options
+        .as_mut()
+        .and_then(|host_options| host_options.cam_args_rx.take());
     let (led_box_tx_std, led_box_rx) = tokio::sync::mpsc::channel(20);
 
     let led_box_heartbeat_update_arc = Arc::new(RwLock::new(None));
@@ -2231,19 +2250,6 @@ where
     #[cfg(feature = "fiducial")]
     let apriltag_state = Some(ApriltagState::default());
 
-    let im_ops_state = if let Some(imops) = &imops {
-        let configuration = *imops.configuration_rx.borrow();
-        ImOpsState {
-            do_detection: configuration.enabled,
-            threshold: configuration.processor.threshold,
-            center_x: configuration.processor.center_x,
-            center_y: configuration.processor.center_y,
-            ..ImOpsState::default()
-        }
-    } else {
-        ImOpsState::default()
-    };
-
     #[cfg(feature = "flydra_feat_detect")]
     let has_image_tracker_compiled = true;
 
@@ -2360,7 +2366,7 @@ where
         post_trigger_buffer_size: 0,
         cuda_devices,
         apriltag_state,
-        im_ops_state,
+        im_ops_state: (!args.disable_imops).then(ImOpsState::default),
         had_frame_processing_error: false,
         camera_calibration: None,
         version_update: None,
@@ -2536,7 +2542,7 @@ where
             http_camserver_info2,
             transmit_msg_tx.clone(),
             camdata_udp_addr,
-            imops,
+            host_options,
             led_box_heartbeat_update_arc2,
             #[cfg(feature = "checkercal")]
             collected_corners_arc.clone(),

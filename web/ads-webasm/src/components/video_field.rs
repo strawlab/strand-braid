@@ -12,7 +12,9 @@ use yew::{Callback, Component, Context, Html, MouseEvent, Properties, classes, h
 
 use yew_tincture::components::{Button, CheckboxLabel};
 
-use strand_http_video_streaming_types::{CanvasDrawableShape, CircleParams, StrokeStyle};
+use strand_http_video_streaming_types::{
+    CanvasDrawableShape, CircleParams, HostAnnotationProvenance, StrokeStyle,
+};
 
 const PLAYING_FPS: f64 = 10.0;
 const PAUSED_FPS: f64 = 0.1;
@@ -28,6 +30,9 @@ pub struct ImData2 {
     pub draw_shapes: Vec<CanvasDrawableShape>,
     pub fno: u64,
     pub ts_rfc3339: String, // timestamp in RFC3339 format
+    /// Set when some of `draw_shapes` came from an application embedding this
+    /// camera, and therefore describe an earlier image than this one.
+    pub host_annotation: Option<HostAnnotationProvenance>,
 }
 
 pub struct VideoField {
@@ -40,6 +45,8 @@ pub struct VideoField {
     green_stroke: StrokeStyle,
     green: &'static str,
     rendered_frame_number: Option<u64>,
+    /// Provenance of the host-contributed marks on the frame currently drawn.
+    rendered_host_annotation: Option<HostAnnotationProvenance>,
     timeout: Option<Timeout>,
     zoom_mode: ZoomMode,
     rotate_quarter_turns: i8,
@@ -100,6 +107,7 @@ impl Component for VideoField {
             green_stroke: StrokeStyle::from_rgb(0x7F, 0xFF, 0x7F),
             green: "7fff7f",
             rendered_frame_number: None,
+            rendered_host_annotation: None,
             timeout: None,
             zoom_mode: ZoomMode::FitWidth,
             rotate_quarter_turns: 0,
@@ -178,6 +186,7 @@ impl Component for VideoField {
                 }
 
                 self.rendered_frame_number = Some(fno);
+                self.rendered_host_annotation = im_data.host_annotation.clone();
             }
             Msg::NotifySender => {
                 self.timeout = None;
@@ -237,6 +246,7 @@ impl Component for VideoField {
                 fno: in_msg.fno,
                 ts_rfc3339: in_msg.ts_rfc3339,
                 draw_shapes,
+                host_annotation: in_msg.host_annotation,
             };
 
             // It seems that in some circumstances with yew 0.21.0, this
@@ -394,6 +404,25 @@ impl VideoField {
                 "(Rotation disabled mouse position.)".to_string()
             };
         let fno_str = format!("{}", self.rendered_frame_number.unwrap_or(0));
+        // Marks contributed by an application embedding this camera describe a
+        // frame that has already gone by: it is handed each frame only after
+        // that frame was published here. Name the frame they came from, so a
+        // stale mark is not read as a property of the image on screen.
+        let host_annotation = match &self.rendered_host_annotation {
+            Some(provenance) => {
+                let age = match provenance.age_frames {
+                    0 => "current".to_string(),
+                    1 => "1 frame behind".to_string(),
+                    n => format!("{n} frames behind"),
+                };
+                html! {
+                    <div class="video-field-host-annotation">
+                        {format!("detection: frame {} ({age})", provenance.frame_number)}
+                    </div>
+                }
+            }
+            None => html! {},
+        };
         html! {
             <div class="video-field-text">
                 <div class="video-field-fno">{"frame: "}{ &fno_str }</div>
@@ -401,6 +430,7 @@ impl VideoField {
                 <div class="video-field-fps">
                     {"frames per second: "}{ format!("{:.1}", ctx.props().measured_fps) }
                 </div>
+                { host_annotation }
             </div>
         }
     }

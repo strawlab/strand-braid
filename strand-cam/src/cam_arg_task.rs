@@ -335,37 +335,61 @@ where
             CamArg::ToggleImOpsDetection(do_detection) => {
                 let mut tracker = shared_store_arc.write().unwrap();
                 tracker.modify(|shared| {
-                    shared.im_ops_state.do_detection = do_detection;
+                    if let Some(ref mut im_ops_state) = shared.im_ops_state {
+                        im_ops_state.do_detection = do_detection;
+                    } else {
+                        error!("imops is disabled, not changing its state");
+                    }
                 });
             }
             CamArg::SetImOpsDestination(v) => {
                 let mut tracker = shared_store_arc.write().unwrap();
                 tracker.modify(|shared| {
-                    shared.im_ops_state.destination = v;
+                    if let Some(ref mut im_ops_state) = shared.im_ops_state {
+                        im_ops_state.destination = v;
+                    } else {
+                        error!("imops is disabled, not changing its state");
+                    }
                 });
             }
             CamArg::SetImOpsSource(v) => {
                 let mut tracker = shared_store_arc.write().unwrap();
                 tracker.modify(|shared| {
-                    shared.im_ops_state.source = v;
+                    if let Some(ref mut im_ops_state) = shared.im_ops_state {
+                        im_ops_state.source = v;
+                    } else {
+                        error!("imops is disabled, not changing its state");
+                    }
                 });
             }
             CamArg::SetImOpsCenterX(v) => {
                 let mut tracker = shared_store_arc.write().unwrap();
                 tracker.modify(|shared| {
-                    shared.im_ops_state.center_x = v;
+                    if let Some(ref mut im_ops_state) = shared.im_ops_state {
+                        im_ops_state.center_x = v;
+                    } else {
+                        error!("imops is disabled, not changing its state");
+                    }
                 });
             }
             CamArg::SetImOpsCenterY(v) => {
                 let mut tracker = shared_store_arc.write().unwrap();
                 tracker.modify(|shared| {
-                    shared.im_ops_state.center_y = v;
+                    if let Some(ref mut im_ops_state) = shared.im_ops_state {
+                        im_ops_state.center_y = v;
+                    } else {
+                        error!("imops is disabled, not changing its state");
+                    }
                 });
             }
             CamArg::SetImOpsThreshold(v) => {
                 let mut tracker = shared_store_arc.write().unwrap();
                 tracker.modify(|shared| {
-                    shared.im_ops_state.threshold = v;
+                    if let Some(ref mut im_ops_state) = shared.im_ops_state {
+                        im_ops_state.threshold = v;
+                    } else {
+                        error!("imops is disabled, not changing its state");
+                    }
                 });
             }
 
