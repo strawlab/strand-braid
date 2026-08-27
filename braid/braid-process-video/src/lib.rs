@@ -980,7 +980,7 @@ fn gather_frame_data<'a>(
                                 .unwrap_or_else(|| {
                                     tracing::info!("for {}: creating default flydra feature detector configuration",
                                         source.cam_id.best_name());
-                                    flydra_pt_detect_cfg::default_absdiff()
+                                    flydra_feature_detector_types::ImPtDetectCfg::default()
                                 });
                             let raw_cam_name = RawCamName::new(source.cam_id.best_name());
                             let pic_ref = pic.borrow();

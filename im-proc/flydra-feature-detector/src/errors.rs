@@ -24,6 +24,8 @@ pub enum Error {
     },
     #[error("FastImageError({0})")]
     FastImageError(#[from] fastim_mod::Error),
+    #[error("invalid polygon for valid_region: {0}")]
+    InvalidPolygon(#[from] parry_geom::MaskError),
     #[error("IoError: {source}")]
     IoError {
         #[from]

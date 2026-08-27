@@ -82,6 +82,12 @@ pub struct HostAnnotationProvenance {
 /// Parameters defining a circle shape.
 ///
 /// Used for circular regions, annotations, or detected circular objects.
+///
+/// The center is in pixel coordinates of the full camera image, with `x` to the
+/// right and `y` down. Unlike [`PolygonParams`], these are whole pixels.
+///
+/// As a region (see [`Shape::Circle`]), a pixel belongs to the circle when its
+/// distance from the center is strictly less than `radius`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct CircleParams {
     /// X coordinate of the circle center
@@ -96,6 +102,27 @@ pub struct CircleParams {
 ///
 /// Used for arbitrary polygonal regions or complex shapes that cannot
 /// be represented by simpler geometric primitives.
+///
+/// # Semantics
+///
+/// The points are the polygon's vertices **in order**, forming a closed ring:
+/// the last vertex connects back to the first, so there is no need to repeat
+/// it (though a repeated closing vertex is accepted). Either winding direction
+/// works.
+///
+/// Concave outlines are honored — the region is what the ring encloses, not
+/// the convex hull of the vertices. A region may therefore exclude part of its
+/// own bounding area.
+///
+/// A ring that crosses itself has no well-defined interior. That includes a
+/// convex outline whose vertices are listed out of order, which is why such a
+/// polygon falls back to the convex hull of its vertices rather than being
+/// rejected. Fewer than three distinct vertices, or vertices that are all
+/// collinear, enclose nothing and are an error.
+///
+/// Coordinates are `(x, y)` in pixels of the full camera image, with `x` to the
+/// right and `y` down. They are `f64`, so vertices need not fall on pixel
+/// centers.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PolygonParams {
     /// List of (x, y) coordinate pairs defining the polygon vertices
@@ -121,18 +148,47 @@ pub struct PolygonParams {
 ///
 /// This enum provides various geometric primitives for defining areas
 /// of interest, valid regions, or annotation overlays on video frames.
+///
+/// # As a region
+///
+/// When used as a region — most notably `ImPtDetectCfg::valid_region`, which
+/// confines feature detection — the variants mean:
+///
+/// | variant | region |
+/// |---|---|
+/// | [`Everything`](Self::Everything) | the whole image |
+/// | [`Circle`](Self::Circle) | inside one circle |
+/// | [`MultipleCircles`](Self::MultipleCircles) | inside **any** of the circles (their union) |
+/// | [`Polygon`](Self::Polygon) | inside the closed ring of vertices, concavities included |
+///
+/// There is no variant for the complement of a shape, nor for a polygon with
+/// holes. A union of circles is the only way to combine regions.
+///
+/// # Serialization
+///
+/// This is serialized as a single-key map (serde's default externally tagged
+/// representation), so in a Braid `.toml` config a region reads
+///
+/// ```toml
+/// [cameras.point_detection_config.valid_region.Polygon]
+/// points = [ [100.0, 50.0], [600.0, 50.0], [600.0, 400.0] ]
+/// ```
+///
+/// and the variants without fields are bare strings, e.g.
+/// `valid_region = "Everything"`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Shape {
-    /// Represents the entire image area
+    /// The entire image area: every pixel belongs to the region.
     Everything,
-    /// A circular region
+    /// A single circular region; see [`CircleParams`].
     Circle(CircleParams),
     // Hole(CircleParams),
     // Rectangle(RectangleParams),
     // Mask(MaskImage),
-    /// A polygonal region with arbitrary vertices
+    /// A polygonal region with arbitrary vertices; see [`PolygonParams`].
     Polygon(PolygonParams),
-    /// Multiple individual circles
+    /// The union of several circles: a pixel belongs to the region if it is
+    /// inside at least one of them.
     MultipleCircles(Vec<CircleParams>),
 }
 

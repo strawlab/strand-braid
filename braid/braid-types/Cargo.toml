@@ -28,7 +28,6 @@ tokio = { workspace = true, optional = true }
 strand-withkey.workspace = true
 strand-datetime-conversion.workspace = true
 strand-cam-bui-types.workspace = true
-flydra-pt-detect-cfg.workspace = true
 flydra-feature-detector-types.workspace = true
 strand-bui-backend-session-types.workspace = true
 
@@ -38,6 +37,7 @@ start-listener = ["eyre", "axum-token-auth", "cookie", "preferences-serde1", "to
 
 [dev-dependencies]
 base64.workspace = true
+serde_json.workspace = true
 eyre.workspace = true
 serde_cbor.workspace = true
 csv.workspace = true

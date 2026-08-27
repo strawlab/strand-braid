@@ -88,8 +88,6 @@ pub const APP_INFO: AppInfo = AppInfo {
     author: "AndrewStraw",
 };
 
-pub use flydra_pt_detect_cfg::default_absdiff as default_im_pt_detect;
-
 #[cfg(feature = "bundle_files")]
 static ASSETS_DIR: include_dir::Dir<'static> =
     include_dir::include_dir!("$CARGO_MANIFEST_DIR/yew_frontend/dist");
@@ -574,7 +572,7 @@ pub enum ImPtDetectCfgSource {
 #[cfg(feature = "flydra_feat_detect")]
 impl Default for ImPtDetectCfgSource {
     fn default() -> Self {
-        ImPtDetectCfgSource::ChangesNotSavedToDisk(default_im_pt_detect())
+        ImPtDetectCfgSource::ChangesNotSavedToDisk(ImPtDetectCfg::default())
     }
 }
 
@@ -1761,7 +1759,7 @@ where
     // Here we just create some default, it does not matter what, because it
     // will not be used for anything.
     #[cfg(not(feature = "flydra_feat_detect"))]
-    let im_pt_detect_cfg = flydra_pt_detect_cfg::default_absdiff();
+    let im_pt_detect_cfg = ImPtDetectCfg::default();
 
     #[cfg(feature = "flydra_feat_detect")]
     let im_pt_detect_cfg = match &tracker_cfg_src {
@@ -1775,7 +1773,7 @@ where
                         "Failed loading image detection config ({}), using defaults.",
                         e
                     );
-                    default_im_pt_detect()
+                    ImPtDetectCfg::default()
                 }
             }
         }
@@ -2083,6 +2081,16 @@ where
 
     let mut transmit_msg_tx = None;
     if let Some(first_msg_tx) = first_msg_tx {
+        // Tell Braid up front what object detection settings we are running,
+        // so a recording started before our first settings update still knows
+        // how this camera's 2D data was produced.
+        #[cfg(feature = "flydra_feat_detect")]
+        let feature_detect_settings = Some(braid_types::UpdateFeatureDetectSettings {
+            current_feature_detect_settings: im_pt_detect_cfg.clone(),
+        });
+        #[cfg(not(feature = "flydra_feat_detect"))]
+        let feature_detect_settings = None;
+
         let new_cam_data = braid_types::RegisterNewCamera {
             raw_cam_name: raw_cam_name.clone(),
             http_camserver_info: Some(BuiServerInfo::Server(http_camserver_info.clone())),
@@ -2090,6 +2098,7 @@ where
                 current_cam_settings_buf: settings_on_start,
                 current_cam_settings_extension: settings_file_ext,
             }),
+            feature_detect_settings,
             current_image_png: current_image_png.into(),
             camera_periodic_signal_period_usec,
         };

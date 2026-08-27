@@ -385,7 +385,7 @@ pub struct BraidCameraConfig {
     /// The pixel format to use.
     pub pixel_format: Option<String>,
     /// Configuration for detecting points.
-    #[serde(default = "flydra_pt_detect_cfg::default_absdiff")]
+    #[serde(default)]
     pub point_detection_config: flydra_feature_detector_types::ImPtDetectCfg,
     /// Which camera backend to use.
     #[serde(default)]
@@ -489,7 +489,7 @@ impl BraidCameraConfig {
             name,
             camera_settings_filename: None,
             pixel_format: None,
-            point_detection_config: flydra_pt_detect_cfg::default_absdiff(),
+            point_detection_config: Default::default(),
             _raise_grab_thread_priority: Default::default(),
             start_backend: Default::default(),
             acquisition_duration_allowed_imprecision_msec:
@@ -520,6 +520,12 @@ pub struct RegisterNewCamera {
     pub http_camserver_info: Option<BuiServerInfo>,
     /// The camera settings.
     pub cam_settings_data: Option<UpdateCamSettings>,
+    /// The object detection settings the camera is starting with.
+    ///
+    /// `None` from a camera that does no feature detection, and from one
+    /// built before this field existed.
+    #[serde(default)]
+    pub feature_detect_settings: Option<UpdateFeatureDetectSettings>,
     /// The current image.
     pub current_image_png: PngImageData,
     /// The period of the periodic signal generator in the camera.

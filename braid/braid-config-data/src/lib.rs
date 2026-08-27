@@ -311,3 +311,187 @@ pub fn parse_config_file<P: AsRef<std::path::Path>>(fname: P) -> Result<BraidCon
     cfg.fixup_relative_paths(fname.as_ref())?;
     Ok(cfg)
 }
+
+#[cfg(test)]
+mod valid_region_tests {
+    use super::*;
+    use braid_types::BraidCameraConfig;
+    use flydra_feature_detector_types::ImPtDetectCfg;
+    use strand_http_video_streaming_types::{PolygonParams, Shape};
+
+    /// Build a camera config whose `valid_region` is a polygon.
+    fn polygon_camera_config() -> BraidCameraConfig {
+        let mut cam = BraidCameraConfig::default_absdiff_config("Basler-40116750".to_string());
+        cam.point_detection_config.valid_region = Shape::Polygon(PolygonParams {
+            points: vec![
+                (100.0, 50.0),
+                (600.0, 50.0),
+                (600.0, 400.0),
+                (350.0, 480.0),
+                (100.0, 400.0),
+            ],
+        });
+        cam
+    }
+
+    #[test]
+    fn show_polygon_valid_region_toml() {
+        let cfg = BraidConfig {
+            cameras: vec![polygon_camera_config()],
+            ..Default::default()
+        };
+        // toml 0.5's struct serializer emits fields in declaration order and
+        // errors with ValueAfterTable, so go through toml::Value, whose keys
+        // are sorted (tables last).
+        let value = toml::Value::try_from(&cfg).unwrap();
+        let buf = toml::to_string_pretty(&value).unwrap();
+        println!("--- full braid config .toml ---\n{buf}");
+
+        let cfg2: BraidConfig = toml::from_str(&buf).unwrap();
+        assert_eq!(cfg.cameras, cfg2.cameras);
+    }
+
+    #[test]
+    fn parse_polygon_valid_region_toml() {
+        // The minimal form: `ImPtDetectCfg` defaults every field, so a user
+        // restricting the tracking region writes only the region.
+        let buf = r#"
+[mainbrain]
+output_base_dirname = "DATA"
+
+[[cameras]]
+name = "Basler-40116750"
+
+[cameras.point_detection_config.valid_region.Polygon]
+points = [
+    [100.0, 50.0],
+    [600.0, 50.0],
+    [600.0, 400.0],
+    [350.0, 480.0],
+    [100.0, 400.0],
+]
+"#;
+        let cfg: BraidConfig = toml::from_str(buf).unwrap();
+        let expected_region = Shape::Polygon(PolygonParams {
+            points: vec![
+                (100.0, 50.0),
+                (600.0, 50.0),
+                (600.0, 400.0),
+                (350.0, 480.0),
+                (100.0, 400.0),
+            ],
+        });
+        assert_eq!(
+            cfg.cameras[0].point_detection_config,
+            ImPtDetectCfg {
+                valid_region: expected_region,
+                ..Default::default()
+            },
+            "only valid_region should differ from the defaults"
+        );
+    }
+
+    /// The forms documented in the user's guide must parse. These are copied
+    /// from `docs/user-docs/users-guide/src/parameters_for_object_detection_and_tracking.md`.
+    #[test]
+    fn documented_valid_region_forms_parse() {
+        use strand_http_video_streaming_types::CircleParams;
+
+        let one_circle = r#"
+[[cameras]]
+name = "Basler-40116750"
+
+[cameras.point_detection_config.valid_region.Circle]
+center_x = 320
+center_y = 256
+radius = 200
+"#;
+        let cfg: BraidConfig = toml::from_str(one_circle).unwrap();
+        assert_eq!(
+            cfg.cameras[0].point_detection_config.valid_region,
+            Shape::Circle(CircleParams {
+                center_x: 320,
+                center_y: 256,
+                radius: 200,
+            })
+        );
+
+        let two_circles = r#"
+[[cameras]]
+name = "Basler-40116750"
+
+[[cameras.point_detection_config.valid_region.MultipleCircles]]
+center_x = 160
+center_y = 256
+radius = 120
+
+[[cameras.point_detection_config.valid_region.MultipleCircles]]
+center_x = 480
+center_y = 256
+radius = 120
+"#;
+        let cfg: BraidConfig = toml::from_str(two_circles).unwrap();
+        assert_eq!(
+            cfg.cameras[0].point_detection_config.valid_region,
+            Shape::MultipleCircles(vec![
+                CircleParams {
+                    center_x: 160,
+                    center_y: 256,
+                    radius: 120,
+                },
+                CircleParams {
+                    center_x: 480,
+                    center_y: 256,
+                    radius: 120,
+                },
+            ])
+        );
+
+        let everything = r#"
+[[cameras]]
+name = "Basler-40116750"
+
+[cameras.point_detection_config]
+valid_region = "Everything"
+"#;
+        let cfg: BraidConfig = toml::from_str(everything).unwrap();
+        assert_eq!(
+            cfg.cameras[0].point_detection_config.valid_region,
+            Shape::Everything
+        );
+
+        // The concave example from the guide.
+        let u_shape = r#"
+[[cameras]]
+name = "Basler-40116750"
+
+[cameras.point_detection_config.valid_region.Polygon]
+points = [
+    [0.0, 0.0],
+    [640.0, 0.0],
+    [640.0, 512.0],
+    [400.0, 512.0],
+    [400.0, 150.0],
+    [240.0, 150.0],
+    [240.0, 512.0],
+    [0.0, 512.0],
+]
+"#;
+        let cfg: BraidConfig = toml::from_str(u_shape).unwrap();
+        match &cfg.cameras[0].point_detection_config.valid_region {
+            Shape::Polygon(p) => assert_eq!(p.points.len(), 8),
+            other => panic!("expected a polygon, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn show_polygon_valid_region_yaml() {
+        // Strand Camera's browser UI and its saved-to-disk object detection
+        // config use YAML rather than TOML.
+        let cfg: ImPtDetectCfg = polygon_camera_config().point_detection_config;
+        let buf = serde_yaml::to_string(&cfg).unwrap();
+        println!("--- ImPtDetectCfg .yaml ---\n{buf}");
+        let cfg2: ImPtDetectCfg = serde_yaml::from_str(&buf).unwrap();
+        assert_eq!(cfg, cfg2);
+    }
+}

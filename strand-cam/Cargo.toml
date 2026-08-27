@@ -62,7 +62,6 @@ strand-cam-storetype.workspace = true
 strand-version-check.workspace = true
 flydra-feature-detector = { workspace = true, optional = true }
 flydra-feature-detector-types.workspace = true
-flydra-pt-detect-cfg.workspace = true
 strand-datetime-conversion.workspace = true
 strand-http-video-streaming-types.workspace = true
 strand-http-video-streaming.workspace = true

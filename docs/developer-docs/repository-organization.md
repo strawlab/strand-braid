@@ -167,7 +167,6 @@
  - fastfreeimage (im-proc/fastfreeimage) - fast image processing operations
  - flydra-feature-detector (im-proc/flydra-feature-detector) - detect features in images, maximally backwards compatible with Flydra
  - flydra-feature-detector-types (im-proc/flydra-feature-detector/flydra-feature-detector-types) - Configuration types for Strand Camera, Braid and Flydra feature detection.
- - flydra-pt-detect-cfg (im-proc/flydra-feature-detector/flydra-pt-detect-cfg) - Default values for the flydra-feature-detector-types crate
  - imops (im-proc/imops) - image processing operations, accelerated using SIMD
  - strand-dynamic-frame (im-proc/strand-dynamic-frame) - images from machine vision cameras used in Strand Camera
 </details>
