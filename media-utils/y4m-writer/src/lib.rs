@@ -595,7 +595,7 @@ where
                 fullsize_u_plane_dest_row[..width].iter_mut().zip(
                     fullsize_v_plane_dest_row[..width]
                         .iter_mut()
-                        .zip(src_yuv444_row.chunks_exact(3)),
+                        .zip(src_yuv444_row.as_chunks::<3>().0),
                 ),
             )
         {
@@ -689,11 +689,16 @@ where
     let h = frame.height() as usize;
     let width = frame.width() as usize;
 
-    let yuv_iter = frame.image_data().chunks_exact(3).map(|yuv| YUV444 {
-        Y: yuv[0],
-        U: yuv[1],
-        V: yuv[2],
-    });
+    let yuv_iter = frame
+        .image_data()
+        .as_chunks::<3>()
+        .0
+        .iter()
+        .map(|yuv| YUV444 {
+            Y: yuv[0],
+            U: yuv[1],
+            V: yuv[2],
+        });
     // intermediate copy 1
     let yuv_vec: Vec<YUV444> = yuv_iter.collect();
 

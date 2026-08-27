@@ -559,7 +559,7 @@ fn test_y4m() -> anyhow::Result<()> {
             let height = 4;
 
             let mut image_data = vec![0u8; W * height as usize];
-            for row_data in image_data.chunks_exact_mut(W) {
+            for row_data in image_data.as_chunks_mut::<W>().0.iter_mut() {
                 for (col, el) in row_data.iter_mut().enumerate() {
                     let col: u8 = col.try_into().unwrap();
                     *el = STEP * col;

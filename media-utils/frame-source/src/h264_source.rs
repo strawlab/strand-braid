@@ -1674,7 +1674,7 @@ impl PresentationReorderIter<'_> {
         self.pending
             .sort_by_key(|f| rank.get(f.idx()).copied().unwrap_or(usize::MAX));
         let denom = self.total.max(1) as f32;
-        for mut frame in self.pending.drain(..).collect::<Vec<_>>() {
+        for mut frame in std::mem::take(&mut self.pending) {
             if let Timestamp::Fraction(_) = frame.timestamp {
                 let pos = self.rank.get(frame.idx()).copied().unwrap_or(0);
                 frame.timestamp = Timestamp::Fraction(pos as f32 / denom);

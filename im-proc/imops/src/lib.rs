@@ -73,11 +73,11 @@ where
         // trim from stride to width
         let rowdata = &rowdata[..im.width() as usize];
 
-        let mut row_chunk_iter = rowdata.chunks_exact(8);
+        let (row_chunks, row_remainder) = rowdata.as_chunks::<8>();
 
         let mut rowsum = f32x8::splat(0.0);
         let rowvec = f32x8::splat(row as f32);
-        for x in &mut row_chunk_iter {
+        for x in row_chunks {
             let x = f32x8::new([
                 x[0] as f32,
                 x[1] as f32,
@@ -92,7 +92,7 @@ where
         }
         accum += rowsum.reduce_add() as f64;
 
-        for x in row_chunk_iter.remainder() {
+        for x in row_remainder {
             accum += *x as f64 * row as f64;
         }
     }
@@ -120,10 +120,10 @@ where
         // trim from stride to width
         let rowdata = &rowdata[..im.width() as usize];
 
-        let mut row_chunk_iter = rowdata.chunks_exact(4);
+        let (row_chunks, row_remainder) = rowdata.as_chunks::<4>();
 
         let mut rowsum = f64x4::splat(0.0);
-        for (col_div_4, x) in (&mut row_chunk_iter).enumerate() {
+        for (col_div_4, x) in row_chunks.iter().enumerate() {
             let x = f64x4::new([x[0] as f64, x[1] as f64, x[2] as f64, x[3] as f64]);
             let col = f64x4::splat((col_div_4 * 4) as f64) + col_offset;
             rowsum += x * col;
@@ -131,7 +131,7 @@ where
 
         accum += rowsum.reduce_add();
 
-        for (i, x) in row_chunk_iter.remainder().iter().enumerate() {
+        for (i, x) in row_remainder.iter().enumerate() {
             let col = i + start_idx;
             accum += *x as f64 * col as f64;
         }

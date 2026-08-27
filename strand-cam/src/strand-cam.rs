@@ -1074,6 +1074,11 @@ impl FirstMsgForced {
     }
 
     /// Send the first message and return the Sender.
+    /// `SendError` carries the un-sent message back, so its size is
+    /// `BraidHttpApiCallback`'s. Boxing it to satisfy `result_large_err` would
+    /// change the signature for every caller to shrink a value that only exists
+    /// on the shutdown path described for `IgnoreSendError` above.
+    #[allow(clippy::result_large_err)]
     async fn send_first_msg(
         self,
         new_cam_data: braid_types::RegisterNewCamera,
@@ -2774,6 +2779,8 @@ where
     Ok((remote_in_local, remote))
 }
 
+/// See `send_first_msg` for why the large `SendError` is not boxed.
+#[allow(clippy::result_large_err)]
 async fn send_cam_settings_to_braid(
     cam_settings: &str,
     transmit_msg_tx: &tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>,

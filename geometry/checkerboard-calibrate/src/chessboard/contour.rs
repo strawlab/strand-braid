@@ -69,21 +69,17 @@ pub fn find_contours(bin: &[u8], width: usize, height: usize) -> Vec<Contour> {
                 continue;
             }
 
-            let from;
-            let is_hole;
-            if fij == 1 && get(&img, w, h, i, j - 1) == 0 {
+            let (from, is_hole) = if fij == 1 && get(&img, w, h, i, j - 1) == 0 {
                 // Outer border start: foreground pixel with background to the left.
                 nbd += 1;
-                from = (i, j - 1);
-                is_hole = false;
+                ((i, j - 1), false)
             } else if fij >= 1 && get(&img, w, h, i, j + 1) == 0 {
                 // Hole border start: pixel with background to the right.
                 nbd += 1;
-                from = (i, j + 1);
-                is_hole = true;
+                ((i, j + 1), true)
             } else {
                 continue;
-            }
+            };
 
             let mut points = Vec::new();
             border_follow(&mut img, w, h, (i, j), from, nbd, &mut points);

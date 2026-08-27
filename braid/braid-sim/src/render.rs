@@ -62,7 +62,7 @@ pub fn render_rgb8(
 ) -> Vec<u8> {
     let mono = render_mono8(width, height, background, blobs, peak, sigma);
     let mut buf = vec![0u8; width * height * 3];
-    for (pixel, &v) in buf.chunks_exact_mut(3).zip(mono.iter()) {
+    for (pixel, &v) in buf.as_chunks_mut::<3>().0.iter_mut().zip(mono.iter()) {
         pixel[0] = v;
         pixel[1] = v;
         pixel[2] = v;
@@ -95,7 +95,12 @@ pub fn render_yuv422_uyvy(
         .chunks_exact_mut(width * 2)
         .zip(mono.chunks_exact(width))
     {
-        for (group, pair) in out_row.chunks_exact_mut(4).zip(in_row.chunks_exact(2)) {
+        for (group, pair) in out_row
+            .as_chunks_mut::<4>()
+            .0
+            .iter_mut()
+            .zip(in_row.as_chunks::<2>().0)
+        {
             group[0] = NEUTRAL_CHROMA; // U
             group[1] = pair[0]; // Y0
             group[2] = NEUTRAL_CHROMA; // V
@@ -136,7 +141,7 @@ mod tests {
         let yuv = render_yuv422_uyvy(w, h, 3, &blobs, 160.0, 1.5);
         assert_eq!(yuv.len(), w * h * 2);
         // UYVY: [U, Y0, V, Y1] per pixel pair; chroma neutral, luma == mono.
-        for (group, pair) in yuv.chunks_exact(4).zip(mono.chunks_exact(2)) {
+        for (group, pair) in yuv.as_chunks::<4>().0.iter().zip(mono.as_chunks::<2>().0) {
             assert_eq!(group[0], 128); // U
             assert_eq!(group[1], pair[0]); // Y0
             assert_eq!(group[2], 128); // V
