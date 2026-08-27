@@ -37,6 +37,7 @@ with-tokio-codec = ["tokio-util", "bytes", "serde_cbor"]
 start-listener = ["eyre", "axum-token-auth", "cookie", "preferences-serde1", "tokio"]
 
 [dev-dependencies]
+base64.workspace = true
 eyre.workspace = true
 serde_cbor.workspace = true
 csv.workspace = true

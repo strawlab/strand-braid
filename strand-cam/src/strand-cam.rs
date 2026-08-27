@@ -79,7 +79,6 @@ pub struct EmbeddedHttpOptions {
 }
 
 use std::{
-    io::Write,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket},
     sync::{Arc, RwLock},
 };
@@ -561,23 +560,6 @@ struct StrandCamAppState {
     persistent_secret: cookie::Key,
 }
 
-fn display_qr_url(url: &str) -> Result<()> {
-    use qrcode::QrCode;
-    use qrcode::render::unicode;
-    use std::io::stdout;
-
-    let qr = QrCode::new(url)?;
-
-    let image = qr.render::<unicode::Dense1x2>().build();
-
-    let stdout = stdout();
-    let mut stdout_handle = stdout.lock();
-    writeln!(stdout_handle)?;
-    stdout_handle.write_all(image.as_bytes())?;
-    writeln!(stdout_handle)?;
-    Ok(())
-}
-
 #[derive(Debug, Clone)]
 /// Defines whether runtime changes from the user are persisted to disk.
 ///
@@ -947,6 +929,14 @@ fn build_device_connect_urls(
             braid_types::ACCESS_TOKEN_TTL,
         ))
     };
+    // Tell the frontend when the token it is about to show a QR code for dies,
+    // so a code left on screen can say so rather than silently going stale.
+    let token_expires_unix = match &token {
+        AccessToken::NoToken => None,
+        AccessToken::PreSharedToken(token) => {
+            axum_token_auth::token_expiry(token).map(|expiry| expiry.unix_timestamp())
+        }
+    };
     let info = BuiServerAddrInfo::new(bound, token);
     let uris = match strand_bui_backend_session::build_urls(&info) {
         Ok(uris) => uris,
@@ -963,6 +953,7 @@ fn build_device_connect_urls(
     axum::Json(DeviceConnectUrls {
         urls,
         loopback_only,
+        token_expires_unix,
     })
     .into_response()
 }
@@ -1050,22 +1041,6 @@ async fn callback_handler(
         }),
     }
     ().into_response()
-}
-
-async fn handle_auth_error(err: tower::BoxError) -> (StatusCode, &'static str) {
-    match err.downcast::<axum_token_auth::ValidationErrors>() {
-        Ok(err) => {
-            tracing::error!(
-                "Validation error(s): {:?}",
-                err.errors().collect::<Vec<_>>()
-            );
-            (StatusCode::UNAUTHORIZED, "Request is not authorized")
-        }
-        Err(orig_err) => {
-            tracing::error!("Unhandled internal error: {orig_err}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
-        }
-    }
 }
 
 /// Information acquired from Braid when the HTTP session is established.
@@ -2483,11 +2458,11 @@ where
         info!("Strand Cam listening at {listen_addr}");
 
         for url in urls.iter() {
-            info!(" * predicted URL {url}");
-            if !braid_types::is_loopback(url) {
-                println!("QR code for {url}");
-                display_qr_url(&format!("{url}"))?;
-            }
+            let url = url.to_string();
+            info!(
+                " * predicted URL {url}{}",
+                braid_types::token_expiry_note(&url)
+            );
         }
     }
 

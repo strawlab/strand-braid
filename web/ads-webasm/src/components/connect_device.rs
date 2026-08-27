@@ -121,9 +121,12 @@ impl ConnectDevice {
         html! {
             <div class="modal-container connect-device-modal">
                 <h1>{ "Connect a device" }</h1>
-                <p>{ "Scan a QR code below with your phone's camera to open this \
-                      page on your phone. Your phone must be on the same network \
-                      as this computer." }</p>
+                <p>{ "Scan a QR code or copy a link below to open this page on \
+                      another device. If you open one of these links from an \
+                      in-app browser (like a chat app), your browser may not receive \
+                      the token. To bypass this problem, copy the link to your \
+                      clipboard and paste it directly into the browser or scan \
+                      the QR code with your camera app instead." }</p>
                 { body }
                 <p>
                     <Button
@@ -180,7 +183,26 @@ fn view_urls(info: &DeviceConnectUrls) -> Html {
             <ul class="connect-device-list">
                 { for items }
             </ul>
+            { view_expiry(info.token_expires_unix) }
         </>
+    }
+}
+
+/// Say when the codes above stop working. Every URL in one response carries the
+/// same token, so this belongs to the dialog rather than to each QR code.
+fn view_expiry(token_expires_unix: Option<i64>) -> Html {
+    // A server that predates this field, or one serving tokenless URLs, says
+    // nothing rather than guessing.
+    let Some(expires) = token_expires_unix else {
+        return html! {};
+    };
+    match format_expiry(expires) {
+        Some(time) => {
+            html! { <p class="connect-device-expiry">{ format!("These codes stop working at {time}.") }</p> }
+        }
+        None => {
+            html! { <p class="connect-device-expired">{ "These codes have expired — close and reopen this dialog for fresh ones." }</p> }
+        }
     }
 }
 
@@ -221,6 +243,26 @@ fn render_qr(url: &str) -> Option<Html> {
             height="220"
         />
     })
+}
+
+/// Format an expiry timestamp as a human-readable time string suitable for display.
+/// Returns None if the token has already expired.
+fn format_expiry(timestamp: i64) -> Option<String> {
+    let now = js_sys::Date::now() / 1000.0; // now in seconds
+    if (timestamp as f64) <= now {
+        return None; // Already expired
+    }
+
+    // Create a JS Date from the timestamp (in milliseconds).
+    let ms = timestamp as f64 * 1000.0;
+    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms));
+    // Render in the browser's own locale: this dialog is read next to a wall
+    // clock, so 14:32 and 2:32 PM must match what the reader expects.
+    let locale = web_sys::window()
+        .and_then(|w| w.navigator().language())
+        .unwrap_or_else(|| "en-US".to_string());
+    let time_str: String = date.to_locale_time_string(&locale).into();
+    Some(time_str)
 }
 
 /// Fetch the connection URLs from the backend. The request is made to a

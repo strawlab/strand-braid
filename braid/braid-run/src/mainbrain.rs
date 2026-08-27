@@ -135,22 +135,6 @@ async fn events_handler(
     body
 }
 
-async fn handle_auth_error(err: tower::BoxError) -> (StatusCode, &'static str) {
-    match err.downcast::<axum_token_auth::ValidationErrors>() {
-        Ok(err) => {
-            tracing::error!(
-                "Validation error(s): {:?}",
-                err.errors().collect::<Vec<_>>()
-            );
-            (StatusCode::UNAUTHORIZED, "Request is not authorized")
-        }
-        Err(orig_err) => {
-            tracing::error!("Unhandled internal error: {orig_err}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
-        }
-    }
-}
-
 /// Query the mainbrain configuration to get data required for camera settings.
 ///
 /// Note that this does not change the state of the mainbrain to register
@@ -215,6 +199,14 @@ async fn device_connect_urls_handler(
             braid_types::ACCESS_TOKEN_TTL,
         ))
     };
+    // Tell the frontend when the token it is about to show a QR code for dies,
+    // so a code left on screen can say so rather than silently going stale.
+    let token_expires_unix = match &token {
+        AccessToken::NoToken => None,
+        AccessToken::PreSharedToken(token) => {
+            axum_token_auth::token_expiry(token).map(|expiry| expiry.unix_timestamp())
+        }
+    };
     let info = BuiServerAddrInfo::new(bound, token);
     let uris = match strand_bui_backend_session::build_urls(&info) {
         Ok(uris) => uris,
@@ -231,6 +223,7 @@ async fn device_connect_urls_handler(
         strand_bui_backend_session_types::DeviceConnectUrls {
             urls,
             loopback_only,
+            token_expires_unix,
         },
     ))
 }
@@ -420,7 +413,7 @@ async fn launch_braid_http_backend(
                 // Auth layer will produce an error if the request cannot be
                 // authorized so we must handle that.
                 .layer(axum::error_handling::HandleErrorLayer::new(
-                    handle_auth_error,
+                    braid_types::handle_auth_error,
                 ))
                 .layer(auth_layer),
         )
@@ -448,11 +441,11 @@ async fn launch_braid_http_backend(
 
     let urls = strand_bui_backend_session::build_urls(&mainbrain_server_info)?;
     for url in urls.iter() {
-        info!("Predicted URL: {url}");
-        if !braid_types::is_loopback(url) {
-            println!("QR code for {url}");
-            display_qr_url(&format!("{url}"))?;
-        }
+        let url = url.to_string();
+        info!(
+            "Predicted URL: {url}{}",
+            braid_types::token_expiry_note(&url)
+        );
     }
 
     Ok(http_serve_future)
@@ -479,23 +472,6 @@ impl flydra2::ConnectedCamCallback for SendConnectedCamToBuiBackend {
         let mut tracker = self.shared_store.write().unwrap();
         tracker.modify(|shared| shared.connected_cameras = new_cam_list.clone());
     }
-}
-
-fn display_qr_url(url: &str) -> Result<()> {
-    use qrcode::QrCode;
-    use qrcode::render::unicode;
-    use std::io::{Write, stdout};
-
-    let qr = QrCode::new(url)?;
-
-    let image = qr.render::<unicode::Dense1x2>().build();
-
-    let stdout = stdout();
-    let mut stdout_handle = stdout.lock();
-    writeln!(stdout_handle)?;
-    stdout_handle.write_all(image.as_bytes())?;
-    writeln!(stdout_handle)?;
-    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]

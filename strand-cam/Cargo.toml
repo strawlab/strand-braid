@@ -19,7 +19,6 @@ path = "src/main.rs"
 
 [dependencies]
 async-change-tracker.workspace = true
-qrcode.workspace = true
 csv = { workspace = true, optional = true }
 libflate = { workspace = true, optional = true }
 env-tracing-logger.workspace = true

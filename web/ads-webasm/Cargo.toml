@@ -45,6 +45,7 @@ features = [
     "HtmlCanvasElement",
     "HtmlImageElement",
     "MouseEvent",
+    "Navigator",
     "Request",
     "RequestCache",
     "RequestInit",
