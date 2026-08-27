@@ -17,85 +17,128 @@
 //!
 //! ## Golden data
 //!
-//! `GOLDEN_DISPLAY_FNV` holds an FNV-1a hash of each decoded frame's RGB8
-//! pixels, in display order. To regenerate (after changing fixtures or if the
-//! openh264 crate's YUV→RGB conversion changes), run:
+//! `bframes.rgb24` is ffmpeg 7.1's own decode of `bframes.h264`, as packed
+//! RGB8 in display order -- an independent decoder's answer for what each
+//! frame should look like. Regenerate it (only if the fixtures change) with:
 //!
 //! ```text
-//! cargo test -p frame-source --features openh264 --test test_bframe_decode \
-//!     print_golden_display_hashes -- --ignored --nocapture
+//! ffmpeg -y -v error -i tests/data/bframes.h264 -pix_fmt rgb24 -f rawvideo \
+//!     tests/data/bframes.rgb24
 //! ```
 //!
-//! The values were originally validated against ffmpeg 7.1: the Y-planes of
-//! openh264's output pictures are bit-identical to ffmpeg's decode of the same
-//! fixture in display order (H.264 decoding is exactly specified), so these
-//! hashes pin both pixel content and frame order to an independent decoder.
+//! Frames are compared to it per channel within [`MAX_CHANNEL_DIFF`] rather
+//! than exactly, because only the *decoding* is bit-exactly specified by the
+//! H.264 spec; the YUV->RGB step afterwards is not. openh264 and swscale round
+//! it differently, and either may change that rounding across releases.
+//!
+//! The tolerance is what makes this hold still. Over this fixture, openh264's
+//! RGB differs from ffmpeg's by at most 3 per channel for the *same* frame,
+//! while the two closest *different* frames differ by at least 28 -- so
+//! [`MAX_CHANNEL_DIFF`] sits with roughly 3x margin on either side, tight
+//! enough to catch a mispaired or misordered frame and loose enough to ignore
+//! conversion rounding.
+//!
+//! This replaced a table of exact hashes of openh264's RGB output, which had
+//! pinned openh264 0.9.3's YUV->RGB green coefficient typo (`0.299/0.687`,
+//! fixed to `0.299/0.587` in 0.9.8) as if it were correct: an error of up to
+//! 16 per channel against ffmpeg, which the tolerance above would have caught.
 #![cfg(feature = "openh264")]
 
 use eyre::Result;
 
 use frame_source::{FrameData, ImageData, Timestamp, TimestampSource};
-use machine_vision_formats::{ImageData as _, pixel_format::RGB8};
+use machine_vision_formats::{ImageData as _, Stride as _, pixel_format::RGB8};
 
 const MP4_FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data/bframes.mp4");
 const H264_FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/data/bframes.h264");
 
-/// FNV-1a hash of each decoded frame's RGB8 pixel data, in display order.
-/// See the module docs for how to regenerate and how these were validated.
-const GOLDEN_DISPLAY_FNV: [u64; 20] = [
-    0x1d415ec12859ceb9,
-    0xc6db4339d7555d65,
-    0xcfccc6f895bb9b6f,
-    0x62c5ada562ddd560,
-    0xf86ab932fb81b068,
-    0x841c640b611acee5,
-    0xd608e133f83bf9f0,
-    0x0d27e5eac5ac7996,
-    0x61ad189b56b2825c,
-    0x9f4add443c7c5330,
-    0x30b21d79ff5b0d07,
-    0x0a909a0a40cfcb12,
-    0x99819ddb93cfa04c,
-    0x7f80f8edd2f88cb5,
-    0x05b1deb35d90fa17,
-    0xe6416e5aad53e220,
-    0x0697c69dcd393332,
-    0xba4cb3a3de176916,
-    0x61340ff417e311a4,
-    0xa52aa5bb7ae81368,
-];
+/// ffmpeg 7.1's decode of [`H264_FIXTURE`]: packed RGB8, display order.
+/// See the module docs for how to regenerate.
+const GOLDEN_RGB24: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/tests/data/bframes.rgb24"
+));
 
-fn fnv1a64(data: &[u8]) -> u64 {
-    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    for &byte in data {
-        hash ^= u64::from(byte);
-        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-    }
-    hash
-}
+/// Largest per-channel difference from ffmpeg's RGB accepted as the same
+/// frame. See the module docs for how this value is bounded on both sides.
+const MAX_CHANNEL_DIFF: u8 = 8;
 
-/// The FNV-1a hash of a decoded frame's RGB8 pixel data.
-fn rgb_fnv(frame: &FrameData) -> Result<u64> {
+const FIXTURE_FRAMES: usize = 20;
+
+/// A decoded frame's pixels as packed RGB8 (stride padding removed).
+fn rgb_bytes(frame: &FrameData) -> Result<Vec<u8>> {
     let ImageData::Decoded(decoded) = frame.image() else {
         eyre::bail!("expected decoded image data, got {:?}", frame.image());
     };
     let frame_view = decoded.borrow();
     let rgb = frame_view.into_pixel_format::<RGB8>()?;
-    Ok(fnv1a64(rgb.image_data()))
+    let (width, height, stride) = (rgb.width() as usize, rgb.height() as usize, rgb.stride());
+    let data = rgb.image_data();
+    let mut packed = Vec::with_capacity(width * height * 3);
+    for row in 0..height {
+        packed.extend_from_slice(&data[row * stride..row * stride + width * 3]);
+    }
+    Ok(packed)
+}
+
+/// Assert `frame` holds the picture that ffmpeg decoded at `display_rank`.
+fn assert_is_display_frame(frame: &FrameData, display_rank: usize, context: &str) -> Result<()> {
+    let actual = rgb_bytes(frame)?;
+    let frame_len = GOLDEN_RGB24.len() / FIXTURE_FRAMES;
+    assert_eq!(
+        actual.len(),
+        frame_len,
+        "{context}: decoded frame size does not match the ffmpeg reference"
+    );
+    let expected = &GOLDEN_RGB24[display_rank * frame_len..(display_rank + 1) * frame_len];
+
+    // Report the worst channel rather than the first, so a failure says how
+    // far off it is: rounding-scale or a different picture entirely.
+    let worst = actual
+        .iter()
+        .zip(expected)
+        .enumerate()
+        .map(|(i, (&a, &e))| (a.abs_diff(e), i, a, e))
+        .max();
+    if let Some((diff, i, actual_val, expected_val)) = worst {
+        assert!(
+            diff <= MAX_CHANNEL_DIFF,
+            "{context}: differs from ffmpeg's display-order frame {display_rank} by {diff} \
+             (> {MAX_CHANNEL_DIFF}) at byte {i}: got {actual_val}, expected {expected_val}. \
+             A difference this large means the wrong picture, not conversion rounding."
+        );
+    }
+    Ok(())
 }
 
 /// Assert `frames` is exactly the golden display-order frame sequence.
 fn assert_pixels_are_golden_display_order(frames: &[FrameData]) -> Result<()> {
-    assert_eq!(frames.len(), GOLDEN_DISPLAY_FNV.len());
+    assert_eq!(frames.len(), FIXTURE_FRAMES);
     for (display_rank, frame) in frames.iter().enumerate() {
-        assert_eq!(
-            rgb_fnv(frame)?,
-            GOLDEN_DISPLAY_FNV[display_rank],
-            "frame emitted at display position {display_rank} (idx {}) has wrong pixels",
-            frame.idx()
-        );
+        assert_is_display_frame(
+            frame,
+            display_rank,
+            &format!(
+                "frame emitted at display position {display_rank} (idx {})",
+                frame.idx()
+            ),
+        )?;
     }
     Ok(())
+}
+
+/// The display rank of each frame, given a sort key per frame. Panics unless
+/// the ranks are a non-identity permutation, since a fixture that does not
+/// reorder would make its test vacuous.
+fn display_ranks<K: Ord>(keys: &[K]) -> Vec<usize> {
+    let mut order: Vec<usize> = (0..keys.len()).collect();
+    order.sort_by_key(|&i| &keys[i]);
+    let mut rank = vec![0usize; keys.len()];
+    for (display_rank, &decode_idx) in order.iter().enumerate() {
+        rank[decode_idx] = display_rank;
+    }
+    assert_ne!(rank, (0..keys.len()).collect::<Vec<_>>());
+    rank
 }
 
 /// Decoding an MP4 with B-frames: `decode_order_iter` must yield all frames
@@ -109,12 +152,7 @@ fn mp4_bframes_decode_order_pairs_pixels_with_frames() -> Result<()> {
         .timestamp_source(TimestampSource::Mp4Pts)
         .build_source()?;
     let frames: Vec<FrameData> = src.decode_order_iter().collect::<Result<_, _>>()?;
-    assert_eq!(frames.len(), GOLDEN_DISPLAY_FNV.len());
-
-    let pts: Vec<std::time::Duration> = frames
-        .iter()
-        .map(|f| f.timestamp().unwrap_duration())
-        .collect();
+    assert_eq!(frames.len(), FIXTURE_FRAMES);
 
     // Strict, gap-free decode order (the decode_order_iter contract).
     for (position, frame) in frames.iter().enumerate() {
@@ -122,21 +160,18 @@ fn mp4_bframes_decode_order_pairs_pixels_with_frames() -> Result<()> {
     }
 
     // Display rank of each decode-order frame, derived from PTS alone.
-    let mut order: Vec<usize> = (0..frames.len()).collect();
-    order.sort_by_key(|&i| pts[i]);
-    let mut rank = vec![0usize; frames.len()];
-    for (display_rank, &decode_idx) in order.iter().enumerate() {
-        rank[decode_idx] = display_rank;
-    }
-    // The fixture must actually reorder, or this test is vacuous.
-    assert_ne!(rank, (0..frames.len()).collect::<Vec<_>>());
+    let pts: Vec<std::time::Duration> = frames
+        .iter()
+        .map(|f| f.timestamp().unwrap_duration())
+        .collect();
+    let rank = display_ranks(&pts);
 
     for (decode_idx, frame) in frames.iter().enumerate() {
-        assert_eq!(
-            rgb_fnv(frame)?,
-            GOLDEN_DISPLAY_FNV[rank[decode_idx]],
-            "decode-order frame {decode_idx} has the pixels of a different frame"
-        );
+        assert_is_display_frame(
+            frame,
+            rank[decode_idx],
+            &format!("decode-order frame {decode_idx}"),
+        )?;
     }
     Ok(())
 }
@@ -201,7 +236,7 @@ fn annexb_bframes_decode_order_pairs_pixels_with_frames() -> Result<()> {
         .do_decode_h264(true)
         .build_source()?;
     let frames: Vec<FrameData> = src.decode_order_iter().collect::<Result<_, _>>()?;
-    assert_eq!(frames.len(), GOLDEN_DISPLAY_FNV.len());
+    assert_eq!(frames.len(), FIXTURE_FRAMES);
 
     for (position, frame) in frames.iter().enumerate() {
         assert_eq!(frame.idx(), position);
@@ -218,30 +253,24 @@ fn annexb_bframes_decode_order_pairs_pixels_with_frames() -> Result<()> {
         }
         keys.push((cvs, poc));
     }
-    let mut order: Vec<usize> = (0..frames.len()).collect();
-    order.sort_by_key(|&i| keys[i]);
-    let mut rank = vec![0usize; frames.len()];
-    for (display_rank, &decode_idx) in order.iter().enumerate() {
-        rank[decode_idx] = display_rank;
-    }
-    assert_ne!(rank, (0..frames.len()).collect::<Vec<_>>());
+    let rank = display_ranks(&keys);
 
     for (decode_idx, frame) in frames.iter().enumerate() {
-        assert_eq!(
-            rgb_fnv(frame)?,
-            GOLDEN_DISPLAY_FNV[rank[decode_idx]],
-            "decode-order frame {decode_idx} has the pixels of a different frame"
-        );
+        assert_is_display_frame(
+            frame,
+            rank[decode_idx],
+            &format!("decode-order frame {decode_idx}"),
+        )?;
     }
     Ok(())
 }
 
-/// Regenerate `GOLDEN_DISPLAY_FNV` (see module docs). Also cross-checks that
-/// the MP4 and raw Annex B fixtures decode to identical pixel sequences.
+/// The MP4 and raw Annex B fixtures hold the same coded stream, so they must
+/// decode to byte-identical pixels (same decoder, same conversion -- no
+/// tolerance needed here).
 #[test]
-#[ignore]
-fn print_golden_display_hashes() -> Result<()> {
-    let mut hashes_by_fixture = Vec::new();
+fn mp4_and_annexb_fixtures_decode_identically() -> Result<()> {
+    let mut pixels_by_fixture = Vec::new();
     for (fixture, ts) in [
         (MP4_FIXTURE, Some(TimestampSource::Mp4Pts)),
         (H264_FIXTURE, None),
@@ -252,20 +281,12 @@ fn print_golden_display_hashes() -> Result<()> {
         }
         let mut src = builder.build_source()?;
         let frames: Vec<FrameData> = src.presentation_order_iter()?.collect::<Result<_, _>>()?;
-        let hashes: Vec<u64> = frames.iter().map(rgb_fnv).collect::<Result<_>>()?;
-        hashes_by_fixture.push(hashes);
+        pixels_by_fixture.push(frames.iter().map(rgb_bytes).collect::<Result<Vec<_>>>()?);
     }
+    assert_eq!(pixels_by_fixture[0].len(), FIXTURE_FRAMES);
     assert_eq!(
-        hashes_by_fixture[0], hashes_by_fixture[1],
+        pixels_by_fixture[0], pixels_by_fixture[1],
         "MP4 and Annex B fixtures should hold the same encoded stream"
     );
-    println!(
-        "const GOLDEN_DISPLAY_FNV: [u64; {}] = [",
-        hashes_by_fixture[0].len()
-    );
-    for h in &hashes_by_fixture[0] {
-        println!("    0x{h:016x},");
-    }
-    println!("];");
     Ok(())
 }

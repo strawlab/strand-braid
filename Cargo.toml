@@ -229,7 +229,7 @@ num-iter = "0.1.43"
 num-traits = "0.2.19"
 obj = { version = "0.10", features = ["genmesh"] }
 opencv-ros-camera = { version = "0.17", features = ["serde-serialize"] }
-openh264 = "0.9.3"
+openh264 = "0.9.8"
 ordered-float = { version = "4.6", features = ["serde"] }
 parry2d-f64 = "0.30"
 parry3d-f64 = "0.30"
