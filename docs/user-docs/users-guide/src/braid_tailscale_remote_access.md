@@ -103,6 +103,10 @@ Tailscale peer and issues the session directly.
 > reverse proxy, because then every request appears to come from the proxy and
 > the check no longer identifies the real client. Strand Camera supports the same
 > setting via the `--trusted-network` command-line flag.
+>
+> Loopback (`127.0.0.0/8`, `::1`) is always trusted in addition to whatever you
+> list, so a proxy running on the Braid machine itself needs no token and no
+> configuration.
 
 If you would rather keep token authentication even over Tailscale, simply omit
 `trusted_networks`: the usual `?token=<TOKEN>` flow (Braid prints the full URL on
@@ -144,8 +148,9 @@ documentation](https://tailscale.com/kb/1242/tailscale-serve) and
 `tailscale serve --help`.)
 
 In this mode you do **not** set `trusted_networks`: the Tailscale proxy reaches
-Braid over the loopback interface, and Braid already treats loopback connections
-as trusted (no token required). The security boundary is your tailnet — only
+Braid over the loopback interface, and Braid always treats loopback connections
+as trusted (no token required) — including when Braid also listens on a
+LAN-reachable address for remote cameras, as in the note above. The security boundary is your tailnet — only
 devices you have added, subject to your [ACLs](#restricting-who-can-reach-braid),
 can reach the served endpoint.
 

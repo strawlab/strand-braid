@@ -775,6 +775,91 @@ pub fn extract_token_expiry(url: &str) -> Option<chrono::DateTime<chrono::Local>
     Some(utc.into())
 }
 
+/// Whether a client that reaches this server at `url` will be authorized
+/// without an access token, because `url`'s host lies in one of
+/// `trusted_networks`.
+///
+/// The auth layer decides trust from the *client's* peer address, which cannot
+/// be known before the client connects. But a client that reaches an address on
+/// a trusted overlay network does so over that overlay, so its peer address is
+/// in the same network: the host we are about to advertise is the best
+/// available predictor of how a client reaching it will be judged.
+///
+/// A URL whose host is not an IP literal (there are none: every URL here is
+/// built from an enumerated interface address) counts as untrusted.
+#[cfg(feature = "start-listener")]
+pub fn is_trusted_url(url: &http::Uri, trusted_networks: &[axum_token_auth::CidrBlock]) -> bool {
+    let Some(authority) = url.authority() else {
+        return false;
+    };
+    // IPv6 hosts arrive bracketed, e.g. `[fd00::1]`; `IpAddr` wants them bare.
+    let host = authority.host();
+    let host = host
+        .strip_prefix('[')
+        .and_then(|h| h.strip_suffix(']'))
+        .unwrap_or(host);
+    let Ok(ip) = host.parse::<std::net::IpAddr>() else {
+        return false;
+    };
+    trusted_networks.iter().any(|net| net.contains(&ip))
+}
+
+/// Return `url` without its `token` query parameter, leaving any other
+/// parameter (there are none today) and the path untouched.
+#[cfg(feature = "start-listener")]
+fn without_token(url: &http::Uri) -> http::Uri {
+    let mut parts = url.clone().into_parts();
+    let path = url.path();
+    let kept = url
+        .query()
+        .map(|query| {
+            query
+                .split('&')
+                .filter(|pair| !pair.is_empty() && pair.split('=').next() != Some("token"))
+                .collect::<Vec<_>>()
+                .join("&")
+        })
+        .unwrap_or_default();
+    let path_and_query = if kept.is_empty() {
+        path.to_string()
+    } else {
+        format!("{path}?{kept}")
+    };
+    parts.path_and_query = match path_and_query.parse() {
+        Ok(pq) => Some(pq),
+        // Cannot happen: the pieces came from a valid URI. Keep the original
+        // rather than showing a mangled one.
+        Err(_) => return url.clone(),
+    };
+    http::Uri::from_parts(parts).unwrap_or_else(|_| url.clone())
+}
+
+/// Drop the access token from those `urls` whose host lies in a trusted
+/// network, since a client reaching them is authorized without one (see
+/// [is_trusted_url]).
+///
+/// Advertising the token anyway is not just noise: an access token is a
+/// credential, and printing one where it is not needed puts it in terminal
+/// scrollback, log files and QR codes for no gain. If the prediction is wrong
+/// (a client somehow reaches a trusted address from outside the overlay) the
+/// tokenless URL is refused with a message naming the reason, and the operator
+/// can fall back to another of the advertised URLs.
+#[cfg(feature = "start-listener")]
+pub fn strip_tokens_from_trusted_urls(
+    urls: Vec<http::Uri>,
+    trusted_networks: &[axum_token_auth::CidrBlock],
+) -> Vec<http::Uri> {
+    urls.into_iter()
+        .map(|url| {
+            if is_trusted_url(&url, trusted_networks) {
+                without_token(&url)
+            } else {
+                url
+            }
+        })
+        .collect()
+}
+
 /// The parenthetical to append to a logged URL saying when its access token
 /// stops working, or an empty string when the URL carries no readable token
 /// (a loopback URL has none at all).
@@ -858,16 +943,41 @@ pub async fn handle_auth_error(
     }
 }
 
+/// The loopback ranges trusted without being configured (see
+/// [parse_trusted_networks]).
+///
+/// The IPv4-mapped range matters for a server bound to `[::]`: a dual-stack
+/// socket reports an IPv4 client as `::ffff:a.b.c.d`, and an IPv4 block never
+/// contains an IPv6 address.
+#[cfg(feature = "start-listener")]
+const LOOPBACK_NETWORKS: [&str; 3] = ["127.0.0.0/8", "::1/128", "::ffff:127.0.0.0/104"];
+
 /// Parse a list of CIDR strings (e.g. `"100.64.0.0/10"`) into the network type
 /// expected by [`axum_token_auth::AuthConfig::trusted_networks`], returning a
 /// descriptive error for the first one that fails to parse.
+///
+/// Loopback is always trusted, whether or not it was configured. A server bound
+/// to loopback alone mints no token at all ([start_listener]), so a local client
+/// already reaches it unauthenticated; requiring a token from that same client
+/// only because the server also listens on a LAN address would be inconsistent,
+/// and it breaks putting a local reverse proxy (`tailscale serve`, nginx) in
+/// front of a server that must stay LAN-reachable for its remote cameras.
+///
+/// Note what "local" does and does not mean: a different account on the same
+/// machine cannot read the owner-only secret ([harden_prefs_file]) but can
+/// reach loopback, so on a shared machine this extends to them the access they
+/// would already have had were the server bound to loopback alone.
 #[cfg(feature = "start-listener")]
 pub fn parse_trusted_networks(nets: &[String]) -> eyre::Result<Vec<axum_token_auth::CidrBlock>> {
-    nets.iter()
-        .map(|s| {
+    let loopback = LOOPBACK_NETWORKS.iter().map(|s| {
+        Ok(s.parse::<axum_token_auth::CidrBlock>()
+            .expect("loopback CIDR constants parse"))
+    });
+    loopback
+        .chain(nets.iter().map(|s| {
             s.parse::<axum_token_auth::CidrBlock>()
                 .map_err(|e| eyre::eyre!("invalid trusted network CIDR {s:?}: {e}"))
-        })
+        }))
         .collect()
 }
 
@@ -1793,5 +1903,119 @@ mod tests_token_expiry {
         println!("rendered note: {note:?}");
         assert!(note.starts_with(" (link valid until 20"), "{note}");
         assert!(note.ends_with(')'), "{note}");
+    }
+
+    #[test]
+    fn a_real_token_reports_its_own_ttl() {
+        // The fabricated tokens above pin the decoding; this pins the whole
+        // round trip, so a change to how tokens are minted cannot silently
+        // leave the log line without its expiry.
+        let key = cookie::Key::generate();
+        let token = axum_token_auth::generate_token(&key, ACCESS_TOKEN_TTL);
+        let url = format!("http://192.168.1.5:3440/?token={token}");
+
+        let expiry =
+            extract_token_expiry(&url).expect("freshly minted token has a readable expiry");
+        let ttl = expiry.signed_duration_since(chrono::Local::now());
+        let expected = chrono::Duration::from_std(ACCESS_TOKEN_TTL).unwrap();
+        assert!(
+            (expected - ttl).num_seconds().abs() < 60,
+            "expected ~{expected} from now, got {ttl}"
+        );
+        assert!(token_expiry_note(&url).starts_with(" (link valid until 20"));
+    }
+
+    #[test]
+    fn only_trusted_hosts_lose_their_token() {
+        let trusted: Vec<axum_token_auth::CidrBlock> = vec![
+            "100.64.0.0/10".parse().unwrap(),
+            "fd7a:115c::/32".parse().unwrap(),
+        ];
+        let urls: Vec<http::Uri> = [
+            "http://127.0.0.1:3440/?token=abc",
+            "http://192.168.1.5:3440/?token=abc",
+            "http://100.101.102.103:3440/?token=abc",
+            "http://[fd7a:115c::1]:3440/?token=abc",
+        ]
+        .iter()
+        .map(|u| u.parse().unwrap())
+        .collect();
+
+        let stripped: Vec<String> = strip_tokens_from_trusted_urls(urls, &trusted)
+            .iter()
+            .map(|u| u.to_string())
+            .collect();
+        assert_eq!(
+            stripped,
+            vec![
+                // This list was built by hand rather than by
+                // `parse_trusted_networks`, which is what adds loopback, so the
+                // loopback URL here keeps its token.
+                "http://127.0.0.1:3440/?token=abc",
+                "http://192.168.1.5:3440/?token=abc",
+                "http://100.101.102.103:3440/",
+                "http://[fd7a:115c::1]:3440/",
+            ]
+        );
+    }
+
+    #[test]
+    fn loopback_is_trusted_even_when_not_configured() {
+        let trusted = parse_trusted_networks(&[]).unwrap();
+        for url in [
+            "http://127.0.0.1:3440/?token=abc",
+            "http://127.4.5.6:3440/?token=abc",
+            "http://[::1]:3440/?token=abc",
+            // A dual-stack socket reports an IPv4 client this way.
+            "http://[::ffff:127.0.0.1]:3440/?token=abc",
+        ] {
+            let url: http::Uri = url.parse().unwrap();
+            assert!(is_trusted_url(&url, &trusted), "{url} should be trusted");
+        }
+
+        // Everything else still needs its token.
+        for url in [
+            "http://192.168.1.5:3440/?token=abc",
+            "http://[fd00::1]:3440/?token=abc",
+        ] {
+            let url: http::Uri = url.parse().unwrap();
+            assert!(!is_trusted_url(&url, &trusted), "{url} should need a token");
+        }
+    }
+
+    #[test]
+    fn configured_networks_are_trusted_alongside_loopback() {
+        let trusted = parse_trusted_networks(&["100.64.0.0/10".to_string()]).unwrap();
+        let overlay: http::Uri = "http://100.101.102.103:3440/?token=abc".parse().unwrap();
+        let loopback: http::Uri = "http://127.0.0.1:3440/?token=abc".parse().unwrap();
+        assert!(is_trusted_url(&overlay, &trusted));
+        assert!(is_trusted_url(&loopback, &trusted));
+
+        // A bad CIDR is still reported rather than silently dropped.
+        let err = parse_trusted_networks(&["nonsense".to_string()]).unwrap_err();
+        assert!(err.to_string().contains("nonsense"), "{err}");
+    }
+
+    #[test]
+    fn with_no_trusted_networks_every_url_keeps_its_token() {
+        let url: http::Uri = "http://100.101.102.103:3440/?token=abc".parse().unwrap();
+        assert!(!is_trusted_url(&url, &[]));
+        assert_eq!(
+            strip_tokens_from_trusted_urls(vec![url.clone()], &[]),
+            vec![url]
+        );
+    }
+
+    #[test]
+    fn stripping_leaves_other_query_parameters_alone() {
+        let trusted: Vec<axum_token_auth::CidrBlock> = vec!["100.64.0.0/10".parse().unwrap()];
+        let url: http::Uri = "http://100.64.0.1:3440/sub?a=1&token=abc&b=2"
+            .parse()
+            .unwrap();
+        let stripped = strip_tokens_from_trusted_urls(vec![url], &trusted);
+        assert_eq!(
+            stripped[0].to_string(),
+            "http://100.64.0.1:3440/sub?a=1&b=2"
+        );
     }
 }

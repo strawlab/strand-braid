@@ -5,10 +5,11 @@
 //! the web UI currently being served.
 //!
 //! The backend exposes a `device-connect-urls` endpoint that returns, for each
-//! network interface the server is reachable on, a full URL including a
-//! freshly minted short-lived access token. This component fetches that list
-//! and renders each (non-loopback) URL as a QR code that can be scanned by a
-//! phone on the same network to open the same UI directly.
+//! network interface the server is reachable on, a full URL — carrying a
+//! freshly minted short-lived access token, unless that interface is on a
+//! trusted network whose clients are admitted without one. This component
+//! fetches that list and renders each (non-loopback) URL as a QR code that can
+//! be scanned by a phone on the same network to open the same UI directly.
 
 use strand_bui_backend_session_types::DeviceConnectUrls;
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
@@ -167,15 +168,36 @@ fn view_urls(info: &DeviceConnectUrls) -> Html {
         let qr = render_qr(url).unwrap_or_else(|| {
             html! { <p class="connect-device-error">{ "Failed to render QR code." }</p> }
         });
+        // An address the server reached us on that is inside a trusted network
+        // is served without a token, because none is required there.
+        let trusted_note = if has_token(url) {
+            html! {}
+        } else {
+            html! {
+                <p class="connect-device-trusted">
+                    { "On a trusted network — no access token needed." }
+                </p>
+            }
+        };
         html! {
             <li class="connect-device-item">
                 { qr }
                 <p class="connect-device-link">
                     <a href={(*url).clone()} target="_blank" rel="noopener">{ (*url).clone() }</a>
                 </p>
+                { trusted_note }
             </li>
         }
     });
+
+    // The expiry applies only to the codes that actually carry a token; if none
+    // of the ones shown do, there is nothing to expire.
+    let expiring = scannable.iter().filter(|url| has_token(url)).count();
+    let expiry = match expiring {
+        0 => html! {},
+        n if n == scannable.len() => view_expiry(info.token_expires_unix, false),
+        _ => view_expiry(info.token_expires_unix, true),
+    };
 
     html! {
         <>
@@ -183,25 +205,49 @@ fn view_urls(info: &DeviceConnectUrls) -> Html {
             <ul class="connect-device-list">
                 { for items }
             </ul>
-            { view_expiry(info.token_expires_unix) }
+            { expiry }
         </>
     }
 }
 
-/// Say when the codes above stop working. Every URL in one response carries the
-/// same token, so this belongs to the dialog rather than to each QR code.
-fn view_expiry(token_expires_unix: Option<i64>) -> Html {
+/// Whether `url` carries an access token, i.e. whether it is one of the URLs
+/// the expiry below applies to.
+fn has_token(url: &str) -> bool {
+    match url.split_once('?') {
+        Some((_, query)) => query
+            .split('&')
+            .any(|pair| pair.split('=').next() == Some("token")),
+        None => false,
+    }
+}
+
+/// Say when the codes above stop working. Every token-carrying URL in one
+/// response carries the same token, so this belongs to the dialog rather than
+/// to each QR code. `some_tokenless` narrows the wording when other codes shown
+/// alongside are on a trusted network and never expire.
+fn view_expiry(token_expires_unix: Option<i64>, some_tokenless: bool) -> Html {
     // A server that predates this field, or one serving tokenless URLs, says
     // nothing rather than guessing.
     let Some(expires) = token_expires_unix else {
         return html! {};
     };
+    let (subject, expired) = if some_tokenless {
+        (
+            "The codes above carrying an access token",
+            "The codes above carrying an access token have expired — close and reopen this dialog for fresh ones.",
+        )
+    } else {
+        (
+            "These codes",
+            "These codes have expired — close and reopen this dialog for fresh ones.",
+        )
+    };
     match format_expiry(expires) {
         Some(time) => {
-            html! { <p class="connect-device-expiry">{ format!("These codes stop working at {time}.") }</p> }
+            html! { <p class="connect-device-expiry">{ format!("{subject} stop working at {time}.") }</p> }
         }
         None => {
-            html! { <p class="connect-device-expired">{ "These codes have expired — close and reopen this dialog for fresh ones." }</p> }
+            html! { <p class="connect-device-expired">{ expired }</p> }
         }
     }
 }
