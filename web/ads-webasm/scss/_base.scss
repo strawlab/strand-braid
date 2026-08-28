@@ -168,6 +168,49 @@ CSS custom properties defined in `_tokens.scss`. Components reference those
         background: var(--panel, #fff);
     }
 
+    // Title row with the close button. Sticks to the top of the scrolling
+    // modal so the button stays reachable when the list of QR codes is long;
+    // the negative margins let its background cover the modal's own padding,
+    // and the matching `top` keeps that padding above it out of view.
+    .connect-device-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1em;
+        position: sticky;
+        top: -20px;
+        margin: -20px -20px 0 -20px;
+        padding: 20px 20px 0 20px;
+        background: var(--panel);
+        z-index: 1;
+
+        h1 {
+            margin: 0;
+        }
+    }
+
+    .connect-device-close {
+        flex: none;
+        font-size: 1.6rem;
+        line-height: 1;
+        padding: 0 0.3em;
+        border-radius: 6px;
+        color: var(--muted);
+        cursor: pointer;
+
+        &:hover {
+            background: var(--panel-muted);
+            color: var(--text);
+        }
+
+        // `button { outline: none }` above turns the default ring off, so put a
+        // visible one back for keyboard users.
+        &:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 1px;
+        }
+    }
+
     .connect-device-list {
         list-style: none;
         padding: 0;

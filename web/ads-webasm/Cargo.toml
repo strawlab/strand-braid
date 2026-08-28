@@ -17,6 +17,7 @@ serde_yaml.workspace = true
 qrcode = { workspace = true, default-features = false, features = ["svg"] }
 chrono.workspace = true
 csv = { workspace = true, optional = true }
+gloo-events = { workspace = true }
 gloo-file = { workspace = true }
 gloo-timers = "0.3.0"
 libflate.workspace = true
@@ -42,8 +43,10 @@ features = [
     "DragEvent",
     "Element",
     "EventSource",
+    "EventTarget",
     "HtmlCanvasElement",
     "HtmlImageElement",
+    "KeyboardEvent",
     "MouseEvent",
     "Navigator",
     "Request",

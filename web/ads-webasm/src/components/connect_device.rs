@@ -11,6 +11,10 @@
 //! fetches that list and renders each (non-loopback) URL as a QR code that can
 //! be scanned by a phone on the same network to open the same UI directly.
 
+use std::cell::Cell;
+use std::rc::Rc;
+
+use gloo_events::EventListener;
 use strand_bui_backend_session_types::DeviceConnectUrls;
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
@@ -32,10 +36,19 @@ enum Fetch {
 }
 
 pub struct ConnectDevice {
-    /// Whether the modal dialog is open.
-    open: bool,
-    /// Result of fetching the connection URLs (only meaningful while `open`).
+    /// Whether the modal dialog is open. Shared with [`Self::escape_listener`],
+    /// which must read it without going through the component.
+    open: Rc<Cell<bool>>,
+    /// Result of fetching the connection URLs (only meaningful while open).
     fetch: Fetch,
+    /// Document-level `keydown` listener closing the dialog on `Esc`.
+    ///
+    /// Installed for the component's whole life rather than only while the
+    /// dialog is open: `Callback::emit` runs the update synchronously, so
+    /// dropping the listener in response to its own event would free the
+    /// closure that is still executing. It reads `open` instead and stays
+    /// silent when there is nothing to close.
+    _escape_listener: Option<EventListener>,
 }
 
 pub enum Msg {
@@ -49,9 +62,11 @@ impl Component for ConnectDevice {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_ctx: &Context<Self>) -> Self {
+    fn create(ctx: &Context<Self>) -> Self {
+        let open = Rc::new(Cell::new(false));
         Self {
-            open: false,
+            _escape_listener: escape_listener(ctx, open.clone()),
+            open,
             fetch: Fetch::Loading,
         }
     }
@@ -59,7 +74,7 @@ impl Component for ConnectDevice {
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Open => {
-                self.open = true;
+                self.open.set(true);
                 self.fetch = Fetch::Loading;
                 ctx.link().send_future(async {
                     match fetch_connect_urls().await {
@@ -70,7 +85,7 @@ impl Component for ConnectDevice {
                 true
             }
             Msg::Close => {
-                self.open = false;
+                self.open.set(false);
                 true
             }
             Msg::Loaded(urls) => {
@@ -92,7 +107,7 @@ impl Component for ConnectDevice {
                     title={"Connect a device 📱"}
                     onsignal={link.callback(|_| Msg::Open)}
                 />
-                { if self.open { self.view_modal(ctx) } else { html!{} } }
+                { if self.open.get() { self.view_modal(ctx) } else { html!{} } }
             </>
         }
     }
@@ -101,6 +116,7 @@ impl Component for ConnectDevice {
 impl ConnectDevice {
     fn view_modal(&self, ctx: &Context<Self>) -> Html {
         let link = ctx.link();
+        let close = link.callback(|_| Msg::Close);
         let body = match &self.fetch {
             Fetch::Loading => html! { <p>{ "Loading…" }</p> },
             Fetch::Failed(err) => html! {
@@ -121,7 +137,18 @@ impl ConnectDevice {
         };
         html! {
             <div class="modal-container connect-device-modal">
-                <h1>{ "Connect a device" }</h1>
+                <div class="connect-device-header">
+                    <h1>{ "Connect a device" }</h1>
+                    // A plain `button` rather than a `Button`: this is an icon
+                    // affordance in the corner, not one of the dialog's actions.
+                    <button
+                        class="connect-device-close"
+                        type="button"
+                        title="Close (Esc)"
+                        aria-label="Close"
+                        onclick={close}
+                    >{ "×" }</button>
+                </div>
                 <p>{ "Scan a QR code or copy a link below to open this page on \
                       another device. If you open one of these links from an \
                       in-app browser (like a chat app), your browser may not receive \
@@ -129,15 +156,32 @@ impl ConnectDevice {
                       clipboard and paste it directly into the browser or scan \
                       the QR code with your camera app instead." }</p>
                 { body }
-                <p>
-                    <Button
-                        title={"Close"}
-                        onsignal={link.callback(|_| Msg::Close)}
-                    />
-                </p>
             </div>
         }
     }
+}
+
+/// Listen on the document for `Esc` and close the dialog when it arrives.
+///
+/// Document-level rather than on the dialog element, so it works without the
+/// dialog having taken focus. `open` gates it so a page-wide listener does not
+/// claim `Esc` from anything else while the dialog is closed. Returns `None` if
+/// there is no document to listen on, in which case the close button remains
+/// the only way out.
+fn escape_listener(ctx: &Context<ConnectDevice>, open: Rc<Cell<bool>>) -> Option<EventListener> {
+    let document = web_sys::window()?.document()?;
+    let close = ctx.link().callback(|_| Msg::Close);
+    Some(EventListener::new(&document, "keydown", move |event| {
+        if !open.get() {
+            return;
+        }
+        let Some(event) = event.dyn_ref::<web_sys::KeyboardEvent>() else {
+            return;
+        };
+        if event.key() == "Escape" {
+            close.emit(());
+        }
+    }))
 }
 
 fn view_urls(info: &DeviceConnectUrls) -> Html {
