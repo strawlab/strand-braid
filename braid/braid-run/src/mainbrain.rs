@@ -103,6 +103,10 @@ pub(crate) struct BraidAppState {
     /// The cookie/token secret, used to mint a fresh short-lived access token
     /// when a device-connection QR code is requested.
     pub(crate) persistent_secret: cookie::Key,
+    /// Overlay networks whose clients the auth layer accepts without a token,
+    /// used to leave the token out of device-connection URLs that do not need
+    /// one.
+    pub(crate) trusted_networks: Vec<axum_token_auth::CidrBlock>,
 }
 
 async fn events_handler(
@@ -217,8 +221,16 @@ async fn device_connect_urls_handler(
             ));
         }
     };
+    // A client reaching us over a trusted overlay needs no token, so do not put
+    // one in the URL (or the QR code) we hand it.
+    let uris = braid_types::strip_tokens_from_trusted_urls(uris, &app_state.trusted_networks);
     let loopback_only = uris.iter().all(braid_types::is_loopback);
-    let urls = uris.into_iter().map(|u| u.to_string()).collect();
+    let urls: Vec<String> = uris.into_iter().map(|u| u.to_string()).collect();
+    // Nothing expires if the token was stripped from every URL that survived.
+    let token_expires_unix = token_expires_unix.filter(|_| {
+        urls.iter()
+            .any(|url| braid_types::extract_token_expiry(url).is_some())
+    });
     Ok(axum::Json(
         strand_bui_backend_session_types::DeviceConnectUrls {
             urls,
@@ -342,11 +354,14 @@ pub(crate) fn load_persistent_secret(secret_override: Option<String>) -> Result<
 
 async fn launch_braid_http_backend(
     persistent_secret: cookie::Key,
-    trusted_networks: Vec<axum_token_auth::CidrBlock>,
     listener: tokio::net::TcpListener,
     mainbrain_server_info: BuiServerAddrInfo,
     app_state: BraidAppState,
 ) -> Result<impl futures::Future<Output = Result<()>>> {
+    // Taken from the app state rather than passed in separately, so the list
+    // the auth layer enforces and the list used to decide which advertised URLs
+    // need a token cannot drift apart.
+    let trusted_networks = app_state.trusted_networks.clone();
     // Setup our auth layer. With self-expiring signed tokens the auth layer no
     // longer stores a token value: it accepts any unexpired token signed with
     // `persistent_secret`. We only need to know whether a token is required.
@@ -366,7 +381,7 @@ async fn launch_braid_http_backend(
     cfg.session_expires = Some(std::time::Duration::from_secs(60 * 60 * 24 * 400)); // 400 days
     // Clients on a trusted overlay network (e.g. Tailscale/WireGuard) are
     // accepted without a token; the overlay has already authenticated them.
-    cfg.trusted_networks = trusted_networks;
+    cfg.trusted_networks = trusted_networks.clone();
 
     #[cfg(feature = "bundle_files")]
     let serve_dir = tower_serve_static::ServeDir::new(&ASSETS_DIR);
@@ -440,6 +455,9 @@ async fn launch_braid_http_backend(
     );
 
     let urls = strand_bui_backend_session::build_urls(&mainbrain_server_info)?;
+    // Clients arriving over a trusted overlay are authorized without a token,
+    // so those URLs are logged without one.
+    let urls = braid_types::strip_tokens_from_trusted_urls(urls, &trusted_networks);
     for url in urls.iter() {
         let url = url.to_string();
         info!(
@@ -780,6 +798,8 @@ pub(crate) async fn do_run_forever(
 
     let time_model_arc = Arc::new(RwLock::new(None));
 
+    let trusted_networks = braid_types::parse_trusted_networks(&mainbrain_config.trusted_networks)?;
+
     // Create our app state.
     let app_state = BraidAppState {
         shared_store: shared_store.clone(),
@@ -798,6 +818,7 @@ pub(crate) async fn do_run_forever(
         shtdwn_q_tx,
         bui_server_info: mainbrain_server_info.clone(),
         persistent_secret: persistent_secret.clone(),
+        trusted_networks,
     };
 
     // This future will send state updates to all connected event listeners.
@@ -809,10 +830,8 @@ pub(crate) async fn do_run_forever(
         }
     };
 
-    let trusted_networks = braid_types::parse_trusted_networks(&mainbrain_config.trusted_networks)?;
     let http_serve_future = launch_braid_http_backend(
         persistent_secret,
-        trusted_networks,
         listener,
         mainbrain_server_info,
         app_state,

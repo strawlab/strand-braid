@@ -196,6 +196,14 @@ CSS custom properties defined in `_tokens.scss`. Components reference those
         color: var(--error, #b00);
     }
 
+    // Shown under a QR code whose URL carries no token because that interface
+    // is on a trusted network.
+    .connect-device-trusted {
+        font-size: 0.9em;
+        color: var(--muted);
+        margin: 0.25em 0 0 0;
+    }
+
     .connect-device-expiry {
         font-size: 0.9em;
         color: var(--muted);

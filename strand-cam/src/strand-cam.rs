@@ -556,6 +556,10 @@ struct StrandCamAppState {
     /// The cookie/token secret, used to mint a fresh short-lived access token
     /// when a device-connection QR code is requested.
     persistent_secret: cookie::Key,
+    /// Overlay networks whose clients the auth layer accepts without a token,
+    /// used to leave the token out of device-connection URLs that do not need
+    /// one.
+    trusted_networks: Vec<axum_token_auth::CidrBlock>,
 }
 
 #[derive(Debug, Clone)]
@@ -902,7 +906,11 @@ async fn device_connect_urls_handler(
     session_key: axum_token_auth::SessionKey,
 ) -> impl axum::response::IntoResponse {
     session_key.is_present();
-    build_device_connect_urls(&app_state.bui_server_info, &app_state.persistent_secret)
+    build_device_connect_urls(
+        &app_state.bui_server_info,
+        &app_state.persistent_secret,
+        &app_state.trusted_networks,
+    )
 }
 
 /// Build the [`DeviceConnectUrls`] response: enumerate the interfaces the server
@@ -912,6 +920,7 @@ async fn device_connect_urls_handler(
 fn build_device_connect_urls(
     bui_server_info: &strand_bui_backend_session_types::BuiServerAddrInfo,
     persistent_secret: &cookie::Key,
+    trusted_networks: &[axum_token_auth::CidrBlock],
 ) -> axum::response::Response {
     use axum::response::IntoResponse;
     use strand_bui_backend_session_types::{AccessToken, BuiServerAddrInfo, DeviceConnectUrls};
@@ -946,8 +955,16 @@ fn build_device_connect_urls(
                 .into_response();
         }
     };
+    // A client reaching us over a trusted overlay needs no token, so do not put
+    // one in the URL (or the QR code) we hand it.
+    let uris = braid_types::strip_tokens_from_trusted_urls(uris, trusted_networks);
     let loopback_only = uris.iter().all(braid_types::is_loopback);
-    let urls = uris.into_iter().map(|u| u.to_string()).collect();
+    let urls: Vec<String> = uris.into_iter().map(|u| u.to_string()).collect();
+    // Nothing expires if the token was stripped from every URL that survived.
+    let token_expires_unix = token_expires_unix.filter(|_| {
+        urls.iter()
+            .any(|url| braid_types::extract_token_expiry(url).is_some())
+    });
     axum::Json(DeviceConnectUrls {
         urls,
         loopback_only,
@@ -2383,6 +2400,8 @@ where
     let shared_state = Arc::new(RwLock::new(shared_store));
     let shared_store_arc = shared_state.clone();
 
+    let trusted_networks = braid_types::parse_trusted_networks(&args.trusted_networks)?;
+
     // Create our app state.
     let app_state = StrandCamAppState {
         cam_name: cam.name().to_string(),
@@ -2392,6 +2411,7 @@ where
         shared_store_arc,
         bui_server_info: http_camserver_info.clone(),
         persistent_secret: persistent_secret.clone(),
+        trusted_networks: trusted_networks.clone(),
     };
 
     let shared_store_arc = shared_state.clone();
@@ -2408,10 +2428,9 @@ where
         }
     };
 
-    let trusted_networks = braid_types::parse_trusted_networks(&args.trusted_networks)?;
     let router = http_router::build_http_router(
         persistent_secret,
-        trusted_networks,
+        trusted_networks.clone(),
         http_camserver_info.token(),
         app_state,
         embedded_http.is_none(),
@@ -2435,6 +2454,9 @@ where
     };
 
     let urls = strand_bui_backend_session::build_urls(&http_camserver_info)?;
+    // Clients arriving over a trusted overlay are authorized without a token,
+    // so those URLs are shown (in the log and the GUI) without one.
+    let urls = braid_types::strip_tokens_from_trusted_urls(urls, &trusted_networks);
 
     #[cfg(feature = "eframe-gui")]
     {
