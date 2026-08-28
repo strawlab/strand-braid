@@ -151,6 +151,9 @@ pub struct MainbrainConfig {
     /// WireGuard subnet) that are trusted to have already authenticated the
     /// peer. Requests from these networks are accepted without an access token,
     /// delegating authentication to the overlay network. Defaults to empty.
+    ///
+    /// Loopback (`127.0.0.0/8`, `::1`) is always trusted in addition to
+    /// whatever is listed here and need not be given.
     #[serde(default)]
     pub trusted_networks: Vec<String>,
     /// Threshold duration before logging error (msec).

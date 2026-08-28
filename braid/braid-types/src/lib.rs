@@ -943,16 +943,41 @@ pub async fn handle_auth_error(
     }
 }
 
+/// The loopback ranges trusted without being configured (see
+/// [parse_trusted_networks]).
+///
+/// The IPv4-mapped range matters for a server bound to `[::]`: a dual-stack
+/// socket reports an IPv4 client as `::ffff:a.b.c.d`, and an IPv4 block never
+/// contains an IPv6 address.
+#[cfg(feature = "start-listener")]
+const LOOPBACK_NETWORKS: [&str; 3] = ["127.0.0.0/8", "::1/128", "::ffff:127.0.0.0/104"];
+
 /// Parse a list of CIDR strings (e.g. `"100.64.0.0/10"`) into the network type
 /// expected by [`axum_token_auth::AuthConfig::trusted_networks`], returning a
 /// descriptive error for the first one that fails to parse.
+///
+/// Loopback is always trusted, whether or not it was configured. A server bound
+/// to loopback alone mints no token at all ([start_listener]), so a local client
+/// already reaches it unauthenticated; requiring a token from that same client
+/// only because the server also listens on a LAN address would be inconsistent,
+/// and it breaks putting a local reverse proxy (`tailscale serve`, nginx) in
+/// front of a server that must stay LAN-reachable for its remote cameras.
+///
+/// Note what "local" does and does not mean: a different account on the same
+/// machine cannot read the owner-only secret ([harden_prefs_file]) but can
+/// reach loopback, so on a shared machine this extends to them the access they
+/// would already have had were the server bound to loopback alone.
 #[cfg(feature = "start-listener")]
 pub fn parse_trusted_networks(nets: &[String]) -> eyre::Result<Vec<axum_token_auth::CidrBlock>> {
-    nets.iter()
-        .map(|s| {
+    let loopback = LOOPBACK_NETWORKS.iter().map(|s| {
+        Ok(s.parse::<axum_token_auth::CidrBlock>()
+            .expect("loopback CIDR constants parse"))
+    });
+    loopback
+        .chain(nets.iter().map(|s| {
             s.parse::<axum_token_auth::CidrBlock>()
                 .map_err(|e| eyre::eyre!("invalid trusted network CIDR {s:?}: {e}"))
-        })
+        }))
         .collect()
 }
 
@@ -1923,14 +1948,52 @@ mod tests_token_expiry {
         assert_eq!(
             stripped,
             vec![
-                // Loopback is not trusted by the auth layer unless configured,
-                // so its URL keeps the token it actually needs.
+                // This list was built by hand rather than by
+                // `parse_trusted_networks`, which is what adds loopback, so the
+                // loopback URL here keeps its token.
                 "http://127.0.0.1:3440/?token=abc",
                 "http://192.168.1.5:3440/?token=abc",
                 "http://100.101.102.103:3440/",
                 "http://[fd7a:115c::1]:3440/",
             ]
         );
+    }
+
+    #[test]
+    fn loopback_is_trusted_even_when_not_configured() {
+        let trusted = parse_trusted_networks(&[]).unwrap();
+        for url in [
+            "http://127.0.0.1:3440/?token=abc",
+            "http://127.4.5.6:3440/?token=abc",
+            "http://[::1]:3440/?token=abc",
+            // A dual-stack socket reports an IPv4 client this way.
+            "http://[::ffff:127.0.0.1]:3440/?token=abc",
+        ] {
+            let url: http::Uri = url.parse().unwrap();
+            assert!(is_trusted_url(&url, &trusted), "{url} should be trusted");
+        }
+
+        // Everything else still needs its token.
+        for url in [
+            "http://192.168.1.5:3440/?token=abc",
+            "http://[fd00::1]:3440/?token=abc",
+        ] {
+            let url: http::Uri = url.parse().unwrap();
+            assert!(!is_trusted_url(&url, &trusted), "{url} should need a token");
+        }
+    }
+
+    #[test]
+    fn configured_networks_are_trusted_alongside_loopback() {
+        let trusted = parse_trusted_networks(&["100.64.0.0/10".to_string()]).unwrap();
+        let overlay: http::Uri = "http://100.101.102.103:3440/?token=abc".parse().unwrap();
+        let loopback: http::Uri = "http://127.0.0.1:3440/?token=abc".parse().unwrap();
+        assert!(is_trusted_url(&overlay, &trusted));
+        assert!(is_trusted_url(&loopback, &trusted));
+
+        // A bad CIDR is still reported rather than silently dropped.
+        let err = parse_trusted_networks(&["nonsense".to_string()]).unwrap_err();
+        assert!(err.to_string().contains("nonsense"), "{err}");
     }
 
     #[test]

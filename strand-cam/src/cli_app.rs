@@ -299,7 +299,8 @@ pub struct CliArgs {
 
     /// A client network (CIDR, e.g. 100.64.0.0/10) trusted to have already
     /// authenticated the peer (e.g. Tailscale/WireGuard). Clients from it need
-    /// no access token. May be given multiple times.
+    /// no access token. May be given multiple times. Loopback is always
+    /// trusted and need not be given.
     #[arg(
         long = "trusted-network",
         value_name = "TRUSTED_NETWORK",
