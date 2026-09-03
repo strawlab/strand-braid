@@ -3,6 +3,7 @@
 [Braid and Strand Camera](./braid-and-strand-camera.md)
 - [Hardware selection](./hardware-selection.md)
 - [Installation](./installation.md)
+- [The LED box](./led_box.md)
 - [Configuring and Launching Braid](./braid_configuration_and_launching.md)
 - [BRAIDZ files and Analysis Scripts](./braidz-files.md)
 - [Braid: 3D Tracking](./braid_3d_tracking.md)
