@@ -71,6 +71,9 @@ camera to emit frames on a shared periodic schedule.
 trigger_type = "PtpSync"
 # The frame period in microseconds. 25000 µs = 25 ms = 40 fps.
 periodic_signal_period_usec = 25000.0
+# How many seconds the PTP grandmaster's timescale runs ahead of UTC.
+# 0 (the default) for ptpd; see below.
+# utc_offset_secs = 0
 ```
 
 The **camera frame rate is set by `periodic_signal_period_usec`** — it is the
@@ -83,6 +86,36 @@ interval between triggers, in microseconds. For example `25000.0` gives 40 fps,
 > the effective frame rate will differ from the configured value and cameras may
 > desynchronize. Set the exposure time below the period (e.g. for 40 fps / 25 ms,
 > use an exposure well under 25 ms).
+
+**The grandmaster's timescale must be UTC or TAI.** The cameras timestamp each
+frame with PTP time, and Braid converts that to UTC for the `timestamp` columns
+of the `.braidz` file. PTP has two timescales, and the grandmaster announces
+which one it uses:
+
+- The *ARB* (arbitrary) timescale can have any epoch. `ptpd` in `masteronly`
+  mode, and `ptp4l` with software timestamping, send the host computer's clock,
+  which is UTC. Leave `utc_offset_secs` at its default, 0.
+- The *PTP* timescale is TAI, which runs ahead of UTC by 37 seconds (since
+  2017). Hardware grandmasters, and `ptp4l` steering a network card's clock
+  with `phc2sys`, use it. Set `utc_offset_secs = 37`, and change it if a leap
+  second is ever added or removed (leap seconds are due to be abolished by
+  2035).
+
+When it starts, each Strand Camera compares its camera's PTP time with the
+computer's clock, and stops with an error naming the correct setting if
+`utc_offset_secs` does not match (see
+[Troubleshooting](./troubleshooting.md#ptp-synchronization-problems)). To see
+which timescale a grandmaster uses, run the following (`pmc` is part of
+linuxptp) on a computer on the camera network, replacing `eth0` with its
+interface there:
+
+```sh
+sudo pmc -4 -i eth0 -b 1 'GET TIME_PROPERTIES_DATA_SET'
+```
+
+In the reply, `ptpTimescale 1` means TAI and `ptpTimescale 0` means ARB. The
+offset used is saved as `ptp_utc_offset_secs` in the `braid_metadata.yml` of
+each recording.
 
 Setting up `ptpd` and the network (jumbo frames, the correct interface, the host
 as PTP master) is an operating-system task performed once; see the

@@ -222,6 +222,15 @@ and
 [block_id](https://strawlab.org/strand-braid-api-docs/latest/braid_types/struct.Data2dDistortedRow.html#structfield.block_id)
 fields is important.
 
+The `timestamp` field is the trigger time in UTC, as seconds since 1970, while
+`cam_received_timestamp` is when the computer received the frame, by its own
+clock. With `PtpSync` triggering, `timestamp` is computed from the camera's
+raw PTP clock, `device_timestamp` (nanoseconds), by subtracting
+`ptp_utc_offset_secs` from `braid_metadata.yml`. Files from before this field
+existed took the offset as 0; if such a file was recorded with a grandmaster on
+the PTP (TAI) timescale, its `timestamp` values are about 37 seconds later than
+its `cam_received_timestamp` values, instead of a few milliseconds earlier.
+
 #### `kalman_estimates` table
 
 The `kalman_estimates` tables contains the estimated state (positions and

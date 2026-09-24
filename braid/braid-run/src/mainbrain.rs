@@ -557,8 +557,8 @@ pub(crate) async fn do_run_forever(
     let signal_all_cams_present = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let signal_all_cams_synced = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-    let periodic_signal_period_usec = if let TriggerType::PtpSync(ptpcfg) = &trigger_cfg {
-        ptpcfg.periodic_signal_period_usec
+    let ptp_sync = if let TriggerType::PtpSync(ptpcfg) = &trigger_cfg {
+        Some(ptpcfg)
     } else {
         None
     };
@@ -568,7 +568,7 @@ pub(crate) async fn do_run_forever(
         all_expected_cameras,
         signal_all_cams_present.clone(),
         signal_all_cams_synced.clone(),
-        periodic_signal_period_usec,
+        ptp_sync,
         None,
     );
 
@@ -604,7 +604,8 @@ pub(crate) async fn do_run_forever(
         },
         cam_manager.clone(),
         recon.clone(),
-        flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name),
+        flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name)
+            .ptp_utc_offset_secs(ptp_sync.map(|c| c.utc_offset_secs)),
     )?;
 
     // Here is what we do on quit:
@@ -1199,17 +1200,14 @@ pub(crate) async fn do_run_forever(
                                 packet.cam_received_time.as_f64(),
                             ))
                         }
-                        TriggerType::PtpSync(_) => {
+                        TriggerType::PtpSync(ptpcfg) => {
                             // In case where we trust camera sync data, use
                             // timestamp from camera. All packets from all
                             // cameras should have this same timestamp, so it
                             // shouldn't matter which camera we use.
                             packet.device_timestamp.map(|device_timestamp| {
                                 let ptp_stamp = braid_types::PtpStamp::new(device_timestamp);
-                                let device_timestamp_chrono =
-                                    chrono::DateTime::<chrono::Utc>::try_from(ptp_stamp.clone())
-                                        .unwrap();
-                                device_timestamp_chrono.into()
+                                ptp_stamp.to_utc(ptpcfg.utc_offset_secs).unwrap().into()
                             })
                         }
                         TriggerType::DeviceTimestamp => {

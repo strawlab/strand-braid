@@ -130,9 +130,11 @@ impl ConnectedCamerasManager {
         all_expected_cameras: BTreeSet<RawCamName>,
         signal_all_cams_present: Arc<AtomicBool>,
         signal_all_cams_synced: Arc<AtomicBool>,
-        periodic_signal_period_usec: Option<f64>,
+        ptp_sync: Option<&PtpSyncConfig>,
         predefined_cam_nums: Option<BTreeMap<RawCamName, CamNum>>,
     ) -> Self {
+        let periodic_signal_period_usec = ptp_sync.and_then(|c| c.periodic_signal_period_usec);
+        let utc_offset_secs = ptp_sync.map(|c| c.utc_offset_secs).unwrap_or(0);
         let mut not_yet_connected = BTreeMap::new();
 
         // pre-reserve cam numbers for cameras in calibration
@@ -154,7 +156,7 @@ impl ConnectedCamerasManager {
         };
 
         let launch_time = chrono::Utc::now();
-        let mut launch_time_ptp = PtpStamp::try_from(launch_time).unwrap();
+        let mut launch_time_ptp = PtpStamp::from_utc(&launch_time, utc_offset_secs).unwrap();
 
         if let Some(periodic_signal_period_usec) = periodic_signal_period_usec.as_ref() {
             // This a) rounds to period so that calculation of frame number in
@@ -168,8 +170,7 @@ impl ConnectedCamerasManager {
             launch_time_ptp = PtpStamp::new(n_ticks * periodic_signal_period_nsec);
         }
 
-        let launch_time_ptp_utc: chrono::DateTime<chrono::Utc> =
-            launch_time_ptp.clone().try_into().unwrap();
+        let launch_time_ptp_utc = launch_time_ptp.to_utc(utc_offset_secs).unwrap();
         let launch_time_ptp_local: chrono::DateTime<chrono::Local> = launch_time_ptp_utc.into();
         tracing::debug!("launch_time_ptp_local: {launch_time_ptp_local}");
 
@@ -275,7 +276,7 @@ impl ConnectedCamerasManager {
         raw_cam_name: &RawCamName,
         http_camserver_info: &BuiServerInfo,
         recon: &Option<flydra_mvg::FlydraMultiCameraSystem<MyFloat>>,
-        camera_periodic_signal_period_usec: Option<f64>,
+        ptp_sync: Option<&PtpSyncConfig>,
     ) -> Self {
         let signal_all_cams_present = Arc::new(AtomicBool::new(false));
         let signal_all_cams_synced = Arc::new(AtomicBool::new(false));
@@ -288,7 +289,7 @@ impl ConnectedCamerasManager {
             all_expected_cameras,
             signal_all_cams_present,
             signal_all_cams_synced,
-            camera_periodic_signal_period_usec,
+            ptp_sync,
             None,
         );
         {
@@ -327,7 +328,8 @@ impl ConnectedCamerasManager {
                     sync_state: ConnectedCameraSyncState::Unsynchronized,
                     http_camserver_info: http_camserver_info.clone(),
                     frames_during_sync: 0,
-                    _camera_periodic_signal_period_usec: camera_periodic_signal_period_usec,
+                    _camera_periodic_signal_period_usec: ptp_sync
+                        .and_then(|c| c.periodic_signal_period_usec),
                 },
             );
         }
@@ -644,8 +646,7 @@ impl ConnectedCamerasManager {
                     .expect("could not get device_timestamp for frame"),
             );
 
-            let device_timestamp_utc: chrono::DateTime<chrono::Utc> =
-                device_timestamp.clone().try_into().unwrap();
+            let device_timestamp_utc = device_timestamp.to_utc(ptpcfg.utc_offset_secs).unwrap();
             let device_timestamp_local: chrono::DateTime<chrono::Local> =
                 device_timestamp_utc.into();
             tracing::trace!("{cam}: device_timestamp_local: {device_timestamp_local}");
@@ -880,4 +881,40 @@ fn test_camera_list() {
     let c1 = CameraList::new(&[1, 2, 3, 4]);
     let c2 = CameraList::new(&[4, 3, 2, 5]);
     assert!(c1 != c2);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// On a timescale ahead of UTC, the launch time must be ahead by the same
+    /// amount, so that synced frame numbers still count from launch.
+    #[test]
+    fn launch_time_is_on_the_ptp_timescale() {
+        let launch_time_ptp = |utc_offset_secs| {
+            let ptp_sync = PtpSyncConfig {
+                periodic_signal_period_usec: Some(10_000.0),
+                utc_offset_secs,
+            };
+            ConnectedCamerasManager::new(
+                &None,
+                BTreeSet::new(),
+                Arc::new(AtomicBool::new(false)),
+                Arc::new(AtomicBool::new(false)),
+                Some(&ptp_sync),
+                None,
+            )
+            .launch_time_ptp
+            .get()
+        };
+        let arb_utc = launch_time_ptp(0);
+        let tai = launch_time_ptp(37);
+        let ahead_nanos = tai - arb_utc;
+        // Both launch times are rounded to the 10 ms period and were taken a
+        // moment apart.
+        assert!(
+            ahead_nanos.abs_diff(37_000_000_000) <= 20_000_000,
+            "{ahead_nanos}"
+        );
+    }
 }

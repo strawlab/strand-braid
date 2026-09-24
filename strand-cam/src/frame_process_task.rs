@@ -1860,14 +1860,13 @@ fn calc_braid_timestamp(
                 if let Some(periodic_signal_period_usec) = &ptpcfg.periodic_signal_period_usec {
                     let nanos = ptp_stamp.get();
                     let fno_f64 = nanos as f64 / periodic_signal_period_usec * 1000.0;
-                    let device_timestamp_chrono =
-                        chrono::DateTime::<chrono::Utc>::try_from(ptp_stamp.clone()).unwrap();
+                    let device_timestamp_chrono = ptp_stamp.to_utc(ptpcfg.utc_offset_secs).unwrap();
                     tracing::trace!(
                         "fno_f64: {fno_f64}, device_timestamp_chrono: {device_timestamp_chrono}"
                     );
                 }
             }
-            Some(ptp_stamp.try_into().unwrap())
+            Some(ptp_stamp.to_utc(ptpcfg.utc_offset_secs).unwrap().into())
         }
         Some(TriggerType::DeviceTimestamp) => {
             let cm = device_clock_model.as_ref().unwrap();
@@ -1878,8 +1877,7 @@ fn calc_braid_timestamp(
             let local_elapsed_nanos: f64 = (device_elapsed_nanos as f64) * cm.gain + cm.offset;
             // let ts: f64 = (device_timestamp as f64) * cm.gain + cm.offset;
             let local_nanos = local_time0 + local_elapsed_nanos.round() as u64;
-            let local: chrono::DateTime<chrono::Utc> =
-                PtpStamp::new(local_nanos).try_into().unwrap();
+            let local = chrono::DateTime::from_timestamp_nanos(local_nanos.try_into().unwrap());
             let x = FlydraFloatTimestampLocal::<braid_types::Triggerbox>::from(local);
             Some(x)
         }
