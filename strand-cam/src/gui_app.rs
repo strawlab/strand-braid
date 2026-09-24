@@ -66,7 +66,7 @@ impl eframe::App for StrandCamEguiApp {
         let do_ctx_clone = egui_ctx_tx.is_some();
 
         // Copy stuff from behind mutex.
-        let (url_string, opt_ctx_clone) = {
+        let (url_string, stopped, error_string, opt_ctx_clone) = {
             // scope for guard
             let my_guard = gui_singleton.lock().unwrap();
 
@@ -77,11 +77,12 @@ impl eframe::App for StrandCamEguiApp {
                 None
             };
 
-            // Copy the URL if present.
-            match my_guard.url.as_ref() {
-                Some(url) => (Some(url.to_string()), opt_ctx_clone),
-                None => (None, opt_ctx_clone),
-            }
+            (
+                my_guard.url.clone(),
+                my_guard.stopped,
+                my_guard.error.clone(),
+                opt_ctx_clone,
+            )
         };
 
         // Send the egui context.
@@ -94,42 +95,37 @@ impl eframe::App for StrandCamEguiApp {
             }
         }
 
-        let mut do_exit = false;
-        match frame_rx.has_changed() {
-            Ok(true) => {
-                let arc_dynamic_owned = frame_rx.borrow_and_update();
-                let dy_ref = arc_dynamic_owned.borrow();
-                let w = dy_ref.width();
-                let h = dy_ref.height();
-                let screen_texture = screen_texture.get_or_insert_with(|| {
-                    ctx.load_texture(
-                        "screen",
-                        egui::ImageData::Color(Arc::new(ColorImage::filled(
-                            [w as usize, h as usize],
-                            Color32::TRANSPARENT,
-                        ))),
-                        TextureOptions::default(),
-                    )
-                });
+        let do_exit = stopped && error_string.is_none();
+        // An error here means the camera thread is gone. Whether to close the
+        // window is decided by `stopped` above, which also covers errors.
+        if let Ok(true) = frame_rx.has_changed() {
+            let arc_dynamic_owned = frame_rx.borrow_and_update();
+            let dy_ref = arc_dynamic_owned.borrow();
+            let w = dy_ref.width();
+            let h = dy_ref.height();
+            let screen_texture = screen_texture.get_or_insert_with(|| {
+                ctx.load_texture(
+                    "screen",
+                    egui::ImageData::Color(Arc::new(ColorImage::filled(
+                        [w as usize, h as usize],
+                        Color32::TRANSPARENT,
+                    ))),
+                    TextureOptions::default(),
+                )
+            });
 
-                if let Some(mono8_im) = dy_ref.as_static::<Mono8>() {
-                    screen_texture.set(
-                        ColorImage::from_gray([w as usize, h as usize], mono8_im.image_data()),
-                        TextureOptions::default(),
-                    );
-                } else {
-                    tracing::error!(
-                        "Received frame with unsupported pixel format: {:?}",
-                        dy_ref.pixel_format()
-                    );
-                }
+            if let Some(mono8_im) = dy_ref.as_static::<Mono8>() {
+                screen_texture.set(
+                    ColorImage::from_gray([w as usize, h as usize], mono8_im.image_data()),
+                    TextureOptions::default(),
+                );
+            } else {
+                tracing::error!(
+                    "Received frame with unsupported pixel format: {:?}",
+                    dy_ref.pixel_format()
+                );
             }
-            Ok(false) => {}
-            Err(_recv_err) => {
-                tracing::error!("Camera thread disconnected");
-                do_exit = true;
-            }
-        };
+        }
 
         egui::CentralPanel::default().show(ui, |ui| {
             egui::ScrollArea::both().show(ui, |ui| {
@@ -149,12 +145,18 @@ impl eframe::App for StrandCamEguiApp {
                         // frame.close();
                     }
 
-                    match url_string {
-                        Some(mut url) => {
+                    match (error_string, url_string) {
+                        (Some(error), _) => {
+                            ui.colored_label(
+                                ui.visuals().error_fg_color,
+                                format!("Strand Camera stopped with an error:\n{error}"),
+                            );
+                        }
+                        (None, Some(mut url)) => {
                             ui.label("URL");
                             ui.text_edit_singleline(&mut url);
                         }
-                        None => {
+                        (None, None) => {
                             ui.label("waiting for GUI");
                         }
                     }

@@ -76,23 +76,15 @@ strand-cam-flydratrax --led-box /dev/ttyACM0
 ```
 
 > **The menu entry only works if an LED box is connected as `/dev/ttyACM0`.**
-> Otherwise Strand Camera fails to start, and because the menu entry has no
-> terminal, the error message is not shown:
->
-> * If `/dev/ttyACM0` does not exist (or cannot be opened, e.g. because your
->   user is not in the `dialout` group; see [Trigger box](#trigger-box)), the
->   window appears for about a second and then disappears.
-> * If a different device is connected as `/dev/ttyACM0` (for example a
->   Raspberry Pi Pico Triggerbox, which also appears as `/dev/ttyACM*`) and does
->   not answer with the LED box protocol version, the window **stays open and
->   still shows the URL, but nothing is running behind it**: the browser
->   interface does not load. When started from a terminal, the same happens,
->   and the error `Timeout connecting to LED Box` is printed there once you
->   click **Quit**.
->
-> In the first case the reason is recorded in the log file
-> `~/.strand-cam-<DATE>_<TIME>...log` in your home directory; in the second
-> case it is not.
+> If `/dev/ttyACM0` does not exist, cannot be opened (your user needs to be in
+> the `dialout` group; see [Trigger box](#trigger-box)), or is a different
+> device that does not answer with the LED box protocol version (for example a
+> Raspberry Pi Pico Triggerbox, which also appears as `/dev/ttyACM*`), Strand
+> Camera stops. Its window then shows "Strand Camera stopped with an error"
+> and the reason, such as `Failed opening LED box "/dev/ttyACM0"` or `Timeout
+> connecting to LED Box`, in place of the URL. Click **Quit**. The error is
+> also recorded in the log file `~/.strand-cam-<DATE>_<TIME>...log` in your
+> home directory.
 
 To use `strand-cam-flydratrax` without an LED box, or with an LED box on a
 different port, start it from a terminal instead:

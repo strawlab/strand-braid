@@ -128,6 +128,10 @@ use frame_process_task::frame_process_task;
 struct GuiShared {
     ctx: Option<eframe::egui::Context>,
     url: Option<String>,
+    /// Set once the camera side has finished. The window then closes, unless
+    /// `error` is also set, in which case it stays open to show the error.
+    stopped: bool,
+    error: Option<String>,
 }
 
 #[cfg(feature = "eframe-gui")]
@@ -1183,6 +1187,7 @@ where
 
         let gui_singleton = Arc::new(std::sync::Mutex::new(GuiShared::default()));
         let gui_singleton2 = gui_singleton.clone();
+        let gui_singleton3 = gui_singleton.clone();
 
         let (frame_tx, frame_rx) = tokio::sync::watch::channel(Arc::new(
             strand_dynamic_frame::DynamicFrameOwned::from_static(
@@ -1201,7 +1206,7 @@ where
         let tokio_thread_jh = std::thread::Builder::new()
             .name("tokio-thread".to_string())
             .spawn(move || {
-                let mymod = runtime.block_on(run_after_maybe_connecting_to_braid(
+                let result = runtime.block_on(run_after_maybe_connecting_to_braid(
                     mymod,
                     args,
                     app_name,
@@ -1214,7 +1219,22 @@ where
                         host_options: None,
                         embedded_http: None,
                     },
-                ))?;
+                ));
+                {
+                    // Tell the window we are done. Without this, after an
+                    // error the window would stay open with nothing behind it
+                    // and the error would reach stderr only once it is closed.
+                    let mut my_guard = gui_singleton3.lock().unwrap();
+                    my_guard.stopped = true;
+                    if let Err(e) = &result {
+                        error!("{e:?}");
+                        my_guard.error = Some(format!("{e:#}"));
+                    }
+                    if let Some(ctx) = my_guard.ctx.as_ref() {
+                        ctx.request_repaint();
+                    }
+                }
+                let mymod = result?;
 
                 info!("done");
                 Ok(mymod)
