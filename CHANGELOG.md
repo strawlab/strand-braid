@@ -1,5 +1,22 @@
 ## unreleased
 
+### Added
+
+* `PtpSync` triggering takes a `utc_offset_secs` setting: how many seconds the
+  PTP grandmaster's timescale runs ahead of UTC. The default, 0, is right for
+  `ptpd` and for `ptp4l` with software timestamping, which send UTC; use 37 for
+  a grandmaster on the PTP timescale (TAI), such as a hardware grandmaster.
+  Previously the cameras' PTP time was always taken as UTC, so with a TAI
+  grandmaster every trigger timestamp was 37 s late and reconstruction latency
+  went unrecorded. The offset used is saved as `ptp_utc_offset_secs` in
+  `braid_metadata.yml`.
+* With `PtpSync` triggering, Strand Camera checks at startup that its camera's
+  PTP time is `utc_offset_secs` ahead of the computer's clock, and otherwise
+  stops with an error naming the setting to use. A grandmaster that sends
+  neither UTC nor TAI (such as a camera that has become grandmaster) is
+  reported there, instead of Braid dropping every frame with "Is time running
+  backwards?".
+
 ### Changed
 
 * Every field of the object detection configuration
@@ -24,6 +41,11 @@
 
 ### Removed
 
+* `braid_types::PtpStamp` no longer converts to and from `chrono::DateTime`
+  with `TryFrom`, which assumed UTC. Use `PtpStamp::to_utc` and
+  `PtpStamp::from_utc`, which take the timescale's offset from UTC.
+  `flydra2::ConnectedCamerasManager::new` and `::new_single_cam` take the
+  `PtpSyncConfig` instead of just its period.
 * Removed the `flydra-pt-detect-cfg` crate. Its only export,
   `default_absdiff()`, is now `ImPtDetectCfg::default()` in
   `flydra-feature-detector-types`, which is also what serde fills in for
