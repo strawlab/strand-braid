@@ -63,13 +63,34 @@ impl BraidMetadataBuilder {
     pub fn saving_program_name<S: Into<String>>(saving_program_name: S) -> BraidMetadataBuilder {
         BraidMetadataBuilder::GenerateNew(MetadataParts {
             saving_program_name: saving_program_name.into(),
+            ptp_utc_offset_secs: None,
         })
+    }
+
+    /// Record how far ahead of UTC the PTP timescale was taken to be (see
+    /// [BraidMetadata::ptp_utc_offset_secs]).
+    pub fn ptp_utc_offset_secs(self, ptp_utc_offset_secs: Option<i32>) -> BraidMetadataBuilder {
+        match self {
+            BraidMetadataBuilder::GenerateNew(parts) => {
+                BraidMetadataBuilder::GenerateNew(MetadataParts {
+                    ptp_utc_offset_secs,
+                    ..parts
+                })
+            }
+            BraidMetadataBuilder::Existing(metadata) => {
+                BraidMetadataBuilder::Existing(BraidMetadata {
+                    ptp_utc_offset_secs,
+                    ..metadata
+                })
+            }
+        }
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct MetadataParts {
     saving_program_name: String,
+    ptp_utc_offset_secs: Option<i32>,
 }
 
 impl WritingState {
@@ -122,6 +143,7 @@ impl WritingState {
                         original_recording_time: local,
                         save_empty_data2d,
                         saving_program_name: parts.saving_program_name,
+                        ptp_utc_offset_secs: parts.ptp_utc_offset_secs,
                     }
                 }
                 BraidMetadataBuilder::Existing(metadata) => metadata,
@@ -688,6 +710,38 @@ pub(crate) fn writer_task_main(
 mod test {
     use super::*;
     use std::sync::atomic::AtomicBool;
+
+    #[test]
+    fn ptp_utc_offset_is_recorded_only_when_known() {
+        let metadata = |builder: BraidMetadataBuilder| {
+            let BraidMetadataBuilder::GenerateNew(parts) = builder else {
+                panic!("expected GenerateNew");
+            };
+            BraidMetadata {
+                schema: BRAID_SCHEMA,
+                git_revision: "".into(),
+                original_recording_time: None,
+                save_empty_data2d: false,
+                saving_program_name: parts.saving_program_name,
+                ptp_utc_offset_secs: parts.ptp_utc_offset_secs,
+            }
+        };
+        let tai =
+            metadata(BraidMetadataBuilder::saving_program_name("t").ptp_utc_offset_secs(Some(37)));
+        let tai_yaml = serde_yaml::to_string(&tai).unwrap();
+        assert!(tai_yaml.contains("ptp_utc_offset_secs: 37"), "{tai_yaml}");
+        let reread: BraidMetadata = serde_yaml::from_str(&tai_yaml).unwrap();
+        assert_eq!(reread.ptp_utc_offset_secs, Some(37));
+
+        let no_ptp = metadata(BraidMetadataBuilder::saving_program_name("t"));
+        let no_ptp_yaml = serde_yaml::to_string(&no_ptp).unwrap();
+        assert!(
+            !no_ptp_yaml.contains("ptp_utc_offset_secs"),
+            "{no_ptp_yaml}"
+        );
+        let reread: BraidMetadata = serde_yaml::from_str(&no_ptp_yaml).unwrap();
+        assert_eq!(reread.ptp_utc_offset_secs, None);
+    }
 
     /// Build a `WritingState` whose single camera reports `cfg` as its feature
     /// detection settings, let it write, and return the contents of the

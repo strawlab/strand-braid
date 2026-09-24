@@ -604,7 +604,8 @@ pub(crate) async fn do_run_forever(
         },
         cam_manager.clone(),
         recon.clone(),
-        flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name),
+        flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name)
+            .ptp_utc_offset_secs(ptp_sync.map(|c| c.utc_offset_secs)),
     )?;
 
     // Here is what we do on quit:
