@@ -1860,13 +1860,13 @@ fn calc_braid_timestamp(
                 if let Some(periodic_signal_period_usec) = &ptpcfg.periodic_signal_period_usec {
                     let nanos = ptp_stamp.get();
                     let fno_f64 = nanos as f64 / periodic_signal_period_usec * 1000.0;
-                    let device_timestamp_chrono = ptp_stamp.to_utc(0).unwrap();
+                    let device_timestamp_chrono = ptp_stamp.to_utc(ptpcfg.utc_offset_secs).unwrap();
                     tracing::trace!(
                         "fno_f64: {fno_f64}, device_timestamp_chrono: {device_timestamp_chrono}"
                     );
                 }
             }
-            Some(ptp_stamp.to_utc(0).unwrap().into())
+            Some(ptp_stamp.to_utc(ptpcfg.utc_offset_secs).unwrap().into())
         }
         Some(TriggerType::DeviceTimestamp) => {
             let cm = device_clock_model.as_ref().unwrap();

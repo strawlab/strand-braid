@@ -1570,6 +1570,30 @@ pub struct PtpSyncConfig {
     ///
     /// If this is set, it is transmitted to the cameras.
     pub periodic_signal_period_usec: Option<f64>,
+    /// How many seconds the grandmaster's timescale runs ahead of UTC.
+    ///
+    /// 0 (the default) when the grandmaster sends UTC on the ARB timescale,
+    /// as `ptpd` in `masteronly` mode and `ptp4l` with software timestamping
+    /// do. 37 (the TAI−UTC offset since 2017) when it uses the PTP
+    /// timescale, as hardware grandmasters do. See [PtpStamp].
+    #[serde(default)]
+    pub utc_offset_secs: i32,
+}
+
+#[test]
+fn test_ptp_sync_config_utc_offset_defaults_to_zero() {
+    let old: TriggerType =
+        serde_json::from_str(r#"{"trigger_type":"PtpSync","periodic_signal_period_usec":10000.0}"#)
+            .unwrap();
+    let TriggerType::PtpSync(old) = old else {
+        panic!("expected PtpSync");
+    };
+    assert_eq!(old.utc_offset_secs, 0);
+
+    let tai: PtpSyncConfig =
+        serde_json::from_str(r#"{"periodic_signal_period_usec":null,"utc_offset_secs":37}"#)
+            .unwrap();
+    assert_eq!(tai.utc_offset_secs, 37);
 }
 
 /// Configuration for fake synchronization (no real synchronization).
