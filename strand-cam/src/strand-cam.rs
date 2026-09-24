@@ -1872,6 +1872,7 @@ where
         tracing::info!(
             "PTP clock within threshold {clock_sync_threshold_nanos} nanoseconds from master."
         );
+        check_ptp_utc_offset(&cam, ptpcfg.utc_offset_secs)?;
 
         if cam.feature_enum("TriggerMode")? != "On" {
             cam.feature_enum_set("TriggerMode", "On")?;
@@ -2821,6 +2822,81 @@ where
     Ok((remote_in_local, remote))
 }
 
+/// The whole-second offsets of PTP time ahead of UTC that are taken to mean
+/// the PTP timescale (TAI).
+///
+/// TAI−UTC has been 37 s since 2017-01-01. A leap second would change it by
+/// one, so it is not hardcoded.
+const PLAUSIBLE_TAI_MINUS_UTC_SECS: std::ops::RangeInclusive<i32> = 30..=45;
+
+/// How far the camera's PTP time, converted to UTC, may be from the host's
+/// clock at startup.
+///
+/// Normal disagreement between clocks is milliseconds; timescale mistakes are
+/// whole seconds.
+const PTP_UTC_OFFSET_TOLERANCE_SECS: f64 = 0.5;
+
+/// Check that PTP time is `utc_offset_secs` ahead of UTC, as configured.
+///
+/// Braid turns PTP time into UTC with `utc_offset_secs`. If that is wrong,
+/// every saved timestamp is wrong by a constant (37 s for a TAI grandmaster
+/// taken as UTC). If PTP time is behind the host clock, no frame can be
+/// synchronized at all.
+fn check_ptp_utc_offset<C>(cam: &C, utc_offset_secs: i32) -> Result<()>
+where
+    C: ci2::Camera,
+{
+    let (host_utc, cam_ptp_nanos) = measure_times(cam)?;
+    let cam_ptp = braid_types::PtpStamp::new(
+        cam_ptp_nanos
+            .try_into()
+            .map_err(|_| eyre!("camera reports negative PTP time {cam_ptp_nanos}"))?,
+    );
+    let cam_ptp_as_utc = cam_ptp.to_utc(0).map_err(|e| eyre!(e))?;
+    let measured_offset_secs = (cam_ptp_as_utc - host_utc).as_seconds_f64();
+    tracing::debug!(
+        "PTP time is {measured_offset_secs:.3} seconds ahead of the host clock \
+        (configured utc_offset_secs: {utc_offset_secs})."
+    );
+    ptp_utc_offset_verdict(measured_offset_secs, utc_offset_secs)
+}
+
+/// Compare the measured offset of PTP time ahead of the host's UTC clock with
+/// the configured `utc_offset_secs`.
+fn ptp_utc_offset_verdict(measured_offset_secs: f64, utc_offset_secs: i32) -> Result<()> {
+    let near =
+        |secs: i32| (measured_offset_secs - f64::from(secs)).abs() <= PTP_UTC_OFFSET_TOLERANCE_SECS;
+    if near(utc_offset_secs) {
+        return Ok(());
+    }
+    let prefix = format!(
+        "PTP time is {measured_offset_secs:.3} seconds ahead of this computer's clock, \
+        but the PtpSync trigger configuration says the PTP timescale is \
+        {utc_offset_secs} seconds ahead of UTC (utc_offset_secs = {utc_offset_secs})."
+    );
+    // Timescales differ by whole seconds. (`as` saturates far out of range.)
+    let nearest_secs = measured_offset_secs.round() as i32;
+    let advice = if nearest_secs == 0 {
+        "The PTP grandmaster sends UTC (the ARB timescale, as ptpd does). \
+        Set `utc_offset_secs = 0` (or remove it) in the [trigger] section of the Braid \
+        configuration."
+            .to_string()
+    } else if PLAUSIBLE_TAI_MINUS_UTC_SECS.contains(&nearest_secs) {
+        format!(
+            "The PTP grandmaster uses the PTP timescale, which is TAI, now \
+            {nearest_secs} seconds ahead of UTC. Set `utc_offset_secs = {nearest_secs}` in \
+            the [trigger] section of the Braid configuration."
+        )
+    } else {
+        "The PTP grandmaster sends neither UTC nor TAI (for example, a camera \
+        became grandmaster and counts from when it was powered on), or this \
+        computer's clock is not synchronized. Braid requires a grandmaster \
+        that sends UTC or TAI, such as ptpd running on the Braid computer."
+            .to_string()
+    };
+    Err(eyre!("{prefix} {advice}"))
+}
+
 /// See `send_first_msg` for why the large `SendError` is not boxed.
 #[allow(clippy::result_large_err)]
 async fn send_cam_settings_to_braid(
@@ -2934,6 +3010,47 @@ mod tests {
     use super::*;
 
     use std::net::Ipv4Addr;
+
+    #[test]
+    fn ptp_utc_offset_verdict_accepts_configured_timescale() {
+        assert!(ptp_utc_offset_verdict(0.010, 0).is_ok());
+        assert!(ptp_utc_offset_verdict(-0.010, 0).is_ok());
+        assert!(ptp_utc_offset_verdict(37.002, 37).is_ok());
+    }
+
+    #[test]
+    fn ptp_utc_offset_verdict_names_the_right_fix() {
+        let tai_taken_as_utc = ptp_utc_offset_verdict(37.002, 0).unwrap_err().to_string();
+        assert!(
+            tai_taken_as_utc.contains("`utc_offset_secs = 37`"),
+            "{tai_taken_as_utc}"
+        );
+
+        let utc_taken_as_tai = ptp_utc_offset_verdict(0.002, 37).unwrap_err().to_string();
+        assert!(
+            utc_taken_as_tai.contains("`utc_offset_secs = 0`"),
+            "{utc_taken_as_tai}"
+        );
+
+        // After a leap second, TAI would be 38 s ahead of UTC.
+        let stale_tai = ptp_utc_offset_verdict(37.998, 37).unwrap_err().to_string();
+        assert!(stale_tai.contains("`utc_offset_secs = 38`"), "{stale_tai}");
+        let leap_second = ptp_utc_offset_verdict(37.998, 0).unwrap_err().to_string();
+        assert!(
+            leap_second.contains("`utc_offset_secs = 38`"),
+            "{leap_second}"
+        );
+
+        // A whole number of seconds far from TAI−UTC is not a timescale.
+        let not_tai = ptp_utc_offset_verdict(20.0, 0).unwrap_err().to_string();
+        assert!(not_tai.contains("neither UTC nor TAI"), "{not_tai}");
+
+        // A camera grandmaster counting from power-on, 20 minutes ago.
+        let since_boot = ptp_utc_offset_verdict(1200.0 - 1.79e9, 0)
+            .unwrap_err()
+            .to_string();
+        assert!(since_boot.contains("neither UTC nor TAI"), "{since_boot}");
+    }
 
     // ---- Layer 1: `find_local_ip_for_remote` ----
     //
