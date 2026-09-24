@@ -67,7 +67,10 @@ runs:
     # unifies features across a single build, so including it here would force
     # `flydratrax` into the standalone `strand-cam` binary -- which is not
     # behavior-neutral (it activates the online tracker / model server). The
-    # two variants therefore require two separate resolves.
+    # two variants therefore require two separate resolves. The two variants
+    # and their features are described for users in
+    # docs/user-docs/users-guide/src/installation.md ("Starting Strand
+    # Camera"); update that section when they change.
     #
     # The `tracing/release_max_level_debug` feature is intentionally omitted:
     # it only caps the compiled-in log level and is not straightforward to set

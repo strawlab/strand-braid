@@ -13,7 +13,11 @@ There are three ways to drive it:
   controls. (Braid's `.toml` configuration has no LED box setting; the box is
   configured per Strand Camera process.) The `strand-cam-flydratrax` build
   additionally offers *Online LED triggering*, which switches the LEDs
-  automatically based on the tracked position of the animal.
+  automatically based on the tracked position of the animal. If no LED box
+  answers at `<PORT>`, Strand Camera fails to start; this matters for the
+  **Strand Camera (flydratrax)** application menu entry, which always passes
+  `--led-box /dev/ttyACM0`. See [Starting Strand
+  Camera](./installation.md#starting-strand-camera).
 * **Your own script** — the box is an ordinary serial device speaking a simple
   line-based JSON protocol, so it can be driven directly from Python. This is
   described below.

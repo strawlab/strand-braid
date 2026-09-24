@@ -66,6 +66,14 @@ pub(crate) async fn run_led_box_task(
     }
 
     // open serial port
+    //
+    // A missing port panics here and an unresponsive device bails below, so
+    // `--led-box` with no LED box attached stops Strand Camera. (With
+    // `eframe-gui`, the bail leaves the native window open with nothing behind
+    // it; the error is only reported after the window is closed.) The packaged
+    // `strand-cam-flydratrax.desktop` always passes `--led-box`, and
+    // docs/user-docs/users-guide/src/installation.md ("Starting Strand Camera")
+    // documents both failures. If this is made non-fatal, revise those docs.
     let port = {
         let tracker = shared_store_arc.read().unwrap();
         let shared = tracker.as_ref();

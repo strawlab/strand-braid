@@ -1,3 +1,6 @@
+# The Strand Camera binaries and .desktop entries installed here are described
+# in docs/user-docs/users-guide/src/installation.md ("Starting Strand Camera").
+# Update that section when they change.
 align-calibration usr/bin
 braid usr/bin
 braid-april-cal-cli usr/bin

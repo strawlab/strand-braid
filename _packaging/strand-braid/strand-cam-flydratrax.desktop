@@ -1,3 +1,7 @@
+# Strand Camera terminates at startup if no LED box answers at the --led-box
+# port. This is documented in docs/user-docs/users-guide/src/installation.md
+# ("Starting Strand Camera"); revise those docs if this entry or that behavior
+# changes.
 [Desktop Entry]
 Encoding=UTF-8
 Version=0.1.0
