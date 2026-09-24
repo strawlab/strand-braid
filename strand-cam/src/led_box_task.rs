@@ -14,12 +14,27 @@ use std::sync::{Arc, RwLock};
 use futures::{sink::SinkExt, stream::StreamExt};
 use tracing::{debug, info};
 
-use eyre::Result;
+use eyre::{Result, WrapErr};
 
 use async_change_tracker::ChangeTracker;
 use strand_cam_storetype::{StoreType, ToLedBoxDevice};
 
 const LED_BOX_HEARTBEAT_INTERVAL_MSEC: u64 = 5000;
+
+/// Open the LED box serial port.
+fn open_port(serial_device: &str) -> Result<tokio_serial::SerialStream> {
+    use tokio_serial::SerialPortBuilderExt;
+
+    info!("opening LED box \"{serial_device}\"");
+    let mut port = tokio_serial::new(serial_device, strand_led_box_comms::BAUD_RATE)
+        .open_native_async()
+        .wrap_err_with(|| format!("Failed opening LED box \"{serial_device}\""))?;
+
+    #[cfg(unix)]
+    port.set_exclusive(false)
+        .wrap_err("Unable to set serial port exclusive to false")?;
+    Ok(port)
+}
 
 /// Connect to the LED box (if a serial device path is configured) and spawn the
 /// tasks that service it.
@@ -33,7 +48,6 @@ pub(crate) async fn run_led_box_task(
     led_box_heartbeat_update_arc: Arc<RwLock<Option<std::time::Instant>>>,
     shared_store_arc: Arc<RwLock<ChangeTracker<StoreType>>>,
 ) -> Result<()> {
-    use tokio_serial::SerialPortBuilderExt;
     use tokio_util::codec::Decoder;
 
     use json_lines::codec::JsonLinesCodec;
@@ -66,23 +80,21 @@ pub(crate) async fn run_led_box_task(
     }
 
     // open serial port
+    //
+    // A missing port or an unresponsive device is an error, so `--led-box`
+    // with no LED box attached stops Strand Camera (with `eframe-gui`, the
+    // error is shown in the native window). The packaged
+    // `strand-cam-flydratrax.desktop` always passes `--led-box`, and
+    // docs/user-docs/users-guide/src/installation.md ("Starting Strand Camera")
+    // documents this failure. If this is made non-fatal, revise those docs.
     let port = {
         let tracker = shared_store_arc.read().unwrap();
         let shared = tracker.as_ref();
-        if let Some(serial_device) = shared.led_box_device_path.as_ref() {
-            info!("opening LED box \"{}\"", serial_device);
-            // open with default settings 9600 8N1
-            let mut port = tokio_serial::new(serial_device, strand_led_box_comms::BAUD_RATE)
-                .open_native_async()
-                .unwrap();
-
-            #[cfg(unix)]
-            port.set_exclusive(false)
-                .expect("Unable to set serial port exclusive to false");
-            Some(port)
-        } else {
-            None
-        }
+        shared
+            .led_box_device_path
+            .as_deref()
+            .map(open_port)
+            .transpose()?
     };
 
     if let Some(port) = port {
@@ -206,4 +218,18 @@ pub(crate) async fn run_led_box_task(
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn open_missing_port_is_an_error() {
+        let err = open_port("/nonexistent/led-box").unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "Failed opening LED box \"/nonexistent/led-box\""
+        );
+    }
 }

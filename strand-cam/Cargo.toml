@@ -54,6 +54,7 @@ eframe = { version = "0.35", default-features = false, features = [
     "default_fonts",
     "wgpu",
     "wayland",       # for linux
+    "x11",           # for linux
 ], optional = true }
 dotenv.workspace = true
 json-lines.workspace = true

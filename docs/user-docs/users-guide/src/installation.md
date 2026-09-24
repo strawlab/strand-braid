@@ -22,6 +22,78 @@ in _packaging/deb-installer-zip-readme.txt
 
 -->
 
+## Starting Strand Camera
+
+<!--
+
+Keep this section in sync with the packaging: the binaries and .desktop files
+listed in _packaging/strand-braid/debian/strand-braid.install, the features
+they are built with in .github/actions/package-strand-braid-deb/action.yml, and
+the LED box startup behavior in strand-cam/src/led_box_task.rs.
+
+-->
+
+The `.deb` installs two builds of Strand Camera. Both are the same program
+compiled with different options; they share the same command-line arguments
+(run either with `--help` to list them) and the same browser interface.
+
+| Program | Start it from | Extra features |
+| :--- | :--- | :--- |
+| `strand-cam` | a terminal | — |
+| `strand-cam-flydratrax` | a terminal, or the **Strand Camera (flydratrax)** entry in the desktop application menu | single-camera 2D Kalman tracking, *Online LED triggering*, a small native window |
+
+Both builds include point (object) detection, checkerboard calibration and
+AprilTag detection, and both can drive the [LED box](./led_box.md) manually
+when given `--led-box <PORT>`. Both support the Basler (`--camera-backend
+pylon`, the default), Allied Vision (`--camera-backend vimba`) and webcam
+(`--camera-backend webcam`) backends.
+
+### `strand-cam`
+
+`strand-cam` has no entry in the application menu. Start it from a terminal:
+
+```ignore
+strand-cam
+```
+
+It opens the first camera it finds (choose another with `--camera-name`; list
+them with `--list-cameras`) and opens the browser interface automatically. This
+is also the program Braid starts for each of its cameras.
+
+### `strand-cam-flydratrax`
+
+`strand-cam-flydratrax` adds live single-camera 2D tracking (the *Kalman
+tracking* section of the browser interface) and *Online LED triggering*, which
+switches the LED box automatically from the tracked position of the animal. In
+addition to the browser interface, it opens a small native window showing the
+browser interface URL, a preview image and a **Quit** button.
+
+The **Strand Camera (flydratrax)** application menu entry runs exactly this
+command:
+
+```ignore
+strand-cam-flydratrax --led-box /dev/ttyACM0
+```
+
+> **The menu entry only works if an LED box is connected as `/dev/ttyACM0`.**
+> If `/dev/ttyACM0` does not exist, cannot be opened (your user needs to be in
+> the `dialout` group; see [Trigger box](#trigger-box)), or is a different
+> device that does not answer with the LED box protocol version (for example a
+> Raspberry Pi Pico Triggerbox, which also appears as `/dev/ttyACM*`), Strand
+> Camera stops. Its window then shows "Strand Camera stopped with an error"
+> and the reason, such as `Failed opening LED box "/dev/ttyACM0"` or `Timeout
+> connecting to LED Box`, in place of the URL. Click **Quit**. The error is
+> also recorded in the log file `~/.strand-cam-<DATE>_<TIME>...log` in your
+> home directory.
+
+To use `strand-cam-flydratrax` without an LED box, or with an LED box on a
+different port, start it from a terminal instead:
+
+```ignore
+strand-cam-flydratrax
+strand-cam-flydratrax --led-box /dev/ttyACM1
+```
+
 ## Selecting or upgrading the Pylon version (Basler cameras)
 
 Strand Camera and Braid talk to Basler cameras through a small *shim* library
