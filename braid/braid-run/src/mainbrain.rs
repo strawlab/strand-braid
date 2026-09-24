@@ -1206,10 +1206,7 @@ pub(crate) async fn do_run_forever(
                             // shouldn't matter which camera we use.
                             packet.device_timestamp.map(|device_timestamp| {
                                 let ptp_stamp = braid_types::PtpStamp::new(device_timestamp);
-                                let device_timestamp_chrono =
-                                    chrono::DateTime::<chrono::Utc>::try_from(ptp_stamp.clone())
-                                        .unwrap();
-                                device_timestamp_chrono.into()
+                                ptp_stamp.to_utc(0).unwrap().into()
                             })
                         }
                         TriggerType::DeviceTimestamp => {

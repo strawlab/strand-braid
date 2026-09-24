@@ -279,14 +279,30 @@ pub struct RemoteCameraInfoResponse {
     pub trig_config: TriggerType,
 }
 
-/// Newtype storing time as number of nanoseconds since Jan 1, 1970 in UTC.
+/// A reading of a PTP (Precision Time Protocol, IEEE 1588) clock: nanoseconds
+/// since the epoch of the grandmaster's timescale.
 ///
-/// This is the lower 64 bits of the 80 bit PTP timestamp.
+/// This is *not* a UTC time. IEEE 1588 defines two timescales, and the
+/// grandmaster announces which one it uses:
+///
+/// - The PTP timescale counts from 1970-01-01 00:00:00 TAI, so it runs ahead
+///   of UTC by the TAI−UTC offset (37 seconds since 2017), and it does not
+///   jump at leap seconds. Hardware grandmasters, and `ptp4l` steering a
+///   hardware clock with `phc2sys`, use it.
+/// - The ARB (arbitrary) timescale uses whatever epoch the grandmaster chose.
+///   `ptpd` in `masteronly` mode and `ptp4l` with software timestamping send
+///   the host's system clock, i.e. UTC.
+///
+/// Use [PtpStamp::to_utc] and [PtpStamp::from_utc], with the offset of the
+/// grandmaster's timescale ahead of UTC, to convert to and from UTC.
+///
+/// Cameras report this as a 64-bit count of nanoseconds. (On the wire, a PTP
+/// timestamp is 48 bits of seconds and 32 bits of nanoseconds.)
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PtpStamp(u64);
 
 impl PtpStamp {
-    /// Create a new PtpStamp from nanoseconds since epoch.
+    /// Create a new PtpStamp from nanoseconds since the timescale's epoch.
     pub fn new(val: u64) -> Self {
         PtpStamp(val)
     }
@@ -304,6 +320,42 @@ impl PtpStamp {
             None
         }
     }
+
+    /// The PTP time at the instant `dt`, on a timescale `utc_offset_secs`
+    /// seconds ahead of UTC.
+    pub fn from_utc<TZ: chrono::TimeZone>(
+        dt: &chrono::DateTime<TZ>,
+        utc_offset_secs: i32,
+    ) -> Result<Self, &'static str> {
+        let utc_nanos = dt
+            .to_utc()
+            .timestamp_nanos_opt()
+            .ok_or("could not convert DateTime to i64 nanosec")?;
+        let nanos = utc_nanos
+            .checked_add(i64::from(utc_offset_secs) * 1_000_000_000)
+            .ok_or("PTP time out of range")?;
+        Ok(Self(
+            nanos
+                .try_into()
+                .map_err(|_| "PTP time precedes the timescale epoch")?,
+        ))
+    }
+
+    /// The UTC instant of this PTP time, on a timescale `utc_offset_secs`
+    /// seconds ahead of UTC.
+    pub fn to_utc(
+        &self,
+        utc_offset_secs: i32,
+    ) -> Result<chrono::DateTime<chrono::Utc>, &'static str> {
+        let nanos: i64 = self
+            .0
+            .try_into()
+            .map_err(|_| "could not convert u64 nanosec to i64")?;
+        let utc_nanos = nanos
+            .checked_sub(i64::from(utc_offset_secs) * 1_000_000_000)
+            .ok_or("PTP time out of range")?;
+        Ok(chrono::DateTime::from_timestamp_nanos(utc_nanos))
+    }
 }
 
 /// Newtype storing a duration between two [PtpStamp] values.
@@ -317,52 +369,16 @@ impl PtpStampDuration {
     }
 }
 
-impl<TZ> TryFrom<chrono::DateTime<TZ>> for PtpStamp
-where
-    TZ: chrono::TimeZone,
-{
-    type Error = &'static str;
-
-    fn try_from(orig: chrono::DateTime<TZ>) -> Result<Self, Self::Error> {
-        Ok(Self(
-            orig.to_utc()
-                .timestamp_nanos_opt()
-                .ok_or("could not convert DateTime to i64 nanosec")?
-                .try_into()
-                .map_err(|_| "could not convert i64 nanosec to u64")?,
-        ))
-    }
-}
-
-impl TryFrom<PtpStamp> for chrono::DateTime<chrono::Utc> {
-    type Error = &'static str;
-    fn try_from(orig: PtpStamp) -> Result<Self, Self::Error> {
-        let secs = orig.0 / 1_000_000_000;
-        let nsecs = orig.0 % 1_000_000_000;
-        chrono::DateTime::from_timestamp(
-            secs.try_into()
-                .map_err(|_| "could not convert u64 nanosec to i64")?,
-            nsecs
-                .try_into()
-                .map_err(|_| "could not convert u64 nanosec to u32")?,
-        )
-        .ok_or("could not convert timestamp to DateTime")
-    }
-}
-
-impl TryFrom<PtpStamp> for chrono::DateTime<chrono::FixedOffset> {
-    type Error = &'static str;
-    fn try_from(orig: PtpStamp) -> Result<Self, Self::Error> {
-        let utc: chrono::DateTime<chrono::Utc> = orig.try_into()?;
-        Ok(utc.into())
-    }
-}
-
-impl TryFrom<PtpStamp> for chrono::DateTime<chrono::Local> {
-    type Error = &'static str;
-    fn try_from(orig: PtpStamp) -> Result<Self, Self::Error> {
-        let utc: chrono::DateTime<chrono::Utc> = orig.try_into()?;
-        Ok(utc.into())
+#[test]
+fn test_ptp_stamp_utc_round_trip() {
+    let utc = chrono::DateTime::from_timestamp(1_790_228_793, 616_451_455).unwrap();
+    for utc_offset_secs in [0, 37] {
+        let stamp = PtpStamp::from_utc(&utc, utc_offset_secs).unwrap();
+        assert_eq!(
+            stamp.get(),
+            (1_790_228_793 + utc_offset_secs as u64) * 1_000_000_000 + 616_451_455
+        );
+        assert_eq!(stamp.to_utc(utc_offset_secs).unwrap(), utc);
     }
 }
 

@@ -1999,9 +1999,9 @@ where
         for i in 0..n_pts {
             let (local, cam_time) = measure_times(&cam)?;
             tmp_debug_device_timestamp.get_or_insert(cam_time);
-            let local_time_nanos = braid_types::PtpStamp::try_from(local).unwrap().get();
+            let local_time_nanos: u64 = local.timestamp_nanos_opt().unwrap().try_into().unwrap();
             local_time0.get_or_insert(local_time_nanos);
-            let cam_time_ts = braid_types::PtpStamp::new(cam_time.try_into().unwrap()).get();
+            let cam_time_ts: u64 = cam_time.try_into().unwrap();
             cam_time0.get_or_insert(cam_time_ts);
 
             let this_local_time0 = local_time0.as_ref().unwrap();

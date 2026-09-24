@@ -154,7 +154,7 @@ impl ConnectedCamerasManager {
         };
 
         let launch_time = chrono::Utc::now();
-        let mut launch_time_ptp = PtpStamp::try_from(launch_time).unwrap();
+        let mut launch_time_ptp = PtpStamp::from_utc(&launch_time, 0).unwrap();
 
         if let Some(periodic_signal_period_usec) = periodic_signal_period_usec.as_ref() {
             // This a) rounds to period so that calculation of frame number in
@@ -168,8 +168,7 @@ impl ConnectedCamerasManager {
             launch_time_ptp = PtpStamp::new(n_ticks * periodic_signal_period_nsec);
         }
 
-        let launch_time_ptp_utc: chrono::DateTime<chrono::Utc> =
-            launch_time_ptp.clone().try_into().unwrap();
+        let launch_time_ptp_utc = launch_time_ptp.to_utc(0).unwrap();
         let launch_time_ptp_local: chrono::DateTime<chrono::Local> = launch_time_ptp_utc.into();
         tracing::debug!("launch_time_ptp_local: {launch_time_ptp_local}");
 
@@ -644,8 +643,7 @@ impl ConnectedCamerasManager {
                     .expect("could not get device_timestamp for frame"),
             );
 
-            let device_timestamp_utc: chrono::DateTime<chrono::Utc> =
-                device_timestamp.clone().try_into().unwrap();
+            let device_timestamp_utc = device_timestamp.to_utc(0).unwrap();
             let device_timestamp_local: chrono::DateTime<chrono::Local> =
                 device_timestamp_utc.into();
             tracing::trace!("{cam}: device_timestamp_local: {device_timestamp_local}");
