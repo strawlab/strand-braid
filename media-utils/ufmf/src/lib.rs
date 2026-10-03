@@ -427,7 +427,6 @@ mod tests {
     };
     use strand_dynamic_frame::DynamicFrameOwned;
 
-    #[expect(clippy::float_cmp)]
     fn arange(start: u8, timestamp: f64) -> (DynamicFrameOwned, DateTime<Utc>) {
         let w = 10;
         let h = 10;
@@ -453,7 +452,6 @@ mod tests {
         )
     }
 
-    #[expect(clippy::float_cmp)]
     fn arange_float(start: f32, timestamp: f64) -> (DynamicFrameOwned, DateTime<Utc>) {
         let w = 10;
         let h = 10;

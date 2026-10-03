@@ -1088,10 +1088,7 @@ impl FirstMsgForced {
     async fn send_first_msg(
         self,
         new_cam_data: braid_types::RegisterNewCamera,
-    ) -> std::result::Result<
-        tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>,
-        tokio::sync::mpsc::error::SendError<braid_types::BraidHttpApiCallback>,
-    > {
+    ) -> Result<tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>> {
         self.tx
             .send(braid_types::BraidHttpApiCallback::NewCamera(new_cam_data))
             .await?;
@@ -2789,7 +2786,7 @@ async fn send_cam_settings_to_braid(
     transmit_msg_tx: &tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>,
     current_cam_settings_extension: &str,
     raw_cam_name: &RawCamName,
-) -> StdResult<(), tokio::sync::mpsc::error::SendError<braid_types::BraidHttpApiCallback>> {
+) -> Result<()> {
     let current_cam_settings_buf = cam_settings.to_string();
     let current_cam_settings_extension = current_cam_settings_extension.to_string();
     let raw_cam_name = raw_cam_name.clone();
@@ -2802,7 +2799,8 @@ async fn send_cam_settings_to_braid(
             current_cam_settings_extension,
         },
     });
-    transmit_msg_tx.send(msg).await
+    transmit_msg_tx.send(msg).await?;
+    Ok(())
 }
 
 fn bitrate_to_u32(br: &strand_cam_remote_control::BitrateSelection) -> Option<u32> {

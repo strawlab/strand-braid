@@ -890,7 +890,7 @@ mod test {
                 // Vary the content per frame so the encoder has real motion to
                 // reorder around.
                 let mut data = vec![0u8; w as usize * h as usize * 3];
-                for (px, chunk) in data.chunks_exact_mut(3).enumerate() {
+                for (px, chunk) in data.as_chunks_mut::<3>().0.iter_mut().enumerate() {
                     let v = ((px + i * 7) % 256) as u8;
                     chunk[0] = v;
                     chunk[1] = v.wrapping_mul(3);
@@ -1096,7 +1096,7 @@ mod test {
         let mut wtr = FfmpegReWriter::new(mp4_fname, reorder.codec_args(), None, None)?;
         for (i, ts) in timestamps.iter().enumerate() {
             let mut data = vec![0u8; w as usize * h as usize * 3];
-            for (px, chunk) in data.chunks_exact_mut(3).enumerate() {
+            for (px, chunk) in data.as_chunks_mut::<3>().0.iter_mut().enumerate() {
                 let v = ((px + i * 7) % 256) as u8;
                 chunk[0] = v;
                 chunk[1] = v.wrapping_mul(3);
@@ -1588,7 +1588,7 @@ mod test {
     fn crash_test_frame(i: usize) -> strand_dynamic_frame::DynamicFrameOwned {
         let (w, h) = (CRASH_TEST_WIDTH, CRASH_TEST_HEIGHT);
         let mut data = vec![0u8; w as usize * h as usize * 3];
-        for (px, chunk) in data.chunks_exact_mut(3).enumerate() {
+        for (px, chunk) in data.as_chunks_mut::<3>().0.iter_mut().enumerate() {
             let v = ((px + i * 7) % 256) as u8;
             chunk[0] = v;
             chunk[1] = v.wrapping_mul(3);

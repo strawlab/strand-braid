@@ -328,7 +328,7 @@ mod test {
 
         for (i, ts) in timestamps.iter().enumerate() {
             let mut data = vec![0u8; w as usize * h as usize * 3];
-            for (px, chunk) in data.chunks_exact_mut(3).enumerate() {
+            for (px, chunk) in data.as_chunks_mut::<3>().0.iter_mut().enumerate() {
                 let v = ((px + i * 7) % 256) as u8;
                 chunk[0] = v;
                 chunk[1] = v.wrapping_mul(3);
