@@ -303,7 +303,7 @@ impl<R: Read + Seek> ZipDirArchive<R> {
         if gz_exists {
             let gz_fd = self.path_starter().join(gz_fname).open()?;
             let decoder = libflate::gzip::Decoder::new(gz_fd)?;
-            Ok(MaybeGzReader::Gz(decoder))
+            Ok(MaybeGzReader::Gz(Box::new(decoder)))
         } else {
             let fd = self.path_starter().join(src_fname).open()?;
             Ok(MaybeGzReader::Raw(fd))
@@ -314,7 +314,7 @@ impl<R: Read + Seek> ZipDirArchive<R> {
 /// A file reader that transparently decodes gzip compression.
 pub enum MaybeGzReader<'a> {
     Raw(FileReader<'a>),
-    Gz(libflate::gzip::Decoder<FileReader<'a>>),
+    Gz(Box<libflate::gzip::Decoder<FileReader<'a>>>),
 }
 
 impl<'a> Read for MaybeGzReader<'a> {
