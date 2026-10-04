@@ -518,16 +518,16 @@ pub fn open_maybe_gzipped<R: Read + Seek>(
         // Use the compressed variant.
         path_like.replace(compressed_relname);
         let gz_fd = path_like.open()?;
-        Ok(MaybeGzippedReader::Gzipped(libflate::gzip::Decoder::new(
-            gz_fd,
-        )?))
+        Ok(MaybeGzippedReader::Gzipped(Box::new(
+            libflate::gzip::Decoder::new(gz_fd)?,
+        )))
     }
 }
 
 #[derive(Debug)]
 pub enum MaybeGzippedReader<'a> {
     Raw(zip_or_dir::FileReader<'a>),
-    Gzipped(libflate::gzip::Decoder<zip_or_dir::FileReader<'a>>),
+    Gzipped(Box<libflate::gzip::Decoder<zip_or_dir::FileReader<'a>>>),
 }
 
 impl<'a> Read for MaybeGzippedReader<'a> {

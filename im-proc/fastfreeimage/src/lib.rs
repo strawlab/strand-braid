@@ -1290,7 +1290,7 @@ pub mod ripp {
 
             for body_vec in body.iter_mut() {
                 let mask = body_vec.simd_lt(threshold_vec);
-                *body_vec = mask.blend(value_vec, *body_vec);
+                *body_vec = mask.select(value_vec, *body_vec);
             }
 
             scalar_threshlt(tail, threshold, value);
@@ -1328,7 +1328,7 @@ pub mod ripp {
 
             for body_vec in body.iter_mut() {
                 let mask = body_vec.simd_gt(threshold_vec);
-                *body_vec = mask.blend(value_vec, *body_vec);
+                *body_vec = mask.select(value_vec, *body_vec);
             }
 
             scalar_threshgt(tail, threshold, value);
@@ -1634,7 +1634,7 @@ pub mod ripp {
                     let mask_vec = wide::u8x32::new(*mask_chunk);
                     let dest_vec = wide::u8x32::new(*dest_chunk);
 
-                    let result_vec = mask_vec.blend(value_vec, dest_vec);
+                    let result_vec = mask_vec.select(value_vec, dest_vec);
                     dest_chunk.copy_from_slice(result_vec.as_array());
                 }
             }

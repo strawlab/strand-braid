@@ -2,7 +2,9 @@
 
 ## Before declaring a task done
 
-Run every step. CI runs the same checks; skipping them will fail CI.
+Run every step with the current stable toolchain (`rustup update stable`); CI
+uses the latest stable, so new lints land there first. CI runs the same checks;
+skipping them will fail CI.
 
 1. `cargo fmt` — format the code. (`cargo fmt --check` is the CI gate.)
 2. `cargo check --workspace` — must succeed.

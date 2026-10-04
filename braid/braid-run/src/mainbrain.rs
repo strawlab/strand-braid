@@ -986,21 +986,24 @@ pub(crate) async fn do_run_forever(
             // Emperically, an Arduino Nano requires 7 seconds to wake up.
             let sleep_dur = std::time::Duration::from_secs_f32(7.0);
 
+            let opts = braid_triggerbox::TriggerboxOptions {
+                device_path: device_fname,
+                query_dt: *query_dt,
+                assert_device_name: None,
+                max_acceptable_measurement_error: max_triggerbox_measurement_error,
+                sleep_dur,
+            };
             let triggerbox = braid_triggerbox::TriggerboxDevice::new(
                 on_new_clock_model,
-                device_fname,
                 cmd_rx,
                 Some(triggerbox_data_tx),
-                None,
-                max_triggerbox_measurement_error,
-                sleep_dur,
+                opts,
             )
             .await
             .map_err(|e| eyre::eyre!("on TriggerboxDevice::new: {e} {e:?}"))?;
-            let query_dt2 = *query_dt;
             debug!("starting triggerbox task {}:{}", file!(), line!());
             let fut = async move {
-                let result = triggerbox.run_forever(query_dt2).await;
+                let result = triggerbox.run_forever().await;
                 debug!("triggerbox task done {}:{}", file!(), line!());
                 if let Err(e) = result {
                     error!("triggerbox result: {:?}", e);
