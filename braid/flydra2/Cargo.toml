@@ -47,6 +47,7 @@ include_dir = { workspace = true, optional = true }
 approx.workspace = true
 re_sdk = { workspace = true, optional = true }
 re_sdk_types = { workspace = true, optional = true }
+re_build_info = { workspace = true, optional = true }
 resvg.workspace = true
 tagger.workspace = true
 cam-geom.workspace = true
@@ -78,4 +79,4 @@ default = ["bundle_files"]
 bundle_files = ["tower-serve-static", "include_dir"]
 serve_files = ["tower-http"]
 
-with-rerun = ["braid-mvg/rerun-io", "dep:re_sdk", "dep:re_sdk_types"]
+with-rerun = ["braid-mvg/rerun-io", "dep:re_sdk", "dep:re_sdk_types", "dep:re_build_info"]

@@ -155,7 +155,7 @@ fn main() -> eyre::Result<()> {
         .do_decode_h264(do_decode_h264)
         .build_source()?;
 
-    let re_version = re_sdk::build_info().version;
+    let re_version = re_build_info::CrateVersion::LOCAL;
     tracing::info!("Rerun version: {re_version}");
     tracing::info!("Frame size: {}x{}", src.width(), src.height());
 

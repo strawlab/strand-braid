@@ -15,6 +15,7 @@ camino.workspace = true
 levenberg-marquardt-sparse.workspace = true
 re_sdk = { workspace = true, optional = true }
 re_sdk_types = { workspace = true, optional = true }
+re_build_info = { workspace = true, optional = true }
 opencv-ros-camera.workspace = true
 chrono.workspace = true
 
@@ -34,4 +35,4 @@ tracing-test.workspace = true
 tempfile.workspace = true
 
 [features]
-with-rerun = ["dep:re_sdk", "dep:re_sdk_types", "bundle-adj/with-rerun"]
+with-rerun = ["dep:re_sdk", "dep:re_sdk_types", "dep:re_build_info", "bundle-adj/with-rerun"]

@@ -415,7 +415,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
             );
         }
 
-        let re_version = re_sdk::build_info().version;
+        let re_version = re_build_info::CrateVersion::LOCAL;
         // TODO: allow saving to file.
 
         let builder = re_sdk::RecordingStreamBuilder::new(env!["CARGO_PKG_NAME"]);
