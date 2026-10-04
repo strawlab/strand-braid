@@ -221,7 +221,7 @@ lstsq = "0.7"
 machine-vision-formats = { version = "0.1.7", default-features = false }
 memchr = "2.7.4"
 mime = "0.3.17"
-mp4 = { git = "https://github.com/strawlab/mp4-rust", rev = "1a0475518bce38ff0ce506a42d6a06567195f365" }
+mp4 = { git = "https://github.com/strawlab/mp4-rust", rev = "9e413b9e32cc92908c2110f7b15ecc3c02d2b7ba" }
 nalgebra = { version = "0.34", features = ["serde-serialize"] }
 nalgebra-mvn = "0.16"
 ncollide2d = { package = "ncollide2d-updated", version = "0.37.1" }
