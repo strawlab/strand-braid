@@ -388,20 +388,24 @@ impl Component for Model {
                 self.post_trigger_buffer_size_local
                     .set_if_not_focused(response.post_trigger_buffer_size);
 
-                self.im_ops_destination_local
-                    .set_if_not_focused(response.im_ops_state.destination);
+                // Left empty when imops is disabled, in which case the fields
+                // they back are not rendered.
+                if let Some(im_ops_state) = &response.im_ops_state {
+                    self.im_ops_destination_local
+                        .set_if_not_focused(im_ops_state.destination);
 
-                self.im_ops_source_local
-                    .set_if_not_focused(response.im_ops_state.source);
+                    self.im_ops_source_local
+                        .set_if_not_focused(im_ops_state.source);
 
-                self.im_ops_center_x
-                    .set_if_not_focused(response.im_ops_state.center_x);
+                    self.im_ops_center_x
+                        .set_if_not_focused(im_ops_state.center_x);
 
-                self.im_ops_center_y
-                    .set_if_not_focused(response.im_ops_state.center_y);
+                    self.im_ops_center_y
+                        .set_if_not_focused(im_ops_state.center_y);
 
-                self.im_ops_threshold
-                    .set_if_not_focused(response.im_ops_state.threshold);
+                    self.im_ops_threshold
+                        .set_if_not_focused(im_ops_state.threshold);
+                }
 
                 // Update our cache of the server state
                 self.server_state = Some(response);
@@ -1099,7 +1103,14 @@ impl Model {
             <div>
             </div>
         };
-        if let Some(ref shared) = self.server_state {
+        // No panel at all when the detector is disabled: its controls would
+        // change nothing, and offering them invites the operator to conclude
+        // that whatever detection they can see is this one.
+        if let Some(im_ops_state) = self
+            .server_state
+            .as_ref()
+            .and_then(|shared| shared.im_ops_state.as_ref())
+        {
             html! {
                 <div class="wrap-collapsible">
                     <CheckboxLabel label="ImOps Detection" initially_checked=false />
@@ -1112,7 +1123,7 @@ impl Model {
                         <div>
                             <Toggle
                                 label={"Enable detection"}
-                                value={shared.im_ops_state.do_detection}
+                                value={im_ops_state.do_detection}
                                 ontoggle={ctx.link().callback(|checked| {Msg::ToggleImOpsDetection(checked)})}
                                 />
                         </div>

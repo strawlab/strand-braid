@@ -277,6 +277,7 @@ where
             original_recording_time: Some(cfg.created_at),
             save_empty_data2d: false, // We do filtering below, but is this correct?
             saving_program_name: env!("CARGO_PKG_NAME").to_string(),
+            ptp_utc_offset_secs: None,
         };
         let metadata_buf = serde_yaml::to_string(&metadata)?;
 

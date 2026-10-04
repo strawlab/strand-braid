@@ -12,13 +12,9 @@ clap.workspace = true
 csv.workspace = true
 chrono.workspace = true
 serde.workspace = true
-serde_json.workspace = true
 serde_yaml.workspace = true
 toml.workspace = true
-nalgebra.workspace = true
-itertools.workspace = true
 lazy_static.workspace = true
-futures.workspace = true
 tokio.workspace = true
 tempfile.workspace = true
 eyre.workspace = true
@@ -38,14 +34,13 @@ strand-cam-pseudo-cal.workspace = true
 flydra2 = { workspace = true, features = ["bundle_files"] }
 braidz-types.workspace = true
 braidz-parser.workspace = true
-zip-or-dir.workspace = true
 braid-offline.workspace = true
 flytrax-apriltags-calibration = { workspace = true, optional = true }
 
 [dev-dependencies]
-env_logger.workspace = true
 test-log.workspace = true
 download-verify.workspace = true
+zip-or-dir.workspace = true
 
 [features]
 with_apriltags = ["flytrax-apriltags-calibration"]

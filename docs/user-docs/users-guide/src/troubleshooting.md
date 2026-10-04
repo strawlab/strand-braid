@@ -65,6 +65,22 @@ identify the correct interface name and confirm it matches the
 9000 on the PC's network connection and that jumbo frames are enabled in the
 switch settings.
 
+**Strand Camera stops with "PTP time is N seconds ahead of this computer's
+clock".** Braid converts the cameras' PTP time to UTC using `utc_offset_secs`
+in the `[trigger]` section of the Braid configuration (see
+[PtpSync](./braid_configuration_and_launching.md#ptpsync--gige-cameras-synchronized-over-the-network-with-ptp)),
+and each camera checks this at startup.
+
+- About 37 seconds ahead: the grandmaster uses the PTP timescale (TAI). Set
+  `utc_offset_secs` to the whole number of seconds the error names: 37, the
+  TAI−UTC offset since 2017, unless a leap second has changed it since.
+- About 0 seconds ahead: the grandmaster sends UTC. Set `utc_offset_secs = 0`,
+  or remove it.
+- Anything else: the grandmaster sends neither. Usually the PTP daemon is not
+  running and one of the cameras has become grandmaster, counting from when it
+  was powered on; check the daemon as described above. Otherwise, check that
+  this computer's clock is synchronized (`timedatectl`).
+
 **Camera clocks drifting on first launch.** On the first launch after cameras
 have been powered on it can take several seconds for PTP to bring all camera
 clocks into agreement. The "Is time running backwards?" warning will stop

@@ -14,9 +14,6 @@ tracing.workspace = true
 re_chunk.workspace = true
 re_sdk.workspace = true
 re_sdk_types = { workspace = true, features = ["image", "video"] }
-image.workspace = true
-regex.workspace = true
-machine-vision-formats.workspace = true
 chrono.workspace = true
 indicatif.workspace = true
 undistort-image.workspace = true
@@ -25,4 +22,3 @@ opencv-ros-camera.workspace = true
 env-tracing-logger.workspace = true
 convert-image.workspace = true
 frame-source = { workspace = true, features = ["openh264"] }
-strand-dynamic-frame.workspace = true

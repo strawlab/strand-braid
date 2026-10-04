@@ -11,16 +11,12 @@ eyre.workspace = true
 chrono.workspace = true
 indicatif.workspace = true
 camino.workspace = true
-tracing.workspace = true
 rusttype.workspace = true
 ttf-firacode.workspace = true
-image.workspace = true
-machine-vision-formats.workspace = true
 
 strand-dynamic-frame = { workspace = true, features = ["convert-image"] }
 font-drawing.workspace = true
 frame-source = { workspace = true, features = ["openh264"] }
 env-tracing-logger.workspace = true
-strand-datetime-conversion.workspace = true
 ffmpeg-rewriter.workspace = true
 ffmpeg-writer.workspace = true

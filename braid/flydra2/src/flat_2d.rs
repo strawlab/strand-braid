@@ -3,10 +3,11 @@
 
 use braid_mvg::DistortedPixel;
 use flydra_mvg::MultiCamera;
-use nalgebra::{Point3, RealField, Vector3};
+use nalgebra::{Point3, RealField};
 
 pub(crate) fn ray_to_flat_3d(ray: &parry3d_f64::query::Ray) -> Option<Point3<f64>> {
-    let z0 = parry3d_f64::shape::HalfSpace::new(Vector3::z_axis()); // build a plane from its center and normal, plane z==0 here.
+    // Build a plane from its center and normal, plane z == 0 here.
+    let z0 = parry3d_f64::shape::HalfSpace::new(parry3d_f64::math::Vector::Z);
 
     let solid = false; // will intersect either side of plane
 
@@ -20,8 +21,8 @@ pub(crate) fn ray_to_flat_3d(ray: &parry3d_f64::query::Ray) -> Option<Point3<f64
         let mut surface_pt = ray_origin + ray_dir * toi;
         // Due to numerical error, Z is not exactly zero. Here
         // we clamp it to zero.
-        surface_pt.coords[2] = 0.0;
-        surface_pt
+        surface_pt.z = 0.0;
+        Point3::new(surface_pt.x, surface_pt.y, surface_pt.z)
     })
 }
 

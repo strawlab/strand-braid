@@ -7,7 +7,6 @@ license = "MIT OR Apache-2.0"
 description = "simple demonstration of the ci2 camera API"
 
 [dependencies]
-tracing.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 

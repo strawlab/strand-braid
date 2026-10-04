@@ -63,13 +63,34 @@ impl BraidMetadataBuilder {
     pub fn saving_program_name<S: Into<String>>(saving_program_name: S) -> BraidMetadataBuilder {
         BraidMetadataBuilder::GenerateNew(MetadataParts {
             saving_program_name: saving_program_name.into(),
+            ptp_utc_offset_secs: None,
         })
+    }
+
+    /// Record how far ahead of UTC the PTP timescale was taken to be (see
+    /// [BraidMetadata::ptp_utc_offset_secs]).
+    pub fn ptp_utc_offset_secs(self, ptp_utc_offset_secs: Option<i32>) -> BraidMetadataBuilder {
+        match self {
+            BraidMetadataBuilder::GenerateNew(parts) => {
+                BraidMetadataBuilder::GenerateNew(MetadataParts {
+                    ptp_utc_offset_secs,
+                    ..parts
+                })
+            }
+            BraidMetadataBuilder::Existing(metadata) => {
+                BraidMetadataBuilder::Existing(BraidMetadata {
+                    ptp_utc_offset_secs,
+                    ..metadata
+                })
+            }
+        }
     }
 }
 
 #[derive(Clone, Debug)]
 pub struct MetadataParts {
     saving_program_name: String,
+    ptp_utc_offset_secs: Option<i32>,
 }
 
 impl WritingState {
@@ -122,6 +143,7 @@ impl WritingState {
                         original_recording_time: local,
                         save_empty_data2d,
                         saving_program_name: parts.saving_program_name,
+                        ptp_utc_offset_secs: parts.ptp_utc_offset_secs,
                     }
                 }
                 BraidMetadataBuilder::Existing(metadata) => metadata,
@@ -688,6 +710,164 @@ pub(crate) fn writer_task_main(
 mod test {
     use super::*;
     use std::sync::atomic::AtomicBool;
+
+    #[test]
+    fn ptp_utc_offset_is_recorded_only_when_known() {
+        let metadata = |builder: BraidMetadataBuilder| {
+            let BraidMetadataBuilder::GenerateNew(parts) = builder else {
+                panic!("expected GenerateNew");
+            };
+            BraidMetadata {
+                schema: BRAID_SCHEMA,
+                git_revision: "".into(),
+                original_recording_time: None,
+                save_empty_data2d: false,
+                saving_program_name: parts.saving_program_name,
+                ptp_utc_offset_secs: parts.ptp_utc_offset_secs,
+            }
+        };
+        let tai =
+            metadata(BraidMetadataBuilder::saving_program_name("t").ptp_utc_offset_secs(Some(37)));
+        let tai_yaml = serde_yaml::to_string(&tai).unwrap();
+        assert!(tai_yaml.contains("ptp_utc_offset_secs: 37"), "{tai_yaml}");
+        let reread: BraidMetadata = serde_yaml::from_str(&tai_yaml).unwrap();
+        assert_eq!(reread.ptp_utc_offset_secs, Some(37));
+
+        let no_ptp = metadata(BraidMetadataBuilder::saving_program_name("t"));
+        let no_ptp_yaml = serde_yaml::to_string(&no_ptp).unwrap();
+        assert!(
+            !no_ptp_yaml.contains("ptp_utc_offset_secs"),
+            "{no_ptp_yaml}"
+        );
+        let reread: BraidMetadata = serde_yaml::from_str(&no_ptp_yaml).unwrap();
+        assert_eq!(reread.ptp_utc_offset_secs, None);
+    }
+
+    /// Build a `WritingState` whose single camera reports `cfg` as its feature
+    /// detection settings, let it write, and return the contents of the
+    /// per-camera file it saved under `feature_detect_settings/`.
+    fn write_and_read_feature_detect_settings(
+        cfg: flydra_feature_detector_types::ImPtDetectCfg,
+    ) -> String {
+        let root = tempfile::tempdir().unwrap();
+        let braid_root = root.path().join("test.braid");
+
+        let raw_cam_name = braid_types::RawCamName::new("Basler-1234".to_string());
+        let mut per_cam_data = std::collections::BTreeMap::new();
+        per_cam_data.insert(
+            raw_cam_name.clone(),
+            braid_types::PerCamSaveData {
+                current_image_png: Vec::new().into(),
+                cam_settings_data: None,
+                feature_detect_settings: Some(braid_types::UpdateFeatureDetectSettings {
+                    current_feature_detect_settings: cfg,
+                }),
+            },
+        );
+
+        let start_cfg = StartSavingCsvConfig {
+            out_dir: braid_root.clone(),
+            local: None,
+            git_rev: "<test>".into(),
+            fps: None,
+            per_cam_data,
+            print_stats: false,
+            save_performance_histograms: false,
+        };
+        let cam_manager = ConnectedCamerasManager::new(
+            &None,
+            std::collections::BTreeSet::new(),
+            Arc::new(AtomicBool::new(true)),
+            Arc::new(AtomicBool::new(true)),
+            None,
+            None,
+        );
+
+        // Held alive: dropping a `WritingState` zips the directory into a
+        // .braidz and removes it, taking the file we want to inspect with it.
+        let ws = WritingState::new(
+            start_cfg,
+            cam_manager.sample(),
+            &None,
+            Arc::new(braid_types::default_tracking_params_full_3d()),
+            true,
+            BraidMetadataBuilder::saving_program_name(format!("{}:{}", file!(), line!())),
+        )
+        .unwrap();
+
+        let saved = braid_root
+            .join(FEATURE_DETECT_SETTINGS_DIRNAME)
+            .join(format!("{}.toml", raw_cam_name.as_str()));
+        let buf = std::fs::read_to_string(&saved)
+            .unwrap_or_else(|e| panic!("reading {}: {e}", saved.display()));
+        std::mem::drop(ws);
+        buf
+    }
+
+    /// The saved file must name every parameter, even the ones the user left at
+    /// their default, so a `.braidz` is a complete record of how its 2D data
+    /// was produced. This is what stops a future `skip_serializing_if` (or a
+    /// scheme that saved the user's config text verbatim) from quietly
+    /// dropping that provenance now that omitted fields are allowed on input.
+    #[test]
+    fn feature_detect_settings_records_every_parameter() {
+        let buf = write_and_read_feature_detect_settings(Default::default());
+        for field in [
+            "do_update_background_model",
+            "polarity",
+            "alpha",
+            "n_sigma",
+            "bright_non_gaussian_cutoff",
+            "bright_non_gaussian_replacement",
+            "bg_update_interval",
+            "diff_threshold",
+            "use_cmp",
+            "max_num_points",
+            "feature_window_size",
+            "clear_fraction",
+            "despeckle_threshold",
+            "valid_region",
+        ] {
+            assert!(
+                buf.contains(field),
+                "{field} missing from saved settings:\n{buf}"
+            );
+        }
+        // and it must read back as exactly what was in use
+        let readback: flydra_feature_detector_types::ImPtDetectCfg = toml::from_str(&buf).unwrap();
+        assert_eq!(readback, Default::default());
+    }
+
+    /// Every `valid_region` shape has to survive the trip. A polygon or circle
+    /// serializes as a TOML table, and toml 0.5 refuses to emit a table before
+    /// a plain value, so this would break if `valid_region` stopped being the
+    /// final field of `ImPtDetectCfg`.
+    #[test]
+    fn feature_detect_settings_records_every_valid_region_shape() {
+        use strand_http_video_streaming_types::{CircleParams, PolygonParams, Shape};
+        let circle = CircleParams {
+            center_x: 100,
+            center_y: 200,
+            radius: 50,
+        };
+        for region in [
+            Shape::Everything,
+            Shape::Circle(circle.clone()),
+            Shape::MultipleCircles(vec![circle.clone(), circle]),
+            Shape::Polygon(PolygonParams {
+                points: vec![(100.0, 50.0), (600.0, 50.0), (600.0, 400.0)],
+            }),
+        ] {
+            let cfg = flydra_feature_detector_types::ImPtDetectCfg {
+                valid_region: region.clone(),
+                ..Default::default()
+            };
+            let buf = write_and_read_feature_detect_settings(cfg.clone());
+            let readback: flydra_feature_detector_types::ImPtDetectCfg = toml::from_str(&buf)
+                .unwrap_or_else(|e| panic!("parsing saved {region:?}: {e}\n{buf}"));
+            assert_eq!(readback, cfg, "{region:?} did not survive being saved");
+        }
+    }
 
     #[test]
     fn test_save_braidz_on_drop() {

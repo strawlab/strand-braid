@@ -14,7 +14,6 @@ yew.workspace = true
 serde.workspace = true
 serde_yaml.workspace = true
 yew-tincture.workspace = true
-log.workspace = true
 wasm-logger.workspace = true
 
 ads-webasm = { workspace = true, features = ["csv-widget"] }

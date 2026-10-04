@@ -9,7 +9,6 @@ description = "HTTP session for Braid"
 tracing.workspace = true
 thiserror.workspace = true
 hyper.workspace = true
-serde.workspace = true
 serde_json.workspace = true
 bytes.workspace = true
 axum.workspace = true

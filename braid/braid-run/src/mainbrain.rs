@@ -103,6 +103,10 @@ pub(crate) struct BraidAppState {
     /// The cookie/token secret, used to mint a fresh short-lived access token
     /// when a device-connection QR code is requested.
     pub(crate) persistent_secret: cookie::Key,
+    /// Overlay networks whose clients the auth layer accepts without a token,
+    /// used to leave the token out of device-connection URLs that do not need
+    /// one.
+    pub(crate) trusted_networks: Vec<axum_token_auth::CidrBlock>,
 }
 
 async fn events_handler(
@@ -133,22 +137,6 @@ async fn events_handler(
     }
 
     body
-}
-
-async fn handle_auth_error(err: tower::BoxError) -> (StatusCode, &'static str) {
-    match err.downcast::<axum_token_auth::ValidationErrors>() {
-        Ok(err) => {
-            tracing::error!(
-                "Validation error(s): {:?}",
-                err.errors().collect::<Vec<_>>()
-            );
-            (StatusCode::UNAUTHORIZED, "Request is not authorized")
-        }
-        Err(orig_err) => {
-            tracing::error!("Unhandled internal error: {orig_err}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
-        }
-    }
 }
 
 /// Query the mainbrain configuration to get data required for camera settings.
@@ -215,6 +203,14 @@ async fn device_connect_urls_handler(
             braid_types::ACCESS_TOKEN_TTL,
         ))
     };
+    // Tell the frontend when the token it is about to show a QR code for dies,
+    // so a code left on screen can say so rather than silently going stale.
+    let token_expires_unix = match &token {
+        AccessToken::NoToken => None,
+        AccessToken::PreSharedToken(token) => {
+            axum_token_auth::token_expiry(token).map(|expiry| expiry.unix_timestamp())
+        }
+    };
     let info = BuiServerAddrInfo::new(bound, token);
     let uris = match strand_bui_backend_session::build_urls(&info) {
         Ok(uris) => uris,
@@ -225,12 +221,21 @@ async fn device_connect_urls_handler(
             ));
         }
     };
+    // A client reaching us over a trusted overlay needs no token, so do not put
+    // one in the URL (or the QR code) we hand it.
+    let uris = braid_types::strip_tokens_from_trusted_urls(uris, &app_state.trusted_networks);
     let loopback_only = uris.iter().all(braid_types::is_loopback);
-    let urls = uris.into_iter().map(|u| u.to_string()).collect();
+    let urls: Vec<String> = uris.into_iter().map(|u| u.to_string()).collect();
+    // Nothing expires if the token was stripped from every URL that survived.
+    let token_expires_unix = token_expires_unix.filter(|_| {
+        urls.iter()
+            .any(|url| braid_types::extract_token_expiry(url).is_some())
+    });
     Ok(axum::Json(
         strand_bui_backend_session_types::DeviceConnectUrls {
             urls,
             loopback_only,
+            token_expires_unix,
         },
     ))
 }
@@ -349,11 +354,14 @@ pub(crate) fn load_persistent_secret(secret_override: Option<String>) -> Result<
 
 async fn launch_braid_http_backend(
     persistent_secret: cookie::Key,
-    trusted_networks: Vec<axum_token_auth::CidrBlock>,
     listener: tokio::net::TcpListener,
     mainbrain_server_info: BuiServerAddrInfo,
     app_state: BraidAppState,
 ) -> Result<impl futures::Future<Output = Result<()>>> {
+    // Taken from the app state rather than passed in separately, so the list
+    // the auth layer enforces and the list used to decide which advertised URLs
+    // need a token cannot drift apart.
+    let trusted_networks = app_state.trusted_networks.clone();
     // Setup our auth layer. With self-expiring signed tokens the auth layer no
     // longer stores a token value: it accepts any unexpired token signed with
     // `persistent_secret`. We only need to know whether a token is required.
@@ -373,7 +381,7 @@ async fn launch_braid_http_backend(
     cfg.session_expires = Some(std::time::Duration::from_secs(60 * 60 * 24 * 400)); // 400 days
     // Clients on a trusted overlay network (e.g. Tailscale/WireGuard) are
     // accepted without a token; the overlay has already authenticated them.
-    cfg.trusted_networks = trusted_networks;
+    cfg.trusted_networks = trusted_networks.clone();
 
     #[cfg(feature = "bundle_files")]
     let serve_dir = tower_serve_static::ServeDir::new(&ASSETS_DIR);
@@ -420,7 +428,7 @@ async fn launch_braid_http_backend(
                 // Auth layer will produce an error if the request cannot be
                 // authorized so we must handle that.
                 .layer(axum::error_handling::HandleErrorLayer::new(
-                    handle_auth_error,
+                    braid_types::handle_auth_error,
                 ))
                 .layer(auth_layer),
         )
@@ -447,12 +455,15 @@ async fn launch_braid_http_backend(
     );
 
     let urls = strand_bui_backend_session::build_urls(&mainbrain_server_info)?;
+    // Clients arriving over a trusted overlay are authorized without a token,
+    // so those URLs are logged without one.
+    let urls = braid_types::strip_tokens_from_trusted_urls(urls, &trusted_networks);
     for url in urls.iter() {
-        info!("Predicted URL: {url}");
-        if !braid_types::is_loopback(url) {
-            println!("QR code for {url}");
-            display_qr_url(&format!("{url}"))?;
-        }
+        let url = url.to_string();
+        info!(
+            "Predicted URL: {url}{}",
+            braid_types::token_expiry_note(&url)
+        );
     }
 
     Ok(http_serve_future)
@@ -479,23 +490,6 @@ impl flydra2::ConnectedCamCallback for SendConnectedCamToBuiBackend {
         let mut tracker = self.shared_store.write().unwrap();
         tracker.modify(|shared| shared.connected_cameras = new_cam_list.clone());
     }
-}
-
-fn display_qr_url(url: &str) -> Result<()> {
-    use qrcode::QrCode;
-    use qrcode::render::unicode;
-    use std::io::{Write, stdout};
-
-    let qr = QrCode::new(url)?;
-
-    let image = qr.render::<unicode::Dense1x2>().build();
-
-    let stdout = stdout();
-    let mut stdout_handle = stdout.lock();
-    writeln!(stdout_handle)?;
-    stdout_handle.write_all(image.as_bytes())?;
-    writeln!(stdout_handle)?;
-    Ok(())
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -563,8 +557,8 @@ pub(crate) async fn do_run_forever(
     let signal_all_cams_present = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let signal_all_cams_synced = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-    let periodic_signal_period_usec = if let TriggerType::PtpSync(ptpcfg) = &trigger_cfg {
-        ptpcfg.periodic_signal_period_usec
+    let ptp_sync = if let TriggerType::PtpSync(ptpcfg) = &trigger_cfg {
+        Some(ptpcfg)
     } else {
         None
     };
@@ -574,7 +568,7 @@ pub(crate) async fn do_run_forever(
         all_expected_cameras,
         signal_all_cams_present.clone(),
         signal_all_cams_synced.clone(),
-        periodic_signal_period_usec,
+        ptp_sync,
         None,
     );
 
@@ -610,7 +604,8 @@ pub(crate) async fn do_run_forever(
         },
         cam_manager.clone(),
         recon.clone(),
-        flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name),
+        flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name)
+            .ptp_utc_offset_secs(ptp_sync.map(|c| c.utc_offset_secs)),
     )?;
 
     // Here is what we do on quit:
@@ -804,6 +799,8 @@ pub(crate) async fn do_run_forever(
 
     let time_model_arc = Arc::new(RwLock::new(None));
 
+    let trusted_networks = braid_types::parse_trusted_networks(&mainbrain_config.trusted_networks)?;
+
     // Create our app state.
     let app_state = BraidAppState {
         shared_store: shared_store.clone(),
@@ -822,6 +819,7 @@ pub(crate) async fn do_run_forever(
         shtdwn_q_tx,
         bui_server_info: mainbrain_server_info.clone(),
         persistent_secret: persistent_secret.clone(),
+        trusted_networks,
     };
 
     // This future will send state updates to all connected event listeners.
@@ -833,10 +831,8 @@ pub(crate) async fn do_run_forever(
         }
     };
 
-    let trusted_networks = braid_types::parse_trusted_networks(&mainbrain_config.trusted_networks)?;
     let http_serve_future = launch_braid_http_backend(
         persistent_secret,
-        trusted_networks,
         listener,
         mainbrain_server_info,
         app_state,
@@ -1207,17 +1203,14 @@ pub(crate) async fn do_run_forever(
                                 packet.cam_received_time.as_f64(),
                             ))
                         }
-                        TriggerType::PtpSync(_) => {
+                        TriggerType::PtpSync(ptpcfg) => {
                             // In case where we trust camera sync data, use
                             // timestamp from camera. All packets from all
                             // cameras should have this same timestamp, so it
                             // shouldn't matter which camera we use.
                             packet.device_timestamp.map(|device_timestamp| {
                                 let ptp_stamp = braid_types::PtpStamp::new(device_timestamp);
-                                let device_timestamp_chrono =
-                                    chrono::DateTime::<chrono::Utc>::try_from(ptp_stamp.clone())
-                                        .unwrap();
-                                device_timestamp_chrono.into()
+                                ptp_stamp.to_utc(ptpcfg.utc_offset_secs).unwrap().into()
                             })
                         }
                         TriggerType::DeviceTimestamp => {

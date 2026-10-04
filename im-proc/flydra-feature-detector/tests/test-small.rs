@@ -20,7 +20,7 @@ async fn track_small() -> eyre::Result<()> {
 
     init();
 
-    let cfg = flydra_pt_detect_cfg::default_absdiff();
+    let cfg = flydra_feature_detector_types::ImPtDetectCfg::default();
 
     let mut ft = FlydraFeatureDetector::new(
         &braid_types::RawCamName::new("small-test-image".to_string()),
@@ -54,7 +54,7 @@ async fn track_moving_stride() -> eyre::Result<()> {
 
     init();
 
-    let cfg = flydra_pt_detect_cfg::default_absdiff();
+    let cfg = flydra_feature_detector_types::ImPtDetectCfg::default();
 
     let mut ft = FlydraFeatureDetector::new(
         &braid_types::RawCamName::new("moving".to_string()),

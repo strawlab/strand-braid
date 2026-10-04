@@ -497,10 +497,12 @@ pub fn build_urls(bui_server_info: &BuiServerAddrInfo) -> std::io::Result<Vec<ht
     Ok(expand_unspecified_addr(bui_server_info.addr())?
         .into_iter()
         .map(|specified_addr| {
-            let addr = specified_addr.addr();
+            // `SocketAddr`'s own `Display` already brackets an IPv6 host, which
+            // is what a URI authority requires; formatting the ip and port
+            // separately would produce the unparseable `fe80::1:3440`.
             http::uri::Builder::new()
                 .scheme("http")
-                .authority(format!("{}:{}", addr.ip(), addr.port()))
+                .authority(specified_addr.addr().to_string())
                 .path_and_query(format!("/{query}"))
                 .build()
                 .unwrap()
@@ -580,4 +582,26 @@ fn expand_unspecified_ip(ip: std::net::IpAddr) -> std::io::Result<Vec<std::net::
     } else {
         Ok(vec![ip])
     }
+}
+
+#[test]
+fn ipv6_urls_bracket_the_host() {
+    use strand_bui_backend_session_types::{AccessToken, BuiServerAddrInfo};
+
+    let info = BuiServerAddrInfo::new(
+        "[::1]:3440".parse().unwrap(),
+        AccessToken::PreSharedToken("abc".to_string()),
+    );
+    let urls = build_urls(&info).unwrap();
+    assert_eq!(
+        urls.iter().map(|u| u.to_string()).collect::<Vec<_>>(),
+        vec!["http://[::1]:3440/?token=abc"]
+    );
+
+    let info = BuiServerAddrInfo::new("127.0.0.1:3440".parse().unwrap(), AccessToken::NoToken);
+    let urls = build_urls(&info).unwrap();
+    assert_eq!(
+        urls.iter().map(|u| u.to_string()).collect::<Vec<_>>(),
+        vec!["http://127.0.0.1:3440/"]
+    );
 }

@@ -77,7 +77,7 @@ impl KalmanEstimatesChunker {
         slf
     }
 
-    fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<PyObject> {
+    fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<Py<PyAny>> {
         let chunk = match slf.chunker.next() {
             Some(chunk) => chunk,
             None => {

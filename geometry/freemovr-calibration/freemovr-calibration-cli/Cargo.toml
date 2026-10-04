@@ -17,9 +17,7 @@ tracing.workspace = true
 env_logger.workspace = true
 clap.workspace = true
 nalgebra.workspace = true
-ncollide2d = { workspace = true, features = ["default"] }
 cam-geom.workspace = true
-opencv-ros-camera.workspace = true
 chrono.workspace = true
 
 freemovr-calibration = { path = ".." }

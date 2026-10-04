@@ -21,6 +21,15 @@ pub struct BraidMetadata {
     /// when loading old files is "".
     #[serde(default = "default_saving_program_name")]
     pub saving_program_name: String,
+    /// With `PtpSync` triggering, how many seconds the PTP timescale was taken
+    /// to run ahead of UTC when the `timestamp` columns were computed from the
+    /// cameras' `device_timestamp` values. 37 for a grandmaster on the PTP
+    /// (TAI) timescale, 0 for one sending UTC.
+    ///
+    /// `None` without `PtpSync` triggering, and in files saved before this
+    /// field existed; `PtpSync` recordings among those took the offset as 0.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ptp_utc_offset_secs: Option<i32>,
 }
 
 fn default_saving_program_name() -> String {

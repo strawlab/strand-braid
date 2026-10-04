@@ -8,11 +8,9 @@ description = "ci2 camera backend for consumer webcams (UVC etc.), intended for 
 
 [dependencies]
 tracing.workspace = true
-thiserror.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 machine-vision-formats.workspace = true
-image.workspace = true
 # `decoding` enables MJPEG decode (webcams commonly stream MJPEG).
 # `camera-sync-impl` provides `unsafe impl Send for Camera`, required because
 # `ci2-async` drives the camera from a dedicated worker thread.

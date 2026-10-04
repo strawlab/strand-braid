@@ -5,11 +5,16 @@
 //! the web UI currently being served.
 //!
 //! The backend exposes a `device-connect-urls` endpoint that returns, for each
-//! network interface the server is reachable on, a full URL including a
-//! freshly minted short-lived access token. This component fetches that list
-//! and renders each (non-loopback) URL as a QR code that can be scanned by a
-//! phone on the same network to open the same UI directly.
+//! network interface the server is reachable on, a full URL — carrying a
+//! freshly minted short-lived access token, unless that interface is on a
+//! trusted network whose clients are admitted without one. This component
+//! fetches that list and renders each (non-loopback) URL as a QR code that can
+//! be scanned by a phone on the same network to open the same UI directly.
 
+use std::cell::Cell;
+use std::rc::Rc;
+
+use gloo_events::EventListener;
 use strand_bui_backend_session_types::DeviceConnectUrls;
 use wasm_bindgen::{JsCast, UnwrapThrowExt};
 use wasm_bindgen_futures::JsFuture;
@@ -31,10 +36,19 @@ enum Fetch {
 }
 
 pub struct ConnectDevice {
-    /// Whether the modal dialog is open.
-    open: bool,
-    /// Result of fetching the connection URLs (only meaningful while `open`).
+    /// Whether the modal dialog is open. Shared with [`Self::escape_listener`],
+    /// which must read it without going through the component.
+    open: Rc<Cell<bool>>,
+    /// Result of fetching the connection URLs (only meaningful while open).
     fetch: Fetch,
+    /// Document-level `keydown` listener closing the dialog on `Esc`.
+    ///
+    /// Installed for the component's whole life rather than only while the
+    /// dialog is open: `Callback::emit` runs the update synchronously, so
+    /// dropping the listener in response to its own event would free the
+    /// closure that is still executing. It reads `open` instead and stays
+    /// silent when there is nothing to close.
+    _escape_listener: Option<EventListener>,
 }
 
 pub enum Msg {
@@ -48,9 +62,11 @@ impl Component for ConnectDevice {
     type Message = Msg;
     type Properties = ();
 
-    fn create(_ctx: &Context<Self>) -> Self {
+    fn create(ctx: &Context<Self>) -> Self {
+        let open = Rc::new(Cell::new(false));
         Self {
-            open: false,
+            _escape_listener: escape_listener(ctx, open.clone()),
+            open,
             fetch: Fetch::Loading,
         }
     }
@@ -58,7 +74,7 @@ impl Component for ConnectDevice {
     fn update(&mut self, ctx: &Context<Self>, msg: Self::Message) -> bool {
         match msg {
             Msg::Open => {
-                self.open = true;
+                self.open.set(true);
                 self.fetch = Fetch::Loading;
                 ctx.link().send_future(async {
                     match fetch_connect_urls().await {
@@ -69,7 +85,7 @@ impl Component for ConnectDevice {
                 true
             }
             Msg::Close => {
-                self.open = false;
+                self.open.set(false);
                 true
             }
             Msg::Loaded(urls) => {
@@ -91,7 +107,7 @@ impl Component for ConnectDevice {
                     title={"Connect a device 📱"}
                     onsignal={link.callback(|_| Msg::Open)}
                 />
-                { if self.open { self.view_modal(ctx) } else { html!{} } }
+                { if self.open.get() { self.view_modal(ctx) } else { html!{} } }
             </>
         }
     }
@@ -100,6 +116,7 @@ impl Component for ConnectDevice {
 impl ConnectDevice {
     fn view_modal(&self, ctx: &Context<Self>) -> Html {
         let link = ctx.link();
+        let close = link.callback(|_| Msg::Close);
         let body = match &self.fetch {
             Fetch::Loading => html! { <p>{ "Loading…" }</p> },
             Fetch::Failed(err) => html! {
@@ -120,20 +137,51 @@ impl ConnectDevice {
         };
         html! {
             <div class="modal-container connect-device-modal">
-                <h1>{ "Connect a device" }</h1>
-                <p>{ "Scan a QR code below with your phone's camera to open this \
-                      page on your phone. Your phone must be on the same network \
-                      as this computer." }</p>
+                <div class="connect-device-header">
+                    <h1>{ "Connect a device" }</h1>
+                    // A plain `button` rather than a `Button`: this is an icon
+                    // affordance in the corner, not one of the dialog's actions.
+                    <button
+                        class="connect-device-close"
+                        type="button"
+                        title="Close (Esc)"
+                        aria-label="Close"
+                        onclick={close}
+                    >{ "×" }</button>
+                </div>
+                <p>{ "Scan a QR code or copy a link below to open this page on \
+                      another device. If you open one of these links from an \
+                      in-app browser (like a chat app), your browser may not receive \
+                      the token. To bypass this problem, copy the link to your \
+                      clipboard and paste it directly into the browser or scan \
+                      the QR code with your camera app instead." }</p>
                 { body }
-                <p>
-                    <Button
-                        title={"Close"}
-                        onsignal={link.callback(|_| Msg::Close)}
-                    />
-                </p>
             </div>
         }
     }
+}
+
+/// Listen on the document for `Esc` and close the dialog when it arrives.
+///
+/// Document-level rather than on the dialog element, so it works without the
+/// dialog having taken focus. `open` gates it so a page-wide listener does not
+/// claim `Esc` from anything else while the dialog is closed. Returns `None` if
+/// there is no document to listen on, in which case the close button remains
+/// the only way out.
+fn escape_listener(ctx: &Context<ConnectDevice>, open: Rc<Cell<bool>>) -> Option<EventListener> {
+    let document = web_sys::window()?.document()?;
+    let close = ctx.link().callback(|_| Msg::Close);
+    Some(EventListener::new(&document, "keydown", move |event| {
+        if !open.get() {
+            return;
+        }
+        let Some(event) = event.dyn_ref::<web_sys::KeyboardEvent>() else {
+            return;
+        };
+        if event.key() == "Escape" {
+            close.emit(());
+        }
+    }))
 }
 
 fn view_urls(info: &DeviceConnectUrls) -> Html {
@@ -164,15 +212,36 @@ fn view_urls(info: &DeviceConnectUrls) -> Html {
         let qr = render_qr(url).unwrap_or_else(|| {
             html! { <p class="connect-device-error">{ "Failed to render QR code." }</p> }
         });
+        // An address the server reached us on that is inside a trusted network
+        // is served without a token, because none is required there.
+        let trusted_note = if has_token(url) {
+            html! {}
+        } else {
+            html! {
+                <p class="connect-device-trusted">
+                    { "On a trusted network — no access token needed." }
+                </p>
+            }
+        };
         html! {
             <li class="connect-device-item">
                 { qr }
                 <p class="connect-device-link">
                     <a href={(*url).clone()} target="_blank" rel="noopener">{ (*url).clone() }</a>
                 </p>
+                { trusted_note }
             </li>
         }
     });
+
+    // The expiry applies only to the codes that actually carry a token; if none
+    // of the ones shown do, there is nothing to expire.
+    let expiring = scannable.iter().filter(|url| has_token(url)).count();
+    let expiry = match expiring {
+        0 => html! {},
+        n if n == scannable.len() => view_expiry(info.token_expires_unix, false),
+        _ => view_expiry(info.token_expires_unix, true),
+    };
 
     html! {
         <>
@@ -180,7 +249,50 @@ fn view_urls(info: &DeviceConnectUrls) -> Html {
             <ul class="connect-device-list">
                 { for items }
             </ul>
+            { expiry }
         </>
+    }
+}
+
+/// Whether `url` carries an access token, i.e. whether it is one of the URLs
+/// the expiry below applies to.
+fn has_token(url: &str) -> bool {
+    match url.split_once('?') {
+        Some((_, query)) => query
+            .split('&')
+            .any(|pair| pair.split('=').next() == Some("token")),
+        None => false,
+    }
+}
+
+/// Say when the codes above stop working. Every token-carrying URL in one
+/// response carries the same token, so this belongs to the dialog rather than
+/// to each QR code. `some_tokenless` narrows the wording when other codes shown
+/// alongside are on a trusted network and never expire.
+fn view_expiry(token_expires_unix: Option<i64>, some_tokenless: bool) -> Html {
+    // A server that predates this field, or one serving tokenless URLs, says
+    // nothing rather than guessing.
+    let Some(expires) = token_expires_unix else {
+        return html! {};
+    };
+    let (subject, expired) = if some_tokenless {
+        (
+            "The codes above carrying an access token",
+            "The codes above carrying an access token have expired — close and reopen this dialog for fresh ones.",
+        )
+    } else {
+        (
+            "These codes",
+            "These codes have expired — close and reopen this dialog for fresh ones.",
+        )
+    };
+    match format_expiry(expires) {
+        Some(time) => {
+            html! { <p class="connect-device-expiry">{ format!("{subject} stop working at {time}.") }</p> }
+        }
+        None => {
+            html! { <p class="connect-device-expired">{ expired }</p> }
+        }
     }
 }
 
@@ -221,6 +333,26 @@ fn render_qr(url: &str) -> Option<Html> {
             height="220"
         />
     })
+}
+
+/// Format an expiry timestamp as a human-readable time string suitable for display.
+/// Returns None if the token has already expired.
+fn format_expiry(timestamp: i64) -> Option<String> {
+    let now = js_sys::Date::now() / 1000.0; // now in seconds
+    if (timestamp as f64) <= now {
+        return None; // Already expired
+    }
+
+    // Create a JS Date from the timestamp (in milliseconds).
+    let ms = timestamp as f64 * 1000.0;
+    let date = js_sys::Date::new(&wasm_bindgen::JsValue::from_f64(ms));
+    // Render in the browser's own locale: this dialog is read next to a wall
+    // clock, so 14:32 and 2:32 PM must match what the reader expects.
+    let locale = web_sys::window()
+        .and_then(|w| w.navigator().language())
+        .unwrap_or_else(|| "en-US".to_string());
+    let time_str: String = date.to_locale_time_string(&locale).into();
+    Some(time_str)
 }
 
 /// Fetch the connection URLs from the backend. The request is made to a

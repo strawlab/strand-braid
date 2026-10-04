@@ -87,7 +87,13 @@ pub(crate) async fn callback_handler(
                         cam_info.raw_cam_name.clone(),
                         PerCamSaveData {
                             cam_settings_data: Some(cam_settings_data),
-                            feature_detect_settings: None,
+                            // The camera reports what it is actually using
+                            // in its registration message, so this is known
+                            // from the moment it appears rather than from
+                            // whenever its first settings callback lands. Its
+                            // later reports replace it, including any change
+                            // made from the browser UI.
+                            feature_detect_settings: cam_info.feature_detect_settings,
                             current_image_png: cam_info.current_image_png,
                         },
                     )

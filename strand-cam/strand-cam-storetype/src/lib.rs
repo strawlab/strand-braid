@@ -248,8 +248,10 @@ pub struct StoreType {
     pub cuda_devices: Vec<String>,
     /// This is None if no apriltag support is compiled in. Otherwise Some(_).
     pub apriltag_state: Option<ApriltagState>,
-    /// State of image operations processing.
-    pub im_ops_state: ImOpsState,
+    /// State of image operations processing. `None` when the detector is
+    /// disabled with `--disable-imops`, in which case the browser UI shows no
+    /// ImOps panel and no frame is ever processed by it.
+    pub im_ops_state: Option<ImOpsState>,
     /// Format string template for AprilTag CSV filenames.
     pub format_str_apriltag_csv: String,
     /// Whether there was an error during frame processing.

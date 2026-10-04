@@ -279,14 +279,30 @@ pub struct RemoteCameraInfoResponse {
     pub trig_config: TriggerType,
 }
 
-/// Newtype storing time as number of nanoseconds since Jan 1, 1970 in UTC.
+/// A reading of a PTP (Precision Time Protocol, IEEE 1588) clock: nanoseconds
+/// since the epoch of the grandmaster's timescale.
 ///
-/// This is the lower 64 bits of the 80 bit PTP timestamp.
+/// This is *not* a UTC time. IEEE 1588 defines two timescales, and the
+/// grandmaster announces which one it uses:
+///
+/// - The PTP timescale counts from 1970-01-01 00:00:00 TAI, so it runs ahead
+///   of UTC by the TAI−UTC offset (37 seconds since 2017), and it does not
+///   jump at leap seconds. Hardware grandmasters, and `ptp4l` steering a
+///   hardware clock with `phc2sys`, use it.
+/// - The ARB (arbitrary) timescale uses whatever epoch the grandmaster chose.
+///   `ptpd` in `masteronly` mode and `ptp4l` with software timestamping send
+///   the host's system clock, i.e. UTC.
+///
+/// Use [PtpStamp::to_utc] and [PtpStamp::from_utc], with the offset of the
+/// grandmaster's timescale ahead of UTC, to convert to and from UTC.
+///
+/// Cameras report this as a 64-bit count of nanoseconds. (On the wire, a PTP
+/// timestamp is 48 bits of seconds and 32 bits of nanoseconds.)
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PtpStamp(u64);
 
 impl PtpStamp {
-    /// Create a new PtpStamp from nanoseconds since epoch.
+    /// Create a new PtpStamp from nanoseconds since the timescale's epoch.
     pub fn new(val: u64) -> Self {
         PtpStamp(val)
     }
@@ -304,6 +320,42 @@ impl PtpStamp {
             None
         }
     }
+
+    /// The PTP time at the instant `dt`, on a timescale `utc_offset_secs`
+    /// seconds ahead of UTC.
+    pub fn from_utc<TZ: chrono::TimeZone>(
+        dt: &chrono::DateTime<TZ>,
+        utc_offset_secs: i32,
+    ) -> Result<Self, &'static str> {
+        let utc_nanos = dt
+            .to_utc()
+            .timestamp_nanos_opt()
+            .ok_or("could not convert DateTime to i64 nanosec")?;
+        let nanos = utc_nanos
+            .checked_add(i64::from(utc_offset_secs) * 1_000_000_000)
+            .ok_or("PTP time out of range")?;
+        Ok(Self(
+            nanos
+                .try_into()
+                .map_err(|_| "PTP time precedes the timescale epoch")?,
+        ))
+    }
+
+    /// The UTC instant of this PTP time, on a timescale `utc_offset_secs`
+    /// seconds ahead of UTC.
+    pub fn to_utc(
+        &self,
+        utc_offset_secs: i32,
+    ) -> Result<chrono::DateTime<chrono::Utc>, &'static str> {
+        let nanos: i64 = self
+            .0
+            .try_into()
+            .map_err(|_| "could not convert u64 nanosec to i64")?;
+        let utc_nanos = nanos
+            .checked_sub(i64::from(utc_offset_secs) * 1_000_000_000)
+            .ok_or("PTP time out of range")?;
+        Ok(chrono::DateTime::from_timestamp_nanos(utc_nanos))
+    }
 }
 
 /// Newtype storing a duration between two [PtpStamp] values.
@@ -317,52 +369,16 @@ impl PtpStampDuration {
     }
 }
 
-impl<TZ> TryFrom<chrono::DateTime<TZ>> for PtpStamp
-where
-    TZ: chrono::TimeZone,
-{
-    type Error = &'static str;
-
-    fn try_from(orig: chrono::DateTime<TZ>) -> Result<Self, Self::Error> {
-        Ok(Self(
-            orig.to_utc()
-                .timestamp_nanos_opt()
-                .ok_or("could not convert DateTime to i64 nanosec")?
-                .try_into()
-                .map_err(|_| "could not convert i64 nanosec to u64")?,
-        ))
-    }
-}
-
-impl TryFrom<PtpStamp> for chrono::DateTime<chrono::Utc> {
-    type Error = &'static str;
-    fn try_from(orig: PtpStamp) -> Result<Self, Self::Error> {
-        let secs = orig.0 / 1_000_000_000;
-        let nsecs = orig.0 % 1_000_000_000;
-        chrono::DateTime::from_timestamp(
-            secs.try_into()
-                .map_err(|_| "could not convert u64 nanosec to i64")?,
-            nsecs
-                .try_into()
-                .map_err(|_| "could not convert u64 nanosec to u32")?,
-        )
-        .ok_or("could not convert timestamp to DateTime")
-    }
-}
-
-impl TryFrom<PtpStamp> for chrono::DateTime<chrono::FixedOffset> {
-    type Error = &'static str;
-    fn try_from(orig: PtpStamp) -> Result<Self, Self::Error> {
-        let utc: chrono::DateTime<chrono::Utc> = orig.try_into()?;
-        Ok(utc.into())
-    }
-}
-
-impl TryFrom<PtpStamp> for chrono::DateTime<chrono::Local> {
-    type Error = &'static str;
-    fn try_from(orig: PtpStamp) -> Result<Self, Self::Error> {
-        let utc: chrono::DateTime<chrono::Utc> = orig.try_into()?;
-        Ok(utc.into())
+#[test]
+fn test_ptp_stamp_utc_round_trip() {
+    let utc = chrono::DateTime::from_timestamp(1_790_228_793, 616_451_455).unwrap();
+    for utc_offset_secs in [0, 37] {
+        let stamp = PtpStamp::from_utc(&utc, utc_offset_secs).unwrap();
+        assert_eq!(
+            stamp.get(),
+            (1_790_228_793 + utc_offset_secs as u64) * 1_000_000_000 + 616_451_455
+        );
+        assert_eq!(stamp.to_utc(utc_offset_secs).unwrap(), utc);
     }
 }
 
@@ -385,7 +401,7 @@ pub struct BraidCameraConfig {
     /// The pixel format to use.
     pub pixel_format: Option<String>,
     /// Configuration for detecting points.
-    #[serde(default = "flydra_pt_detect_cfg::default_absdiff")]
+    #[serde(default)]
     pub point_detection_config: flydra_feature_detector_types::ImPtDetectCfg,
     /// Which camera backend to use.
     #[serde(default)]
@@ -489,7 +505,7 @@ impl BraidCameraConfig {
             name,
             camera_settings_filename: None,
             pixel_format: None,
-            point_detection_config: flydra_pt_detect_cfg::default_absdiff(),
+            point_detection_config: Default::default(),
             _raise_grab_thread_priority: Default::default(),
             start_backend: Default::default(),
             acquisition_duration_allowed_imprecision_msec:
@@ -520,6 +536,12 @@ pub struct RegisterNewCamera {
     pub http_camserver_info: Option<BuiServerInfo>,
     /// The camera settings.
     pub cam_settings_data: Option<UpdateCamSettings>,
+    /// The object detection settings the camera is starting with.
+    ///
+    /// `None` from a camera that does no feature detection, and from one
+    /// built before this field existed.
+    #[serde(default)]
+    pub feature_detect_settings: Option<UpdateFeatureDetectSettings>,
     /// The current image.
     pub current_image_png: PngImageData,
     /// The period of the periodic signal generator in the camera.
@@ -740,6 +762,139 @@ pub fn is_loopback(url: &http::Uri) -> bool {
 #[cfg(feature = "start-listener")]
 pub const ACCESS_TOKEN_TTL: std::time::Duration = std::time::Duration::from_secs(30 * 60);
 
+/// Extract the expiry of the access token carried in a URL's `token` query
+/// parameter, as local time.
+///
+/// The token's wire format belongs to `axum-token-auth`, so the decoding is
+/// [`axum_token_auth::token_expiry`]'s job; this only locates the parameter and
+/// converts the result for display. That expiry is NOT authenticated (see the
+/// upstream docs) and must never be used to decide whether a request is
+/// allowed — it exists to tell an operator when a URL stops working.
+///
+/// Returns `None` for a URL with no `token` parameter (a loopback URL has
+/// none), for anything the token decoder rejects, and for an expiry outside
+/// 2020-01-01 .. 2100-01-01: random bytes that happen to start with a valid
+/// version byte would otherwise be reported as a year-9999 date. Never panics.
+#[cfg(feature = "start-listener")]
+pub fn extract_token_expiry(url: &str) -> Option<chrono::DateTime<chrono::Local>> {
+    let query = url.split('?').nth(1)?;
+    let token = query
+        .split('&')
+        .find_map(|param| param.strip_prefix("token="))?;
+
+    let expiry_secs = axum_token_auth::token_expiry(token)?.unix_timestamp();
+    if !(1_577_836_800..=4_102_444_800).contains(&expiry_secs) {
+        return None;
+    }
+
+    let utc = chrono::DateTime::<chrono::Utc>::from_timestamp(expiry_secs, 0)?;
+    Some(utc.into())
+}
+
+/// Whether a client that reaches this server at `url` will be authorized
+/// without an access token, because `url`'s host lies in one of
+/// `trusted_networks`.
+///
+/// The auth layer decides trust from the *client's* peer address, which cannot
+/// be known before the client connects. But a client that reaches an address on
+/// a trusted overlay network does so over that overlay, so its peer address is
+/// in the same network: the host we are about to advertise is the best
+/// available predictor of how a client reaching it will be judged.
+///
+/// A URL whose host is not an IP literal (there are none: every URL here is
+/// built from an enumerated interface address) counts as untrusted.
+#[cfg(feature = "start-listener")]
+pub fn is_trusted_url(url: &http::Uri, trusted_networks: &[axum_token_auth::CidrBlock]) -> bool {
+    let Some(authority) = url.authority() else {
+        return false;
+    };
+    // IPv6 hosts arrive bracketed, e.g. `[fd00::1]`; `IpAddr` wants them bare.
+    let host = authority.host();
+    let host = host
+        .strip_prefix('[')
+        .and_then(|h| h.strip_suffix(']'))
+        .unwrap_or(host);
+    let Ok(ip) = host.parse::<std::net::IpAddr>() else {
+        return false;
+    };
+    trusted_networks.iter().any(|net| net.contains(&ip))
+}
+
+/// Return `url` without its `token` query parameter, leaving any other
+/// parameter (there are none today) and the path untouched.
+#[cfg(feature = "start-listener")]
+fn without_token(url: &http::Uri) -> http::Uri {
+    let mut parts = url.clone().into_parts();
+    let path = url.path();
+    let kept = url
+        .query()
+        .map(|query| {
+            query
+                .split('&')
+                .filter(|pair| !pair.is_empty() && pair.split('=').next() != Some("token"))
+                .collect::<Vec<_>>()
+                .join("&")
+        })
+        .unwrap_or_default();
+    let path_and_query = if kept.is_empty() {
+        path.to_string()
+    } else {
+        format!("{path}?{kept}")
+    };
+    parts.path_and_query = match path_and_query.parse() {
+        Ok(pq) => Some(pq),
+        // Cannot happen: the pieces came from a valid URI. Keep the original
+        // rather than showing a mangled one.
+        Err(_) => return url.clone(),
+    };
+    http::Uri::from_parts(parts).unwrap_or_else(|_| url.clone())
+}
+
+/// Drop the access token from those `urls` whose host lies in a trusted
+/// network, since a client reaching them is authorized without one (see
+/// [is_trusted_url]).
+///
+/// Advertising the token anyway is not just noise: an access token is a
+/// credential, and printing one where it is not needed puts it in terminal
+/// scrollback, log files and QR codes for no gain. If the prediction is wrong
+/// (a client somehow reaches a trusted address from outside the overlay) the
+/// tokenless URL is refused with a message naming the reason, and the operator
+/// can fall back to another of the advertised URLs.
+#[cfg(feature = "start-listener")]
+pub fn strip_tokens_from_trusted_urls(
+    urls: Vec<http::Uri>,
+    trusted_networks: &[axum_token_auth::CidrBlock],
+) -> Vec<http::Uri> {
+    urls.into_iter()
+        .map(|url| {
+            if is_trusted_url(&url, trusted_networks) {
+                without_token(&url)
+            } else {
+                url
+            }
+        })
+        .collect()
+}
+
+/// The parenthetical to append to a logged URL saying when its access token
+/// stops working, or an empty string when the URL carries no readable token
+/// (a loopback URL has none at all).
+///
+/// Both Braid and Strand Cam log predicted URLs at startup and operators have
+/// tried them long afterwards, so the two call sites share this wording rather
+/// than each formatting their own.
+#[cfg(feature = "start-listener")]
+pub fn token_expiry_note(url: &str) -> String {
+    match extract_token_expiry(url) {
+        // Local time with the date: the process may have started yesterday.
+        Some(expiry) => format!(
+            " (link valid until {})",
+            expiry.format("%Y-%m-%d %H:%M:%S %:z")
+        ),
+        None => String::new(),
+    }
+}
+
 /// Start a TCP listener for an HTTP server, minting an access token if the
 /// listen address is not loopback.
 ///
@@ -772,16 +927,73 @@ pub async fn start_listener(
     Ok((listener, http_camserver_info))
 }
 
+/// Turn an authentication failure from the auth layer into a `401` naming the
+/// reason, and log the same reason.
+///
+/// Pass this to `axum::error_handling::HandleErrorLayer::new`. The reasons come
+/// from [`axum_token_auth::ValidationErrors`] and distinguish an expired token
+/// from a missing one, an expired session from an unreadable cookie, and so on.
+/// Reporting them is what makes a stale URL diagnosable without server access;
+/// they name categories and timestamps only, never a token or cookie value.
+///
+/// Logged at `warn`: an unauthorized request is a routine event, not a fault of
+/// the server.
+#[cfg(feature = "start-listener")]
+pub async fn handle_auth_error(
+    err: Box<dyn std::error::Error + Send + Sync>,
+) -> (http::StatusCode, String) {
+    match err.downcast::<axum_token_auth::ValidationErrors>() {
+        Ok(err) => {
+            let reasons = err.errors().collect::<Vec<_>>().join("; ");
+            let body = format!("Request is not authorized: {reasons}");
+            tracing::warn!("{body}");
+            (http::StatusCode::UNAUTHORIZED, body)
+        }
+        Err(orig_err) => {
+            tracing::error!("Unhandled internal error: {orig_err}");
+            (
+                http::StatusCode::INTERNAL_SERVER_ERROR,
+                "internal server error".to_string(),
+            )
+        }
+    }
+}
+
+/// The loopback ranges trusted without being configured (see
+/// [parse_trusted_networks]).
+///
+/// The IPv4-mapped range matters for a server bound to `[::]`: a dual-stack
+/// socket reports an IPv4 client as `::ffff:a.b.c.d`, and an IPv4 block never
+/// contains an IPv6 address.
+#[cfg(feature = "start-listener")]
+const LOOPBACK_NETWORKS: [&str; 3] = ["127.0.0.0/8", "::1/128", "::ffff:127.0.0.0/104"];
+
 /// Parse a list of CIDR strings (e.g. `"100.64.0.0/10"`) into the network type
 /// expected by [`axum_token_auth::AuthConfig::trusted_networks`], returning a
 /// descriptive error for the first one that fails to parse.
+///
+/// Loopback is always trusted, whether or not it was configured. A server bound
+/// to loopback alone mints no token at all ([start_listener]), so a local client
+/// already reaches it unauthenticated; requiring a token from that same client
+/// only because the server also listens on a LAN address would be inconsistent,
+/// and it breaks putting a local reverse proxy (`tailscale serve`, nginx) in
+/// front of a server that must stay LAN-reachable for its remote cameras.
+///
+/// Note what "local" does and does not mean: a different account on the same
+/// machine cannot read the owner-only secret ([harden_prefs_file]) but can
+/// reach loopback, so on a shared machine this extends to them the access they
+/// would already have had were the server bound to loopback alone.
 #[cfg(feature = "start-listener")]
 pub fn parse_trusted_networks(nets: &[String]) -> eyre::Result<Vec<axum_token_auth::CidrBlock>> {
-    nets.iter()
-        .map(|s| {
+    let loopback = LOOPBACK_NETWORKS.iter().map(|s| {
+        Ok(s.parse::<axum_token_auth::CidrBlock>()
+            .expect("loopback CIDR constants parse"))
+    });
+    loopback
+        .chain(nets.iter().map(|s| {
             s.parse::<axum_token_auth::CidrBlock>()
                 .map_err(|e| eyre::eyre!("invalid trusted network CIDR {s:?}: {e}"))
-        })
+        }))
         .collect()
 }
 
@@ -1358,6 +1570,30 @@ pub struct PtpSyncConfig {
     ///
     /// If this is set, it is transmitted to the cameras.
     pub periodic_signal_period_usec: Option<f64>,
+    /// How many seconds the grandmaster's timescale runs ahead of UTC.
+    ///
+    /// 0 (the default) when the grandmaster sends UTC on the ARB timescale,
+    /// as `ptpd` in `masteronly` mode and `ptp4l` with software timestamping
+    /// do. 37 (the TAI−UTC offset since 2017) when it uses the PTP
+    /// timescale, as hardware grandmasters do. See [PtpStamp].
+    #[serde(default)]
+    pub utc_offset_secs: i32,
+}
+
+#[test]
+fn test_ptp_sync_config_utc_offset_defaults_to_zero() {
+    let old: TriggerType =
+        serde_json::from_str(r#"{"trigger_type":"PtpSync","periodic_signal_period_usec":10000.0}"#)
+            .unwrap();
+    let TriggerType::PtpSync(old) = old else {
+        panic!("expected PtpSync");
+    };
+    assert_eq!(old.utc_offset_secs, 0);
+
+    let tai: PtpSyncConfig =
+        serde_json::from_str(r#"{"periodic_signal_period_usec":null,"utc_offset_secs":37}"#)
+            .unwrap();
+    assert_eq!(tai.utc_offset_secs, 37);
 }
 
 /// Configuration for fake synchronization (no real synchronization).
@@ -1565,3 +1801,261 @@ pub const BRAID_EVENT_NAME: &str = "braid";
 /// that all clients (not only the one that initiated the quit) show the "Braid
 /// has quit" screen and stop trying to reconnect.
 pub const BRAID_QUIT_EVENT_NAME: &str = "braid-quit";
+
+#[cfg(all(test, feature = "start-listener"))]
+mod tests_token_expiry {
+    use super::*;
+    use base64::Engine;
+
+    /// Round-trip a token through the real minting path, so this stays honest
+    /// if `axum-token-auth` ever changes how an expiry is carried.
+    #[test]
+    fn test_extract_token_expiry_valid() {
+        let key = axum_token_auth::Key::generate();
+        let token = axum_token_auth::generate_token(&key, ACCESS_TOKEN_TTL);
+        let url = format!("http://example.com/path?token={token}");
+
+        let expected = chrono::Utc::now() + ACCESS_TOKEN_TTL;
+        let dt = extract_token_expiry(&url).expect("a freshly minted token has a readable expiry");
+        assert!(
+            (dt.timestamp() - expected.timestamp()).abs() <= 5,
+            "expected ~{expected}, got {dt}"
+        );
+    }
+
+    /// A token is only one of several query parameters, and only the last
+    /// segment of the URL, so it must be located rather than assumed.
+    #[test]
+    fn test_extract_token_expiry_among_other_params() {
+        let key = axum_token_auth::Key::generate();
+        let token = axum_token_auth::generate_token(&key, ACCESS_TOKEN_TTL);
+        let url = format!("http://example.com/path?first=1&token={token}&last=2");
+        assert!(extract_token_expiry(&url).is_some());
+    }
+
+    #[test]
+    fn test_extract_token_expiry_wrong_version() {
+        // Token with version byte 0x02 instead of 0x01.
+        let expiry_secs: i64 = 1787302331;
+        let mut token_bytes = vec![0x02]; // wrong version
+        token_bytes.extend_from_slice(&expiry_secs.to_le_bytes());
+        token_bytes.extend_from_slice(&[0u8; 32]);
+
+        let token_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&token_bytes);
+        let url = format!("http://example.com/path?token={token_b64}");
+
+        assert!(
+            extract_token_expiry(&url).is_none(),
+            "Token with wrong version should return None"
+        );
+    }
+
+    #[test]
+    fn test_extract_token_expiry_truncated() {
+        // Token with only 5 bytes (too short).
+        let token_bytes = vec![0x01, 0x02, 0x03, 0x04, 0x05];
+
+        let token_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&token_bytes);
+        let url = format!("http://example.com/path?token={token_b64}");
+
+        assert!(
+            extract_token_expiry(&url).is_none(),
+            "Truncated token should return None"
+        );
+    }
+
+    #[test]
+    fn test_extract_token_expiry_non_base64() {
+        let url = "http://example.com/path?token=!!!invalid!!!";
+
+        assert!(
+            extract_token_expiry(url).is_none(),
+            "Non-base64 token should return None"
+        );
+    }
+
+    #[test]
+    fn test_extract_token_expiry_no_token() {
+        let url = "http://example.com/path?other_param=value";
+
+        assert!(
+            extract_token_expiry(url).is_none(),
+            "URL without token parameter should return None"
+        );
+    }
+
+    #[test]
+    fn test_extract_token_expiry_no_query() {
+        let url = "http://example.com/path";
+
+        assert!(
+            extract_token_expiry(url).is_none(),
+            "URL without query string should return None"
+        );
+    }
+
+    #[test]
+    fn test_extract_token_expiry_implausible_timestamp_too_old() {
+        // Timestamp before 2020-01-01.
+        let expiry_secs: i64 = 1000000000; // 2001-09-09
+
+        let mut token_bytes = vec![0x01];
+        token_bytes.extend_from_slice(&expiry_secs.to_le_bytes());
+        token_bytes.extend_from_slice(&[0u8; 32]);
+
+        let token_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&token_bytes);
+        let url = format!("http://example.com/path?token={token_b64}");
+
+        assert!(
+            extract_token_expiry(&url).is_none(),
+            "Implausibly old timestamp should return None"
+        );
+    }
+
+    #[test]
+    fn test_extract_token_expiry_implausible_timestamp_too_far_future() {
+        // Timestamp after 2100-01-01.
+        let expiry_secs: i64 = 4102444801; // After 2100-01-01
+
+        let mut token_bytes = vec![0x01];
+        token_bytes.extend_from_slice(&expiry_secs.to_le_bytes());
+        token_bytes.extend_from_slice(&[0u8; 32]);
+
+        let token_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&token_bytes);
+        let url = format!("http://example.com/path?token={token_b64}");
+
+        assert!(
+            extract_token_expiry(&url).is_none(),
+            "Implausibly far future timestamp should return None"
+        );
+    }
+
+    #[test]
+    fn token_expiry_note_is_appendable() {
+        // A tokenless (e.g. loopback) URL must leave the log line untouched.
+        assert_eq!(token_expiry_note("http://127.0.0.1:3440/"), "");
+
+        let mut token_bytes = vec![0x01];
+        token_bytes.extend_from_slice(&1787302331i64.to_le_bytes());
+        token_bytes.extend_from_slice(&[0u8; 32]);
+        let token_b64 = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(&token_bytes);
+        let note = token_expiry_note(&format!("http://192.168.1.1:3440/?token={token_b64}"));
+        println!("rendered note: {note:?}");
+        assert!(note.starts_with(" (link valid until 20"), "{note}");
+        assert!(note.ends_with(')'), "{note}");
+    }
+
+    #[test]
+    fn a_real_token_reports_its_own_ttl() {
+        // The fabricated tokens above pin the decoding; this pins the whole
+        // round trip, so a change to how tokens are minted cannot silently
+        // leave the log line without its expiry.
+        let key = cookie::Key::generate();
+        let token = axum_token_auth::generate_token(&key, ACCESS_TOKEN_TTL);
+        let url = format!("http://192.168.1.5:3440/?token={token}");
+
+        let expiry =
+            extract_token_expiry(&url).expect("freshly minted token has a readable expiry");
+        let ttl = expiry.signed_duration_since(chrono::Local::now());
+        let expected = chrono::Duration::from_std(ACCESS_TOKEN_TTL).unwrap();
+        assert!(
+            (expected - ttl).num_seconds().abs() < 60,
+            "expected ~{expected} from now, got {ttl}"
+        );
+        assert!(token_expiry_note(&url).starts_with(" (link valid until 20"));
+    }
+
+    #[test]
+    fn only_trusted_hosts_lose_their_token() {
+        let trusted: Vec<axum_token_auth::CidrBlock> = vec![
+            "100.64.0.0/10".parse().unwrap(),
+            "fd7a:115c::/32".parse().unwrap(),
+        ];
+        let urls: Vec<http::Uri> = [
+            "http://127.0.0.1:3440/?token=abc",
+            "http://192.168.1.5:3440/?token=abc",
+            "http://100.101.102.103:3440/?token=abc",
+            "http://[fd7a:115c::1]:3440/?token=abc",
+        ]
+        .iter()
+        .map(|u| u.parse().unwrap())
+        .collect();
+
+        let stripped: Vec<String> = strip_tokens_from_trusted_urls(urls, &trusted)
+            .iter()
+            .map(|u| u.to_string())
+            .collect();
+        assert_eq!(
+            stripped,
+            vec![
+                // This list was built by hand rather than by
+                // `parse_trusted_networks`, which is what adds loopback, so the
+                // loopback URL here keeps its token.
+                "http://127.0.0.1:3440/?token=abc",
+                "http://192.168.1.5:3440/?token=abc",
+                "http://100.101.102.103:3440/",
+                "http://[fd7a:115c::1]:3440/",
+            ]
+        );
+    }
+
+    #[test]
+    fn loopback_is_trusted_even_when_not_configured() {
+        let trusted = parse_trusted_networks(&[]).unwrap();
+        for url in [
+            "http://127.0.0.1:3440/?token=abc",
+            "http://127.4.5.6:3440/?token=abc",
+            "http://[::1]:3440/?token=abc",
+            // A dual-stack socket reports an IPv4 client this way.
+            "http://[::ffff:127.0.0.1]:3440/?token=abc",
+        ] {
+            let url: http::Uri = url.parse().unwrap();
+            assert!(is_trusted_url(&url, &trusted), "{url} should be trusted");
+        }
+
+        // Everything else still needs its token.
+        for url in [
+            "http://192.168.1.5:3440/?token=abc",
+            "http://[fd00::1]:3440/?token=abc",
+        ] {
+            let url: http::Uri = url.parse().unwrap();
+            assert!(!is_trusted_url(&url, &trusted), "{url} should need a token");
+        }
+    }
+
+    #[test]
+    fn configured_networks_are_trusted_alongside_loopback() {
+        let trusted = parse_trusted_networks(&["100.64.0.0/10".to_string()]).unwrap();
+        let overlay: http::Uri = "http://100.101.102.103:3440/?token=abc".parse().unwrap();
+        let loopback: http::Uri = "http://127.0.0.1:3440/?token=abc".parse().unwrap();
+        assert!(is_trusted_url(&overlay, &trusted));
+        assert!(is_trusted_url(&loopback, &trusted));
+
+        // A bad CIDR is still reported rather than silently dropped.
+        let err = parse_trusted_networks(&["nonsense".to_string()]).unwrap_err();
+        assert!(err.to_string().contains("nonsense"), "{err}");
+    }
+
+    #[test]
+    fn with_no_trusted_networks_every_url_keeps_its_token() {
+        let url: http::Uri = "http://100.101.102.103:3440/?token=abc".parse().unwrap();
+        assert!(!is_trusted_url(&url, &[]));
+        assert_eq!(
+            strip_tokens_from_trusted_urls(vec![url.clone()], &[]),
+            vec![url]
+        );
+    }
+
+    #[test]
+    fn stripping_leaves_other_query_parameters_alone() {
+        let trusted: Vec<axum_token_auth::CidrBlock> = vec!["100.64.0.0/10".parse().unwrap()];
+        let url: http::Uri = "http://100.64.0.1:3440/sub?a=1&token=abc&b=2"
+            .parse()
+            .unwrap();
+        let stripped = strip_tokens_from_trusted_urls(vec![url], &trusted);
+        assert_eq!(
+            stripped[0].to_string(),
+            "http://100.64.0.1:3440/sub?a=1&b=2"
+        );
+    }
+}

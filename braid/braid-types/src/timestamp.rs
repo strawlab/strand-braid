@@ -47,16 +47,6 @@ impl<S, TZ: chrono::TimeZone> From<chrono::DateTime<TZ>> for FlydraFloatTimestam
     }
 }
 
-impl TryFrom<PtpStamp> for FlydraFloatTimestampLocal<Triggerbox> {
-    type Error = &'static str;
-    fn try_from(
-        val: PtpStamp,
-    ) -> std::result::Result<FlydraFloatTimestampLocal<Triggerbox>, &'static str> {
-        let dt: chrono::DateTime<chrono::Utc> = val.try_into()?;
-        Ok(FlydraFloatTimestampLocal::from_dt(&dt))
-    }
-}
-
 impl<'a, S> From<&'a FlydraFloatTimestampLocal<S>> for chrono::DateTime<Utc> {
     fn from(orig: &'a FlydraFloatTimestampLocal<S>) -> chrono::DateTime<Utc> {
         strand_datetime_conversion::f64_to_datetime(orig.value_f64.into_inner())

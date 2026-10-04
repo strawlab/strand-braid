@@ -33,20 +33,18 @@ impl LedBoxApp {
 }
 
 impl eframe::App for LedBoxApp {
-    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+    fn on_exit(&mut self) {
         info!("app sending Cmd::Quit command to serial loop");
         self.cmd_tx.blocking_send(Cmd::Quit).unwrap();
     }
 
-    /// Called each time the UI needs repainting, which may be many times per second.
-    /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         let Self {
             available_ports,
             box_manager,
             cmd_tx,
         } = self;
-        egui::CentralPanel::default().show(ctx, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             ui.heading("LED box control");
 
             {

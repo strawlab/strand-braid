@@ -60,6 +60,14 @@ pub struct DeviceConnectUrls {
     /// True when the only reachable address is loopback, in which case another
     /// device cannot connect (the server is bound to localhost only).
     pub loopback_only: bool,
+    /// When the access token embedded in every URL above stops being accepted,
+    /// as a Unix timestamp in seconds, or `None` when the URLs carry no token.
+    ///
+    /// The backend reports this rather than letting the frontend read it out of
+    /// the token, so the token's wire format stays private to the crate that
+    /// mints it. Defaults to `None` when talking to a server predating it.
+    #[serde(default)]
+    pub token_expires_unix: Option<i64>,
 }
 
 /// Error type for URL parsing failures

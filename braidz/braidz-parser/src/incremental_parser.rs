@@ -186,6 +186,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
                                     saving_program_name: "flydra".to_string(),
                                     schema: braid_types::BRAID_SCHEMA,
                                     save_empty_data2d: false,
+                                    ptp_utc_offset_secs: None,
                                 });
                             }
 

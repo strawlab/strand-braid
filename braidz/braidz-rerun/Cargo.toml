@@ -12,12 +12,9 @@ eyre.workspace = true
 tracing.workspace = true
 re_sdk = { workspace = true, features = ["importers"] }
 re_sdk_types.workspace = true
-
-image.workspace = true
 opencv-ros-camera.workspace = true
 cam-geom.workspace = true
 nalgebra.workspace = true
-machine-vision-formats.workspace = true
 convert-image.workspace = true
 
 braidz-parser.workspace = true

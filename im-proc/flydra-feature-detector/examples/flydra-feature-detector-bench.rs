@@ -21,7 +21,7 @@ async fn main() -> eyre::Result<()> {
     )?;
 
     let reader = fmf::FMFReader::new(&local_fname)?;
-    let cfg = flydra_pt_detect_cfg::default_absdiff();
+    let cfg = flydra_feature_detector_types::ImPtDetectCfg::default();
 
     let mut ft = FlydraFeatureDetector::new(
         &braid_types::RawCamName::new("fmf".to_string()),

@@ -15,7 +15,6 @@ openh264 = { workspace = true, optional = true }
 thiserror.workspace = true
 machine-vision-formats.workspace = true
 y4m.workspace = true
-bitvec = "1.0.1"
 h264-reader.workspace = true
 less-avc.workspace = true
 

@@ -7,13 +7,10 @@ license = "MIT OR Apache-2.0"
 description = "simple demonstration of the ci2 asynchronous camera API"
 
 [dependencies]
-tracing.workspace = true
 env_logger.workspace = true
 futures.workspace = true
 anyhow.workspace = true
 clap.workspace = true
-
-machine-vision-formats.workspace = true
 ci2.workspace = true
 ci2-async.workspace = true
 

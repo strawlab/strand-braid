@@ -16,4 +16,3 @@ tabled.workspace = true
 
 braidz-parser.workspace = true
 braid-types.workspace = true
-groupby.workspace = true

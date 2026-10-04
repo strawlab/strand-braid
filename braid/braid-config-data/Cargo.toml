@@ -13,3 +13,8 @@ tracing.workspace = true
 
 braid-types.workspace = true
 serde.workspace = true
+
+[dev-dependencies]
+flydra-feature-detector-types.workspace = true
+strand-http-video-streaming-types.workspace = true
+serde_yaml.workspace = true

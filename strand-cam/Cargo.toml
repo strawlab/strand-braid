@@ -19,7 +19,6 @@ path = "src/main.rs"
 
 [dependencies]
 async-change-tracker.workspace = true
-qrcode.workspace = true
 csv = { workspace = true, optional = true }
 libflate = { workspace = true, optional = true }
 env-tracing-logger.workspace = true
@@ -41,30 +40,21 @@ ci2-pylon.workspace = true
 ci2-vimba.workspace = true
 ci2-webcam.workspace = true
 ci2-sim.workspace = true
-strand-cam-types.workspace = true
 strand-cam-remote-control.workspace = true
 machine-vision-formats.workspace = true
 strand-dynamic-frame.workspace = true
 fmf.workspace = true
-ufmf.workspace = true
 chrono.workspace = true
 convert-image.workspace = true
-hyper.workspace = true
-hyper-rustls = { version = "0.27.3", default-features = false, features = [
-    "webpki-tokio",
-    "native-tokio",
-    "http1",
-    "logging",
-    "ring",
-] }
 futures.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
 tokio-stream.workspace = true
-eframe = { version = "0.31.1", default-features = false, features = [
+eframe = { version = "0.35", default-features = false, features = [
     "default_fonts",
-    "glow",
+    "wgpu",
     "wayland",       # for linux
+    "x11",           # for linux
 ], optional = true }
 dotenv.workspace = true
 json-lines.workspace = true
@@ -73,7 +63,6 @@ strand-cam-storetype.workspace = true
 strand-version-check.workspace = true
 flydra-feature-detector = { workspace = true, optional = true }
 flydra-feature-detector-types.workspace = true
-flydra-pt-detect-cfg.workspace = true
 strand-datetime-conversion.workspace = true
 strand-http-video-streaming-types.workspace = true
 strand-http-video-streaming.workspace = true
@@ -86,15 +75,11 @@ flydra2 = { workspace = true, optional = true }
 braid-mvg = { workspace = true, optional = true }
 flydra-mvg = { workspace = true, optional = true }
 tokio-serial.workspace = true
-bytes.workspace = true
 nalgebra.workspace = true
 lstsq.workspace = true
-opencv-ros-camera.workspace = true
 approx = { workspace = true, optional = true }
 byteorder.workspace = true
 target.workspace = true
-hyper-util.workspace = true
-http-body-util.workspace = true
 tower.workspace = true
 axum.workspace = true
 tracing.workspace = true

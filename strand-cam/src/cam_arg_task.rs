@@ -184,6 +184,30 @@ where
                 tracker.modify(|tracker| tracker.mp4_bitrate = v);
             }
             CamArg::SetMp4Codec(v) => {
+                // Establish now, rather than when a recording starts, how this
+                // machine's ffmpeg handles a mono frame with these arguments:
+                // some releases record mono video with a green cast, and the
+                // way around it costs a chroma plane per frame that is worth
+                // avoiding where it is not needed. Deliberately not awaited --
+                // it runs ffmpeg twice and a recording must never wait for it.
+                // Until it lands, recording uses the framing that is right on
+                // every ffmpeg.
+                if let strand_cam_remote_control::CodecSelection::Ffmpeg(codec_args) = &v {
+                    match (cam.width(), cam.height()) {
+                        (Ok(width), Ok(height)) => {
+                            let codec_args = codec_args.clone();
+                            tokio::task::spawn_blocking(move || {
+                                bg_movie_writer::probe_mono_framing(&codec_args, width, height);
+                            });
+                        }
+                        _ => {
+                            debug!(
+                                "cannot read the camera geometry, so not probing how ffmpeg \
+                                 records mono video"
+                            );
+                        }
+                    }
+                }
                 let mut tracker = shared_store_arc.write().unwrap();
                 tracker.modify(|tracker| tracker.mp4_codec = v);
             }
@@ -335,37 +359,61 @@ where
             CamArg::ToggleImOpsDetection(do_detection) => {
                 let mut tracker = shared_store_arc.write().unwrap();
                 tracker.modify(|shared| {
-                    shared.im_ops_state.do_detection = do_detection;
+                    if let Some(ref mut im_ops_state) = shared.im_ops_state {
+                        im_ops_state.do_detection = do_detection;
+                    } else {
+                        error!("imops is disabled, not changing its state");
+                    }
                 });
             }
             CamArg::SetImOpsDestination(v) => {
                 let mut tracker = shared_store_arc.write().unwrap();
                 tracker.modify(|shared| {
-                    shared.im_ops_state.destination = v;
+                    if let Some(ref mut im_ops_state) = shared.im_ops_state {
+                        im_ops_state.destination = v;
+                    } else {
+                        error!("imops is disabled, not changing its state");
+                    }
                 });
             }
             CamArg::SetImOpsSource(v) => {
                 let mut tracker = shared_store_arc.write().unwrap();
                 tracker.modify(|shared| {
-                    shared.im_ops_state.source = v;
+                    if let Some(ref mut im_ops_state) = shared.im_ops_state {
+                        im_ops_state.source = v;
+                    } else {
+                        error!("imops is disabled, not changing its state");
+                    }
                 });
             }
             CamArg::SetImOpsCenterX(v) => {
                 let mut tracker = shared_store_arc.write().unwrap();
                 tracker.modify(|shared| {
-                    shared.im_ops_state.center_x = v;
+                    if let Some(ref mut im_ops_state) = shared.im_ops_state {
+                        im_ops_state.center_x = v;
+                    } else {
+                        error!("imops is disabled, not changing its state");
+                    }
                 });
             }
             CamArg::SetImOpsCenterY(v) => {
                 let mut tracker = shared_store_arc.write().unwrap();
                 tracker.modify(|shared| {
-                    shared.im_ops_state.center_y = v;
+                    if let Some(ref mut im_ops_state) = shared.im_ops_state {
+                        im_ops_state.center_y = v;
+                    } else {
+                        error!("imops is disabled, not changing its state");
+                    }
                 });
             }
             CamArg::SetImOpsThreshold(v) => {
                 let mut tracker = shared_store_arc.write().unwrap();
                 tracker.modify(|shared| {
-                    shared.im_ops_state.threshold = v;
+                    if let Some(ref mut im_ops_state) = shared.im_ops_state {
+                        im_ops_state.threshold = v;
+                    } else {
+                        error!("imops is disabled, not changing its state");
+                    }
                 });
             }
 

@@ -1,6 +1,6 @@
 [project]
 name = "pybraidz-chunked-iter"
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 dynamic = ["version"]
 description = "Chunked iteration over tables in .braidz files"
 readme = "README.md"

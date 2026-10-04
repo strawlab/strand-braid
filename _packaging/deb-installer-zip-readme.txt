@@ -60,3 +60,11 @@ For Basler cameras, the Pylon driver is used (this is also the default when
 For Allied Vision cameras, the Vimba driver is used:
 
     strand-cam --camera-backend vimba
+
+A second build, `strand-cam-flydratrax`, adds live single-camera 2D tracking
+and online LED triggering. It is also available as "Strand Camera (flydratrax)"
+in the application menu. That menu entry runs
+`strand-cam-flydratrax --led-box /dev/ttyACM0` and fails to start unless an
+LED box is connected there; without an LED box, run `strand-cam-flydratrax`
+from a terminal instead. See "Starting Strand Camera" in the User Guide:
+https://strawlab.github.io/strand-braid/installation.html#starting-strand-camera

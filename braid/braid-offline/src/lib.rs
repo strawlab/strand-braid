@@ -244,9 +244,12 @@ where
         output_dirname.display()
     ))?;
 
-    let metadata_builder = flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name);
-
     let src_info = data_src.basic_info();
+
+    // The timestamps are carried over from the source, so record how they
+    // were computed.
+    let metadata_builder = flydra2::BraidMetadataBuilder::saving_program_name(saving_program_name)
+        .ptp_utc_offset_secs(src_info.metadata.ptp_utc_offset_secs);
     let camid2camn = src_info.cam_info.camid2camn.clone();
 
     let (local, metadata_fps, recon) = {
@@ -455,11 +458,11 @@ where
                                     "Failed to read feature detection \
                                 settings: {e}. Using defaults."
                                 );
-                                flydra_pt_detect_cfg::default_absdiff()
+                                flydra_feature_detector_types::ImPtDetectCfg::default()
                             }
                         }
                     } else {
-                        flydra_pt_detect_cfg::default_absdiff()
+                        flydra_feature_detector_types::ImPtDetectCfg::default()
                     };
 
                 (

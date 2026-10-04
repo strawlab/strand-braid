@@ -8,6 +8,7 @@ mod backend;
 
 pub use backend::{
     CalibrationResult, CorrespondingPoint, Error, calibrate_camera, find_chessboard_corners,
+    find_chessboard_corners_gray,
 };
 
 type Coords3D = (f64, f64, f64);

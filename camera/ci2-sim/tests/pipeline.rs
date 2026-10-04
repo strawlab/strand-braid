@@ -81,7 +81,7 @@ fn sim_camera_frames_are_detected_at_projected_location() -> eyre::Result<()> {
         &braid_types::RawCamName::new(cam_name.clone()),
         cam.width()?,
         cam.height()?,
-        flydra_pt_detect_cfg::default_absdiff(),
+        flydra_feature_detector_types::ImPtDetectCfg::default(),
         None,
         None,
         BackgroundUpdateMode::Synchronous,

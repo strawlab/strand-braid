@@ -6,6 +6,10 @@ This package is available through PyPI and can be installed with pip:
 
     pip install pybraidz_chunked_iter
 
+Python 3.8 or newer is required. Wheels use Python's stable ABI with Python 3.8
+as the deliberate minimum, matching the oldest Python version supported by
+PyO3 0.29 while retaining compatibility with newer Python 3 releases.
+
 ## Example usage
 
 See example usage in the "Chunked iteration of `kalman_estimates`" section of
@@ -21,3 +25,9 @@ downloaded [here](https://strawlab-cdn.com/assets/20201104_174158.braidz):
 ## Build a Python wheel
 
     maturin build
+
+CI builds each wheel on a native runner for its target architecture, then uses
+`scripts/test_artifact.py` to install it and exercise the compiled extension.
+The same smoke test can be run on a locally built artifact:
+
+    python scripts/test_artifact.py "target/wheels/*.whl"

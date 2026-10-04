@@ -67,7 +67,9 @@ use strand_cam_storetype::{
 
 use strand_cam_storetype::{KalmanTrackingConfig, LedProgramConfig};
 
-pub use imops_processor::{ImOpsHostConfiguration, ImOpsHostOptions};
+pub use host_annotation::HostAnnotation;
+pub use host_frame_sink::HostFrame;
+pub use host_options::StrandCamHostOptions;
 
 /// HTTP integration supplied by a host which serves Strand Camera's router
 /// itself. This keeps camera acquisition independent while avoiding a second
@@ -77,7 +79,6 @@ pub struct EmbeddedHttpOptions {
 }
 
 use std::{
-    io::Write,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket},
     sync::{Arc, RwLock},
 };
@@ -86,8 +87,6 @@ pub const APP_INFO: AppInfo = AppInfo {
     name: "strand-cam",
     author: "AndrewStraw",
 };
-
-pub use flydra_pt_detect_cfg::default_absdiff as default_im_pt_detect;
 
 #[cfg(feature = "bundle_files")]
 static ASSETS_DIR: include_dir::Dir<'static> =
@@ -113,6 +112,9 @@ mod post_trigger_buffer;
 mod gui_app;
 
 mod frame_process_task;
+pub mod host_annotation;
+pub mod host_frame_sink;
+pub mod host_options;
 pub mod imops_processor;
 
 mod cam_arg_task;
@@ -126,6 +128,10 @@ use frame_process_task::frame_process_task;
 struct GuiShared {
     ctx: Option<eframe::egui::Context>,
     url: Option<String>,
+    /// Set once the camera side has finished. The window then closes, unless
+    /// `error` is also set, in which case it stays open to show the error.
+    stopped: bool,
+    error: Option<String>,
 }
 
 #[cfg(feature = "eframe-gui")]
@@ -554,23 +560,10 @@ struct StrandCamAppState {
     /// The cookie/token secret, used to mint a fresh short-lived access token
     /// when a device-connection QR code is requested.
     persistent_secret: cookie::Key,
-}
-
-fn display_qr_url(url: &str) -> Result<()> {
-    use qrcode::QrCode;
-    use qrcode::render::unicode;
-    use std::io::stdout;
-
-    let qr = QrCode::new(url)?;
-
-    let image = qr.render::<unicode::Dense1x2>().build();
-
-    let stdout = stdout();
-    let mut stdout_handle = stdout.lock();
-    writeln!(stdout_handle)?;
-    stdout_handle.write_all(image.as_bytes())?;
-    writeln!(stdout_handle)?;
-    Ok(())
+    /// Overlay networks whose clients the auth layer accepts without a token,
+    /// used to leave the token out of device-connection URLs that do not need
+    /// one.
+    trusted_networks: Vec<axum_token_auth::CidrBlock>,
 }
 
 #[derive(Debug, Clone)]
@@ -587,7 +580,7 @@ pub enum ImPtDetectCfgSource {
 #[cfg(feature = "flydra_feat_detect")]
 impl Default for ImPtDetectCfgSource {
     fn default() -> Self {
-        ImPtDetectCfgSource::ChangesNotSavedToDisk(default_im_pt_detect())
+        ImPtDetectCfgSource::ChangesNotSavedToDisk(ImPtDetectCfg::default())
     }
 }
 
@@ -692,6 +685,16 @@ pub struct StrandCamArgs {
     pub fmf_filename_template: String,
     pub ufmf_filename_template: String,
     pub disable_console: bool,
+    /// Do not run the built-in ImOps detector, and do not offer it in the
+    /// browser UI.
+    ///
+    /// The detector reports its moments over UDP, which suits the standalone
+    /// deployment. An embedding host reads frames from
+    /// [`host_options::StrandCamHostOptions::frame_sink`] and runs its own
+    /// detector instead; leaving this one enabled there costs a second
+    /// threshold-and-moments pass over every frame and offers the operator a
+    /// panel of controls that changes nothing the host does.
+    pub disable_imops: bool,
     pub csv_save_dir: String,
     pub led_box_device_path: Option<String>,
     #[cfg(feature = "flydratrax")]
@@ -734,6 +737,7 @@ impl Default for StrandCamArgs {
             fmf_filename_template: FMF_FILENAME_TEMPLATE_DEFAULT.to_string(),
             ufmf_filename_template: UFMF_FILENAME_TEMPLATE_DEFAULT.to_string(),
             disable_console: false,
+            disable_imops: false,
             #[cfg(feature = "fiducial")]
             apriltag_csv_filename_template: strand_cam_storetype::APRILTAG_CSV_TEMPLATE_DEFAULT
                 .to_string(),
@@ -906,7 +910,11 @@ async fn device_connect_urls_handler(
     session_key: axum_token_auth::SessionKey,
 ) -> impl axum::response::IntoResponse {
     session_key.is_present();
-    build_device_connect_urls(&app_state.bui_server_info, &app_state.persistent_secret)
+    build_device_connect_urls(
+        &app_state.bui_server_info,
+        &app_state.persistent_secret,
+        &app_state.trusted_networks,
+    )
 }
 
 /// Build the [`DeviceConnectUrls`] response: enumerate the interfaces the server
@@ -916,6 +924,7 @@ async fn device_connect_urls_handler(
 fn build_device_connect_urls(
     bui_server_info: &strand_bui_backend_session_types::BuiServerAddrInfo,
     persistent_secret: &cookie::Key,
+    trusted_networks: &[axum_token_auth::CidrBlock],
 ) -> axum::response::Response {
     use axum::response::IntoResponse;
     use strand_bui_backend_session_types::{AccessToken, BuiServerAddrInfo, DeviceConnectUrls};
@@ -931,6 +940,14 @@ fn build_device_connect_urls(
             braid_types::ACCESS_TOKEN_TTL,
         ))
     };
+    // Tell the frontend when the token it is about to show a QR code for dies,
+    // so a code left on screen can say so rather than silently going stale.
+    let token_expires_unix = match &token {
+        AccessToken::NoToken => None,
+        AccessToken::PreSharedToken(token) => {
+            axum_token_auth::token_expiry(token).map(|expiry| expiry.unix_timestamp())
+        }
+    };
     let info = BuiServerAddrInfo::new(bound, token);
     let uris = match strand_bui_backend_session::build_urls(&info) {
         Ok(uris) => uris,
@@ -942,11 +959,20 @@ fn build_device_connect_urls(
                 .into_response();
         }
     };
+    // A client reaching us over a trusted overlay needs no token, so do not put
+    // one in the URL (or the QR code) we hand it.
+    let uris = braid_types::strip_tokens_from_trusted_urls(uris, trusted_networks);
     let loopback_only = uris.iter().all(braid_types::is_loopback);
-    let urls = uris.into_iter().map(|u| u.to_string()).collect();
+    let urls: Vec<String> = uris.into_iter().map(|u| u.to_string()).collect();
+    // Nothing expires if the token was stripped from every URL that survived.
+    let token_expires_unix = token_expires_unix.filter(|_| {
+        urls.iter()
+            .any(|url| braid_types::extract_token_expiry(url).is_some())
+    });
     axum::Json(DeviceConnectUrls {
         urls,
         loopback_only,
+        token_expires_unix,
     })
     .into_response()
 }
@@ -1036,22 +1062,6 @@ async fn callback_handler(
     ().into_response()
 }
 
-async fn handle_auth_error(err: tower::BoxError) -> (StatusCode, &'static str) {
-    match err.downcast::<axum_token_auth::ValidationErrors>() {
-        Ok(err) => {
-            tracing::error!(
-                "Validation error(s): {:?}",
-                err.errors().collect::<Vec<_>>()
-            );
-            (StatusCode::UNAUTHORIZED, "Request is not authorized")
-        }
-        Err(orig_err) => {
-            tracing::error!("Unhandled internal error: {orig_err}");
-            (StatusCode::INTERNAL_SERVER_ERROR, "internal server error")
-        }
-    }
-}
-
 /// Information acquired from Braid when the HTTP session is established.
 #[derive(Debug)]
 struct BraidInfo {
@@ -1085,6 +1095,11 @@ impl FirstMsgForced {
     }
 
     /// Send the first message and return the Sender.
+    /// `SendError` carries the un-sent message back, so its size is
+    /// `BraidHttpApiCallback`'s. Boxing it to satisfy `result_large_err` would
+    /// change the signature for every caller to shrink a value that only exists
+    /// on the shutdown path described for `IgnoreSendError` above.
+    #[allow(clippy::result_large_err)]
     async fn send_first_msg(
         self,
         new_cam_data: braid_types::RegisterNewCamera,
@@ -1169,6 +1184,7 @@ where
 
         let gui_singleton = Arc::new(std::sync::Mutex::new(GuiShared::default()));
         let gui_singleton2 = gui_singleton.clone();
+        let gui_singleton3 = gui_singleton.clone();
 
         let (frame_tx, frame_rx) = tokio::sync::watch::channel(Arc::new(
             strand_dynamic_frame::DynamicFrameOwned::from_static(
@@ -1187,7 +1203,7 @@ where
         let tokio_thread_jh = std::thread::Builder::new()
             .name("tokio-thread".to_string())
             .spawn(move || {
-                let mymod = runtime.block_on(run_after_maybe_connecting_to_braid(
+                let result = runtime.block_on(run_after_maybe_connecting_to_braid(
                     mymod,
                     args,
                     app_name,
@@ -1197,10 +1213,25 @@ where
                         gui_singleton: gui_singleton2,
                         shutdown_rx: None,
                         data_dir: legacy_data_dir,
-                        imops: None,
+                        host_options: None,
                         embedded_http: None,
                     },
-                ))?;
+                ));
+                {
+                    // Tell the window we are done. Without this, after an
+                    // error the window would stay open with nothing behind it
+                    // and the error would reach stderr only once it is closed.
+                    let mut my_guard = gui_singleton3.lock().unwrap();
+                    my_guard.stopped = true;
+                    if let Err(e) = &result {
+                        error!("{e:?}");
+                        my_guard.error = Some(format!("{e:#}"));
+                    }
+                    if let Some(ctx) = my_guard.ctx.as_ref() {
+                        ctx.request_repaint();
+                    }
+                }
+                let mymod = result?;
 
                 info!("done");
                 Ok(mymod)
@@ -1242,7 +1273,7 @@ where
                 gui_singleton,
                 shutdown_rx: None,
                 data_dir: legacy_data_dir,
-                imops: None,
+                host_options: None,
                 embedded_http: None,
             },
         ))?;
@@ -1284,7 +1315,7 @@ pub async fn run_strand_cam_app_async_with_host_options<M, C, G>(
     args: StrandCamArgs,
     app_name: &'static str,
     shutdown_rx: tokio::sync::oneshot::Receiver<()>,
-    imops: Option<ImOpsHostOptions>,
+    host_options: Option<StrandCamHostOptions>,
     embedded_http: Option<EmbeddedHttpOptions>,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
@@ -1304,7 +1335,7 @@ where
             gui_singleton: Default::default(),
             shutdown_rx: Some(shutdown_rx),
             data_dir,
-            imops,
+            host_options,
             embedded_http,
         },
     )
@@ -1390,7 +1421,7 @@ struct RunAfterOptions {
     gui_singleton: ArcMutGuiSingleton,
     shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
     data_dir: PathBuf,
-    imops: Option<ImOpsHostOptions>,
+    host_options: Option<StrandCamHostOptions>,
     embedded_http: Option<EmbeddedHttpOptions>,
 }
 
@@ -1412,7 +1443,7 @@ where
         gui_singleton,
         shutdown_rx,
         data_dir,
-        imops,
+        host_options,
         embedded_http,
     } = host;
     let cfg_from_braid;
@@ -1519,7 +1550,7 @@ where
         gui_singleton,
         data_dir,
         shutdown_rx,
-        imops,
+        host_options,
         embedded_http,
     )
     .await
@@ -1568,7 +1599,7 @@ async fn run<M, C, G>(
     gui_singleton: ArcMutGuiSingleton,
     data_dir: PathBuf,
     shutdown_rx: Option<tokio::sync::oneshot::Receiver<()>>,
-    mut imops: Option<ImOpsHostOptions>,
+    mut host_options: Option<StrandCamHostOptions>,
     embedded_http: Option<EmbeddedHttpOptions>,
 ) -> Result<ci2_async::ThreadedAsyncCameraModule<M, C, G>>
 where
@@ -1767,7 +1798,7 @@ where
     // Here we just create some default, it does not matter what, because it
     // will not be used for anything.
     #[cfg(not(feature = "flydra_feat_detect"))]
-    let im_pt_detect_cfg = flydra_pt_detect_cfg::default_absdiff();
+    let im_pt_detect_cfg = ImPtDetectCfg::default();
 
     #[cfg(feature = "flydra_feat_detect")]
     let im_pt_detect_cfg = match &tracker_cfg_src {
@@ -1781,7 +1812,7 @@ where
                         "Failed loading image detection config ({}), using defaults.",
                         e
                     );
-                    default_im_pt_detect()
+                    ImPtDetectCfg::default()
                 }
             }
         }
@@ -1838,6 +1869,7 @@ where
         tracing::info!(
             "PTP clock within threshold {clock_sync_threshold_nanos} nanoseconds from master."
         );
+        check_ptp_utc_offset(&cam, ptpcfg.utc_offset_secs)?;
 
         if cam.feature_enum("TriggerMode")? != "On" {
             cam.feature_enum_set("TriggerMode", "On")?;
@@ -1921,6 +1953,7 @@ where
             found_points: vec![],
             valid_display: None,
             annotations: vec![],
+            host_annotation: None,
         })
         .await
         .unwrap();
@@ -1964,9 +1997,9 @@ where
         for i in 0..n_pts {
             let (local, cam_time) = measure_times(&cam)?;
             tmp_debug_device_timestamp.get_or_insert(cam_time);
-            let local_time_nanos = braid_types::PtpStamp::try_from(local).unwrap().get();
+            let local_time_nanos: u64 = local.timestamp_nanos_opt().unwrap().try_into().unwrap();
             local_time0.get_or_insert(local_time_nanos);
-            let cam_time_ts = braid_types::PtpStamp::new(cam_time.try_into().unwrap()).get();
+            let cam_time_ts: u64 = cam_time.try_into().unwrap();
             cam_time0.get_or_insert(cam_time_ts);
 
             let this_local_time0 = local_time0.as_ref().unwrap();
@@ -2025,7 +2058,9 @@ where
     // callback. Forward those commands into the same queue used by
     // `CallbackType::ToCamera`, preserving their normal ordering and dispatch
     // path. A closed host channel is not a camera shutdown request.
-    let host_cam_args_rx = imops.as_mut().and_then(|imops| imops.cam_args_rx.take());
+    let host_cam_args_rx = host_options
+        .as_mut()
+        .and_then(|host_options| host_options.cam_args_rx.take());
     let (led_box_tx_std, led_box_rx) = tokio::sync::mpsc::channel(20);
 
     let led_box_heartbeat_update_arc = Arc::new(RwLock::new(None));
@@ -2086,6 +2121,16 @@ where
 
     let mut transmit_msg_tx = None;
     if let Some(first_msg_tx) = first_msg_tx {
+        // Tell Braid up front what object detection settings we are running,
+        // so a recording started before our first settings update still knows
+        // how this camera's 2D data was produced.
+        #[cfg(feature = "flydra_feat_detect")]
+        let feature_detect_settings = Some(braid_types::UpdateFeatureDetectSettings {
+            current_feature_detect_settings: im_pt_detect_cfg.clone(),
+        });
+        #[cfg(not(feature = "flydra_feat_detect"))]
+        let feature_detect_settings = None;
+
         let new_cam_data = braid_types::RegisterNewCamera {
             raw_cam_name: raw_cam_name.clone(),
             http_camserver_info: Some(BuiServerInfo::Server(http_camserver_info.clone())),
@@ -2093,6 +2138,7 @@ where
                 current_cam_settings_buf: settings_on_start,
                 current_cam_settings_extension: settings_file_ext,
             }),
+            feature_detect_settings,
             current_image_png: current_image_png.into(),
             camera_periodic_signal_period_usec,
         };
@@ -2228,19 +2274,6 @@ where
     #[cfg(feature = "fiducial")]
     let apriltag_state = Some(ApriltagState::default());
 
-    let im_ops_state = if let Some(imops) = &imops {
-        let configuration = *imops.configuration_rx.borrow();
-        ImOpsState {
-            do_detection: configuration.enabled,
-            threshold: configuration.processor.threshold,
-            center_x: configuration.processor.center_x,
-            center_y: configuration.processor.center_y,
-            ..ImOpsState::default()
-        }
-    } else {
-        ImOpsState::default()
-    };
-
     #[cfg(feature = "flydra_feat_detect")]
     let has_image_tracker_compiled = true;
 
@@ -2357,7 +2390,7 @@ where
         post_trigger_buffer_size: 0,
         cuda_devices,
         apriltag_state,
-        im_ops_state,
+        im_ops_state: (!args.disable_imops).then(ImOpsState::default),
         had_frame_processing_error: false,
         camera_calibration: None,
         version_update: None,
@@ -2385,6 +2418,8 @@ where
     let shared_state = Arc::new(RwLock::new(shared_store));
     let shared_store_arc = shared_state.clone();
 
+    let trusted_networks = braid_types::parse_trusted_networks(&args.trusted_networks)?;
+
     // Create our app state.
     let app_state = StrandCamAppState {
         cam_name: cam.name().to_string(),
@@ -2394,6 +2429,7 @@ where
         shared_store_arc,
         bui_server_info: http_camserver_info.clone(),
         persistent_secret: persistent_secret.clone(),
+        trusted_networks: trusted_networks.clone(),
     };
 
     let shared_store_arc = shared_state.clone();
@@ -2410,10 +2446,9 @@ where
         }
     };
 
-    let trusted_networks = braid_types::parse_trusted_networks(&args.trusted_networks)?;
     let router = http_router::build_http_router(
         persistent_secret,
-        trusted_networks,
+        trusted_networks.clone(),
         http_camserver_info.token(),
         app_state,
         embedded_http.is_none(),
@@ -2437,6 +2472,9 @@ where
     };
 
     let urls = strand_bui_backend_session::build_urls(&http_camserver_info)?;
+    // Clients arriving over a trusted overlay are authorized without a token,
+    // so those URLs are shown (in the log and the GUI) without one.
+    let urls = braid_types::strip_tokens_from_trusted_urls(urls, &trusted_networks);
 
     #[cfg(feature = "eframe-gui")]
     {
@@ -2474,11 +2512,11 @@ where
         info!("Strand Cam listening at {listen_addr}");
 
         for url in urls.iter() {
-            info!(" * predicted URL {url}");
-            if !braid_types::is_loopback(url) {
-                println!("QR code for {url}");
-                display_qr_url(&format!("{url}"))?;
-            }
+            let url = url.to_string();
+            info!(
+                " * predicted URL {url}{}",
+                braid_types::token_expiry_note(&url)
+            );
         }
     }
 
@@ -2533,7 +2571,7 @@ where
             http_camserver_info2,
             transmit_msg_tx.clone(),
             camdata_udp_addr,
-            imops,
+            host_options,
             led_box_heartbeat_update_arc2,
             #[cfg(feature = "checkercal")]
             collected_corners_arc.clone(),
@@ -2781,6 +2819,83 @@ where
     Ok((remote_in_local, remote))
 }
 
+/// The whole-second offsets of PTP time ahead of UTC that are taken to mean
+/// the PTP timescale (TAI).
+///
+/// TAI−UTC has been 37 s since 2017-01-01. A leap second would change it by
+/// one, so it is not hardcoded.
+const PLAUSIBLE_TAI_MINUS_UTC_SECS: std::ops::RangeInclusive<i32> = 30..=45;
+
+/// How far the camera's PTP time, converted to UTC, may be from the host's
+/// clock at startup.
+///
+/// Normal disagreement between clocks is milliseconds; timescale mistakes are
+/// whole seconds.
+const PTP_UTC_OFFSET_TOLERANCE_SECS: f64 = 0.5;
+
+/// Check that PTP time is `utc_offset_secs` ahead of UTC, as configured.
+///
+/// Braid turns PTP time into UTC with `utc_offset_secs`. If that is wrong,
+/// every saved timestamp is wrong by a constant (37 s for a TAI grandmaster
+/// taken as UTC). If PTP time is behind the host clock, no frame can be
+/// synchronized at all.
+fn check_ptp_utc_offset<C>(cam: &C, utc_offset_secs: i32) -> Result<()>
+where
+    C: ci2::Camera,
+{
+    let (host_utc, cam_ptp_nanos) = measure_times(cam)?;
+    let cam_ptp = braid_types::PtpStamp::new(
+        cam_ptp_nanos
+            .try_into()
+            .map_err(|_| eyre!("camera reports negative PTP time {cam_ptp_nanos}"))?,
+    );
+    let cam_ptp_as_utc = cam_ptp.to_utc(0).map_err(|e| eyre!(e))?;
+    let measured_offset_secs = (cam_ptp_as_utc - host_utc).as_seconds_f64();
+    tracing::debug!(
+        "PTP time is {measured_offset_secs:.3} seconds ahead of the host clock \
+        (configured utc_offset_secs: {utc_offset_secs})."
+    );
+    ptp_utc_offset_verdict(measured_offset_secs, utc_offset_secs)
+}
+
+/// Compare the measured offset of PTP time ahead of the host's UTC clock with
+/// the configured `utc_offset_secs`.
+fn ptp_utc_offset_verdict(measured_offset_secs: f64, utc_offset_secs: i32) -> Result<()> {
+    let near =
+        |secs: i32| (measured_offset_secs - f64::from(secs)).abs() <= PTP_UTC_OFFSET_TOLERANCE_SECS;
+    if near(utc_offset_secs) {
+        return Ok(());
+    }
+    let prefix = format!(
+        "PTP time is {measured_offset_secs:.3} seconds ahead of this computer's clock, \
+        but the PtpSync trigger configuration says the PTP timescale is \
+        {utc_offset_secs} seconds ahead of UTC (utc_offset_secs = {utc_offset_secs})."
+    );
+    // Timescales differ by whole seconds. (`as` saturates far out of range.)
+    let nearest_secs = measured_offset_secs.round() as i32;
+    let advice = if nearest_secs == 0 {
+        "The PTP grandmaster sends UTC (the ARB timescale, as ptpd does). \
+        Set `utc_offset_secs = 0` (or remove it) in the [trigger] section of the Braid \
+        configuration."
+            .to_string()
+    } else if PLAUSIBLE_TAI_MINUS_UTC_SECS.contains(&nearest_secs) {
+        format!(
+            "The PTP grandmaster uses the PTP timescale, which is TAI, now \
+            {nearest_secs} seconds ahead of UTC. Set `utc_offset_secs = {nearest_secs}` in \
+            the [trigger] section of the Braid configuration."
+        )
+    } else {
+        "The PTP grandmaster sends neither UTC nor TAI (for example, a camera \
+        became grandmaster and counts from when it was powered on), or this \
+        computer's clock is not synchronized. Braid requires a grandmaster \
+        that sends UTC or TAI, such as ptpd running on the Braid computer."
+            .to_string()
+    };
+    Err(eyre!("{prefix} {advice}"))
+}
+
+/// See `send_first_msg` for why the large `SendError` is not boxed.
+#[allow(clippy::result_large_err)]
 async fn send_cam_settings_to_braid(
     cam_settings: &str,
     transmit_msg_tx: &tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>,
@@ -2893,6 +3008,47 @@ mod tests {
     use super::*;
 
     use std::net::Ipv4Addr;
+
+    #[test]
+    fn ptp_utc_offset_verdict_accepts_configured_timescale() {
+        assert!(ptp_utc_offset_verdict(0.010, 0).is_ok());
+        assert!(ptp_utc_offset_verdict(-0.010, 0).is_ok());
+        assert!(ptp_utc_offset_verdict(37.002, 37).is_ok());
+    }
+
+    #[test]
+    fn ptp_utc_offset_verdict_names_the_right_fix() {
+        let tai_taken_as_utc = ptp_utc_offset_verdict(37.002, 0).unwrap_err().to_string();
+        assert!(
+            tai_taken_as_utc.contains("`utc_offset_secs = 37`"),
+            "{tai_taken_as_utc}"
+        );
+
+        let utc_taken_as_tai = ptp_utc_offset_verdict(0.002, 37).unwrap_err().to_string();
+        assert!(
+            utc_taken_as_tai.contains("`utc_offset_secs = 0`"),
+            "{utc_taken_as_tai}"
+        );
+
+        // After a leap second, TAI would be 38 s ahead of UTC.
+        let stale_tai = ptp_utc_offset_verdict(37.998, 37).unwrap_err().to_string();
+        assert!(stale_tai.contains("`utc_offset_secs = 38`"), "{stale_tai}");
+        let leap_second = ptp_utc_offset_verdict(37.998, 0).unwrap_err().to_string();
+        assert!(
+            leap_second.contains("`utc_offset_secs = 38`"),
+            "{leap_second}"
+        );
+
+        // A whole number of seconds far from TAI−UTC is not a timescale.
+        let not_tai = ptp_utc_offset_verdict(20.0, 0).unwrap_err().to_string();
+        assert!(not_tai.contains("neither UTC nor TAI"), "{not_tai}");
+
+        // A camera grandmaster counting from power-on, 20 minutes ago.
+        let since_boot = ptp_utc_offset_verdict(1200.0 - 1.79e9, 0)
+            .unwrap_err()
+            .to_string();
+        assert!(since_boot.contains("neither UTC nor TAI"), "{since_boot}");
+    }
 
     // ---- Layer 1: `find_local_ip_for_remote` ----
     //

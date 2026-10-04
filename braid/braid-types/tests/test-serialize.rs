@@ -107,3 +107,36 @@ fn test_serialize_timestamps_to_csv() -> eyre::Result<()> {
 
     Ok(())
 }
+
+/// A camera built before `feature_detect_settings` existed does not send it.
+/// Braid must still accept its registration, reading the field as `None`.
+#[test]
+fn register_new_camera_without_feature_detect_settings() {
+    use braid_types::{PngImageData, RawCamName, RegisterNewCamera};
+
+    let older_camera = serde_json::json!({
+        "raw_cam_name": "Basler-1234",
+        "http_camserver_info": null,
+        "cam_settings_data": null,
+        "current_image_png": {"data": []},
+        "camera_periodic_signal_period_usec": null,
+    });
+
+    let msg: RegisterNewCamera = serde_json::from_value(older_camera).unwrap();
+    assert_eq!(msg.raw_cam_name, RawCamName::new("Basler-1234".to_string()));
+    assert!(msg.feature_detect_settings.is_none());
+
+    // And the current form round-trips.
+    let current = RegisterNewCamera {
+        raw_cam_name: RawCamName::new("Basler-1234".to_string()),
+        http_camserver_info: None,
+        cam_settings_data: None,
+        feature_detect_settings: Some(braid_types::UpdateFeatureDetectSettings {
+            current_feature_detect_settings: Default::default(),
+        }),
+        current_image_png: PngImageData::from(Vec::new()),
+        camera_periodic_signal_period_usec: None,
+    };
+    let buf = serde_json::to_string(&current).unwrap();
+    assert_eq!(current, serde_json::from_str(&buf).unwrap());
+}

@@ -1,7 +1,7 @@
 name: Build strand-braid Debian packages
 
-# Build a strand-braid .deb for each supported Ubuntu version, so that release
-# artifacts can be built and published directly from GitHub.
+# Build a strand-braid .deb for each supported Debian-based distribution, so
+# that release artifacts can be built and published directly from GitHub.
 #
 # Two jobs share one packaging implementation (the
 # .github/actions/package-strand-braid-deb composite action); they differ only
@@ -10,15 +10,14 @@ name: Build strand-braid Debian packages
 #   * strand-braid-deb         - builds natively on GitHub-hosted runners, for
 #                                the Ubuntu versions GitHub provides runners for
 #                                (currently 22.04 and 24.04).
-#   * strand-braid-deb-container - builds inside an `ubuntu:<codename>` Docker
-#                                container, for the Ubuntu versions that have no
-#                                hosted runner (20.04, retired; and 26.04, the
-#                                new LTS not yet offered as a runner). Building
-#                                inside the target distro's container yields
-#                                binaries linked against that distro's glibc and
-#                                lets dpkg-shlibdeps compute per-distro
-#                                dependencies -- the same model the GitLab CI
-#                                uses, where the runner *is* the container.
+#   * strand-braid-deb-container - builds inside the target distribution's
+#                                container, for Debian and for Ubuntu versions
+#                                that have no hosted runner. Building inside the
+#                                target distro's container yields binaries linked
+#                                against that distro's glibc and lets
+#                                dpkg-shlibdeps compute per-distro dependencies --
+#                                the same model the GitLab CI uses, where the
+#                                runner *is* the container.
 #
 # The proprietary camera SDKs (Basler Pylon, Allied Vision Vimba) are loaded at
 # runtime via dlopen, so they are not needed to build or package these binaries.
@@ -47,9 +46,13 @@ jobs:
       matrix:
         include:
           - runs-on: ubuntu-22.04
-            ubuntu-version: "2204"
+            platform: ubuntu
+            platform-version: "2204"
+            distribution: jammy
           - runs-on: ubuntu-24.04
-            ubuntu-version: "2404"
+            platform: ubuntu
+            platform-version: "2404"
+            distribution: noble
     runs-on: ${{ matrix.runs-on }}
     steps:
       - uses: actions/checkout@v6
@@ -77,40 +80,50 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.ubuntu-version }}
+          key: ${{ matrix.platform }}-${{ matrix.platform-version }}
 
       - name: Build, package, and publish .deb
         uses: ./.github/actions/package-strand-braid-deb
         with:
-          ubuntu-version: ${{ matrix.ubuntu-version }}
+          platform: ${{ matrix.platform }}
+          platform-version: ${{ matrix.platform-version }}
+          distribution: ${{ matrix.distribution }}
 
-  # Containerized builds for Ubuntu versions that have no GitHub-hosted runner.
+  # Containerized builds for Debian and Ubuntu versions without hosted runners.
   strand-braid-deb-container:
     strategy:
       fail-fast: false
       matrix:
         include:
           - image: ubuntu:focal
-            ubuntu-version: "2004"
+            platform: ubuntu
+            platform-version: "2004"
+            distribution: focal
           - image: ubuntu:resolute
-            ubuntu-version: "2604"
+            platform: ubuntu
+            platform-version: "2604"
+            distribution: resolute
+          - image: debian:trixie
+            platform: debian
+            platform-version: trixie
+            distribution: trixie
     runs-on: ubuntu-latest
     container:
       image: ${{ matrix.image }}
     steps:
       # git must be present before actions/checkout runs, otherwise checkout
       # silently falls back to a REST-API download that omits submodules. (The
-      # plain ubuntu:* images ship no git.)
+      # base distribution images ship no git.)
       - name: Install git for checkout
         run: |
           apt-get update
-          DEBIAN_FRONTEND=noninteractive apt-get install -y git
+          DEBIAN_FRONTEND=noninteractive apt-get install -y ca-certificates git
 
       - uses: actions/checkout@v6
         with:
           submodules: recursive
 
-      # Plain ubuntu:* images carry no toolchain, so unlike the native job we
+      # Plain distribution images carry no toolchain, so unlike the native job we
       # install the build dependencies, Rust, the wasm target, and trunk here.
       # We run as root inside the container, so no sudo. The package list mirrors
       # the native job (dpkg-shlibdeps needs the .so files to resolve deps).
@@ -134,12 +147,14 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.ubuntu-version }}
+          key: ${{ matrix.platform }}-${{ matrix.platform-version }}
 
       - name: Build, package, and publish .deb
         uses: ./.github/actions/package-strand-braid-deb
         with:
-          ubuntu-version: ${{ matrix.ubuntu-version }}
+          platform: ${{ matrix.platform }}
+          platform-version: ${{ matrix.platform-version }}
+          distribution: ${{ matrix.distribution }}
 
   # On tag pushes, once every .zip has been published to the GitHub Release,
   # prepend a download table to the release notes so users see the assets
@@ -161,15 +176,16 @@ jobs:
           set -euo pipefail
           base_url="https://github.com/${REPO}/releases/download/${TAG}"
 
-          # Map the Ubuntu version label embedded in each zip name to its
-          # release codename (kept in sync with the build matrices above).
-          codename() {
+          # Map release asset names to user-facing platform labels. Keep this
+          # in sync with the build matrices above.
+          platform_label() {
             case "$1" in
-              2004) echo "20.04 (Focal)" ;;
-              2204) echo "22.04 (Jammy)" ;;
-              2404) echo "24.04 (Noble)" ;;
-              2604) echo "26.04 (Resolute)" ;;
-              *) echo "$1" ;;
+              strand-braid-ubuntu-2004-*) echo "Ubuntu 20.04 (Focal)" ;;
+              strand-braid-ubuntu-2204-*) echo "Ubuntu 22.04 (Jammy)" ;;
+              strand-braid-ubuntu-2404-*) echo "Ubuntu 24.04 (Noble)" ;;
+              strand-braid-ubuntu-2604-*) echo "Ubuntu 26.04 (Resolute)" ;;
+              strand-braid-debian-trixie-*) echo "Debian 13 (Trixie)" ;;
+              *) echo "Unknown" ;;
             esac
           }
 
@@ -181,14 +197,13 @@ jobs:
             echo "<!-- BEGIN DOWNLOAD TABLE (auto-generated) -->"
             echo "## Downloads"
             echo
-            echo "| Download | Ubuntu version |"
+            echo "| Download | Platform |"
             echo "| :--- | :--- |"
             gh release view "$TAG" --repo "$REPO" --json assets --jq '.assets[].name' \
-              | grep -E '^strand-braid-ubuntu-[0-9]+-.*\.zip$' \
+              | grep -E '^strand-braid-(ubuntu|debian)-.*\.zip$' \
               | sort \
               | while read -r zip; do
-                  ver="$(printf '%s' "$zip" | sed -E 's/^strand-braid-ubuntu-([0-9]+)-.*/\1/')"
-                  echo "| [\`${zip}\`](${base_url}/${zip}) | $(codename "$ver") |"
+                  echo "| [\`${zip}\`](${base_url}/${zip}) | $(platform_label "$zip") |"
                 done
             echo "<!-- END DOWNLOAD TABLE (auto-generated) -->"
           } > "$table_file"

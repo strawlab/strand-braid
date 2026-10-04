@@ -28,17 +28,6 @@ pub struct ImOpsProcessorConfig {
     pub center_y: u32,
 }
 
-/// Initial configuration for ImOps when Strand Camera is embedded in a host
-/// application.
-///
-/// This deliberately contains no network configuration: an embedded host
-/// receives detections over its local channel.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct ImOpsHostConfiguration {
-    pub enabled: bool,
-    pub processor: ImOpsProcessorConfig,
-}
-
 /// A point in image pixel coordinates.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct ImagePoint {
@@ -57,27 +46,6 @@ pub struct ImOpsDetection {
     pub center_y: u32,
     /// `None` when no pixels survived thresholding.
     pub centroid: Option<ImagePoint>,
-}
-
-/// Local ImOps integration supplied by an embedding application.
-///
-/// `detection_tx` must be a bounded Tokio channel sender. Strand Camera uses
-/// [`tokio::sync::mpsc::Sender::try_send`] and drops a new detection when the
-/// channel is full, so slow host-side processing never stalls acquisition.
-///
-/// `configuration_rx` is a latest-value control path. Its value is consulted
-/// for each frame, so the host can safely change detector configuration without
-/// networking or waiting for a queued control message to be processed.
-///
-/// `cam_args_rx`, when present, is a bounded Tokio channel from the host to
-/// Strand Camera. Its [`strand_cam_remote_control::CamArg`] values are routed
-/// through the same command task as `CallbackType::ToCamera` HTTP requests.
-/// Closing this channel only disables host-side camera control; it does not
-/// stop camera acquisition.
-pub struct ImOpsHostOptions {
-    pub configuration_rx: tokio::sync::watch::Receiver<ImOpsHostConfiguration>,
-    pub detection_tx: tokio::sync::mpsc::Sender<ImOpsDetection>,
-    pub cam_args_rx: Option<tokio::sync::mpsc::Receiver<strand_cam_remote_control::CamArg>>,
 }
 
 /// Threshold a Mono8 image and calculate its spatial moments.

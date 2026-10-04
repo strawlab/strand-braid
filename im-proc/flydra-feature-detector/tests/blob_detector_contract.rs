@@ -68,7 +68,7 @@ struct Outcome {
 /// Run the detector over a moving blob for one (bg, peak, sigma) setting.
 fn run_one(bg: u8, peak: f64, sigma: f64) -> eyre::Result<Outcome> {
     let stride = W as usize;
-    let cfg = flydra_pt_detect_cfg::default_absdiff();
+    let cfg = flydra_feature_detector_types::ImPtDetectCfg::default();
     let mut ft = FlydraFeatureDetector::new(
         &braid_types::RawCamName::new("m0-blob".to_string()),
         W,

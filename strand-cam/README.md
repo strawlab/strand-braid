@@ -7,6 +7,10 @@ the `--camera-backend pylon|vimba|webcam` argument (defaulting to pylon). The
 vendor SDKs are loaded dynamically at runtime, so neither is required to
 build, and the webcam backend needs no SDK at all.
 
+To list connected cameras without launching the application, run
+`strand-cam --list-cameras`. Add `--json` to print the camera name, model, and
+serial as a machine-readable JSON array.
+
 To check the build
 
     cargo check --bin strand-cam --features "serve_files checkercal fiducial flydra_feat_detect"

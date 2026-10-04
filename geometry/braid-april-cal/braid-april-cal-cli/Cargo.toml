@@ -17,7 +17,6 @@ re_sdk = { workspace = true, optional = true }
 re_sdk_types = { workspace = true, optional = true }
 opencv-ros-camera.workspace = true
 chrono.workspace = true
-libflate.workspace = true
 
 ads-webasm = { workspace = true, features = ["csv-widget"] }
 braid-april-cal.workspace = true

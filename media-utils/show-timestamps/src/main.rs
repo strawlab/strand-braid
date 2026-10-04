@@ -228,25 +228,30 @@ fn main() -> Result<()> {
 
             match cli.output {
                 OutputFormat::EveryFrame => {
-                    let delta =
-                        if let (Some(prev_timestamp), frame_source::Timestamp::Duration(t)) =
-                            (prev_timestamp, frame.timestamp())
-                        {
-                            let total_str = if let Some(start_time) = start_time.as_ref() {
-                                let stamp_chrono = *start_time + t;
-                                format!(
-                                    " datetime {}, since 1970-01-01 {}",
-                                    stamp_chrono,
-                                    strand_datetime_conversion::datetime_to_f64(&stamp_chrono)
-                                )
-                            } else {
-                                String::new()
-                            };
-                            let delta = t - prev_timestamp.unwrap_duration();
-                            format!("    (delta: {}){total_str}", delta.to_display())
+                    let delta = if let (
+                        Some(frame_source::Timestamp::Duration(prev)),
+                        frame_source::Timestamp::Duration(t),
+                    ) = (prev_timestamp, frame.timestamp())
+                    {
+                        let total_str = if let Some(start_time) = start_time.as_ref() {
+                            let stamp_chrono = *start_time + t;
+                            format!(
+                                " datetime {}, since 1970-01-01 {}",
+                                stamp_chrono,
+                                strand_datetime_conversion::datetime_to_f64(&stamp_chrono)
+                            )
                         } else {
                             String::new()
                         };
+                        // Timestamps are not necessarily increasing (e.g. when
+                        // frames are visited in decode order), so compute a
+                        // signed delta rather than subtracting `Duration`s,
+                        // which panics on underflow.
+                        let delta_msec = t.as_secs_f64() * 1000.0 - prev.as_secs_f64() * 1000.0;
+                        format!("    (delta: {delta_msec:9.1}ms){total_str}")
+                    } else {
+                        String::new()
+                    };
                     println!(
                         "    {:5}: {:10}{}",
                         frame.idx(),

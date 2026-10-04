@@ -83,64 +83,38 @@ impl<'a, R: RealField + Copy + Default + serde::Serialize> Iterator for CamNameI
     }
 }
 
-// RealField and f64 inter conversion ----------------------------------------------------
+// nalgebra and glamx conversion ----------------------------------------------------
 
-trait Point3ToR<R: RealField> {
-    fn to_r(self) -> Point3<R>;
+fn point3_to_parry<R: RealField>(point: &Point3<R>) -> parry3d_f64::math::Vector {
+    parry3d_f64::math::Vector::new(
+        point[0].to_subset().unwrap(),
+        point[1].to_subset().unwrap(),
+        point[2].to_subset().unwrap(),
+    )
 }
 
-impl<R: RealField> Point3ToR<R> for Point3<f64> {
-    fn to_r(self) -> Point3<R> {
-        Point3::new(
-            na::convert(self[0]),
-            na::convert(self[1]),
-            na::convert(self[2]),
-        )
-    }
+fn vector3_to_parry<R: RealField>(vector: &Vector3<R>) -> parry3d_f64::math::Vector {
+    parry3d_f64::math::Vector::new(
+        vector[0].to_subset().unwrap(),
+        vector[1].to_subset().unwrap(),
+        vector[2].to_subset().unwrap(),
+    )
 }
 
-trait Vector3ToR<R: RealField> {
-    fn to_r(self) -> Vector3<R>;
+fn parry_to_point3<R: RealField>(vector: parry3d_f64::math::Vector) -> Point3<R> {
+    Point3::new(
+        na::convert(vector.x),
+        na::convert(vector.y),
+        na::convert(vector.z),
+    )
 }
 
-impl<R: RealField> Vector3ToR<R> for Vector3<f64> {
-    fn to_r(self) -> Vector3<R> {
-        Vector3::new(
-            na::convert(self[0]),
-            na::convert(self[1]),
-            na::convert(self[2]),
-        )
-    }
-}
-
-trait Point3ToF64 {
-    fn to_f64(self) -> Point3<f64>;
-}
-
-impl<R: RealField> Point3ToF64 for &Point3<R> {
-    fn to_f64(self) -> Point3<f64> {
-        let x: f64 = self[0].to_subset().unwrap();
-        let y: f64 = self[1].to_subset().unwrap();
-        let z: f64 = self[2].to_subset().unwrap();
-        Point3::new(x, y, z)
-    }
-}
-
-trait Vector3ToF64<T> {
-    fn to_f64(self) -> nalgebra::Vector3<f64>;
-}
-
-impl<T> Vector3ToF64<T> for &nalgebra::Vector3<T>
-where
-    T: RealField,
-{
-    fn to_f64(self) -> nalgebra::Vector3<f64> {
-        nalgebra::Vector3::new(
-            self[0].to_subset().unwrap(),
-            self[1].to_subset().unwrap(),
-            self[2].to_subset().unwrap(),
-        )
-    }
+fn parry_to_vector3<R: RealField>(vector: parry3d_f64::math::Vector) -> Vector3<R> {
+    Vector3::new(
+        na::convert(vector.x),
+        na::convert(vector.y),
+        na::convert(vector.z),
+    )
 }
 
 // RayCamera -------------------------------------------------------
@@ -164,8 +138,8 @@ impl<R: RealField + Copy + Default + serde::Serialize> RayCamera<R> for Camera<R
         let p2 = self.project_pixel_to_3d_with_dist(pt, dist);
         let ray_origin = *self.extrinsics().camcenter();
         let ray_dir = p2.coords - ray_origin;
-        let ray_origin = ray_origin.to_f64();
-        let ray_dir = ray_dir.to_f64();
+        let ray_origin = point3_to_parry(&ray_origin);
+        let ray_dir = vector3_to_parry(&ray_dir);
         parry3d_f64::query::Ray::new(ray_origin, ray_dir)
     }
 
@@ -175,18 +149,18 @@ impl<R: RealField + Copy + Default + serde::Serialize> RayCamera<R> for Camera<R
     }
 
     fn project_ray_to_distorted_pixel(&self, ray: &parry3d_f64::query::Ray) -> DistortedPixel<R> {
-        let camcenter = self.extrinsics().camcenter().to_f64();
+        let camcenter = point3_to_parry(self.extrinsics().camcenter());
         debug_assert!(ray.origin == camcenter);
         let pt3d = PointWorldFrame::<R> {
-            coords: (ray.origin + ray.dir).to_r(),
+            coords: parry_to_point3(ray.origin + ray.dir),
         };
         self.project_3d_to_distorted_pixel(&pt3d)
     }
 
     fn project_ray_to_pixel(&self, ray: &parry3d_f64::query::Ray) -> UndistortedPixel<R> {
-        debug_assert!(ray.origin == self.extrinsics().camcenter().to_f64());
+        debug_assert!(ray.origin == point3_to_parry(self.extrinsics().camcenter()));
         let pt3d = PointWorldFrame::<R> {
-            coords: (ray.origin + ray.dir).to_r(),
+            coords: parry_to_point3(ray.origin + ray.dir),
         };
         self.project_3d_to_pixel(&pt3d)
     }
@@ -287,7 +261,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
             na::Matrix::norm(&dir) > R::default_epsilon(),
             "pt3d is at camcenter"
         );
-        parry3d_f64::query::Ray::new(camcenter.to_f64(), dir.to_f64())
+        parry3d_f64::query::Ray::new(point3_to_parry(camcenter), vector3_to_parry(&dir))
     }
 
     #[expect(
@@ -335,7 +309,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> MultiCamera<R> {
         // to that 3D point).
 
         // From here, we use normal camera stuff (no need to know about water).
-        let coords: Point3<R> = (ray.origin + ray.dir).to_r();
+        let coords: Point3<R> = parry_to_point3(ray.origin + ray.dir);
         let pt_air =
             cam_geom::Points::<cam_geom::WorldFrame, _, _, _>::new(coords.coords.transpose());
 
@@ -554,7 +528,7 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
         n2: R,
     ) -> Result<PointWorldFrame<R>> {
         use cam_geom::{Ray, WorldFrame};
-        let z0 = parry3d_f64::shape::HalfSpace::new(Vector3::z_axis());
+        let z0 = parry3d_f64::shape::HalfSpace::new(parry3d_f64::math::Vector::Z);
 
         let mut rays: Vec<Ray<WorldFrame, _>> = Vec::with_capacity(points.len());
 
@@ -570,8 +544,8 @@ impl<R: RealField + Copy + Default + serde::Serialize> FlydraMultiCameraSystem<R
                 solid,
             );
 
-            let air_ray_origin = air_ray.origin.to_r();
-            let air_ray_dir = air_ray.dir.to_r();
+            let air_ray_origin = parry_to_point3(air_ray.origin);
+            let air_ray_dir = parry_to_vector3(air_ray.dir);
 
             if let Some(toi) = opt_surface_pt_toi {
                 let toi: R = na::convert(toi);

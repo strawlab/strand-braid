@@ -11,7 +11,9 @@ use event_stream_types::{ConnectionEvent, ConnectionEventType, EventChunkSender}
 use strand_bui_backend_session_types::ConnectionKey;
 use strand_dynamic_frame::DynamicFrameOwned;
 
-pub use strand_http_video_streaming_types::{CircleParams, DrawableShape, Point, Shape, ToClient};
+pub use strand_http_video_streaming_types::{
+    CircleParams, DrawableShape, HostAnnotationProvenance, Point, Shape, ToClient,
+};
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -31,6 +33,9 @@ pub struct AnnotatedFrame {
     pub found_points: Vec<Point>,
     pub valid_display: Option<Shape>,
     pub annotations: Vec<DrawableShape>,
+    /// Set when `annotations` or `found_points` came from an embedding host,
+    /// which necessarily reports on an earlier frame than this one.
+    pub host_annotation: Option<HostAnnotationProvenance>,
 }
 
 fn _test_annotated_frame_is_send() {
@@ -128,6 +133,7 @@ impl PerSender {
                     firehose_frame_data_url: data_url,
                     valid_display: most_recent_frame_data.valid_display.clone(),
                     annotations,
+                    host_annotation: most_recent_frame_data.host_annotation.clone(),
                     fno: self.fno,
                     ts_rfc3339: sent_time.to_rfc3339(),
                     ck: self.conn_key,

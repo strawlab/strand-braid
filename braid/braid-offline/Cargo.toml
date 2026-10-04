@@ -14,7 +14,6 @@ csv.workspace = true
 serde.workspace = true
 toml.workspace = true
 itertools.workspace = true
-chrono.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 futures.workspace = true
@@ -33,7 +32,6 @@ groupby.workspace = true
 zip-or-dir.workspace = true
 flydra-mvg.workspace = true
 braidz-parser.workspace = true
-flydra-pt-detect-cfg.workspace = true
 braid-mvg.workspace = true
 flydra-feature-detector-types.workspace = true
 

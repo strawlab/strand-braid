@@ -6,7 +6,7 @@ This document describes how to cut a release of `strand-braid`.
 
 A `strand-braid` release is a set of **Debian (`.deb`) packages published to a
 [GitHub Release](https://github.com/strawlab/strand-braid/releases)** — one
-`.zip` per supported Ubuntu version, each containing the `strand-braid` `.deb`,
+`.zip` per supported Debian or Ubuntu target, each containing the `strand-braid` `.deb`,
 a `README.txt`, and the third-party license files.
 
 We do **not** publish individual crates to [crates.io](https://crates.io). The
@@ -74,29 +74,31 @@ Only Apple Silicon is built; an Intel (`x86_64`) build would need a `macos-13`
 runner and a separate `x86_64` Pylon shim.
 
 > Note: the auto-generated **Downloads** table (below) currently lists only the
-> Ubuntu `.zip`s. The Windows and macOS zips are attached to the same Release
-> but are not yet added to that table.
+> Debian and Ubuntu `.zip`s. The Windows and macOS zips are attached to the same
+> Release but are not yet added to that table.
 
 ## How automated is it?
 
-The expensive part — building for every supported Ubuntu version and publishing
-the GitHub Release — is **fully automated**. Pushing a git tag is all it takes.
+The expensive part — building for every supported Debian-based distribution and
+publishing the GitHub Release — is **fully automated**. Pushing a git tag is all
+it takes.
 
 The GitHub Actions workflow
 [`.github/workflows/build-strand-braid-deb.yml`](../../.github/workflows/build-strand-braid-deb.yml)
 runs on every push, but on a **tag push** the shared composite action
 [`.github/actions/package-strand-braid-deb`](../../.github/actions/package-strand-braid-deb/action.yml)
-additionally publishes the per-Ubuntu `.zip` to the GitHub Release (via
+additionally publishes the per-platform `.zip` to the GitHub Release (via
 `softprops/action-gh-release`, gated on `github.ref_type == 'tag'`).
 
-It builds for four Ubuntu versions:
+It builds for four Ubuntu versions and Debian 13:
 
-| Ubuntu | Codename | How it builds |
+| Platform | Codename | How it builds |
 | :--- | :--- | :--- |
-| 22.04 | jammy | native GitHub-hosted runner |
-| 24.04 | noble | native GitHub-hosted runner |
-| 20.04 | focal | inside an `ubuntu:focal` container |
-| 26.04 | resolute | inside an `ubuntu:resolute` container |
+| Ubuntu 22.04 | jammy | native GitHub-hosted runner |
+| Ubuntu 24.04 | noble | native GitHub-hosted runner |
+| Ubuntu 20.04 | focal | inside an `ubuntu:focal` container |
+| Ubuntu 26.04 | resolute | inside an `ubuntu:resolute` container |
+| Debian 13 | trixie | inside a `debian:trixie` container |
 
 The remaining work — bumping the version, refreshing `Cargo.lock`, rolling the
 changelog, and tagging — is manual but assisted by a small script. The whole
@@ -221,24 +223,25 @@ git push origin 1.0.0-rc.3
 
 Open the
 [Actions tab](https://github.com/strawlab/strand-braid/actions/workflows/build-strand-braid-deb.yml)
-and confirm all four Ubuntu jobs pass. If the tag and workspace version disagree,
+and confirm all five Linux jobs pass. If the tag and workspace version disagree,
 the "Verify tag matches workspace version" step fails early — fix the version (step 2),
 delete and recreate the tag, and push again.
 
-On success a GitHub Release for the tag holds four `.zip` assets:
+On success a GitHub Release for the tag holds five Linux `.zip` assets:
 
 ```
 strand-braid-ubuntu-2004-1.0.0-rc.3.zip
 strand-braid-ubuntu-2204-1.0.0-rc.3.zip
 strand-braid-ubuntu-2404-1.0.0-rc.3.zip
 strand-braid-ubuntu-2604-1.0.0-rc.3.zip
+strand-braid-debian-trixie-1.0.0-rc.3.zip
 ```
 
 ### 8. Finalize the release notes
 
-GitHub creates the Release as part of the upload. Once all four `.zip` assets
+GitHub creates the Release as part of the upload. Once all five Linux `.zip` assets
 are published, the `update-release-notes` job prepends a **Downloads** table
-(one row per `.zip`, linking each Ubuntu version's asset) to the top of the
+(one row per `.zip`, identifying each target platform) to the top of the
 release body, so users see the downloads without expanding the collapsed
 "Assets" section. The table sits between `<!-- BEGIN DOWNLOAD TABLE -->` and
 `<!-- END DOWNLOAD TABLE -->` markers; re-running the workflow replaces it in
@@ -278,7 +281,7 @@ already downloaded.
 | File | Role |
 | :--- | :--- |
 | [`CHANGELOG.md`](../../CHANGELOG.md) | Human-facing change history. |
-| [`.github/workflows/build-strand-braid-deb.yml`](../../.github/workflows/build-strand-braid-deb.yml) | Triggers the per-Ubuntu builds; publishes on tags. |
+| [`.github/workflows/build-strand-braid-deb.yml`](../../.github/workflows/build-strand-braid-deb.yml) | Triggers the Debian and Ubuntu builds; publishes on tags. |
 | [`.github/actions/package-strand-braid-deb/action.yml`](../../.github/actions/package-strand-braid-deb/action.yml) | The build/package/publish steps, plus the tag/version guard. |
 | [`_packaging/Makefile`](../../_packaging/Makefile) | Drives `dpkg-buildpackage` for the `strand-braid` package. |
 | [`utils/write-debian-changelog`](../../utils/write-debian-changelog) | Emits `debian/changelog`; its `CARGO_PKG_VERSION` is the `.deb` version. |
