@@ -811,8 +811,8 @@ where
     /// before it is presented, so `ctts >= 0` is forced for a stream meant to be
     /// decodable, and a reordered stream therefore *cannot* present its first
     /// frame at time zero. Real encoders emit exactly this lead-in and then hide
-    /// it with an edit list (`elst`) -- which `mp4-writer` does not yet write, so
-    /// a reordered recording keeps a lead-in of a few frames.
+    /// it with an edit list (`elst`). `mp4-writer` derives that edit list from
+    /// the timing it writes, so nothing here has to supply it.
     pub fn retime_container_from_srt(&mut self) -> Result<()> {
         let Some(srt) = self.srt_data.as_ref() else {
             return Err(Error::H264TimestampError(
