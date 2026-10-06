@@ -226,6 +226,57 @@ impl CadenceCheck {
     }
 }
 
+/// Does the container present each frame when it was captured?
+///
+/// The old `mp4-writer` took each sample's duration from the interval *before*
+/// the frame instead of the one after it. The first sample got a duration of
+/// zero, and every frame was presented one capture interval early: frame `r` at
+/// the capture time of frame `r-1`, with frames 0 and 1 sharing a presentation
+/// time. Every strand-cam/braid and flo MP4 written before that fix has this
+/// signature. [`CadenceCheck`] usually notices too, because the timeline also
+/// comes up one final interval short, but it reports that as a playback rate
+/// error of a fraction of a percent. This check names the actual fault.
+///
+/// Each frame is measured against the first frame in display order, as
+/// `(container_r - container_0) - (capture_r - capture_0)`. Anchoring both
+/// series there cancels any constant lead-in, such as a reordered stream's
+/// composition offset when the edit list is not applied. The *median* of those
+/// offsets is compared against half a mean interval, the same
+/// length-independent threshold [`CadenceCheck`] uses. The median ignores the
+/// frame-by-frame jitter that a writer which snaps presentation to an estimated
+/// cadence introduces on purpose, while a whole-frame shift moves it by a full
+/// interval.
+struct OffsetCheck {
+    /// Median of each frame's container offset relative to its capture time,
+    /// both measured from the first frame. Negative when the container presents
+    /// frames early.
+    median_offset_ns: i64,
+    /// Mean capture interval -- one frame's worth of time.
+    mean_interval_ns: i64,
+}
+
+impl OffsetCheck {
+    /// Broken once frames are typically presented more than half a frame away
+    /// from when they were captured.
+    fn is_broken(&self) -> bool {
+        self.mean_interval_ns > 0 && self.median_offset_ns.abs() * 2 > self.mean_interval_ns
+    }
+
+    fn describe(&self) -> String {
+        let early_or_late = if self.median_offset_ns < 0 {
+            "early"
+        } else {
+            "late"
+        };
+        format!(
+            "container presents frames {:.1}ms {early_or_late} relative to the first \
+             frame's capture time (median, ~{:.2} frames)",
+            self.median_offset_ns.abs() as f64 / 1e6,
+            self.median_offset_ns.abs() as f64 / self.mean_interval_ns as f64,
+        )
+    }
+}
+
 /// Everything checked for one file.
 struct FileReport {
     /// Each available timing series, checked against bitstream display order.
@@ -233,9 +284,38 @@ struct FileReport {
     /// Container rate against capture rate. `None` unless the file has both
     /// container timing and SEI, and at least two frames spanning some time.
     cadence: Option<CadenceCheck>,
+    /// Container presentation time against capture time, frame by frame. Same
+    /// availability as `cadence`.
+    offset: Option<OffsetCheck>,
 }
 
 impl FileReport {
+    /// One description per failed check; empty when the file is fine.
+    fn problems(&self) -> Vec<String> {
+        let mut details: Vec<String> = self
+            .sources
+            .iter()
+            .filter(|c| c.analysis.is_broken())
+            .map(|c| {
+                format!(
+                    "{}: {} of {} samples inconsistent with bitstream POC order, up \
+                    to {:.1}ms early",
+                    c.label,
+                    c.analysis.num_inversions,
+                    c.analysis.num_frames,
+                    c.analysis.max_inversion_ms
+                )
+            })
+            .collect();
+        if let Some(cadence) = self.cadence.as_ref().filter(|c| c.is_broken()) {
+            details.push(cadence.describe());
+        }
+        if let Some(offset) = self.offset.as_ref().filter(|c| c.is_broken()) {
+            details.push(offset.describe());
+        }
+        details
+    }
+
     fn num_frames(&self) -> usize {
         self.sources
             .first()
@@ -291,12 +371,19 @@ fn check_file(path: &Utf8PathBuf) -> Result<FileReport> {
         Err(LoadError::Other(r)) => return Err(r),
     }
 
-    let cadence = match (container_frames, sei_frames) {
-        (Some(container), Some(sei)) => cadence_check(&container, &sei),
-        _ => None,
+    let (cadence, offset) = match (container_frames, sei_frames) {
+        (Some(container), Some(sei)) => (
+            cadence_check(&container, &sei),
+            offset_check(&container, &sei),
+        ),
+        _ => (None, None),
     };
 
-    Ok(FileReport { sources, cadence })
+    Ok(FileReport {
+        sources,
+        cadence,
+        offset,
+    })
 }
 
 /// Build a [`CadenceCheck`], or `None` when there is no cadence to speak of.
@@ -313,6 +400,32 @@ fn cadence_check(container: &[LoadedFrame], sei: &[LoadedFrame]) -> Option<Caden
     Some(CadenceCheck {
         container_span_ns: span_ns(container),
         sei_span_ns,
+        mean_interval_ns: sei_span_ns / (sei.len() as i64 - 1),
+    })
+}
+
+/// Build an [`OffsetCheck`], or `None` when there is nothing to compare.
+///
+/// `container` and `sei` are the same samples in the same (decode) order, so
+/// index `i` is one frame in both.
+fn offset_check(container: &[LoadedFrame], sei: &[LoadedFrame]) -> Option<OffsetCheck> {
+    if container.len() != sei.len() || container.len() < 2 {
+        return None;
+    }
+    let sei_span_ns = span_ns(sei);
+    if sei_span_ns <= 0 {
+        return None;
+    }
+    let first = (0..sei.len()).min_by_key(|&i| sei[i].display_key())?;
+    let mut offsets: Vec<i64> = (0..sei.len())
+        .filter(|&i| i != first)
+        .map(|i| {
+            (container[i].pts_ns - container[first].pts_ns) - (sei[i].pts_ns - sei[first].pts_ns)
+        })
+        .collect();
+    offsets.sort_unstable();
+    Some(OffsetCheck {
+        median_offset_ns: offsets[offsets.len() / 2],
         mean_interval_ns: sei_span_ns / (sei.len() as i64 - 1),
     })
 }
@@ -410,25 +523,7 @@ fn cmd_check(inputs: &[Utf8PathBuf]) -> Result<bool> {
     for path in inputs {
         match check_file(path) {
             Ok(report) => {
-                let mut details: Vec<String> = report
-                    .sources
-                    .iter()
-                    .filter(|c| c.analysis.is_broken())
-                    .map(|c| {
-                        format!(
-                            "{}: {} of {} samples inconsistent with bitstream POC order, up \
-                            to {:.1}ms early",
-                            c.label,
-                            c.analysis.num_inversions,
-                            c.analysis.num_frames,
-                            c.analysis.max_inversion_ms
-                        )
-                    })
-                    .collect();
-                if let Some(cadence) = report.cadence.as_ref().filter(|c| c.is_broken()) {
-                    details.push(cadence.describe());
-                }
-
+                let details = report.problems();
                 if !details.is_empty() {
                     any_broken = true;
                     println!("BROKEN  {path}  ({})", details.join("; "));
@@ -437,6 +532,9 @@ fn cmd_check(inputs: &[Utf8PathBuf]) -> Result<bool> {
                     let mut checked: Vec<&str> = report.sources.iter().map(|c| c.label).collect();
                     if report.cadence.is_some() {
                         checked.push("container-vs-capture rate");
+                    }
+                    if report.offset.is_some() {
+                        checked.push("container-vs-capture offset");
                     }
                     println!(
                         "OK      {path}  ({num_frames} samples; checked: {})",
@@ -739,8 +837,12 @@ fn write_repaired(loaded: &Loaded, out_path: &Utf8PathBuf) -> Result<()> {
 fn cmd_fix(input: &Utf8PathBuf, force: bool) -> Result<()> {
     let loaded = load_file_for_fix(input)?;
     let analysis = analyze_fix(&loaded.frames);
+    // The same checks `check` runs, so the two never disagree about whether a
+    // file needs repair. A container that is wrong only in its rate or offset
+    // has nothing to reorder, but rewriting it from the capture times fixes it.
+    let problems = check_file(input)?.problems();
 
-    if !analysis.is_broken() && !force {
+    if problems.is_empty() && !force {
         println!(
             "{input}: already OK, nothing to fix ({} samples). Pass --force to rewrite anyway.",
             analysis.num_frames
@@ -762,8 +864,8 @@ fn cmd_fix(input: &Utf8PathBuf, force: bool) -> Result<()> {
         .with_context(|| format!("moving repaired file into place at \"{input}\""))?;
 
     println!(
-        "{input}: reassigned {} of {} samples' capture times to POC order \
-        (original saved as \"{backup_path}\")",
+        "{input}: reassigned {} of {} samples' capture times to POC order and \
+        rewrote the container timing from them (original saved as \"{backup_path}\")",
         analysis.num_inversions, analysis.num_frames
     );
     Ok(())
@@ -1000,6 +1102,65 @@ mod tests {
 
         let check = cadence_check(&series(&container), &series(&sei)).unwrap();
         assert!(!check.is_broken(), "{}", check.describe());
+    }
+
+    /// The old `mp4-writer` signature: the first sample has zero duration and
+    /// every frame is presented at the capture time of the frame before it. The
+    /// order is still right, so [`analyze`] does not notice. Irregular
+    /// intervals, as from a webcam.
+    #[test]
+    fn offset_flags_a_container_lagging_by_one_frame() {
+        const INTERVALS: [i64; 6] = [68, 64, 32, 61, 60, 66];
+        let mut sei = vec![0i64];
+        for i in 0..40 {
+            sei.push(sei[i] + INTERVALS[i % INTERVALS.len()] * 1_000_000);
+        }
+        // Frame r presented at frame r-1's capture time; frames 0 and 1 collide.
+        let container: Vec<i64> = (0..sei.len()).map(|r| sei[r.saturating_sub(1)]).collect();
+
+        assert!(!analyze(&series(&container)).is_broken());
+
+        let check = offset_check(&series(&container), &series(&sei)).unwrap();
+        assert!(check.is_broken(), "{}", check.describe());
+        assert!(check.median_offset_ns < 0, "{}", check.describe());
+    }
+
+    /// The same lag at a perfectly constant rate, as from a triggered camera.
+    #[test]
+    fn offset_flags_a_lag_at_a_constant_rate() {
+        let sei: Vec<i64> = (0..100).map(|i| i * 10_000_000).collect();
+        let container: Vec<i64> = (0..sei.len()).map(|r| sei[r.saturating_sub(1)]).collect();
+        let check = offset_check(&series(&container), &series(&sei)).unwrap();
+        assert!(check.is_broken(), "{}", check.describe());
+    }
+
+    /// Snapping to an estimated cadence moves individual frames by their jitter;
+    /// the median stays near zero.
+    #[test]
+    fn offset_accepts_a_container_snapped_to_a_clean_grid() {
+        const JITTER: [i64; 10] = [
+            0, 1_300_000, -900_000, 2_000_000, -1_700_000, 600_000, -400_000, 1_100_000,
+            -2_000_000, 300_000,
+        ];
+        let n = 20usize;
+        let sei: Vec<i64> = (0..n)
+            .map(|i| i as i64 * 40_000_000 + JITTER[i % JITTER.len()])
+            .collect();
+        let rate = (sei[n - 1] - sei[0]) / (n as i64 - 1);
+        let container: Vec<i64> = (0..n).map(|i| i as i64 * rate).collect();
+        let check = offset_check(&series(&container), &series(&sei)).unwrap();
+        assert!(!check.is_broken(), "{}", check.describe());
+    }
+
+    /// A reordered stream read without its edit list starts at its lead-in
+    /// rather than at zero. That constant must not count as an offset.
+    #[test]
+    fn offset_ignores_a_constant_lead_in() {
+        let sei: Vec<i64> = (0..20).map(|i| i * 50_000_000).collect();
+        let container: Vec<i64> = sei.iter().map(|t| t + 100_000_000).collect();
+        let check = offset_check(&series(&container), &series(&sei)).unwrap();
+        assert!(!check.is_broken(), "{}", check.describe());
+        assert_eq!(check.median_offset_ns, 0);
     }
 
     /// The multi-GOP fix must not blind the check to real corruption *within* a
