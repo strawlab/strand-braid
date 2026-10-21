@@ -1,0 +1,18 @@
+[package]
+name = "ci2-video-file"
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "ci2 camera backend that plays back a video file (MP4, FMF, MKV, ...) as a live camera feed, for testing/demos without real camera hardware."
+
+[dependencies]
+tracing.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+machine-vision-formats.workspace = true
+
+ci2.workspace = true
+strand-dynamic-frame.workspace = true
+# `openh264` is required to decode MP4/H.264 pixel data (without it,
+# frame-source only demuxes, it does not decode to pixels).
+frame-source = { workspace = true, features = ["openh264"] }
