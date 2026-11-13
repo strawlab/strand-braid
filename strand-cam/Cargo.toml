@@ -32,7 +32,7 @@ webbrowser = "1.0.5"
 clap.workspace = true
 preferences-serde1.workspace = true
 base64.workspace = true
-directories = "6.0.0"
+directories = { version = "6.0.0", optional = true }
 eyre.workspace = true
 ci2.workspace = true
 ci2-async.workspace = true
@@ -129,7 +129,7 @@ fiducial = [
     "dep:apriltag-detection-writer",
 ]
 
-checkercal = ["dep:camcal", "dep:braid-mvg"]
+checkercal = ["dep:camcal", "dep:braid-mvg", "dep:directories"]
 
 # Serve style
 ## Bundle files into executable

@@ -13,7 +13,6 @@ csv.workspace = true
 serde.workspace = true
 opencv-ros-camera.workspace = true
 serde_yaml.workspace = true
-tempfile.workspace = true
 image.workspace = true
 zip.workspace = true
 nalgebra.workspace = true
@@ -29,7 +28,6 @@ env-tracing-logger.workspace = true
 flydra-mvg.workspace = true
 braid-types.workspace = true
 mcsc-native.workspace = true
-mcsc-structs.workspace = true
 zip-or-dir.workspace = true
 braid-mvg.workspace = true
 
@@ -37,6 +35,9 @@ braid-mvg.workspace = true
 download-verify.workspace = true
 serde-xml-rs.workspace = true
 tracing-test.workspace = true
+tempfile.workspace = true
+
+mcsc-structs.workspace = true
 
 [features]
 with-rerun = ["dep:re_sdk", "bundle-adj/with-rerun"]

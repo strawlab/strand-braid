@@ -8,5 +8,4 @@ description = "create collision masks from point sets using the Parry geometry l
 
 [dependencies]
 parry2d-f64 = { workspace = true, features = ["default"] }
-nalgebra.workspace = true
 thiserror.workspace = true

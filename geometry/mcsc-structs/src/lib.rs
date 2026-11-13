@@ -152,9 +152,8 @@ impl RadFile {
         }
         fd.write_all(b"\n")?;
 
-        for i in 0..4 {
-            let val = self.distortion[i];
-            fd.write_all(format!("kc{} = {}\n", i + 1, val).as_bytes())?;
+        for (i, val) in self.distortion.iter().enumerate() {
+            fd.write_all(format!("kc{} = {val}\n", i + 1).as_bytes())?;
         }
 
         Ok(())
