@@ -3,13 +3,16 @@
 
 use std::process::Command;
 
-use braidz_cli::Opt;
+use braidz_cli::{DisplayTimezone, Opt};
 
 const URL_BASE: &str = "https://strawlab-cdn.com/assets";
 const FNAME: &str = "20201104_174158.braidz";
 const SHA256SUM: &str = "d9e742336cf924f378e49055f3a709e52817ed90385c4f777f443952cf0557d6";
 
-/// Expected start of `--frame-by-frame` output for [FNAME], with times in UTC.
+/// Expected start of `--frame-by-frame` output for [FNAME].
+///
+/// Times of day are in the timezone stored in the file, so this does not
+/// depend on the machine running the test.
 const SNAPSHOT: &str = "tests/snapshots/20201104_174158.txt";
 /// Set this environment variable to rewrite [SNAPSHOT] instead of checking it.
 const UPDATE_ENV_VAR: &str = "BRAIDZ_CLI_UPDATE_SNAPSHOT";
@@ -31,35 +34,17 @@ fn test_file() -> String {
     local_fname
 }
 
-/// Make `output` independent of the machine's timezone.
-///
-/// The summary stores the recording time in the machine's local timezone;
-/// rewrite it in UTC.
-fn normalize_recording_time(output: &str) -> String {
-    const KEY: &str = "  original_recording_time: ";
-    output
-        .lines()
-        .map(|line| match line.strip_prefix(KEY) {
-            Some(value) => {
-                let t = chrono::DateTime::parse_from_rfc3339(value).unwrap();
-                format!("{KEY}{}", t.with_timezone(&chrono::Utc).to_rfc3339())
-            }
-            None => line.to_string(),
-        })
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
 #[test]
 fn frame_by_frame_snapshot() {
     let opt = Opt {
         input: test_file().into(),
         data2d_distorted: false,
         frame_by_frame: true,
+        timezone: DisplayTimezone::File,
     };
     let mut buf = Vec::new();
-    braidz_cli::run(&opt, &chrono::Utc, &mut buf).unwrap();
-    let output = normalize_recording_time(&String::from_utf8(buf).unwrap());
+    braidz_cli::run(&opt, &mut buf).unwrap();
+    let output = String::from_utf8(buf).unwrap();
 
     // Keep the summary and the start of the (very long) table.
     let table_start = output
@@ -135,4 +120,46 @@ fn frame_by_frame_flag_prints_table() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("│ data2d_distorted_rows "), "{stdout}");
     assert!(stdout.trim_end().ends_with('┘'));
+}
+
+/// The first time of day in the frame-by-frame table.
+fn first_time_of_day(stdout: &str) -> &str {
+    let header = stdout.find("timestamp").expect("timestamp column");
+    let next_line = &stdout[header..][stdout[header..].find('\n').unwrap() + 1..];
+    next_line
+        .split_whitespace()
+        .find(|word| word.contains(':'))
+        .expect("time of day")
+}
+
+#[test]
+fn timezone_option() {
+    let run = |timezone: &[&str]| {
+        let output = braidz_cli()
+            .args(["--frame-by-frame", &test_file()])
+            .args(timezone)
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        String::from_utf8(output.stdout).unwrap()
+    };
+
+    // The file was recorded at UTC+01:00.
+    let default = run(&[]);
+    assert!(default.contains("Times of day are at UTC offset +01:00."));
+    assert_eq!(first_time_of_day(&default), "17:41:58.035798072");
+
+    let utc = run(&["--timezone", "utc"]);
+    assert!(utc.contains("Times of day are in UTC."));
+    assert_eq!(first_time_of_day(&utc), "16:41:58.035798072");
+
+    let fixed = run(&["--timezone", "-05:00"]);
+    assert!(fixed.contains("Times of day are at UTC offset -05:00."));
+    assert_eq!(first_time_of_day(&fixed), "11:41:58.035798072");
+
+    let output = braidz_cli()
+        .args(["--timezone", "Europe/Berlin", &test_file()])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
 }

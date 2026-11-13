@@ -13,6 +13,7 @@ serde_yaml.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 tabled.workspace = true
+tracing.workspace = true
 
 braidz-parser.workspace = true
 braid-types.workspace = true
