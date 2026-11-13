@@ -274,7 +274,7 @@ where
         let metadata = braidz_types::BraidMetadata {
             schema: braid_types::BRAID_SCHEMA, // BraidMetadataSchemaTag
             git_revision,
-            original_recording_time: Some(cfg.created_at),
+            original_recording_time: Some(cfg.created_at.fixed_offset()),
             save_empty_data2d: false, // We do filtering below, but is this correct?
             saving_program_name: env!("CARGO_PKG_NAME").to_string(),
             ptp_utc_offset_secs: None,

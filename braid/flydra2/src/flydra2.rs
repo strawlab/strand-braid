@@ -662,7 +662,7 @@ fn histogram_record(
 #[derive(Debug)]
 pub struct StartSavingCsvConfig {
     pub out_dir: std::path::PathBuf,
-    pub local: Option<chrono::DateTime<chrono::Local>>,
+    pub local: Option<chrono::DateTime<chrono::FixedOffset>>,
     pub git_rev: String,
     pub fps: Option<f32>,
     pub per_cam_data: BTreeMap<RawCamName, braid_types::PerCamSaveData>,

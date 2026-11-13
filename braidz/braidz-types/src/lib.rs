@@ -13,7 +13,9 @@ pub struct BraidMetadata {
     // backward-incompatible changes here require a BRAID_SCHEMA bump (see its definition)
     pub schema: u16, // BraidMetadataSchemaTag
     pub git_revision: String,
-    pub original_recording_time: Option<chrono::DateTime<chrono::Local>>,
+    /// When the recording started, with the UTC offset of the recording
+    /// computer at that time.
+    pub original_recording_time: Option<chrono::DateTime<chrono::FixedOffset>>,
     pub save_empty_data2d: bool,
     /// The name of the saving program.
     ///
@@ -187,4 +189,30 @@ fn test_cam_from_filename() {
     let fname2 = "movie20240302_144852.000002145_Basler-40454395.mp4";
     let (_, cam) = camera_name_from_filename(fname2);
     assert_eq!(cam, Some("Basler-40454395".to_string()));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::BraidMetadata;
+
+    #[test]
+    fn recording_time_keeps_utc_offset() {
+        // From a real file recorded at UTC+01:00. The offset must survive a
+        // round trip regardless of the timezone of the computer reading it.
+        let yaml = "schema: 1
+git_revision: f801a2d7ae24e7138a463ea8be9dd6c5d5919254
+original_recording_time: \"2020-11-04T17:41:58.039288607+01:00\"
+save_empty_data2d: true
+";
+        let md: BraidMetadata = serde_yaml::from_str(yaml).unwrap();
+        let t = md.original_recording_time.unwrap();
+        assert_eq!(t.offset().local_minus_utc(), 3600);
+        assert_eq!(t.to_rfc3339(), "2020-11-04T17:41:58.039288607+01:00");
+
+        let written = serde_yaml::to_string(&md).unwrap();
+        assert!(
+            written.contains("original_recording_time: 2020-11-04T17:41:58.039288607+01:00"),
+            "{written}"
+        );
+    }
 }

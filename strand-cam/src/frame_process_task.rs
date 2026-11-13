@@ -1559,7 +1559,7 @@ pub(crate) async fn frame_process_task<'a>(
 
                                 let cfg = flydra2::StartSavingCsvConfig {
                                     out_dir: my_dir.clone(),
-                                    local: Some(local),
+                                    local: Some(local.fixed_offset()),
                                     git_rev: env!("GIT_HASH").to_string(),
                                     fps: expected_fps,
                                     per_cam_data,

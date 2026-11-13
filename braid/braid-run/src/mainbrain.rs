@@ -1409,7 +1409,7 @@ pub(crate) async fn toggle_saving_csv_tables(
         };
         let cfg = flydra2::StartSavingCsvConfig {
             out_dir: my_dir.clone(),
-            local: Some(local),
+            local: Some(local.fixed_offset()),
             git_rev: env!("GIT_HASH").to_string(),
             fps: expected_framerate,
             per_cam_data,

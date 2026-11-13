@@ -182,7 +182,7 @@ impl<R: Read + Seek> IncrementalParser<R, ArchiveOpened> {
 
                                 metadata = Some(BraidMetadata {
                                     git_revision,
-                                    original_recording_time: Some(local),
+                                    original_recording_time: Some(local.fixed_offset()),
                                     saving_program_name: "flydra".to_string(),
                                     schema: braid_types::BRAID_SCHEMA,
                                     save_empty_data2d: false,
