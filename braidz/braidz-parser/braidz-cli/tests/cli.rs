@@ -122,12 +122,7 @@ fn data2d_distorted_flag_prints_table() {
         .split_once("data2d_distorted table: --------------\n")
         .expect("table header");
     assert!(table.lines().count() > 1000);
-    // Each row is the `Debug` output of the parse result.
-    assert!(
-        table
-            .lines()
-            .all(|l| l.starts_with("Ok(Data2dDistortedRow {"))
-    );
+    assert!(table.lines().all(|l| l.starts_with("Data2dDistortedRow {")));
 }
 
 #[test]

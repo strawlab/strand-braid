@@ -49,6 +49,7 @@ pub fn run<Tz: chrono::TimeZone, W: Write>(opt: &Opt, tz: &Tz, out: &mut W) -> a
     if opt.data2d_distorted {
         writeln!(out, "data2d_distorted table: --------------")?;
         for row in archive.iter_data2d_distorted()? {
+            let row = row.context("Reading data2d_distorted table")?;
             writeln!(out, "{row:?}")?;
         }
     }
