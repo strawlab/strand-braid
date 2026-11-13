@@ -28,7 +28,7 @@ where
     for i in 0..zip.len() {
         let mut file = zip.by_index(i)?;
 
-        let out_name = dest.as_ref().join(file.name());
+        let out_name = dest.as_ref().join(&*file.name()?);
 
         if file.is_dir() {
             std::fs::create_dir_all(&out_name)?;

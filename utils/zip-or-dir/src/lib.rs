@@ -225,7 +225,8 @@ impl<R: Read + Seek> ZipDirArchive<R> {
                 let mut suffixes: Vec<PathBuf> = vec![];
 
                 let mut found_any = false;
-                for deep_path in zip_archive.file_names().map(PathBuf::from) {
+                for deep_path in zip_archive.file_names() {
+                    let deep_path = PathBuf::from(deep_path?.as_ref());
                     if let Some(prefix) = &relname {
                         let (has_match, suffix) = remove_shared_prefix(&deep_path, prefix);
                         if has_match {
@@ -334,7 +335,9 @@ pub struct FileReader<'a> {
 
 enum FileReaderInner<'a> {
     File(BufReader<File>),
-    ZipFile(Box<BufReader<zip::read::ZipFile<'a>>>),
+    /// A [zip::read::ZipFile], type-erased so that [FileReader] does not
+    /// depend on the archive's reader type.
+    ZipFile(BufReader<Box<dyn Read + 'a>>),
 }
 
 impl<'a> std::fmt::Debug for FileReaderInner<'a> {
@@ -354,8 +357,8 @@ impl<'a> FileReader<'a> {
         let f = File::open(path)?;
         Self::from_inner(FileReaderInner::File(BufReader::new(f)))
     }
-    fn from_zip(zipfile: zip::read::ZipFile<'a>) -> Result<FileReader<'a>> {
-        Self::from_inner(FileReaderInner::ZipFile(Box::new(BufReader::new(zipfile))))
+    fn from_zip<R: Read + 'a>(zipfile: zip::read::ZipFile<'a, R>) -> Result<FileReader<'a>> {
+        Self::from_inner(FileReaderInner::ZipFile(BufReader::new(Box::new(zipfile))))
     }
 }
 

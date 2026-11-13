@@ -296,7 +296,7 @@ fn unpack_zip_into<R: Read + Seek>(mut archive: ZipArchive<R>, mcsc_dir_name: &P
         };
         let outpath = mcsc_dir_name.join(outpath);
 
-        if (*file.name()).ends_with('/') {
+        if file.name()?.ends_with('/') {
             fs::create_dir_all(&outpath).unwrap();
         } else {
             if let Some(p) = outpath.parent()

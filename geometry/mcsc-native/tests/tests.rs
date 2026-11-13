@@ -24,7 +24,7 @@ fn unpack_zip_into<R: Read + Seek>(
         };
         let outpath = mcsc_dir_name.join(outpath);
 
-        if (*file.name()).ends_with('/') {
+        if file.name()?.ends_with('/') {
             std::fs::create_dir_all(&outpath).unwrap();
         } else {
             if let Some(p) = outpath.parent()
