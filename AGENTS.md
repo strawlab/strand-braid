@@ -38,6 +38,22 @@ skipping them will fail CI.
   Features from the most recent rust version can be used.
 - New logic should have unit tests in the same file (`#[cfg(test)]` module) or
   in a `tests/` directory.
+- Tests that need large data files must not commit them. Download them with
+  the workspace's `download-verify` crate, pinned by SHA-256, into `scratch/`
+  inside the crate directory (tests run with the crate directory as working
+  directory; the root `.gitignore` already ignores every `scratch/`):
+
+  ```rust
+  let local_fname = format!("scratch/{FNAME}");
+  download_verify::download_verify(
+      &format!("{URL_BASE}/{FNAME}"),
+      &local_fname,
+      &download_verify::Hash::Sha256(SHA256SUM.into()),
+  )?;
+  ```
+
+  Do not download into the crate root or add per-crate `.gitignore` entries
+  for test data.
 - Prefer `cargo check` and `cargo test --release` over building final binaries
   when iterating — final binaries take much longer.
 - Keep within-repo crate references separated by a newline below crate
