@@ -6,6 +6,10 @@ pub enum ErrorKind {
     IoError(std::io::Error),
     ObjHasNoTextureCoords,
     ObjHasTooManyVertices,
+    /// Only triangles and quads are supported.
+    PolygonNotTriangleOrQuad {
+        vert_count: usize,
+    },
     ObjError(obj::ObjError),
 }
 
