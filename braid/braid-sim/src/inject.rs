@@ -131,7 +131,7 @@ pub async fn inject_and_track(
         .send(flydra2::SaveToDiskMsg::StartSavingCsv(
             flydra2::StartSavingCsvConfig {
                 out_dir: out_braid_dir.to_path_buf(),
-                local: Some(chrono::Local::now()),
+                local: Some(chrono::Local::now().fixed_offset()),
                 git_rev: "braid-sim-inject".to_string(),
                 fps: Some(fps as f32),
                 per_cam_data: Default::default(),

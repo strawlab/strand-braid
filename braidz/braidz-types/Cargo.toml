@@ -15,3 +15,6 @@ chrono.workspace = true
 braid-types.workspace = true
 braid-mvg.workspace = true
 regex.workspace = true
+
+[dev-dependencies]
+serde_yaml.workspace = true
