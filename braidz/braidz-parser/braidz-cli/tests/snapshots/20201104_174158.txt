@@ -57,7 +57,7 @@ reconstruct_latency_usec_summary: null
 reprojection_distance_100x_pixels_summary: null
 
 ┌────────┬──────────────────────────────────────────────────────────────┬───────────────────────────┬────────────────────────────────────┐
-│ u64    │ data2d_distorted_rows                                        │ data_association          │ kalman_estimates                   │
+│ frame  │ data2d_distorted_rows                                        │ data_association          │ kalman_estimates                   │
 ├────────┼──────────────────────────────────────────────────────────────┼───────────────────────────┼────────────────────────────────────┤
 │ 71840  │                                                              │  obj_id  cam_num  pt_idx  │  obj_id  x       y       z         │
 │        │                                                              │  158     0        0       │  158     0.0012  0.0201  0.0000    │

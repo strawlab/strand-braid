@@ -12,6 +12,8 @@ use braid_types::{Data2dDistortedRow, DataAssocRow, KalmanEstimatesRow};
 
 #[derive(Tabled, Default)]
 struct FrameByFrameRow {
+    /// Synchronized frame number.
+    frame: u64,
     #[tabled(display = "display_data2d_distorted_rows")]
     data2d_distorted_rows: Vec<DisplayData2dDistortedRow>,
     #[tabled(display = "display_data_association")]
@@ -122,6 +124,14 @@ fn display_option<T: std::fmt::Display>(opt: &Option<T>) -> String {
     opt.as_ref().map(|v| v.to_string()).unwrap_or_default()
 }
 
+/// The row for `frame`, created empty if needed.
+fn row_for(rows: &mut BTreeMap<u64, FrameByFrameRow>, frame: u64) -> &mut FrameByFrameRow {
+    rows.entry(frame).or_insert_with(|| FrameByFrameRow {
+        frame,
+        ..Default::default()
+    })
+}
+
 /// Collect all rows of the three tables, keyed by synchronized frame number.
 ///
 /// 2D rows without a detection (`x` is NaN) are skipped.
@@ -138,8 +148,7 @@ where
     let mut rows = BTreeMap::<u64, FrameByFrameRow>::new();
 
     for row in data_association {
-        rows.entry(row.frame.0)
-            .or_default()
+        row_for(&mut rows, row.frame.0)
             .data_association
             .push(row.into());
     }
@@ -149,16 +158,14 @@ where
         if !row.x.is_nan() {
             let frame = u64::try_from(row.frame)
                 .with_context(|| format!("negative frame number {}", row.frame))?;
-            rows.entry(frame)
-                .or_default()
+            row_for(&mut rows, frame)
                 .data2d_distorted_rows
                 .push(DisplayData2dDistortedRow::new(row, tz));
         }
     }
 
     for row in kalman_estimates {
-        rows.entry(row.frame.0)
-            .or_default()
+        row_for(&mut rows, row.frame.0)
             .kalman_estimates
             .push(row.into());
     }
@@ -189,7 +196,7 @@ where
         tz,
     )?;
 
-    let mut table = Table::new(rows);
+    let mut table = Table::new(rows.into_values());
     writeln!(out, "{}", table.with(Style::modern()))?;
     Ok(())
 }
@@ -383,6 +390,7 @@ mod tests {
         .unwrap();
 
         assert_eq!(rows.keys().copied().collect::<Vec<_>>(), [10, 12, 13]);
+        assert!(rows.iter().all(|(frame, row)| row.frame == *frame));
         assert_eq!(rows[&10].data2d_distorted_rows.len(), 1);
         assert_eq!(rows[&10].data2d_distorted_rows[0].camn, 0);
         assert_eq!(rows[&12].data2d_distorted_rows.len(), 1);
