@@ -20,8 +20,14 @@ braidz-parser.workspace = true
 braidz-rerun.workspace = true
 env-tracing-logger.workspace = true
 frame-source.workspace = true
+pending-file.workspace = true
 strand-cam-remote-control.workspace = true
 mp4-writer = { workspace = true, features = ["nv-encode"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+download-verify.workspace = true
 
 [features]
 default = ["openh264-encode"]

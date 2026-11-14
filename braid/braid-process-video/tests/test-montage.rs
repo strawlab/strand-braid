@@ -20,6 +20,17 @@ async fn do_config(cfg: &Valid<BraidRetrackVideoConfig>) -> anyhow::Result<()> {
     assert_eq!(output_fnames.len(), 2);
     let output_mp4 = output_fnames[0].clone();
 
+    // Each output is written under a temporary name beside it, which must be
+    // gone once the output is in place.
+    for output_fname in output_fnames.iter() {
+        assert!(output_fname.exists(), "{}", output_fname.display());
+        let partial_files: Vec<_> = std::fs::read_dir(output_fname.parent().unwrap())?
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .filter(|name| name.ends_with(".partial"))
+            .collect();
+        assert!(partial_files.is_empty(), "{partial_files:?}");
+    }
+
     // start parsing video output
     let _src = frame_source::FrameSourceBuilder::new(&output_mp4)
         .do_decode_h264(false)

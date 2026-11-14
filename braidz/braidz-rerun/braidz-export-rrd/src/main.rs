@@ -6,6 +6,8 @@ use clap::{Parser, ValueEnum};
 use eyre::WrapErr;
 use rayon::prelude::*;
 
+use pending_file::PendingFile;
+
 #[derive(Default, Debug, Parser)]
 #[command(about, long_about = None)]
 struct Opt {
@@ -100,9 +102,13 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
         eyre::bail!("expected only mp4 inputs beyond one .braidz file.");
     }
 
-    // Initiate recording
+    // Initiate recording. It is written beside its destination and moved there
+    // only once it is complete. Rerun creates the file itself, so it gets the
+    // path rather than the open file.
+    let (_, pending_rrd) =
+        PendingFile::create(&output).with_context(|| format!("Creating output file {output}"))?;
     let rec = re_sdk::RecordingStreamBuilder::new(env!("CARGO_PKG_NAME"))
-        .save(&output)
+        .save(pending_rrd.path())
         .with_context(|| format!("Creating output file {output}"))?;
 
     let have_image_data = !mp4_inputs.is_empty();
@@ -113,6 +119,7 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
         .as_slice()
         .par_iter()
         .try_for_each(|mp4_filename| {
+            let mut pending_mp4 = None;
             let my_mp4_writer = if opt.export_linearized_mp4s {
                 let linearized_mp4_output = {
                     let trimmed = mp4_filename.as_str().trim_end_matches(".mp4");
@@ -120,8 +127,9 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
                 };
 
                 tracing::info!("linearize (undistort) {mp4_filename} -> {linearized_mp4_output}");
-                let out_fd = std::fs::File::create(&linearized_mp4_output)
+                let (out_fd, pending) = PendingFile::create(&linearized_mp4_output)
                     .with_context(|| format!("Creating MP4 output file {linearized_mp4_output}"))?;
+                pending_mp4 = Some(pending);
 
                 let codec = if opt.encoder == Encoder::OpenH264 {
                     #[cfg(feature = "openh264-encode")]
@@ -153,14 +161,22 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
             };
 
             let mp4_filename = mp4_filename.as_std_path().to_str().unwrap();
+            // This takes the MP4 writer and finishes the movie.
             rrd_logger.log_video(mp4_filename, my_mp4_writer)?;
+            if let Some(pending) = pending_mp4 {
+                pending.commit()?;
+            }
             Ok::<(), eyre::ErrReport>(())
         })?;
-    let re_version = re_build_info::CrateVersion::LOCAL;
-    tracing::info!("Exported to Rerun {re_version} RRD file: {output}");
-
+    // Rerun writes in the background. Everything must be in the file, and the
+    // file closed, before it is moved into place.
     let rec = rrd_logger.close();
     rec.flush_blocking()?;
+    drop(rec);
+    pending_rrd.commit()?;
+
+    let re_version = re_build_info::CrateVersion::LOCAL;
+    tracing::info!("Exported to Rerun {re_version} RRD file: {output}");
 
     Ok(())
 }
