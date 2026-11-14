@@ -998,7 +998,7 @@ mod tests {
              POC-restart case, but every sample landed in sequence 0"
         );
         assert!(
-            frames.windows(2).any(|w| w[1].poc < w[0].poc),
+            frames.array_windows().any(|[a, b]| b.poc < a.poc),
             "fixture must be reordered (POC not monotonic in decode order), \
              otherwise this proves nothing about B-frame handling"
         );
@@ -1092,13 +1092,11 @@ mod tests {
             -2_000_000, 300_000,
         ];
         let n = 20usize;
-        let sei: Vec<i64> = (0..n)
-            .map(|i| i as i64 * 40_000_000 + JITTER[i % JITTER.len()])
-            .collect();
+        let sei: Vec<i64> = Vec::from_fn(n, |i| i as i64 * 40_000_000 + JITTER[i % JITTER.len()]);
         // Snapped to the span-derived rate, so the ends line up and the middle
         // does not.
         let rate = (sei[n - 1] - sei[0]) / (n as i64 - 1);
-        let container: Vec<i64> = (0..n).map(|i| i as i64 * rate).collect();
+        let container: Vec<i64> = Vec::from_fn(n, |i| i as i64 * rate);
 
         let check = cadence_check(&series(&container), &series(&sei)).unwrap();
         assert!(!check.is_broken(), "{}", check.describe());
@@ -1143,11 +1141,9 @@ mod tests {
             -2_000_000, 300_000,
         ];
         let n = 20usize;
-        let sei: Vec<i64> = (0..n)
-            .map(|i| i as i64 * 40_000_000 + JITTER[i % JITTER.len()])
-            .collect();
+        let sei: Vec<i64> = Vec::from_fn(n, |i| i as i64 * 40_000_000 + JITTER[i % JITTER.len()]);
         let rate = (sei[n - 1] - sei[0]) / (n as i64 - 1);
-        let container: Vec<i64> = (0..n).map(|i| i as i64 * rate).collect();
+        let container: Vec<i64> = Vec::from_fn(n, |i| i as i64 * rate);
         let check = offset_check(&series(&container), &series(&sei)).unwrap();
         assert!(!check.is_broken(), "{}", check.describe());
     }

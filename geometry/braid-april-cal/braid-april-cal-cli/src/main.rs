@@ -220,11 +220,7 @@ fn perform_calibration(cli: Cli) -> eyre::Result<()> {
         if (entry.file_name().starts_with("apriltags")
             || entry.file_name().ends_with(".apriltag.csv"))
             && (entry.file_name().ends_with(".csv") || entry.file_name().ends_with(".csv.gz"))
-            && entry
-                .file_type()
-                .ok()
-                .map(|x| x.is_file())
-                .unwrap_or_default()
+            && entry.file_type().is_ok_and(|x| x.is_file())
         {
             // Load april tag detections
             let entry = entry.into_path();

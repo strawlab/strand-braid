@@ -1906,9 +1906,8 @@ mod tests {
                 p
             };
 
-        let p_full_blocks: Vec<_> = (0..n_cams)
-            .map(|i| build_p(&k_full_list[i], &r_list[i], &c_list[i]))
-            .collect();
+        let p_full_blocks =
+            Vec::from_fn(n_cams, |i| build_p(&k_full_list[i], &r_list[i], &c_list[i]));
 
         let mut p_joint_full = DMatrix::<f64>::zeros(9, 4);
         for (i, p) in p_full_blocks.iter().enumerate() {
@@ -1948,9 +1947,9 @@ mod tests {
             })
             .collect();
 
-        let p_centred_blocks: Vec<_> = (0..n_cams)
-            .map(|i| build_p(&k_centred_list[i], &r_list[i], &c_list[i]))
-            .collect();
+        let p_centred_blocks = Vec::from_fn(n_cams, |i| {
+            build_p(&k_centred_list[i], &r_list[i], &c_list[i])
+        });
 
         let mut p_joint_c = DMatrix::<f64>::zeros(9, 4);
         for (i, p) in p_centred_blocks.iter().enumerate() {

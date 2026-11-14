@@ -433,8 +433,8 @@ mod tests {
         assert!(*ticks.last().unwrap() >= 2790.8);
         // Steps are uniform.
         let step = ticks[1] - ticks[0];
-        for w in ticks.windows(2) {
-            assert!((w[1] - w[0] - step).abs() < step * 1e-6);
+        for [a, b] in ticks.array_windows() {
+            assert!((b - a - step).abs() < step * 1e-6);
         }
     }
 

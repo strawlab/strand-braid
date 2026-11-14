@@ -815,7 +815,7 @@ fn create_nullspace(
     let n_rows = m.nrows(); // 3 * n_cams
 
     let cols_scaled: Vec<bool> = if let Some(c) = central {
-        (0..n_pts).map(|j| i_vis[(c, j)]).collect()
+        Vec::from_fn(n_pts, |j| i_vis[(c, j)])
     } else {
         vec![]
     };

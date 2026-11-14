@@ -676,11 +676,9 @@ impl FfmpegFrameSink {
             .stderr
             .take()
             .map_or_else(String::new, StderrTail::join_and_tail);
-        if status.success() {
-            Ok(())
-        } else {
-            Err(Error::FfmpegExited { status, stderr })
-        }
+        status
+            .success()
+            .ok_or(Error::FfmpegExited { status, stderr })
     }
 }
 

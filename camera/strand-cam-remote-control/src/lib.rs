@@ -475,20 +475,12 @@ impl std::fmt::Display for FfmpegCodecArgs {
             }
         }
         let pre = arg_fmt(self.pre_codec_args.as_ref());
-        let codec = self
-            .codec
-            .as_ref()
-            .map(|c| format!("-c:v {c}"))
-            .unwrap_or_default();
+        let codec = self.codec.as_ref().map_or_default(|c| format!("-c:v {c}"));
         let pixfmt = self
             .pixfmt
             .as_ref()
-            .map(|p| format!("-pix_fmt {p}"))
-            .unwrap_or_default();
-        let bframes = self
-            .max_bframes
-            .map(|n| format!("-bf {n}"))
-            .unwrap_or_default();
+            .map_or_default(|p| format!("-pix_fmt {p}"));
+        let bframes = self.max_bframes.map_or_default(|n| format!("-bf {n}"));
         let post = arg_fmt(self.post_codec_args.as_ref());
         write!(f, "ffmpeg {pre} {codec} {pixfmt} {bframes} {post}")
     }

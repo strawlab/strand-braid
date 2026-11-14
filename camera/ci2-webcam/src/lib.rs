@@ -61,13 +61,9 @@ fn ensure_nokhwa_initialized() -> ci2::Result<()> {
         rx.recv().unwrap_or(false)
     });
 
-    if granted {
-        Ok(())
-    } else {
-        Err(ci2::Error::from(
-            "nokhwa initialization failed or camera access was not granted",
-        ))
-    }
+    granted.ok_or_else(|| {
+        ci2::Error::from("nokhwa initialization failed or camera access was not granted")
+    })
 }
 
 /// Enumerate the webcams visible to the native backend.

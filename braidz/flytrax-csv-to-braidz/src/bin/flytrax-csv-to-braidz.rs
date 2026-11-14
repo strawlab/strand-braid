@@ -153,7 +153,7 @@ async fn open_files_and_run() -> anyhow::Result<()> {
         let old_tempdirs_pattern =
             tempfile::env::temp_dir().join(format!("{STRAND_CONVERT_PREFIX}*"));
         // ensure UTF8
-        let old_tempdirs_pattern = old_tempdirs_pattern.into_os_string().into_string().unwrap();
+        let old_tempdirs_pattern = old_tempdirs_pattern.into_string().unwrap();
 
         for entry in glob::glob(&old_tempdirs_pattern)? {
             let path = entry?;

@@ -33,6 +33,7 @@ use crate::{
 /// Reconstructs picture order count (POC) for `pic_order_cnt_type == 0`
 /// streams (ITU-T H.264 §8.2.1.1), which covers essentially all cameras and
 /// software/hardware H.264 encoders in practice.
+#[derive(Debug)]
 pub(crate) struct PocDecoder {
     max_poc_lsb: i64,
     prev_poc_msb: i64,
@@ -79,6 +80,7 @@ impl PocDecoder {
 
 /// How each frame's picture order count is obtained, selected from the SPS's
 /// `pic_order_cnt_type`.
+#[derive(Debug)]
 pub(crate) enum PocStrategy {
     /// `pic_order_cnt_type == 0`: read `pic_order_cnt_lsb` from every slice and
     /// unwrap it (this is the type that can carry B-frame reordering).
@@ -264,13 +266,15 @@ mod tests {
             0x00, 0x03, 0x00, 0x01, 0x00, 0x00, 0x03, 0x00, 0x3c, 0x0f, 0x08, 0x84, 0x6a,
         ];
         let (_, s0) = parse_sps(&RefNal::new(SPS_TYPE0, &[], true)).unwrap();
-        assert!(
-            matches!(s0, PocStrategy::FromSliceLsb(_)),
+        std::assert_matches!(
+            s0,
+            PocStrategy::FromSliceLsb(_),
             "pic_order_cnt_type 0 should read poc_lsb from slices"
         );
         let (_, s2) = parse_sps(&RefNal::new(SPS_TYPE2, &[], true)).unwrap();
-        assert!(
-            matches!(s2, PocStrategy::DecodeOrder { .. }),
+        std::assert_matches!(
+            s2,
+            PocStrategy::DecodeOrder { .. },
             "pic_order_cnt_type 2 should fall back to decode order"
         );
     }

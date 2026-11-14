@@ -96,7 +96,7 @@ pub(crate) fn build_http_router(
     // cookie). Existing cookies that predate this field carry no embedded
     // expiry and are treated as non-expiring until renewed, so they stay
     // valid across the upgrade.
-    cfg.session_expires = Some(std::time::Duration::from_secs(60 * 60 * 24 * 400)); // 400 days
+    cfg.session_expires = Some(std::time::Duration::from_hours(24 * 400)); // 400 days
     // Clients on a trusted overlay network (e.g. Tailscale/WireGuard) are
     // accepted without a token; the overlay has already authenticated them.
     cfg.trusted_networks = trusted_networks;

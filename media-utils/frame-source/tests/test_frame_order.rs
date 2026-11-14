@@ -99,13 +99,13 @@ fn test_mp4_with_bframes_iterates_in_decode_order() -> Result<()> {
         .collect::<Result<_>>()?;
     let emitted = pts.clone();
     pts.sort();
-    for w in pts.windows(2) {
+    for [earlier, later] in pts.array_windows() {
         assert!(
-            w[1] > w[0],
+            later > earlier,
             "presentation timestamps must be distinct and strictly increasing when sorted, \
              got {:?} then {:?}",
-            w[0],
-            w[1]
+            earlier,
+            later
         );
     }
 
@@ -144,12 +144,12 @@ fn test_mp4_with_bframes_presentation_order_is_monotonic() -> Result<()> {
             Timestamp::Fraction(_) => eyre::bail!("expected duration timestamps for an MP4 source"),
         })
         .collect::<Result<_>>()?;
-    for w in pts.windows(2) {
+    for [earlier, later] in pts.array_windows() {
         assert!(
-            w[1] > w[0],
+            later > earlier,
             "presentation-order timestamps must strictly increase, got {:?} then {:?}",
-            w[0],
-            w[1]
+            earlier,
+            later
         );
     }
 

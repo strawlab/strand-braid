@@ -190,9 +190,9 @@ fn mp4_bframes_presentation_order_decodes_in_display_order() -> Result<()> {
         .iter()
         .map(|f| f.timestamp().unwrap_duration())
         .collect();
-    for w in pts.windows(2) {
+    for [earlier, later] in pts.array_windows() {
         assert!(
-            w[1] > w[0],
+            later > earlier,
             "presentation timestamps must strictly increase"
         );
     }

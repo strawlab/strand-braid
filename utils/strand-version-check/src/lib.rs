@@ -27,12 +27,10 @@ use hyper_util::{
 use serde::Deserialize;
 use tracing::warn;
 
-type Body = BoxBody<Bytes, std::convert::Infallible>;
+type Body = BoxBody<Bytes, !>;
 
 fn empty_body() -> Body {
-    Full::new(Bytes::new())
-        .map_err(|never| match never {})
-        .boxed()
+    Full::new(Bytes::new()).boxed()
 }
 
 /// A newer available version, as reported by the version-check server.

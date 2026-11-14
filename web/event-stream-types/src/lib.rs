@@ -8,7 +8,6 @@ use http::{StatusCode, header::ACCEPT, request::Parts};
 use http_body::Frame;
 use std::{
     collections::HashMap,
-    convert::Infallible,
     pin::Pin,
     sync::{Arc, RwLock},
 };
@@ -107,7 +106,7 @@ impl EventsBody {
 
 impl http_body::Body for EventsBody {
     type Data = Bytes;
-    type Error = Infallible;
+    type Error = !;
 
     fn poll_frame(
         mut self: Pin<&mut Self>,

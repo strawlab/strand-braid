@@ -881,9 +881,9 @@ mod tests {
         }
 
         // Tangent bases.
-        let tx: Vec<DMatrix<f64>> = (0..n)
-            .map(|pt| tangent_basis(&DVector::from_column_slice(x0.column(pt).as_slice())))
-            .collect();
+        let tx: Vec<DMatrix<f64>> = Vec::from_fn(n, |pt| {
+            tangent_basis(&DVector::from_column_slice(x0.column(pt).as_slice()))
+        });
         let tp: Vec<DMatrix<f64>> = (0..k)
             .map(|cam| {
                 let mut v = DVector::<f64>::zeros(12);

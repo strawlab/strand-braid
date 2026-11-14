@@ -195,8 +195,8 @@ fn test_container_cadence_matches_capture_cadence() -> Result<()> {
         0,
         "the first frame must be presented at the start of the track"
     );
-    for (i, w) in pts.windows(2).enumerate() {
-        let interval = (w[1] - w[0]).num_microseconds().unwrap();
+    for (i, [earlier, later]) in pts.array_windows().enumerate() {
+        let interval = (*later - *earlier).num_microseconds().unwrap();
         assert!(
             (interval - INTERVAL_US).abs() <= TOLERANCE_US,
             "presentation interval {i} is {interval} us, expected {INTERVAL_US} us \

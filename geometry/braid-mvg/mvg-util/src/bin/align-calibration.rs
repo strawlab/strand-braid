@@ -89,7 +89,7 @@ fn align_cal(opt: Opt) -> Result<PathBuf> {
         let mut path = opt.unaligned_cal.clone();
         path.set_extension("");
         let path_str = path.as_os_str().to_str().unwrap();
-        let path_str = path_str.strip_suffix("-unaligned").unwrap_or(path_str);
+        let path_str = path_str.trim_suffix("-unaligned");
         PathBuf::from(format!("{path_str}-aligned.xml"))
     };
 

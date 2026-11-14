@@ -2638,7 +2638,7 @@ where
         let checker = strand_version_check::VersionChecker::new();
 
         // Check now and every 30 minutes.
-        let interval_stream = tokio::time::interval(std::time::Duration::from_secs(1800));
+        let interval_stream = tokio::time::interval(std::time::Duration::from_mins(30));
         let mut interval_stream = tokio_stream::wrappers::IntervalStream::new(interval_stream);
 
         let stream_future = async move {

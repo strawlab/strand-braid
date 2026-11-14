@@ -76,16 +76,14 @@ fn validate_build_metadata(hash: &str) -> Result<(), Box<dyn std::error::Error>>
                     .bytes()
                     .all(|b| b.is_ascii_alphanumeric() || b == b'-')
         });
-    if valid {
-        Ok(())
-    } else {
-        Err(format!(
+    valid.ok_or_else(|| {
+        format!(
             "git revision {hash:?} is not a valid semver build-metadata identifier \
              (dot-separated ASCII alphanumeric/hyphen segments); refusing to embed it. \
              Check the {GIT_HASH_OVERRIDE_ENV} value."
         )
-        .into())
-    }
+        .into()
+    })
 }
 
 /// Build a Trunk-based Yew/WASM frontend crate and verify that the expected
@@ -614,12 +612,9 @@ fn trunk_missing_error_message() -> String {
 }
 
 fn has_trunk_0_21_x(version_output: &str) -> bool {
-    version_output.split_whitespace().any(|token| {
-        token
-            .strip_prefix('v')
-            .unwrap_or(token)
-            .starts_with("0.21.")
-    })
+    version_output
+        .split_whitespace()
+        .any(|token| token.trim_prefix('v').starts_with("0.21."))
 }
 
 /// A machine-wide, cross-process advisory lock that serializes `trunk build`
@@ -645,9 +640,9 @@ impl TrunkBuildLock {
     /// than this is treated as abandoned by a crashed process. It is
     /// generous: it only needs to exceed the longest plausible trunk build,
     /// never a normal wait.
-    const STALE_AFTER: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+    const STALE_AFTER: std::time::Duration = std::time::Duration::from_mins(30);
     /// Give up rather than block a build forever if something is wrong.
-    const ACQUIRE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+    const ACQUIRE_TIMEOUT: std::time::Duration = std::time::Duration::from_mins(30);
     const POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
 
     fn acquire() -> Result<Self, Box<dyn std::error::Error>> {
