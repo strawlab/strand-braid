@@ -32,6 +32,18 @@ git clone https://github.com/strawlab/strand-braid
 cd strand-braid # now in /path/to/strand-braid
 ```
 
+Download all dependencies:
+
+```
+cargo fetch
+```
+
+This must be done before building, and again after updating to a revision whose
+dependencies changed. The browser user interfaces are built by a nested `cargo`
+which runs offline[^offline], so anything it needs must already be downloaded.
+If a build fails with `trunk build failed` and a message about being unable to
+download crates, run `cargo fetch` and build again.
+
 ## Strand Camera
 
 Build the Strand Cam executable. A single `strand-cam` executable supports
@@ -67,6 +79,11 @@ cargo build --release
 [^trunk]: The browser user interfaces (in `strand-cam/yew_frontend` and
     `braid/braid-run/braid_frontend`) are compiled by `trunk` and embedded
     into the executables automatically by `build.rs`.
+
+[^offline]: While `build.rs` runs, the outer `cargo` holds a lock on the package
+    cache, so a nested `cargo` that tried to download would wait for it forever.
+    Use plain `cargo fetch`, without `--target`: the nested build resolves the
+    whole workspace for every platform, not only the crates compiled to WASM.
 
 ## Testing without camera hardware
 
