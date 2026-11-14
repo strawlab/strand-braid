@@ -3,11 +3,13 @@
 
 //! create timelapse video from mp4 h264 source without transcoding
 
-use std::io::Read;
+use std::{cell::RefCell, io::Read, rc::Rc};
 
 use clap::Parser;
 use eyre::{Context, Result};
 use h264_reader::nal::Nal;
+
+use pending_file::PendingFile;
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -52,6 +54,15 @@ struct MyPreParser<'a> {
     do_save_next: bool,
     mp4_cfg: Option<strand_cam_remote_control::Mp4RecordingConfig>,
     wtr: Option<mp4_writer::Mp4Writer<'a, std::fs::File>>,
+    /// Where the handle which moves the finished movie to `out_path` is put
+    /// once the movie is started. Until `main` commits it, the movie is written
+    /// beside `out_path`, so that an interrupted run leaves no truncated movie
+    /// there.
+    ///
+    /// It is shared with `main` because nothing tells this preparser that the
+    /// input was read to its end: `close()` is never called, and the movie is
+    /// finished by dropping `wtr`.
+    pending: Rc<RefCell<Option<PendingFile>>>,
 }
 
 impl<'a> frame_source::h264_source::H264Preparser for MyPreParser<'a> {
@@ -85,12 +96,14 @@ impl<'a> frame_source::h264_source::H264Preparser for MyPreParser<'a> {
         }
         if is_i_frame && self.do_save_next {
             if self.wtr.is_none() {
-                let out_fd = std::fs::File::create_new(&self.out_path).with_context(|| {
-                    format!(
-                        "Creating timelapse output mp4 video: {}",
-                        self.out_path.display()
-                    )
-                })?;
+                let (out_fd, pending) =
+                    PendingFile::create_new(&self.out_path).with_context(|| {
+                        format!(
+                            "Creating timelapse output mp4 video: {}",
+                            self.out_path.display()
+                        )
+                    })?;
+                *self.pending.borrow_mut() = Some(pending);
                 let mut my_mp4_writer =
                     mp4_writer::Mp4Writer::new(out_fd, self.mp4_cfg.clone().unwrap(), None)?;
                 my_mp4_writer.set_first_sps_pps(
@@ -175,15 +188,24 @@ fn main() -> Result<()> {
 
     let fps = cli.fps;
     let dt = 1.0 / fps;
+    let pending = Rc::new(RefCell::new(None));
     let preparser = MyPreParser {
         dt,
         out_path: cli.output,
         interval: cli.interval,
         mp4_cfg: Some(cfg),
+        pending: pending.clone(),
         ..Default::default()
     };
-    let _src = frame_source::FrameSourceBuilder::new(&cli.input)
+    // Building the source reads the whole input through the preparser.
+    let src = frame_source::FrameSourceBuilder::new(&cli.input)
         .show_progress(cli.show_progress)
         .build_h264_in_mp4_source_with_preparser(Box::new(preparser))?;
+    // Dropping the source drops the preparser and with it the MP4 writer,
+    // which finishes the movie. Only then is it complete and moved into place.
+    drop(src);
+    if let Some(pending) = pending.borrow_mut().take() {
+        pending.commit()?;
+    }
     Ok(())
 }

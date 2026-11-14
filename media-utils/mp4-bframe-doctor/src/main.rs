@@ -37,6 +37,7 @@ use frame_source::{
     h264_poc::PocReader,
     h264_source::{H264Source, SeekableH264Source},
 };
+use pending_file::PendingFile;
 use strand_cam_remote_control::{Mp4Codec, Mp4RecordingConfig, RecordingFrameRate};
 
 #[derive(Parser, Debug)]
@@ -787,11 +788,9 @@ fn repair_timing(frames: &[FixFrame]) -> Vec<RepairedTiming> {
         .collect()
 }
 
-fn write_repaired(loaded: &Loaded, out_path: &Utf8PathBuf) -> Result<()> {
+fn write_repaired(loaded: &Loaded, fd: std::fs::File) -> Result<()> {
     let timing = repair_timing(&loaded.frames);
 
-    let fd = std::fs::File::create(out_path)
-        .with_context(|| format!("creating output file \"{out_path}\""))?;
     let cfg = Mp4RecordingConfig {
         codec: Mp4Codec::H264RawStream,
         max_framerate: RecordingFrameRate::Unlimited,
@@ -851,16 +850,19 @@ fn cmd_fix(input: &Utf8PathBuf, force: bool) -> Result<()> {
     }
 
     // Write the repaired MP4 to a temporary file alongside the input first, so
-    // the original is only moved aside once the repair has fully succeeded.
-    let tmp_path: Utf8PathBuf = format!("{input}.mp4-bframe-doctor.tmp").into();
-    write_repaired(&loaded, &tmp_path)
+    // the original is only moved aside once the repair has fully succeeded. If
+    // it does not, the temporary file is deleted again.
+    let (fd, repaired) = PendingFile::create(input)
+        .with_context(|| format!("creating temporary output file beside \"{input}\""))?;
+    write_repaired(&loaded, fd)
         .with_context(|| format!("writing repaired output for \"{input}\""))?;
 
     let backup_path = next_backup_path(input);
     std::fs::rename(input, &backup_path).with_context(|| {
         format!("moving original \"{input}\" aside to backup \"{backup_path}\"")
     })?;
-    std::fs::rename(&tmp_path, input)
+    repaired
+        .commit()
         .with_context(|| format!("moving repaired file into place at \"{input}\""))?;
 
     println!(
@@ -975,6 +977,56 @@ mod tests {
     /// would stay 0 everywhere and the false positive would come back while every
     /// other test still passed.
     ///
+    /// `fix` writes the repaired movie under a temporary name and then swaps it
+    /// in. Afterwards there must be the repaired movie, the backup of the
+    /// original, and no temporary file.
+    #[test]
+    fn fix_leaves_the_movie_and_its_backup_only() {
+        let dir = tempfile::tempdir().unwrap();
+        let input = Utf8PathBuf::from_path_buf(dir.path().join("movie.mp4")).unwrap();
+
+        // `fix` needs the capture times Strand Camera records, so record a few
+        // frames the way it does.
+        {
+            let cfg = Mp4RecordingConfig {
+                codec: Mp4Codec::H264LessAvc,
+                max_framerate: RecordingFrameRate::Unlimited,
+                h264_metadata: None,
+            };
+            let fd = std::fs::File::create(&input).unwrap();
+            let mut wtr = mp4_writer::Mp4Writer::new(fd, cfg, None).unwrap();
+            let frame =
+                strand_dynamic_frame::DynamicFrameOwned::from_static(
+                    machine_vision_formats::owned::OImage::<
+                        machine_vision_formats::pixel_format::Mono8,
+                    >::new(32, 16, 32, vec![0u8; 32 * 16])
+                    .unwrap(),
+                );
+            let start = chrono::DateTime::from_timestamp(3600, 0).unwrap();
+            for fno in 0..5 {
+                let stamp = start + chrono::Duration::milliseconds(fno * 40);
+                wtr.write_dynamic(&frame.borrow(), stamp).unwrap();
+            }
+            wtr.finish().unwrap();
+        }
+        let original = std::fs::read(&input).unwrap();
+
+        cmd_fix(&input, true).unwrap();
+
+        let mut names: Vec<String> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        assert_eq!(names.len(), 2, "{names:?}");
+        assert!(names.contains(&"movie.mp4".to_string()), "{names:?}");
+        assert!(!names.iter().any(|n| n.ends_with(".partial")), "{names:?}");
+        // The backup is the original, and the movie in its place is readable.
+        let backup = names.iter().find(|n| *n != "movie.mp4").unwrap();
+        assert_eq!(std::fs::read(dir.path().join(backup)).unwrap(), original);
+        assert_eq!(check_file(&input).unwrap().problems(), Vec::<String>::new());
+    }
+
     /// Borrows `frame-source`'s committed fixture rather than duplicating a
     /// binary blob. The properties this test depends on are asserted rather than
     /// assumed, so if that fixture is ever regenerated differently the test says

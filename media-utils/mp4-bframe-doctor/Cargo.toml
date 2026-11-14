@@ -14,6 +14,13 @@ h264-reader.workspace = true
 
 frame-source.workspace = true
 env-tracing-logger.workspace = true
+pending-file.workspace = true
 # Used by the `fix` subcommand to rewrite corrected timing into a new MP4.
 mp4-writer = { workspace = true, features = ["nv-encode"] }
 strand-cam-remote-control.workspace = true
+
+[dev-dependencies]
+machine-vision-formats.workspace = true
+tempfile.workspace = true
+
+strand-dynamic-frame.workspace = true
