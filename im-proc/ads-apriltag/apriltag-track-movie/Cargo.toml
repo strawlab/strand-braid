@@ -19,6 +19,7 @@ ads-apriltag.workspace = true
 convert-image.workspace = true
 y4m-writer.workspace = true
 apriltag-detection-writer.workspace = true
+pending-file.workspace = true
 
 [dev-dependencies]
 download-verify.workspace = true

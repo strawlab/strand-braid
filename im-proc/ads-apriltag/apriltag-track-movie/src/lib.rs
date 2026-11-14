@@ -14,6 +14,7 @@ use machine_vision_formats::pixel_format::Mono8;
 use serde::{Deserialize, Serialize};
 
 use ads_apriltag as apriltag;
+use pending_file::PendingFile;
 use y4m_writer::Y4MFrame;
 
 #[derive(Parser, Default)]
@@ -181,6 +182,10 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         };
 
     let mut wtr = None;
+    // The detections are written beside their destination and moved there only
+    // once the whole movie is analyzed. A CSV file cut short by a failure is
+    // indistinguishable from a complete one, and this one feeds calibration.
+    let mut pending_csv = None;
 
     for (frame, y4m_frame) in frame_iter.enumerate() {
         let y4m_frame = y4m_frame?;
@@ -202,13 +207,14 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
         if wtr.is_none() {
             let create_file = if cli.force {
-                std::fs::File::create
+                PendingFile::create
             } else {
-                std::fs::File::create_new
+                PendingFile::create_new
             };
 
-            let mut fd = create_file(&csv_output_fname)
+            let (mut fd, pending) = create_file(&csv_output_fname)
                 .with_context(|| format!("when creating {csv_output_fname}"))?;
+            pending_csv = Some(pending);
             let april_config = if let Some(cam_name) = &cli.cam_name {
                 Some(apriltag_detection_writer::AprilConfig {
                     created_at: chrono::Local::now(),
@@ -232,9 +238,12 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         }
     }
 
-    if wtr.is_none() {
+    let (Some(mut wtr), Some(pending_csv)) = (wtr, pending_csv) else {
         eyre::bail!("No frames analyzed.");
-    }
+    };
+    wtr.flush()?;
+    drop(wtr);
+    pending_csv.commit()?;
 
     ffmpeg_child.kill()?;
     Ok(())
