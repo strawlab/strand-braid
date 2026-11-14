@@ -12,7 +12,8 @@ use eyre::Result;
 struct BraidDefaultConfigCliArgs {}
 
 fn main() -> Result<()> {
-    braid_start("default-config")?;
+    // SAFETY: This is the only thread: nothing has been started yet.
+    unsafe { braid_start("default-config") }?;
 
     env_tracing_logger::init();
 
