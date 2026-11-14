@@ -300,7 +300,7 @@ pub(crate) fn braidz_mcsc_octave_raw(
 
     // If we are going to fail when we create the output XML file, fail early by
     // creating the file now, rather than waiting for Octave to finish.
-    let mut out_fd = DeleteUnfinished::new(&xml_out_name)
+    let mut out_fd = create_deleted_unless_dismissed(&xml_out_name)
         .with_context(|| format!("While creating XML calibration output file {xml_out_name}"))?;
 
     let config_arg = format!("--config={resultdir}");
@@ -354,8 +354,9 @@ pub(crate) fn braidz_mcsc_octave_raw(
         flydra_mvg::FlydraMultiCameraSystem::new(cams, None)
     };
 
-    mcsc_system.to_flydra_xml(out_fd.inner())?;
-    out_fd.close()?;
+    mcsc_system.to_flydra_xml(&mut *out_fd)?;
+    out_fd.flush()?;
+    DropGuard::dismiss(out_fd);
 
     Ok(xml_out_name)
 }
