@@ -465,7 +465,7 @@ struct FundamentalMatrices {
     /// Rows (camera indices) that were successfully used.
     rows: Vec<usize>,
     /// Rows that couldn't be used.
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     nonrows: Vec<usize>,
 }
 
@@ -1296,7 +1296,7 @@ fn approx_matrix(
 }
 
 /// Extend matrix for unrecovered rows (extend_matrix in approximate.m).
-#[allow(dead_code)]
+#[expect(dead_code)]
 fn extend_matrix(
     m: &DMatrix<f64>,
     sub_m: &DMatrix<f64>,

@@ -1,7 +1,7 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-#![allow(non_snake_case)]
+#![expect(non_snake_case)]
 
 use serde::Deserialize;
 

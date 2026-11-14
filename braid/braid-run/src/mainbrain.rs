@@ -488,7 +488,7 @@ impl flydra2::ConnectedCamCallback for SendConnectedCamToBuiBackend {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(crate) async fn do_run_forever(
     show_tracking_params: bool,
     // sched_policy_priority: Option<(libc::c_int, libc::c_int)>,

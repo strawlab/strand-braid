@@ -344,7 +344,7 @@ fn apply_params(
 }
 
 /// Compute residuals only (no Jacobian).
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn eval_residuals_only(
     params: &DVector<f64>,
     p0: &DMatrix<f64>,
@@ -383,7 +383,7 @@ fn eval_residuals_only(
 /// (jp = dq/diP, jx = dq/diX) instead of assembling the full sparse
 /// Jacobian.  The full Jacobian has at most 2·(11+3) = 28 nonzeros per
 /// row, and we never need to materialize it.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn eval_residuals_and_blocks(
     params: &DVector<f64>,
     p0: &DMatrix<f64>,
@@ -496,7 +496,7 @@ fn eval_residuals_and_blocks(
 ///
 /// The reduced system is dense 11K × 11K (small) and V is block-diagonal
 /// in 3×3 blocks, so its inverse is trivial.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn solve_schur(
     blocks: &[VisBlocks],
     fp: &DVector<f64>,

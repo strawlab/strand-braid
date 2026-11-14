@@ -1,8 +1,6 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-#![allow(dead_code)]
-
 use criterion::{Criterion, criterion_group, criterion_main};
 use itertools::multizip;
 

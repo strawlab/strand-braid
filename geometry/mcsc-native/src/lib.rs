@@ -735,7 +735,7 @@ struct EuclidizeResult {
     pe: DMatrix<f64>,
     xe: DMatrix<f64>,
     c: DMatrix<f64>,
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     rot: DMatrix<f64>,
 }
 
@@ -795,7 +795,7 @@ struct EuclidizeResult {
 /// * `k_centred_per_cam[i]` — the same `K` with `(pp_x, pp_y)` subtracted
 ///   from `(cx, cy)`, to match the centred frame that P and X live in.
 ///   Must be `Some` iff `k_full_per_cam[i]` is.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn euclidize(
     _rmat: &DMatrix<f64>,
     lambda: &DMatrix<f64>,
@@ -1244,7 +1244,7 @@ fn q_row(u: &[f64], v: &[f64]) -> [f64; 10] {
 /// Equivalent to `CoreFunctions/reprerror.m`. Compares `nhom(Pe * Xe)`
 /// (full pixel coordinates) against `cam_xgt` (original non-centred
 /// pixel observations).
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn compute_reproj_error(
     cam_idlin: &[Vec<usize>],
     cam_xgt: &[DMatrix<f64>],
@@ -1404,7 +1404,7 @@ fn compute_reproj_error(
 /// Detect outlier observations and update the inlier set.
 ///
 /// Equivalent to `CoreFunctions/findoutl.m`.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn find_outliers(
     cam_err2d: &[Vec<f64>],
     cam_mean2d_err: &[f64],
