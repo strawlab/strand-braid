@@ -43,10 +43,6 @@ use crate::multicam_http_session_handler::{MaybeSession, StrandCamHttpSessionHan
 static ASSETS_DIR: include_dir::Dir<'static> =
     include_dir::include_dir!("$CARGO_MANIFEST_DIR/braid_frontend/dist");
 
-lazy_static::lazy_static! {
-    static ref EVENTS_PREFIX: String = format!("/{}", BRAID_EVENTS_URL_PATH);
-}
-
 pub(crate) const APP_INFO: AppInfo = AppInfo {
     name: "braid",
     author: "AndrewStraw",

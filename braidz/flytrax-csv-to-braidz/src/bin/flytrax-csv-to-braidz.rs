@@ -1,9 +1,6 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-#[macro_use]
-extern crate lazy_static;
-
 use eyre::{self as anyhow, Context};
 use tracing::info;
 
@@ -12,43 +9,41 @@ use flytrax_csv_to_braidz::{PseudoCalParams, RowFilter, parse_configs_and_run};
 
 use clap::Parser;
 
-lazy_static! {
-    static ref VAL_HELP: String = {
-        let example_simple_cal = PseudoCalParams {
-            physical_diameter_meters: 0.1,
-            center_x: 640,
-            center_y: 480,
-            radius: 480,
-        };
-        let simple_cal_toml_buf = toml::to_string(&example_simple_cal).unwrap();
-
-        let mut tracking_example = braid_types::default_tracking_params_flat_3d();
-        tracking_example.mini_arena_config =
-            MiniArenaConfig::XYGrid(XYGridConfig::new(&[0.1, 0.2, 0.3], &[0.1, 0.2, 0.3], 0.05));
-        let tracking_example_buf = toml::to_string(&tracking_example).unwrap();
-
-        let program_name = env!("CARGO_PKG_NAME");
-        format!(
-            "This program will read a flytrax CSV file saved by strand-cam and, using \
-            Kalman filtering and data association, track objects there.\n\n\
-            \
-            FURTHER INFORMATION:\n\n\
-            # Information regarding Braid calibrations\n\n\
-            The following documentation describes camera calibrations in Braid, including the XML \
-            file format used here (in the `{program_name}` program):\n
-        https://strawlab.github.io/strand-braid/braid_calibration.html\n\n\
-            Such calibrations can be generated with this tool:\n
-        https://strawlab.org/braid-april-cal-webapp/\n\n\
-            EXAMPLE INPUT FILES:\n\n# Calibration\n\n\
-            Either a simple calibration .toml file or Braid calibration .xml file is expected.\n\n\
-            ## Example simple calibration .toml file:\n\n\
-        ```\n{simple_cal_toml_buf}```\n\n## Calibration .xml file:\n\n\
-        See above for links to the documentation regarding Braid XML calibration files.\n\n\
-        # Example tracking parameter .toml file:\n\n\
-        ```\n{tracking_example_buf}```\n\n"
-        )
+static VAL_HELP: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    let example_simple_cal = PseudoCalParams {
+        physical_diameter_meters: 0.1,
+        center_x: 640,
+        center_y: 480,
+        radius: 480,
     };
-}
+    let simple_cal_toml_buf = toml::to_string(&example_simple_cal).unwrap();
+
+    let mut tracking_example = braid_types::default_tracking_params_flat_3d();
+    tracking_example.mini_arena_config =
+        MiniArenaConfig::XYGrid(XYGridConfig::new(&[0.1, 0.2, 0.3], &[0.1, 0.2, 0.3], 0.05));
+    let tracking_example_buf = toml::to_string(&tracking_example).unwrap();
+
+    let program_name = env!("CARGO_PKG_NAME");
+    format!(
+        "This program will read a flytrax CSV file saved by strand-cam and, using \
+        Kalman filtering and data association, track objects there.\n\n\
+        \
+        FURTHER INFORMATION:\n\n\
+        # Information regarding Braid calibrations\n\n\
+        The following documentation describes camera calibrations in Braid, including the XML \
+        file format used here (in the `{program_name}` program):\n
+    https://strawlab.github.io/strand-braid/braid_calibration.html\n\n\
+        Such calibrations can be generated with this tool:\n
+    https://strawlab.org/braid-april-cal-webapp/\n\n\
+        EXAMPLE INPUT FILES:\n\n# Calibration\n\n\
+        Either a simple calibration .toml file or Braid calibration .xml file is expected.\n\n\
+        ## Example simple calibration .toml file:\n\n\
+    ```\n{simple_cal_toml_buf}```\n\n## Calibration .xml file:\n\n\
+    See above for links to the documentation regarding Braid XML calibration files.\n\n\
+    # Example tracking parameter .toml file:\n\n\
+    ```\n{tracking_example_buf}```\n\n"
+    )
+});
 
 #[derive(Parser, Debug)]
 #[command(author, version=concat!(env!("CARGO_PKG_VERSION"), " (", env!("GIT_HASH"), ")"), about, after_help = VAL_HELP.as_str())]
