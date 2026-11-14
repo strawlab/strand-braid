@@ -1565,6 +1565,7 @@ pub(crate) async fn frame_process_task<'a>(
                                     per_cam_data,
                                     print_stats: false,
                                     save_performance_histograms: true,
+                                    if_interrupted: flydra2::IfSavingInterrupted::SaveBraidz,
                                 };
                                 if let Some(braidz_write_tx) = braidz_write_tx_weak.upgrade() {
                                     // `braidz_write_tx` will be dropped after this scope.

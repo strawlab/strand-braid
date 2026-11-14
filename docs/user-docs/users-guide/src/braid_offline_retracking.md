@@ -30,6 +30,13 @@ braid-offline-retrack --data-src <input.braidz> --output <output.braidz>
 `braid-offline-retrack` will **not** overwrite an existing file, so `--output`
 must be a new path (and must differ from `--data-src`).
 
+While it runs, `braid-offline-retrack` assembles its output in a directory named
+like the output file but ending in `.braid`, and converts that to the `.braidz`
+file once tracking has completed. This directory must not exist beforehand. If
+tracking fails, **no `.braidz` file is written**, because a file cut short would
+look just like a complete one, and the `.braid` directory is deleted. To keep
+the directory for inspection instead, pass `--keep-braid-dir-on-fail`.
+
 Typical improvements after retracking include:
 
 - 3D estimates added or adjusted for frames where they were missing or noisy
@@ -62,7 +69,8 @@ braid-offline-retrack \
 Both options are independent; you may supply either, both, or neither. Supplying
 neither is equivalent to the first command above.
 
-Other options (`--fps`, `--start-frame`, `--stop-frame`) are available; run
+Other options (`--fps`, `--start-frame`, `--stop-frame`,
+`--keep-braid-dir-on-fail`) are available; run
 `braid-offline-retrack --help` for the full list.
 
 ## Visualizing the result

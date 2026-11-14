@@ -130,6 +130,7 @@ impl BraidStorage {
             per_cam_data: braidz_per_cam_save_data,
             print_stats: true,
             save_performance_histograms: false,
+            if_interrupted: Default::default(),
         };
 
         coord_processor

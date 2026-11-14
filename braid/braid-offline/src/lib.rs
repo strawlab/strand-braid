@@ -184,6 +184,9 @@ pub struct KalmanizeOptions {
     pub start_frame: Option<u64>,
     pub stop_frame: Option<u64>,
     pub model_server_addr: Option<String>,
+    /// If tracking fails, leave the `.braid` directory in which the output was
+    /// being assembled for inspection, rather than deleting it.
+    pub keep_braid_dir_on_fail: bool,
 }
 
 /// Perform offline tracking on the data
@@ -197,7 +200,9 @@ pub struct KalmanizeOptions {
 ///
 /// Note that a temporary directly ending with `.braid` is initially created and
 /// only on upon completed tracking is this converted to the output .braidz
-/// file.
+/// file. If tracking fails, no .braidz file is written: one cut short would be
+/// indistinguishable from a complete one. The `.braid` directory is then
+/// deleted, unless [`KalmanizeOptions::keep_braid_dir_on_fail`] is set.
 #[tracing::instrument(level = "debug", skip_all)]
 #[expect(
     clippy::too_many_arguments,
@@ -239,10 +244,28 @@ where
         output_dirname.display()
     );
 
+    // The directory is deleted again if tracking fails, so it must be ours
+    // alone: never one that was already there.
+    if output_dirname.exists() {
+        eyre::bail!(
+            "Path {} exists. The output is assembled there, so it must not exist \
+             beforehand. If it is left over from an earlier run, remove it.",
+            output_dirname.display()
+        );
+    }
     std::fs::create_dir_all(&output_dirname).context(format!(
         "creating output directory {}",
         output_dirname.display()
     ))?;
+
+    // Until the writer takes the directory over (below), an early return for
+    // an error leaves it to us to dispose of.
+    let keep_braid_dir_on_fail = opt2.keep_braid_dir_on_fail;
+    let dir_before_writer = std::mem::DropGuard::new(output_dirname.clone(), move |dir| {
+        if !keep_braid_dir_on_fail {
+            let _ = std::fs::remove_dir_all(dir);
+        }
+    });
 
     let src_info = data_src.basic_info();
 
@@ -509,6 +532,11 @@ where
             per_cam_data,
             print_stats: true,
             save_performance_histograms,
+            if_interrupted: if keep_braid_dir_on_fail {
+                flydra2::IfSavingInterrupted::KeepDir
+            } else {
+                flydra2::IfSavingInterrupted::Delete
+            },
         };
 
         coord_processor
@@ -516,6 +544,9 @@ where
             .send(flydra2::SaveToDiskMsg::StartSavingCsv(save_cfg))
             .await
             .unwrap();
+        // From here on the writer disposes of the directory, according to
+        // `if_interrupted`.
+        std::mem::DropGuard::dismiss(dir_before_writer);
     }
 
     let opt3 = opt2.clone();
@@ -712,10 +743,23 @@ where
 
     let consume_future = coord_processor.consume_stream(frame_data_rx, expected_framerate);
 
-    let (res_writer_jh, r2) = tokio::join!(consume_future, reader_local_future);
+    let (res_writer_jh, reader_result) = tokio::join!(consume_future, reader_local_future);
 
-    res_writer_jh?.await??;
-    r2.expect("finish reader task");
+    // Wait for the writer whatever happened. It is the writer which converts
+    // the output directory to a .braidz file, or, if tracking did not get to
+    // the end of the data, disposes of it.
+    let writer_result = match res_writer_jh {
+        Ok(writer_jh) => match writer_jh.await {
+            Ok(writer_result) => writer_result.map_err(eyre::Report::from),
+            Err(join_error) => Err(join_error.into()),
+        },
+        Err(e) => Err(e.into()),
+    };
+
+    // A failure to read the input is reported first: when both fail, it is the
+    // cause.
+    reader_result.context("reading the input data")?;
+    writer_result?;
 
     Ok(())
 }
@@ -832,6 +876,7 @@ pub async fn braid_offline_retrack(opt: Cli) -> eyre::Result<()> {
     let opts = KalmanizeOptions {
         start_frame: opt.start_frame,
         stop_frame: opt.stop_frame,
+        keep_braid_dir_on_fail: opt.keep_braid_dir_on_fail,
         ..Default::default()
     };
 
@@ -904,4 +949,12 @@ pub struct Cli {
     /// Disable display of progress indicator
     #[arg(long)]
     pub no_progress: bool,
+    /// If tracking fails, keep the .braid directory for inspection.
+    ///
+    /// The output is assembled in a directory named like the output file but
+    /// ending in .braid, which becomes the .braidz file when tracking
+    /// completes. If tracking fails, no .braidz file is written and, unless
+    /// this is given, that directory is deleted.
+    #[arg(long)]
+    pub keep_braid_dir_on_fail: bool,
 }
