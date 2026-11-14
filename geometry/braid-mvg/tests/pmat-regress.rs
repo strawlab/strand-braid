@@ -1,15 +1,8 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-extern crate approx;
-extern crate nalgebra as na;
-extern crate num_iter;
-extern crate num_traits;
-
-extern crate braid_mvg;
-
+use nalgebra as na;
 use nalgebra::geometry::Point3;
-
 use opencv_ros_camera::{Distortion, RosOpenCvIntrinsics};
 
 use braid_mvg::{Camera, DistortedPixel, PointWorldFrame};

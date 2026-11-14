@@ -1,11 +1,12 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+// `structure!` expands to helper macros which it does not name by path, so it
+// cannot be imported with `use`.
 #[macro_use]
 extern crate structure;
 
 use std::collections::BTreeMap;
-use std::f64;
 use std::io::{Seek, SeekFrom, Write};
 
 use chrono::{DateTime, Utc};

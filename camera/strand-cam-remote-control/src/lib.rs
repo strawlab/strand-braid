@@ -3,11 +3,6 @@
 
 //! Types for [Strand Camera](https://strawlab.org/strand-cam) remote control and configuration
 
-extern crate serde;
-extern crate strand_cam_bui_types;
-extern crate strand_cam_enum_iter;
-extern crate strand_cam_types;
-
 use serde::{Deserialize, Serialize};
 use strand_cam_bui_types::ClockModel;
 use strand_cam_enum_iter::EnumIter;
@@ -475,20 +470,12 @@ impl std::fmt::Display for FfmpegCodecArgs {
             }
         }
         let pre = arg_fmt(self.pre_codec_args.as_ref());
-        let codec = self
-            .codec
-            .as_ref()
-            .map(|c| format!("-c:v {c}"))
-            .unwrap_or_default();
+        let codec = self.codec.as_ref().map_or_default(|c| format!("-c:v {c}"));
         let pixfmt = self
             .pixfmt
             .as_ref()
-            .map(|p| format!("-pix_fmt {p}"))
-            .unwrap_or_default();
-        let bframes = self
-            .max_bframes
-            .map(|n| format!("-bf {n}"))
-            .unwrap_or_default();
+            .map_or_default(|p| format!("-pix_fmt {p}"));
+        let bframes = self.max_bframes.map_or_default(|n| format!("-bf {n}"));
         let post = arg_fmt(self.post_codec_args.as_ref());
         write!(f, "ffmpeg {pre} {codec} {pixfmt} {bframes} {post}")
     }

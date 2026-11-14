@@ -74,13 +74,16 @@ jobs:
           fi
           echo "Tag matches workspace version: $ws_version"
 
-      # macos runners ship rustup + a stable toolchain; we only need to add the
-      # wasm target used by the Yew/WASM frontends. The aarch64-apple-darwin
-      # target has no entry in .cargo/config.toml (the sandybridge baseline is
-      # x86_64-only), so we deliberately do NOT set a RUSTFLAGS env var here.
-      - name: Install Rust wasm target
+      # macos runners ship rustup + a stable toolchain, but one which trails a
+      # new Rust release by days to weeks, and this repository uses the latest
+      # one. Update it, and add the wasm target used by the Yew/WASM frontends.
+      # The aarch64-apple-darwin target has no entry in .cargo/config.toml (the
+      # sandybridge baseline is x86_64-only), so we deliberately do NOT set a
+      # RUSTFLAGS env var here.
+      - name: Install the latest stable Rust and its wasm target
         shell: bash
         run: |
+          rustup update stable --no-self-update
           rustup target add wasm32-unknown-unknown
           rustc --version
 

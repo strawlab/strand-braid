@@ -10,7 +10,8 @@ use levenberg_marquardt_sparse::LeastSquaresProblem;
 use opencv_ros_camera::RosOpenCvIntrinsics;
 use std::{
     collections::{BTreeMap, HashMap},
-    io::Read,
+    io::{Read, Write},
+    mem::DropGuard,
 };
 
 use mcsc_native::McscCfg;
@@ -702,10 +703,11 @@ pub(crate) fn braidz_mcsc(
         // Remove existing file for test re-runs
         std::fs::remove_file(&xml_out_name)?;
     }
-    let mut out_fd = DeleteUnfinished::new(&xml_out_name)
+    let mut out_fd = create_deleted_unless_dismissed(&xml_out_name)
         .with_context(|| format!("While creating XML calibration output file {xml_out_name}"))?;
-    multi_cam_system.to_flydra_xml(out_fd.inner())?;
-    out_fd.close()?;
+    multi_cam_system.to_flydra_xml(&mut *out_fd)?;
+    out_fd.flush()?;
+    DropGuard::dismiss(out_fd);
 
     Ok((xml_out_name, multi_cam_system, final_mean_repoj_distance))
 }
@@ -798,41 +800,19 @@ fn ba_mean_reproj_distance(
     mean(&all_dists)
 }
 
-/// Delete any unfinished file unless close() is called.
-pub(crate) struct DeleteUnfinished {
-    inner: std::fs::File,
-    path: Utf8PathBuf,
-    do_remove_file: bool,
-}
-
-impl Drop for DeleteUnfinished {
-    fn drop(&mut self) {
-        if self.do_remove_file {
-            std::fs::remove_file(&self.path).unwrap();
-            self.do_remove_file = false;
-        }
-    }
-}
-
-impl DeleteUnfinished {
-    pub(crate) fn new<P: AsRef<Utf8Path>>(p: P) -> Result<Self> {
-        let path = Utf8PathBuf::from(p.as_ref());
-        let inner = std::fs::File::create_new(&path)?;
-        Ok(Self {
-            inner,
-            path,
-            do_remove_file: true,
-        })
-    }
-
-    pub(crate) fn inner(&mut self) -> &mut std::fs::File {
-        &mut self.inner
-    }
-
-    pub(crate) fn close(mut self) -> Result<()> {
-        use std::io::Write;
-        self.inner.flush()?;
-        self.do_remove_file = false;
-        Ok(())
-    }
+/// Create a new file at `path` which is deleted again when the returned guard
+/// is dropped.
+///
+/// Pass the guard to [`DropGuard::dismiss`] once the file is completely
+/// written to keep it.
+pub(crate) fn create_deleted_unless_dismissed(
+    path: &Utf8Path,
+) -> Result<DropGuard<std::fs::File, impl FnOnce(std::fs::File) + use<>>> {
+    let file = std::fs::File::create_new(path)?;
+    let path = path.to_owned();
+    Ok(DropGuard::new(file, move |file| {
+        // Close the file first: Windows does not delete an open file.
+        drop(file);
+        std::fs::remove_file(&path).unwrap();
+    }))
 }

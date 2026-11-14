@@ -1,6 +1,8 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+use std::mem::DropGuard;
+
 use clap::Parser;
 use eyre::{self, WrapErr};
 use indicatif::{ProgressBar, ProgressStyle};
@@ -79,34 +81,6 @@ fn to_rr_image(
     Ok(re_sdk_types::archetypes::EncodedImage::from_file_contents(
         contents,
     ))
-}
-
-/// A guard to remove incomplete file.
-///
-/// Create this and call [Self::keep_file] when the file is correctly written.
-///
-/// [Self::keep_file] is not called, the file will be automatically deleted when
-/// this goes out of scope.
-struct DeleteIfDropped {
-    fname: Option<camino::Utf8PathBuf>,
-}
-
-impl Drop for DeleteIfDropped {
-    fn drop(&mut self) {
-        if let Some(fname) = self.fname.take() {
-            std::fs::remove_file(fname).unwrap()
-        }
-    }
-}
-
-impl DeleteIfDropped {
-    fn new(fname: camino::Utf8PathBuf) -> Self {
-        Self { fname: Some(fname) }
-    }
-
-    fn keep_file(mut self) {
-        self.fname = None;
-    }
 }
 
 fn get_timestamp(ts: &chrono::DateTime<chrono::FixedOffset>) -> i64 {
@@ -201,8 +175,10 @@ fn main() -> eyre::Result<()> {
             .save(&output)
             .wrap_err_with(|| format!("Creating output file {output}"))?;
         tracing::info!("Saving output to {output}");
-        let delete_if_dropped = DeleteIfDropped::new(output);
-        (rec, Some(delete_if_dropped))
+        // Unless dismissed below, this removes the incomplete file again.
+        let delete_incomplete =
+            DropGuard::new(output, |output| std::fs::remove_file(output).unwrap());
+        (rec, Some(delete_incomplete))
     };
 
     // Read in presentation (display) order so wall-clock timestamps line up with
@@ -324,8 +300,9 @@ fn main() -> eyre::Result<()> {
         )?;
     }
 
-    if let Some(delete_if_dropped) = drop_guard {
-        delete_if_dropped.keep_file();
+    if let Some(delete_incomplete) = drop_guard {
+        // The file is complete, so keep it.
+        DropGuard::dismiss(delete_incomplete);
     }
     Ok(())
 }

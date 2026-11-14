@@ -1,10 +1,8 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-#[macro_use]
-extern crate pretty_print_nalgebra;
-
 use clap::Parser;
+use pretty_print_nalgebra::pretty_print;
 
 type Result<T> = std::result::Result<T, flydra_mvg::FlydraMvgError>;
 

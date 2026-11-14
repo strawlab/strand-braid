@@ -114,14 +114,16 @@ jobs:
           fi
           echo "PYLON_CABI_WIN_URL is set; the release will bundle the Pylon shim."
 
-      # windows-latest ships rustup + a stable toolchain; we only need to add the
-      # wasm target used by the Yew/WASM frontends. The x86_64-pc-windows-msvc
-      # baseline ISA (target-cpu=sandybridge) is set in .cargo/config.toml, so we
-      # deliberately do NOT set a RUSTFLAGS env var here (that would override,
-      # not merge with, the config entry).
-      - name: Install Rust wasm target
+      # windows-latest ships rustup + a stable toolchain, but one which trails
+      # a new Rust release by days to weeks, and this repository uses the latest
+      # one. Update it, and add the wasm target used by the Yew/WASM frontends.
+      # The x86_64-pc-windows-msvc baseline ISA (target-cpu=sandybridge) is set
+      # in .cargo/config.toml, so we deliberately do NOT set a RUSTFLAGS env var
+      # here (that would override, not merge with, the config entry).
+      - name: Install the latest stable Rust and its wasm target
         shell: bash
         run: |
+          rustup update stable --no-self-update
           rustup target add wasm32-unknown-unknown
           rustc --version
 

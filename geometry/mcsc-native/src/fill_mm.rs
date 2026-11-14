@@ -465,7 +465,7 @@ struct FundamentalMatrices {
     /// Rows (camera indices) that were successfully used.
     rows: Vec<usize>,
     /// Rows that couldn't be used.
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     nonrows: Vec<usize>,
 }
 
@@ -815,7 +815,7 @@ fn create_nullspace(
     let n_rows = m.nrows(); // 3 * n_cams
 
     let cols_scaled: Vec<bool> = if let Some(c) = central {
-        (0..n_pts).map(|j| i_vis[(c, j)]).collect()
+        Vec::from_fn(n_pts, |j| i_vis[(c, j)])
     } else {
         vec![]
     };
@@ -1296,7 +1296,7 @@ fn approx_matrix(
 }
 
 /// Extend matrix for unrecovered rows (extend_matrix in approximate.m).
-#[allow(dead_code)]
+#[expect(dead_code)]
 fn extend_matrix(
     m: &DMatrix<f64>,
     sub_m: &DMatrix<f64>,

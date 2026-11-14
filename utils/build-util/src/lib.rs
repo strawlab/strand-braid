@@ -76,16 +76,14 @@ fn validate_build_metadata(hash: &str) -> Result<(), Box<dyn std::error::Error>>
                     .bytes()
                     .all(|b| b.is_ascii_alphanumeric() || b == b'-')
         });
-    if valid {
-        Ok(())
-    } else {
-        Err(format!(
+    valid.ok_or_else(|| {
+        format!(
             "git revision {hash:?} is not a valid semver build-metadata identifier \
              (dot-separated ASCII alphanumeric/hyphen segments); refusing to embed it. \
              Check the {GIT_HASH_OVERRIDE_ENV} value."
         )
-        .into())
-    }
+        .into()
+    })
 }
 
 /// Build a Trunk-based Yew/WASM frontend crate and verify that the expected
@@ -141,7 +139,15 @@ pub fn trunk_build(
     // share compiled dependencies. See `shared_trunk_target_dir` for why it is
     // keyed by checkout rather than shared by every build on the machine.
     let source_root = frontend_source_root(&frontend_path);
-    let trunk_target_dir = shared_trunk_target_dir(&out_dir, &source_root)?;
+    let trunk_target_dir = shared_trunk_target_dir(&out_dir, &source_root).unwrap_or_else(|| {
+        println!(
+            "cargo:warning=build-util does not recognise the layout of OUT_DIR {} (has \
+                 cargo changed it again?); building the frontend in a target directory inside \
+                 it, which is rebuilt from scratch whenever OUT_DIR moves",
+            out_dir.display()
+        );
+        out_dir.join("trunk-target")
+    });
     std::fs::create_dir_all(&trunk_target_dir)?;
 
     // Serialize trunk invocations across the whole machine. Multiple frontend
@@ -302,8 +308,7 @@ pub fn trunk_build(
 /// beside the profile directory, i.e. `target/trunk-target`, or
 /// `target/<triple>/trunk-target/...` when the outer build is cross-compiling.
 ///
-/// `OUT_DIR` is `<base>/<profile>/build/<pkg>-<hash>/out`, so `<base>` is its
-/// fifth ancestor.
+/// Returns `None` when `OUT_DIR` has a layout [`target_base_dir`] does not know.
 ///
 /// The directory is keyed by the frontend's workspace root, which is what makes
 /// it safe to share. Cargo's unit hashes do not include the absolute path of a
@@ -322,16 +327,39 @@ pub fn trunk_build(
 fn shared_trunk_target_dir(
     out_dir: &std::path::Path,
     source_root: &std::path::Path,
-) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
-    let base = out_dir.ancestors().nth(4).ok_or_else(|| {
-        format!(
-            "cannot derive the target directory from OUT_DIR {}",
-            out_dir.display()
-        )
-    })?;
-    Ok(base
-        .join("trunk-target")
-        .join(format!("{:016x}", path_key(source_root))))
+) -> Option<std::path::PathBuf> {
+    Some(
+        target_base_dir(out_dir)?
+            .join("trunk-target")
+            .join(format!("{:016x}", path_key(source_root))),
+    )
+}
+
+/// The directory holding cargo's profile directories (`target`, or
+/// `target/<triple>` when cross-compiling), derived from a build script's
+/// `OUT_DIR`.
+///
+/// Cargo gives a build script no other handle on it, and the layout below it is
+/// not a stable interface, so both known layouts are matched by the position of
+/// their `build` directory rather than by counting ancestors blindly:
+///
+/// - through Cargo 1.99: `<base>/<profile>/build/<pkg>-<hash>/out`
+/// - from Cargo 1.100: `<base>/<profile>/build/<pkg>/<hash>/out`
+///
+/// The newer layout is tried first. A package that is itself named `build`
+/// would otherwise match the older one, while the reverse confusion cannot
+/// happen: cargo reserves `build` as a profile name.
+fn target_base_dir(out_dir: &std::path::Path) -> Option<&std::path::Path> {
+    let ancestor = |n| out_dir.ancestors().nth(n);
+    let is_build_dir =
+        |n| ancestor(n).and_then(std::path::Path::file_name) == Some(std::ffi::OsStr::new("build"));
+    if is_build_dir(3) {
+        ancestor(5)
+    } else if is_build_dir(2) {
+        ancestor(4)
+    } else {
+        None
+    }
 }
 
 /// A stable key for `path`.
@@ -584,12 +612,9 @@ fn trunk_missing_error_message() -> String {
 }
 
 fn has_trunk_0_21_x(version_output: &str) -> bool {
-    version_output.split_whitespace().any(|token| {
-        token
-            .strip_prefix('v')
-            .unwrap_or(token)
-            .starts_with("0.21.")
-    })
+    version_output
+        .split_whitespace()
+        .any(|token| token.trim_prefix('v').starts_with("0.21."))
 }
 
 /// A machine-wide, cross-process advisory lock that serializes `trunk build`
@@ -615,9 +640,9 @@ impl TrunkBuildLock {
     /// than this is treated as abandoned by a crashed process. It is
     /// generous: it only needs to exceed the longest plausible trunk build,
     /// never a normal wait.
-    const STALE_AFTER: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+    const STALE_AFTER: std::time::Duration = std::time::Duration::from_mins(30);
     /// Give up rather than block a build forever if something is wrong.
-    const ACQUIRE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+    const ACQUIRE_TIMEOUT: std::time::Duration = std::time::Duration::from_mins(30);
     const POLL_INTERVAL: std::time::Duration = std::time::Duration::from_millis(250);
 
     fn acquire() -> Result<Self, Box<dyn std::error::Error>> {
@@ -732,7 +757,7 @@ impl Drop for TrunkBuildLock {
 mod tests {
     use super::{
         dep_info_sources, describes_frontend, nearest_manifest, normalize_lexically,
-        shared_trunk_target_dir, validate_build_metadata,
+        shared_trunk_target_dir, target_base_dir, validate_build_metadata,
     };
 
     #[test]
@@ -831,6 +856,41 @@ mod tests {
             dir.parent().unwrap(),
             std::path::Path::new("target/wasm32-unknown-unknown/trunk-target")
         );
+    }
+
+    /// Cargo 1.100 split `<pkg>-<hash>` into `<pkg>/<hash>`. Counting ancestors
+    /// then landed one level too low, in the profile directory, so debug and
+    /// release builds each compiled their own copy of the frontend.
+    #[test]
+    fn finds_the_target_base_dir_in_both_cargo_layouts() {
+        use std::path::Path;
+        for (out_dir, base) in [
+            ("target/release/build/pkg-hash/out", "target"),
+            ("target/release/build/pkg/hash/out", "target"),
+            (
+                "target/wasm32-unknown-unknown/debug/build/pkg/hash/out",
+                "target/wasm32-unknown-unknown",
+            ),
+            // A package named `build`, in each layout.
+            ("target/debug/build/build-hash/out", "target"),
+            ("target/debug/build/build/hash/out", "target"),
+            // A checkout that itself lives below a directory named `build`.
+            (
+                "/home/u/build/w/target/debug/build/pkg/hash/out",
+                "/home/u/build/w/target",
+            ),
+        ] {
+            assert_eq!(
+                target_base_dir(Path::new(out_dir)),
+                Some(Path::new(base)),
+                "{out_dir}"
+            );
+        }
+        assert_eq!(
+            target_base_dir(Path::new("somewhere/else/entirely/out")),
+            None
+        );
+        assert_eq!(target_base_dir(Path::new("out")), None);
     }
 
     /// Two checkouts of one repository must not share a directory: cargo would

@@ -4,6 +4,7 @@
 //! Convert MKV videos saved by Strand Cam and Tiff Images saved by Micromanager
 //! from Photometrics cameras into MP4 videos of the format saved by Strand Cam.
 use std::{
+    mem::DropGuard,
     path::{Path, PathBuf},
     time::Duration,
 };
@@ -273,43 +274,6 @@ fn append_extension<P: AsRef<Path>>(input: P, extension: &str) -> PathBuf {
     let mut str = input.as_ref().as_os_str().to_os_string();
     str.push(extension);
     str.into()
-}
-
-/// Deletes a file being written in case of error.
-///
-/// Call [Self::no_error] to keep the file. Otherwise, dropping this will cause
-/// the file to be deleted.
-struct DeleteOnError {
-    path: PathBuf,
-    do_delete: bool,
-}
-
-impl Drop for DeleteOnError {
-    fn drop(&mut self) {
-        if self.do_delete {
-            if std::fs::metadata(&self.path).unwrap().is_file() {
-                // unlink file
-                std::fs::remove_file(&self.path).unwrap();
-            } else {
-                // unlink dir
-                std::fs::remove_dir_all(&self.path).unwrap();
-            }
-            self.do_delete = false
-        }
-    }
-}
-
-impl DeleteOnError {
-    fn new<P: AsRef<Path>>(p: P) -> Self {
-        Self {
-            path: p.as_ref().to_path_buf(),
-            do_delete: true,
-        }
-    }
-
-    fn no_error(mut self) {
-        self.do_delete = false;
-    }
 }
 
 fn abs_diff(a: Duration, b: Duration) -> Duration {
@@ -796,10 +760,19 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         )?))
     };
 
-    let mut delete_on_error = DeleteOnError::new(&output_fname);
-    if cli.truncate_on_error {
-        delete_on_error.do_delete = false;
-    }
+    // Unless dismissed at the end of this function, this deletes the output
+    // being written when an error makes us return early.
+    let delete_on_error = (!cli.truncate_on_error).then(|| {
+        DropGuard::new(output_fname.clone(), |path| {
+            if std::fs::metadata(&path).unwrap().is_file() {
+                // unlink file
+                std::fs::remove_file(&path).unwrap();
+            } else {
+                // unlink dir
+                std::fs::remove_dir_all(&path).unwrap();
+            }
+        })
+    });
 
     // ---------
 
@@ -994,6 +967,8 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         );
     }
 
-    delete_on_error.no_error();
+    if let Some(delete_on_error) = delete_on_error {
+        DropGuard::dismiss(delete_on_error);
+    }
     Ok(())
 }

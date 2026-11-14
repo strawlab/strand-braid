@@ -2,7 +2,7 @@
 name = "strand-version-check"
 description = "client for the strand-braid version-check service"
 version.workspace = true
-edition = "2021"
+edition = "2024"
 license = "MIT OR Apache-2.0"
 
 [dependencies]

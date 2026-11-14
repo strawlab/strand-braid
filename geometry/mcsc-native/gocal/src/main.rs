@@ -67,7 +67,7 @@ fn main() -> Result<()> {
         let mut fd = std::fs::File::create(&fname)?;
         use std::io::Write;
         for r in 0..3 {
-            let row: Vec<String> = (0..4).map(|c| format!("{:.15e}", pmat[(r, c)])).collect();
+            let row: Vec<String> = Vec::from_fn(4, |c| format!("{:.15e}", pmat[(r, c)]));
             fd.write_all(format!("{}\n", row.join(" ")).as_bytes())?;
         }
     }

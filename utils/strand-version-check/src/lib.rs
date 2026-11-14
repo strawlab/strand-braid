@@ -18,21 +18,19 @@
 use std::time::Duration;
 
 use bytes::Bytes;
-use http_body_util::{combinators::BoxBody, BodyExt, Full};
+use http_body_util::{BodyExt, Full, combinators::BoxBody};
 use hyper_rustls::HttpsConnector;
 use hyper_util::{
-    client::legacy::{connect::HttpConnector, Client},
+    client::legacy::{Client, connect::HttpConnector},
     rt::TokioExecutor,
 };
 use serde::Deserialize;
 use tracing::warn;
 
-type Body = BoxBody<Bytes, std::convert::Infallible>;
+type Body = BoxBody<Bytes, !>;
 
 fn empty_body() -> Body {
-    Full::new(Bytes::new())
-        .map_err(|never| match never {})
-        .boxed()
+    Full::new(Bytes::new()).boxed()
 }
 
 /// A newer available version, as reported by the version-check server.

@@ -2,22 +2,18 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use std::sync::{
-    Mutex,
+    LazyLock, Mutex,
     atomic::{AtomicBool, Ordering},
 };
 
 use tokio::sync::mpsc::{Receiver, Sender, channel};
 
-use lazy_static::lazy_static;
-
 const N_BUFFER_FRAMES: usize = 3;
 const N_CHANNEL_FRAMES: usize = 10;
 
-lazy_static! {
-    static ref VIMBA: vimba::VimbaLibrary = vimba::VimbaLibrary::new().unwrap();
-    static ref IS_DONE: AtomicBool = AtomicBool::new(false);
-    static ref SENDER: Mutex<Option<Sender<Frame>>> = Mutex::new(None);
-}
+static VIMBA: LazyLock<vimba::VimbaLibrary> = LazyLock::new(|| vimba::VimbaLibrary::new().unwrap());
+static IS_DONE: AtomicBool = AtomicBool::new(false);
+static SENDER: Mutex<Option<Sender<Frame>>> = Mutex::new(None);
 
 struct Frame {
     buffer: Vec<u8>,

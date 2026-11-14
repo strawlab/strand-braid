@@ -201,7 +201,7 @@ where
     /// samples in decode order with non-zero composition offsets that
     /// [`Self::write_h264_buf`] cannot represent. The precise capture time is
     /// still written into the per-frame precision-timestamp SEI.
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     pub fn write_h264_buf_passthrough<TS>(
         &mut self,
         data: &frame_source::H264EncodingVariant,
@@ -233,7 +233,7 @@ where
         )
     }
 
-    #[allow(clippy::too_many_arguments)]
+    #[expect(clippy::too_many_arguments)]
     fn write_h264_sample(
         &mut self,
         data: &frame_source::H264EncodingVariant,

@@ -1068,9 +1068,9 @@ fn test_mask_polygon_with_too_few_points_is_an_error() -> eyre::Result<()> {
     let degenerate = Shape::Polygon(strand_http_video_streaming_types::PolygonParams {
         points: vec![(1.0, 1.0), (10.0, 10.0)],
     });
-    assert!(matches!(
+    std::assert_matches!(
         compute_mask_image(roi_sz, &degenerate),
         Err(crate::Error::InvalidPolygon(_))
-    ));
+    );
     Ok(())
 }

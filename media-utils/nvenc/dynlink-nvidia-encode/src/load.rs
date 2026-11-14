@@ -26,10 +26,10 @@ impl SharedLibrary {
 }
 
 pub fn load_manually() -> Result<SharedLibrary, NvencError> {
-    #[cfg(target_os = "windows")]
-    let path = PathBuf::from("nvEncodeAPI64.dll");
-    #[cfg(not(target_os = "windows"))]
-    let path = PathBuf::from("libnvidia-encode.so.1");
+    let path = PathBuf::from(cfg_select! {
+        target_os = "windows" => "nvEncodeAPI64.dll",
+        _ => "libnvidia-encode.so.1",
+    });
     let library = unsafe { libloading::Library::new(&path) }.map_err(|source| {
         NvencError::DynLibLoadError {
             dynlib: path.display().to_string(),

@@ -15,9 +15,6 @@
 #![warn(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-#[macro_use]
-extern crate static_assertions;
-
 use ordered_float::NotNan;
 use std::net::SocketAddr;
 use strand_cam_bui_types::{ClockModel, RecordingPath};
@@ -760,7 +757,7 @@ pub fn is_loopback(url: &http::Uri) -> bool {
 /// the token short-lived bounds the window in which a token leaked via a URL
 /// (terminal scrollback, log files, a photographed QR code) can be replayed.
 #[cfg(feature = "start-listener")]
-pub const ACCESS_TOKEN_TTL: std::time::Duration = std::time::Duration::from_secs(30 * 60);
+pub const ACCESS_TOKEN_TTL: std::time::Duration = std::time::Duration::from_mins(30);
 
 /// Extract the expiry of the access token carried in a URL's `token` query
 /// parameter, as local time.
@@ -810,10 +807,7 @@ pub fn is_trusted_url(url: &http::Uri, trusted_networks: &[axum_token_auth::Cidr
     };
     // IPv6 hosts arrive bracketed, e.g. `[fd00::1]`; `IpAddr` wants them bare.
     let host = authority.host();
-    let host = host
-        .strip_prefix('[')
-        .and_then(|h| h.strip_suffix(']'))
-        .unwrap_or(host);
+    let host = host.strip_circumfix('[', ']').unwrap_or(host);
     let Ok(ip) = host.parse::<std::net::IpAddr>() else {
         return false;
     };
@@ -826,16 +820,13 @@ pub fn is_trusted_url(url: &http::Uri, trusted_networks: &[axum_token_auth::Cidr
 fn without_token(url: &http::Uri) -> http::Uri {
     let mut parts = url.clone().into_parts();
     let path = url.path();
-    let kept = url
-        .query()
-        .map(|query| {
-            query
-                .split('&')
-                .filter(|pair| !pair.is_empty() && pair.split('=').next() != Some("token"))
-                .collect::<Vec<_>>()
-                .join("&")
-        })
-        .unwrap_or_default();
+    let kept = url.query().map_or_default(|query| {
+        query
+            .split('&')
+            .filter(|pair| !pair.is_empty() && pair.split('=').next() != Some("token"))
+            .collect::<Vec<_>>()
+            .join("&")
+    });
     let path_and_query = if kept.is_empty() {
         path.to_string()
     } else {

@@ -2,7 +2,7 @@
 name = "strand-withkey"
 version = "0.1.0"
 authors = ["Andrew Straw <strawman@astraw.com>"]
-edition = "2015"
+edition = "2024"
 repository = "https://github.com/strawlab/strand-braid"
 description = "defines the WithKey trait for Strand Camera"
 license = "MIT OR Apache-2.0"

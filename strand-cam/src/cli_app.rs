@@ -57,8 +57,7 @@ where
     use ci2::CameraModule;
     // The async wrapper prefixes the backend name with "async-"; strip it so the
     // user sees the same backend name they pass to `--camera-backend`.
-    let name = mymod.name();
-    let backend = name.strip_prefix("async-").unwrap_or(name);
+    let backend = mymod.name().trim_prefix("async-");
     let infos = mymod
         .camera_infos()
         .with_context(|| format!("enumerating cameras for the '{backend}' backend"))?;
@@ -521,10 +520,7 @@ mod tests {
     #[test]
     fn defaults_are_standalone() {
         let args = parse(&[]).unwrap();
-        assert!(matches!(
-            args.standalone_or_braid,
-            StandaloneOrBraid::Standalone(_)
-        ));
+        std::assert_matches!(args.standalone_or_braid, StandaloneOrBraid::Standalone(_));
         // Standalone mode auto-opens the browser by default.
         assert!(!args.no_browser);
         assert_eq!(

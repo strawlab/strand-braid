@@ -61,14 +61,10 @@ fn launch_strand_cam(
     let exe_dir = braid_run_exe
         .parent()
         .expect("Executable must be in some directory");
-    #[cfg(target_os = "windows")]
-    let ext = ".exe";
-    #[cfg(not(target_os = "windows"))]
-    let ext = "";
     let exe = exe_dir.join(format!(
         "{}{}",
         camera.start_backend.strand_cam_exe_name().unwrap(),
-        ext
+        std::env::consts::EXE_SUFFIX
     ));
     debug!("strand cam executable name: \"{}\"", exe.display());
 
@@ -97,11 +93,20 @@ fn launch_strand_cam(
     Ok(())
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     std::panic::set_hook(Box::new(tracing_panic::panic_hook));
-    braid_start("run")?;
+    // SAFETY: This is the only thread. In particular the tokio runtime, which
+    // starts worker threads, is built below rather than by `#[tokio::main]`
+    // around this function.
+    unsafe { braid_start("run") }?;
 
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?
+        .block_on(run())
+}
+
+async fn run() -> Result<()> {
     let args = BraidRunCliArgs::parse();
     let cfg = parse_config_file(&args.config_file).with_context(|| {
         format!(

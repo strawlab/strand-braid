@@ -20,6 +20,10 @@ jobs:
     runs-on: ${{ matrix.runs-on }}
     steps:
       - uses: actions/checkout@v6
+      # The toolchain preinstalled on the runner trails a new Rust release by
+      # days to weeks, and this repository uses the latest one.
+      - name: Update to the latest stable Rust
+        run: rustup update stable --no-self-update
       - name: Build app
         run: |
           cargo build -p apriltag-track-movie --release
@@ -43,6 +47,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
+      # The toolchain preinstalled on the runner trails a new Rust release by
+      # days to weeks, and this repository uses the latest one.
+      - name: Update to the latest stable Rust
+        run: rustup update stable --no-self-update
       - name: Install pthread
         run: vcpkg install pthread:x64-windows-static
         shell: cmd

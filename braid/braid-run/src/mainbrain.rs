@@ -43,10 +43,6 @@ use crate::multicam_http_session_handler::{MaybeSession, StrandCamHttpSessionHan
 static ASSETS_DIR: include_dir::Dir<'static> =
     include_dir::include_dir!("$CARGO_MANIFEST_DIR/braid_frontend/dist");
 
-lazy_static::lazy_static! {
-    static ref EVENTS_PREFIX: String = format!("/{}", BRAID_EVENTS_URL_PATH);
-}
-
 pub(crate) const APP_INFO: AppInfo = AppInfo {
     name: "braid",
     author: "AndrewStraw",
@@ -378,7 +374,7 @@ async fn launch_braid_http_backend(
     // enforced server-side via the signed cookie. Existing cookies that
     // predate this field carry no embedded expiry and are treated as
     // non-expiring until renewed, so they stay valid across the upgrade.
-    cfg.session_expires = Some(std::time::Duration::from_secs(60 * 60 * 24 * 400)); // 400 days
+    cfg.session_expires = Some(std::time::Duration::from_hours(24 * 400)); // 400 days
     // Clients on a trusted overlay network (e.g. Tailscale/WireGuard) are
     // accepted without a token; the overlay has already authenticated them.
     cfg.trusted_networks = trusted_networks.clone();
@@ -492,7 +488,7 @@ impl flydra2::ConnectedCamCallback for SendConnectedCamToBuiBackend {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 pub(crate) async fn do_run_forever(
     show_tracking_params: bool,
     // sched_policy_priority: Option<(libc::c_int, libc::c_int)>,
@@ -686,7 +682,7 @@ pub(crate) async fn do_run_forever(
         fake_mp4_recording_path: None,
         post_trigger_buffer_size: 0,
         clock_model: None,
-        calibration_filename: cal_fname.map(|x| x.into_os_string().into_string().unwrap()),
+        calibration_filename: cal_fname.map(|x| x.into_string().unwrap()),
         connected_cameras: Vec::new(),
         background_model_updating: Default::default(),
         camera_image_dimensions: Default::default(),
@@ -721,7 +717,7 @@ pub(crate) async fn do_run_forever(
         let store_for_version_check = shared_store.clone();
         let checker = strand_version_check::VersionChecker::new();
         let interval_stream = tokio_stream::wrappers::IntervalStream::new(tokio::time::interval(
-            std::time::Duration::from_secs(1800),
+            std::time::Duration::from_mins(30),
         ));
         let mut interval_stream = valve.wrap(interval_stream);
         tokio::spawn(async move {

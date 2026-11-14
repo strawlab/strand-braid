@@ -117,11 +117,11 @@ fn display_data2d_distorted_rows(d: &[DisplayData2dDistortedRow]) -> String {
 }
 
 fn display_time(timestamp: &Option<chrono::NaiveTime>) -> String {
-    timestamp.map(|t| t.to_string()).unwrap_or_default()
+    timestamp.map_or_default(|t| t.to_string())
 }
 
 fn display_option<T: std::fmt::Display>(opt: &Option<T>) -> String {
-    opt.as_ref().map(|v| v.to_string()).unwrap_or_default()
+    opt.as_ref().map_or_default(|v| v.to_string())
 }
 
 /// The row for `frame`, created empty if needed.
@@ -280,7 +280,7 @@ mod tests {
     }
 
     fn is_increasing(v: &[usize]) -> bool {
-        v.windows(2).all(|w| w[0] < w[1])
+        v.array_windows().all(|[a, b]| a < b)
     }
 
     #[test]

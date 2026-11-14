@@ -1095,11 +1095,6 @@ impl FirstMsgForced {
     }
 
     /// Send the first message and return the Sender.
-    /// `SendError` carries the un-sent message back, so its size is
-    /// `BraidHttpApiCallback`'s. Boxing it to satisfy `result_large_err` would
-    /// change the signature for every caller to shrink a value that only exists
-    /// on the shutdown path described for `IgnoreSendError` above.
-    #[allow(clippy::result_large_err)]
     async fn send_first_msg(
         self,
         new_cam_data: braid_types::RegisterNewCamera,
@@ -2309,11 +2304,7 @@ where
         }),
     };
 
-    #[cfg(target_os = "macos")]
-    let is_videotoolbox_functioning = true;
-
-    #[cfg(not(target_os = "macos"))]
-    let is_videotoolbox_functioning = false;
+    let is_videotoolbox_functioning = cfg!(target_os = "macos");
 
     // -----------------------------------------------
 
@@ -2638,7 +2629,7 @@ where
         let checker = strand_version_check::VersionChecker::new();
 
         // Check now and every 30 minutes.
-        let interval_stream = tokio::time::interval(std::time::Duration::from_secs(1800));
+        let interval_stream = tokio::time::interval(std::time::Duration::from_mins(30));
         let mut interval_stream = tokio_stream::wrappers::IntervalStream::new(interval_stream);
 
         let stream_future = async move {
@@ -2894,8 +2885,6 @@ fn ptp_utc_offset_verdict(measured_offset_secs: f64, utc_offset_secs: i32) -> Re
     Err(eyre!("{prefix} {advice}"))
 }
 
-/// See `send_first_msg` for why the large `SendError` is not boxed.
-#[allow(clippy::result_large_err)]
 async fn send_cam_settings_to_braid(
     cam_settings: &str,
     transmit_msg_tx: &tokio::sync::mpsc::Sender<braid_types::BraidHttpApiCallback>,

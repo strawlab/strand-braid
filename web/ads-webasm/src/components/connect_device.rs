@@ -299,7 +299,7 @@ fn view_expiry(token_expires_unix: Option<i64>, some_tokenless: bool) -> Html {
 /// Whether `url`'s host is a loopback address (so unreachable from a phone).
 fn is_loopback_url(url: &str) -> bool {
     // Hosts as produced by the backend look like `http://127.0.0.1:3440/...`.
-    let after_scheme = url.strip_prefix("http://").unwrap_or(url);
+    let after_scheme = url.trim_prefix("http://");
     let host = after_scheme
         .split(['/', ':'])
         .next()

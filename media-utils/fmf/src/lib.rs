@@ -1,18 +1,11 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-extern crate byteorder;
-extern crate chrono;
-extern crate machine_vision_formats as formats;
-extern crate strand_dynamic_frame;
-
-extern crate strand_datetime_conversion;
-
-use std::f64;
 use std::io::{Seek, SeekFrom, Write};
 
 use byteorder::{LittleEndian, WriteBytesExt};
 use formats::{ImageStride, PixFmt, PixelFormat};
+use machine_vision_formats as formats;
 
 pub type FMFResult<M> = std::result::Result<M, FMFError>;
 

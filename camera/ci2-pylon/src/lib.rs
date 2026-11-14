@@ -1,7 +1,7 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-extern crate machine_vision_formats as formats;
+use machine_vision_formats as formats;
 
 use anyhow::Context;
 use std::sync::{Arc, Mutex};

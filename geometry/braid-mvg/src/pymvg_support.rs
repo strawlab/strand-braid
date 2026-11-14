@@ -12,7 +12,7 @@
 //! - [`PymvgCamera`]: Individual camera representation in PyMVG format
 //! - [`PymvgMultiCameraSystemV1`]: Multi-camera system in PyMVG format
 
-#![allow(non_snake_case)]
+#![expect(non_snake_case)]
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 

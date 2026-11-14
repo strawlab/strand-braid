@@ -25,7 +25,7 @@
 //! Each frame from the webcam (commonly YUYV or MJPEG) is decoded on the host.
 //! Both [`PixFmt::RGB8`] and [`PixFmt::Mono8`] are offered; RGB8 is the default.
 
-extern crate machine_vision_formats as formats;
+use machine_vision_formats as formats;
 
 use std::sync::OnceLock;
 
@@ -61,13 +61,9 @@ fn ensure_nokhwa_initialized() -> ci2::Result<()> {
         rx.recv().unwrap_or(false)
     });
 
-    if granted {
-        Ok(())
-    } else {
-        Err(ci2::Error::from(
-            "nokhwa initialization failed or camera access was not granted",
-        ))
-    }
+    granted.ok_or_else(|| {
+        ci2::Error::from("nokhwa initialization failed or camera access was not granted")
+    })
 }
 
 /// Enumerate the webcams visible to the native backend.

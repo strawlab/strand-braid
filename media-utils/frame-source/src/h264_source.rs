@@ -700,7 +700,7 @@ where
                     )));
                 }
 
-                let keep: Vec<bool> = (0..total_frames).map(|i| rank[i] < kept_frames).collect();
+                let keep = Vec::from_fn(total_frames, |i| rank[i] < kept_frames);
                 retain_by_mask(&mut frame_time_info, &keep);
                 if let Some(pts) = mp4_pts.as_mut() {
                     retain_by_mask(pts, &keep);
@@ -847,7 +847,7 @@ where
         }
 
         // Rate and gap classification, solved together.
-        let intervals: Vec<i64> = p_capture.windows(2).map(|w| w[1] - w[0]).collect();
+        let intervals: Vec<i64> = p_capture.array_windows().map(|[a, b]| b - a).collect();
         let slots_at = |rate: f64| -> Vec<i64> {
             intervals
                 .iter()

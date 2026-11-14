@@ -6,7 +6,7 @@ use std::{fs::File, io::Read, path::Path};
 use byteorder::{LittleEndian, ReadBytesExt};
 
 use chrono::{DateTime, Utc};
-use formats::PixFmt;
+use machine_vision_formats::PixFmt;
 use strand_dynamic_frame::DynamicFrameOwned;
 
 use crate::{FMFError, FMFResult, pixel_formats};

@@ -93,12 +93,13 @@ runs:
         cargo fetch
 
     - name: Build packaged binaries (single unified pass)
-      # Deny warnings and pin the baseline ISA. `target-cpu=sandybridge` is
-      # also set in `.cargo/config.toml`, but a `RUSTFLAGS` env var overrides
-      # (does not merge with) that config entry, so it must be repeated here.
+      # Deny warnings with Cargo's own `build.warnings` setting rather than
+      # `-D warnings` in a `RUSTFLAGS` env var: that variable overrides (does
+      # not merge with) the `target-cpu=sandybridge` baseline ISA set in
+      # `.cargo/config.toml`, which then had to be repeated here.
       shell: bash
       env:
-        RUSTFLAGS: "-D warnings -C target-cpu=sandybridge"
+        CARGO_BUILD_WARNINGS: deny
       run: |
         cargo build --release \
           -p strand-cam \
@@ -132,7 +133,7 @@ runs:
     - name: Build strand-cam-flydratrax (flydratrax-enabled strand-cam)
       shell: bash
       env:
-        RUSTFLAGS: "-D warnings -C target-cpu=sandybridge"
+        CARGO_BUILD_WARNINGS: deny
       run: |
         cargo build --release -p strand-cam-gui --no-default-features \
           --features "strand-cam/bundle_files,strand-cam/flydratrax,strand-cam/checkercal,strand-cam/fiducial,strand-cam/flydra_feat_detect"

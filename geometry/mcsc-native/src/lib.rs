@@ -735,7 +735,7 @@ struct EuclidizeResult {
     pe: DMatrix<f64>,
     xe: DMatrix<f64>,
     c: DMatrix<f64>,
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     rot: DMatrix<f64>,
 }
 
@@ -795,7 +795,7 @@ struct EuclidizeResult {
 /// * `k_centred_per_cam[i]` — the same `K` with `(pp_x, pp_y)` subtracted
 ///   from `(cx, cy)`, to match the centred frame that P and X live in.
 ///   Must be `Some` iff `k_full_per_cam[i]` is.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn euclidize(
     _rmat: &DMatrix<f64>,
     lambda: &DMatrix<f64>,
@@ -1244,7 +1244,7 @@ fn q_row(u: &[f64], v: &[f64]) -> [f64; 10] {
 /// Equivalent to `CoreFunctions/reprerror.m`. Compares `nhom(Pe * Xe)`
 /// (full pixel coordinates) against `cam_xgt` (original non-centred
 /// pixel observations).
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn compute_reproj_error(
     cam_idlin: &[Vec<usize>],
     cam_xgt: &[DMatrix<f64>],
@@ -1404,7 +1404,7 @@ fn compute_reproj_error(
 /// Detect outlier observations and update the inlier set.
 ///
 /// Equivalent to `CoreFunctions/findoutl.m`.
-#[allow(clippy::too_many_arguments)]
+#[expect(clippy::too_many_arguments)]
 fn find_outliers(
     cam_err2d: &[Vec<f64>],
     cam_mean2d_err: &[f64],
@@ -1906,9 +1906,8 @@ mod tests {
                 p
             };
 
-        let p_full_blocks: Vec<_> = (0..n_cams)
-            .map(|i| build_p(&k_full_list[i], &r_list[i], &c_list[i]))
-            .collect();
+        let p_full_blocks =
+            Vec::from_fn(n_cams, |i| build_p(&k_full_list[i], &r_list[i], &c_list[i]));
 
         let mut p_joint_full = DMatrix::<f64>::zeros(9, 4);
         for (i, p) in p_full_blocks.iter().enumerate() {
@@ -1948,9 +1947,9 @@ mod tests {
             })
             .collect();
 
-        let p_centred_blocks: Vec<_> = (0..n_cams)
-            .map(|i| build_p(&k_centred_list[i], &r_list[i], &c_list[i]))
-            .collect();
+        let p_centred_blocks = Vec::from_fn(n_cams, |i| {
+            build_p(&k_centred_list[i], &r_list[i], &c_list[i])
+        });
 
         let mut p_joint_c = DMatrix::<f64>::zeros(9, 4);
         for (i, p) in p_centred_blocks.iter().enumerate() {

@@ -1,7 +1,7 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, env::consts::EXE_SUFFIX};
 
 use clap::{CommandFactory, Parser};
 use eyre::{Result, WrapErr};
@@ -19,11 +19,6 @@ struct BraidLauncherCliArgs {
     options: Vec<String>,
 }
 
-#[cfg(target_os = "windows")]
-const EXE_SUFFIX: &str = ".exe";
-#[cfg(not(target_os = "windows"))]
-const EXE_SUFFIX: &str = "";
-
 /// Whether `path` looks like an executable file we can dispatch to. On Unix this
 /// checks the executable permission bit; on other platforms it is sufficient
 /// that the entry is a regular file (the `.exe` suffix is already required by
@@ -36,14 +31,12 @@ fn is_executable_file(path: &std::path::Path) -> bool {
     if !metadata.is_file() {
         return false;
     }
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        metadata.permissions().mode() & 0o111 != 0
-    }
-    #[cfg(not(unix))]
-    {
-        true
+    cfg_select! {
+        unix => {
+            use std::os::unix::fs::PermissionsExt;
+            metadata.permissions().mode() & 0o111 != 0
+        }
+        _ => true,
     }
 }
 
@@ -55,10 +48,10 @@ fn discover_subcommands() -> BTreeSet<String> {
     let prefix = "braid-";
     let mut dirs: Vec<std::path::PathBuf> = Vec::new();
 
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(parent) = exe.parent() {
-            dirs.push(parent.to_path_buf());
-        }
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(parent) = exe.parent()
+    {
+        dirs.push(parent.to_path_buf());
     }
     if let Some(path) = std::env::var_os("PATH") {
         dirs.extend(std::env::split_paths(&path));

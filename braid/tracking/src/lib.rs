@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 //! motion and observation models for Kalman filtering
-extern crate nalgebra as na;
 
 pub mod flat_motion_model_3d;
 pub mod motion_model_3d;

@@ -146,7 +146,6 @@ impl Sidecars {
     /// `.mp4`).
     pub fn for_mp4<P: AsRef<Path>>(mp4_path: P) -> Result<Self> {
         let mp4 = PathBuf::from(mp4_path.as_ref())
-            .into_os_string()
             .into_string()
             .map_err(|_| Error::FilenameNotUnicode)?;
         let Some(basename) = mp4.strip_suffix(".mp4") else {
@@ -958,13 +957,13 @@ mod test {
         // recorded.
         presentation.sort_by_key(|(pts, _)| *pts);
         let ordered_sei: Vec<_> = presentation.iter().map(|(_, sei)| *sei).collect();
-        for pair in ordered_sei.windows(2) {
+        for [earlier, later] in ordered_sei.array_windows() {
             assert!(
-                pair[0] < pair[1],
+                earlier < later,
                 "SEI capture times must strictly increase in presentation order, \
                  but got {:?} then {:?} (out-of-order playback)",
-                pair[0],
-                pair[1]
+                earlier,
+                later
             );
         }
 
@@ -1179,8 +1178,8 @@ mod test {
     /// Successive presentation intervals, in microseconds.
     fn pts_intervals_us(samples: &[PresentedSample]) -> Vec<i64> {
         samples
-            .windows(2)
-            .map(|w| (w[1].pts - w[0].pts).num_microseconds().unwrap())
+            .array_windows()
+            .map(|[a, b]| (b.pts - a.pts).num_microseconds().unwrap())
             .collect()
     }
 
@@ -1767,7 +1766,7 @@ mod test {
         assert_eq!(ordered_sei, expected);
 
         // Repairing a repaired recording is a no-op.
-        assert!(matches!(repair(mp4)?, Repair::NotInterrupted));
+        std::assert_matches!(repair(mp4)?, Repair::NotInterrupted);
         Ok(())
     }
 
@@ -1947,7 +1946,7 @@ mod test {
         std::fs::write(&sidecars.metadata_json, "{}")?;
 
         assert_eq!(inspect(&mp4)?, State::StaleSidecars);
-        assert!(matches!(repair(&mp4)?, Repair::RemovedStaleSidecars));
+        std::assert_matches!(repair(&mp4)?, Repair::RemovedStaleSidecars);
         assert!(!Path::new(&sidecars.srt).exists());
         assert!(!Path::new(&sidecars.metadata_json).exists());
         assert_eq!(
@@ -1964,10 +1963,7 @@ mod test {
     fn test_missing_recording_is_reported() -> Result<()> {
         let tempdir = tempfile::tempdir()?;
         let missing = crash_test_mp4(tempdir.path());
-        assert!(matches!(
-            inspect(&missing),
-            Err(Error::NoSuchRecording { .. })
-        ));
+        std::assert_matches!(inspect(&missing), Err(Error::NoSuchRecording { .. }));
         Ok(())
     }
 
@@ -1992,8 +1988,8 @@ mod test {
         std::fs::write(&mp4, &complete[..moov_at - 4])?;
 
         assert!(!is_mp4_finalized(&mp4)?);
-        assert!(matches!(inspect(&mp4), Err(Error::Mp4NotFinalized { .. })));
-        assert!(matches!(repair(&mp4), Err(Error::Mp4NotFinalized { .. })));
+        std::assert_matches!(inspect(&mp4), Err(Error::Mp4NotFinalized { .. }));
+        std::assert_matches!(repair(&mp4), Err(Error::Mp4NotFinalized { .. }));
         Ok(())
     }
 }

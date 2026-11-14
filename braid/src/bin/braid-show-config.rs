@@ -14,7 +14,9 @@ struct BraidShowConfigCliArgs {
 }
 
 fn main() -> Result<()> {
-    braid_start("show-config").with_context(|| "launching show-config command".to_string())?;
+    // SAFETY: This is the only thread: nothing has been started yet.
+    unsafe { braid_start("show-config") }
+        .with_context(|| "launching show-config command".to_string())?;
 
     env_tracing_logger::init();
 

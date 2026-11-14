@@ -23,10 +23,10 @@ impl SharedLibrary {
 }
 
 pub fn load_manually() -> Result<SharedLibrary, CudaError> {
-    #[cfg(target_os = "windows")]
-    let path = PathBuf::from("nvcuda.dll");
-    #[cfg(not(target_os = "windows"))]
-    let path = PathBuf::from("libcuda.so");
+    let path = PathBuf::from(cfg_select! {
+        target_os = "windows" => "nvcuda.dll",
+        _ => "libcuda.so",
+    });
     let library = unsafe { libloading::Library::new(&path) }.map_err(|source| {
         CudaError::DynLibLoadError {
             lib: path.display().to_string(),

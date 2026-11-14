@@ -210,7 +210,6 @@ indicatif = "0.17.1"
 itertools = "0.14"
 js-sys = "0.3.77"
 json-lines = { version = "0.1.0", features = ["codec"] }
-lazy_static = "1.4"
 less-avc = "0.1.4"
 levenberg-marquardt-sparse = { version = "0.2", features = ["tracing"] }
 libflate = "2.1.0"

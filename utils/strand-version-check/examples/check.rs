@@ -25,10 +25,10 @@
 use std::time::Duration;
 
 use bytes::Bytes;
-use http_body_util::{combinators::BoxBody, BodyExt, Full};
+use http_body_util::{BodyExt, Full, combinators::BoxBody};
 use hyper_rustls::HttpsConnector;
 use hyper_util::{
-    client::legacy::{connect::HttpConnector, Client},
+    client::legacy::{Client, connect::HttpConnector},
     rt::TokioExecutor,
 };
 use serde::Deserialize;
@@ -36,7 +36,7 @@ use serde::Deserialize;
 /// Products the version-check service is expected to know about.
 const PRODUCTS: &[&str] = &["braid", "strand-cam"];
 
-type Body = BoxBody<Bytes, std::convert::Infallible>;
+type Body = BoxBody<Bytes, !>;
 
 /// The wire format documented by the `strand-version-check` crate. Kept as its
 /// own type here (the library's copy is private) so we can validate each field.
@@ -48,9 +48,7 @@ struct VersionResponse {
 }
 
 fn empty_body() -> Body {
-    Full::new(Bytes::new())
-        .map_err(|never| match never {})
-        .boxed()
+    Full::new(Bytes::new()).boxed()
 }
 
 #[tokio::main]

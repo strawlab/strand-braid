@@ -115,11 +115,7 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 fn vimba_err(err: i32) -> std::result::Result<(), VimbaError> {
-    if err == VmbErrorType::VmbErrorSuccess {
-        Ok(())
-    } else {
-        Err(VimbaError::from(err))
-    }
+    (err == VmbErrorType::VmbErrorSuccess).ok_or_else(|| VimbaError::from(err))
 }
 
 macro_rules! vimba_call_no_err {
