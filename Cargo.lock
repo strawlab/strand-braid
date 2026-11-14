@@ -1720,7 +1720,6 @@ dependencies = [
  "http-body-util",
  "hyper",
  "include_dir",
- "lazy_static",
  "preferences-serde1",
  "semver",
  "serde_json",
@@ -5518,7 +5517,6 @@ dependencies = [
  "flytrax-apriltags-calibration",
  "glob",
  "image",
- "lazy_static",
  "opencv-ros-camera",
  "serde",
  "serde_yaml",
@@ -17933,7 +17931,6 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "env_logger",
- "lazy_static",
  "libloading 0.8.9",
  "machine-vision-formats",
  "thiserror 2.0.21",
