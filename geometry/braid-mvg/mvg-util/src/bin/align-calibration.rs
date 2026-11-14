@@ -7,7 +7,7 @@ use eyre::{Context, Result, bail};
 use flydra_mvg::FlydraMultiCameraSystem;
 use nalgebra::{Dyn, OMatrix, U1, U3};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{io::Write, path::PathBuf};
 
 #[derive(Debug, Parser, Default)]
 #[command(name = "cal-to-xml", version)]
@@ -147,13 +147,17 @@ fn align_cal(opt: Opt) -> Result<PathBuf> {
     let system = unaligned_calibration.system().align(s, rot, t)?;
     let aligned = FlydraMultiCameraSystem::from_system(system, unaligned_calibration.water());
 
+    // Serialize before creating the file, so that a failure to do so does not
+    // leave an empty file behind which would then block the next attempt.
+    let mut xml_buf: Vec<u8> = Vec::new();
+    aligned.to_flydra_xml(&mut xml_buf)?;
     let mut out_fd = std::fs::File::create_new(&output_aligned_cal).with_context(|| {
         format!(
             "While creating output file {}",
             output_aligned_cal.display()
         )
     })?;
-    aligned.to_flydra_xml(&mut out_fd)?;
+    out_fd.write_all(&xml_buf)?;
 
     Ok(output_aligned_cal)
 }
