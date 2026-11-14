@@ -19,7 +19,7 @@ chrono.workspace = true
 csv = { workspace = true, optional = true }
 gloo-events = { workspace = true }
 gloo-file = { workspace = true }
-gloo-timers = "0.3.0"
+gloo-timers = "0.4.0"
 libflate.workspace = true
 uuid = { workspace = true, default-features = false, features = ["js", "v4"] }
 

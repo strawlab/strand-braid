@@ -8,7 +8,7 @@ description = "Reusable Yew components for Strand Camera browser user interfaces
 
 [dependencies]
 gloo-events.workspace = true
-gloo-timers = "0.3.0"
+gloo-timers = "0.4.0"
 gloo-utils.workspace = true
 js-sys.workspace = true
 log.workspace = true

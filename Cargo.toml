@@ -177,9 +177,9 @@ eyre = "0.6.14"
 fs_extra = "1.1"
 futures = "0.3.31"
 glob = "0.3.3"
-gloo-file = "0.2"
-gloo-events = "0.1.1"
-gloo-utils = "0.1"
+gloo-file = "0.4.0"
+gloo-events = "0.3.0"
+gloo-utils = "0.3.0"
 h264-reader = "0.8.0"
 hdrhistogram = { version = "7.5.2", default-features = false, features = [
     "serialization",
@@ -288,8 +288,8 @@ wasm-logger = "0.2.0"
 wide = { version = "1.7.1", default-features = false }
 xml = "1.0"
 y4m = { git = "https://github.com/astraw/y4m", rev = "6992473b73838c84cb659387b21d2ab2ebe94766" }
-yew = { version = "0.22.0", features = ["csr"] }
-yew-tincture = "0.3.0"
+yew = { version = "0.23.0", features = ["csr"] }
+yew-tincture = "0.4.1"
 zip = { version = "9.5.1", default-features = false, features = [
     "deflate",
     "time",
