@@ -11,4 +11,8 @@ ureq = "3.0.9"
 thiserror.workspace = true
 sha2 = "0.10.9"
 hex = "0.4.3"
+
+pending-file.workspace = true
+
+[dev-dependencies]
 tempfile.workspace = true

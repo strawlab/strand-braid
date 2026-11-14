@@ -3,7 +3,7 @@
 
 use std::{
     collections::HashMap,
-    io::{Read, Seek, Write},
+    io::{Read, Write},
     path::{Path, PathBuf},
     sync::{Arc, LazyLock, Mutex},
 };
@@ -110,7 +110,15 @@ pub fn download_verify<P: AsRef<Path>>(url: &str, dest: P, hash: &Hash) -> Resul
             })?;
 
             let mut rdr = response.into_body().into_reader();
-            let mut tmp_dest = tempfile::tempfile()?; // file automatically deleted on drop
+            // Download to a file beside the destination, which is deleted
+            // again unless the checksum turns out right. Only then is it moved
+            // to `dest`, so `dest` is never a partial or wrong file, whatever
+            // interrupts this.
+            if let Some(dest_dir) = dest.parent() {
+                // create the dir, if it does not already exist.
+                std::fs::create_dir_all(dest_dir)?;
+            }
+            let (mut fd, pending) = pending_file::PendingFile::create(dest)?;
             let mut hasher = sha2::Sha256::new();
             // Read the response chunk-by-chunk and save to disk at the same
             // time, so that we don't have to hold the entire file in memory.
@@ -123,21 +131,16 @@ pub fn download_verify<P: AsRef<Path>>(url: &str, dest: P, hash: &Hash) -> Resul
                 }
                 let slice = &chunk[..n];
                 hasher.update(slice);
-                tmp_dest.write_all(slice)?;
+                fd.write_all(slice)?;
             }
 
             // validate the response,
             validate(hasher.finalize().as_slice(), hash)?;
 
-            // copy the file.
-            // create the dir, if it does not already exist.
-            if let Some(dest_dir) = dest.parent() {
-                std::fs::create_dir_all(dest_dir)?;
-            }
-            let mut fd = std::fs::File::create(dest)?;
-            tmp_dest.seek(std::io::SeekFrom::Start(0))?;
-            std::io::copy(&mut tmp_dest, &mut fd)?;
+            // and only then put the file in place.
             fd.sync_all()?;
+            drop(fd);
+            pending.commit()?;
         }
     }
 
@@ -170,6 +173,75 @@ fn validate(digest: &[u8], hash: &Hash) -> Result<(), DlError> {
 
 #[cfg(test)]
 mod tests {
+    use std::io::{Read, Write};
+
+    /// Serve `body` to one HTTP request on a local port and return its URL.
+    fn serve_once(name: &str, body: &'static [u8]) -> String {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/{name}", listener.local_addr().unwrap());
+        std::thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let mut request = Vec::new();
+            let mut buf = [0u8; 1024];
+            while !request.windows(4).any(|w| w == b"\r\n\r\n") {
+                let n = stream.read(&mut buf).unwrap();
+                if n == 0 {
+                    break;
+                }
+                request.extend_from_slice(&buf[..n]);
+            }
+            write!(
+                stream,
+                "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                body.len()
+            )
+            .unwrap();
+            stream.write_all(body).unwrap();
+        });
+        url
+    }
+
+    fn names_in(dir: &std::path::Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        names
+    }
+
+    const HELLO_SHA256: &str = "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824";
+
+    /// A download is written beside its destination and moved there once its
+    /// checksum is right, leaving only the destination.
+    #[test]
+    fn a_verified_download_is_put_in_place() {
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("subdir").join("hello.txt");
+        crate::download_verify(
+            &serve_once("good", b"hello"),
+            &dest,
+            &crate::Hash::Sha256(HELLO_SHA256.into()),
+        )
+        .unwrap();
+        assert_eq!(std::fs::read(&dest).unwrap(), b"hello");
+        assert_eq!(names_in(dest.parent().unwrap()), ["hello.txt"]);
+    }
+
+    /// A download with the wrong checksum never appears at the destination,
+    /// where the next run would trip over it, and is not left beside it.
+    #[test]
+    fn a_download_with_the_wrong_checksum_leaves_nothing() {
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("hello.txt");
+        let result = crate::download_verify(
+            &serve_once("bad", b"not hello"),
+            &dest,
+            &crate::Hash::Sha256(HELLO_SHA256.into()),
+        );
+        assert!(result.is_err());
+        assert!(names_in(dir.path()).is_empty());
+    }
 
     #[test]
     fn it_works() {
