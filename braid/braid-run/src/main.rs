@@ -61,14 +61,10 @@ fn launch_strand_cam(
     let exe_dir = braid_run_exe
         .parent()
         .expect("Executable must be in some directory");
-    #[cfg(target_os = "windows")]
-    let ext = ".exe";
-    #[cfg(not(target_os = "windows"))]
-    let ext = "";
     let exe = exe_dir.join(format!(
         "{}{}",
         camera.start_backend.strand_cam_exe_name().unwrap(),
-        ext
+        std::env::consts::EXE_SUFFIX
     ));
     debug!("strand cam executable name: \"{}\"", exe.display());
 

@@ -2309,11 +2309,7 @@ where
         }),
     };
 
-    #[cfg(target_os = "macos")]
-    let is_videotoolbox_functioning = true;
-
-    #[cfg(not(target_os = "macos"))]
-    let is_videotoolbox_functioning = false;
+    let is_videotoolbox_functioning = cfg!(target_os = "macos");
 
     // -----------------------------------------------
 
