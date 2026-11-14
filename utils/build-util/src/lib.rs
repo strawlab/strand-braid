@@ -140,8 +140,8 @@ pub fn trunk_build(
     // TrunkBuildLock, and cargo locks the target directory itself) and lets them
     // share compiled dependencies. See `shared_trunk_target_dir` for why it is
     // keyed by checkout rather than shared by every build on the machine.
-    let trunk_target_dir =
-        shared_trunk_target_dir(&out_dir, &frontend_source_root(&frontend_path))?;
+    let source_root = frontend_source_root(&frontend_path);
+    let trunk_target_dir = shared_trunk_target_dir(&out_dir, &source_root)?;
     std::fs::create_dir_all(&trunk_target_dir)?;
 
     // Serialize trunk invocations across the whole machine. Multiple frontend
@@ -253,6 +253,7 @@ pub fn trunk_build(
         format!("{frontend_dir}/scss"),
         format!("{frontend_dir}/index.html"),
         format!("{frontend_dir}/Trunk.toml"),
+        format!("{frontend_dir}/Cargo.toml"),
     ] {
         if PathBuf::from(&rel).exists() {
             println!("cargo:rerun-if-changed={rel}");
@@ -279,6 +280,20 @@ pub fn trunk_build(
         &PathBuf::from(std::env::var("CARGO_MANIFEST_DIR")?).join(frontend_dir),
     );
     emit_rerun_for_wasm_sources(&trunk_target_dir, &frontend_root);
+
+    // A change to dependencies alone touches no source file named above: a
+    // version bump rewrites only the workspace `Cargo.lock`, and a change to a
+    // dependency's features only a manifest. Without these, updating yew (say)
+    // left the frontend built against the old yew embedded in the binary until
+    // some frontend source happened to change. The manifests of the in-tree
+    // crates the frontend compiles are watched along with their sources, by
+    // `emit_rerun_for_wasm_sources`.
+    for name in ["Cargo.lock", "Cargo.toml"] {
+        let path = source_root.join(name);
+        if path.exists() {
+            println!("cargo:rerun-if-changed={}", path.display());
+        }
+    }
 
     Ok(())
 }
@@ -439,9 +454,29 @@ fn emit_rerun_for_wasm_sources(
         return;
     }
 
-    for source in sources {
-        println!("cargo:rerun-if-changed={}", source.display());
+    // Each of those crates also has a manifest, where a change to the features
+    // it asks of a dependency changes the wasm without touching any source.
+    let manifests: std::collections::BTreeSet<std::path::PathBuf> = sources
+        .iter()
+        .filter_map(|source| nearest_manifest(source, |path| path.is_file()))
+        .collect();
+
+    for path in sources.iter().chain(manifests.iter()) {
+        println!("cargo:rerun-if-changed={}", path.display());
     }
+}
+
+/// The `Cargo.toml` of the crate `source` belongs to: the one in the nearest
+/// directory above it that has one, as judged by `is_file`.
+fn nearest_manifest(
+    source: &std::path::Path,
+    is_file: impl Fn(&std::path::Path) -> bool,
+) -> Option<std::path::PathBuf> {
+    source
+        .ancestors()
+        .skip(1)
+        .map(|dir| dir.join("Cargo.toml"))
+        .find(|manifest| is_file(manifest))
 }
 
 /// Resolve `.` and `..` in `path` without consulting the filesystem.
@@ -696,8 +731,8 @@ impl Drop for TrunkBuildLock {
 #[cfg(test)]
 mod tests {
     use super::{
-        dep_info_sources, describes_frontend, normalize_lexically, shared_trunk_target_dir,
-        validate_build_metadata,
+        dep_info_sources, describes_frontend, nearest_manifest, normalize_lexically,
+        shared_trunk_target_dir, validate_build_metadata,
     };
 
     #[test]
@@ -747,6 +782,33 @@ mod tests {
         let strand_cam_root = std::path::Path::new("/w/strand-cam/yew_frontend");
         assert!(describes_frontend(&braid, braid_root));
         assert!(!describes_frontend(&braid, strand_cam_root));
+    }
+
+    #[test]
+    fn finds_the_manifest_of_the_crate_a_source_belongs_to() {
+        let manifests = [
+            std::path::Path::new("/w/Cargo.toml"),
+            std::path::Path::new("/w/web/ads-webasm/Cargo.toml"),
+        ];
+        let is_file = |path: &std::path::Path| manifests.contains(&path);
+        // The nearest manifest wins over the workspace's, however deep the source.
+        assert_eq!(
+            nearest_manifest(
+                std::path::Path::new("/w/web/ads-webasm/src/components/button.rs"),
+                is_file
+            ),
+            Some(std::path::PathBuf::from("/w/web/ads-webasm/Cargo.toml"))
+        );
+        // A source directly in the workspace root's package.
+        assert_eq!(
+            nearest_manifest(std::path::Path::new("/w/build.rs"), is_file),
+            Some(std::path::PathBuf::from("/w/Cargo.toml"))
+        );
+        // A source that is itself named Cargo.toml is not its own manifest.
+        assert_eq!(
+            nearest_manifest(std::path::Path::new("/elsewhere/Cargo.toml"), is_file),
+            None
+        );
     }
 
     #[test]
