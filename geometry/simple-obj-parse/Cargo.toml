@@ -8,5 +8,4 @@ description = "parse Wavefront OBJ 3D model files into triangle meshes"
 
 [dependencies]
 textured-tri-mesh.workspace = true
-genmesh = "0.6"
 obj.workspace = true

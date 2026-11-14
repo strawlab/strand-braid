@@ -199,7 +199,7 @@ pub async fn new_model_server(
         let rec = {
             let rec = std::env::var_os(ENV_KEY).map(|url_str| {
                 let url = url_str.to_str().unwrap();
-                let re_version = re_sdk::build_info().version;
+                let re_version = re_build_info::CrateVersion::LOCAL;
                 tracing::info!("Streaming data to rerun {re_version} at {url}");
                 re_sdk::RecordingStreamBuilder::new("braid")
                     .connect_grpc_opts(url)

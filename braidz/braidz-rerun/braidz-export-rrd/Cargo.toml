@@ -12,6 +12,7 @@ camino.workspace = true
 
 tracing.workspace = true
 re_sdk.workspace = true
+re_build_info.workspace = true
 
 rayon = "1.11.0"
 

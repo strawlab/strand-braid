@@ -13,6 +13,7 @@ eyre.workspace = true
 tracing.workspace = true
 re_chunk.workspace = true
 re_sdk.workspace = true
+re_build_info.workspace = true
 re_sdk_types = { workspace = true, features = ["image", "video"] }
 chrono.workspace = true
 indicatif.workspace = true

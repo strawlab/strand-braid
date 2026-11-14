@@ -70,7 +70,8 @@ fn test_nested_names() -> anyhow::Result<()> {
 
     let buf = zipw.finish()?.into_inner();
     let zip_archive = zip::ZipArchive::new(std::io::Cursor::new(&buf[..]))?;
-    let mut fnames: std::collections::BTreeSet<&str> = zip_archive.file_names().collect();
+    let mut fnames: std::collections::BTreeSet<_> =
+        zip_archive.file_names().collect::<Result<_, _>>()?;
     assert!(fnames.remove("file1.txt"));
     assert!(fnames.remove("subdir1/"));
     assert!(fnames.remove("subdir1/file2.txt"));

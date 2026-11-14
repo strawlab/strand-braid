@@ -1,8 +1,6 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use genmesh::EmitTriangles;
-
 mod error;
 
 pub use crate::error::Error;
@@ -13,6 +11,22 @@ fn to_point2(x: [f32; 2]) -> [f64; 2] {
 
 fn to_point3(x: [f32; 3]) -> [f64; 3] {
     [x[0] as f64, x[1] as f64, x[2] as f64]
+}
+
+/// Split a triangle or quad into triangles.
+///
+/// The quad `a b c d` becomes `a b c` and `c d a`. Polygons with any other
+/// number of vertices are an error.
+fn triangulate(verts: &[obj::IndexTuple]) -> Result<Vec<[obj::IndexTuple; 3]>, crate::Error> {
+    match *verts {
+        [a, b, c] => Ok(vec![[a, b, c]]),
+        [a, b, c, d] => Ok(vec![[a, b, c], [c, d, a]]),
+        _ => Err(crate::Error::new(
+            crate::error::ErrorKind::PolygonNotTriangleOrQuad {
+                vert_count: verts.len(),
+            },
+        )),
+    }
 }
 
 /// Load an .obj file and convert into [textured_tri_mesh::TriMesh]
@@ -35,16 +49,9 @@ pub fn obj_parse(buf: &[u8]) -> Result<Vec<(String, textured_tri_mesh::TriMesh)>
 
         for g in &o.groups {
             for poly in g.polys.iter() {
-                let mesh: genmesh::Polygon<_> = poly.clone().try_into()?;
-                mesh.emit_triangles(|tri| {
-                    let genmesh::Triangle {
-                        ref x,
-                        ref y,
-                        ref z,
-                    } = tri;
-
+                for tri in triangulate(&poly.0)? {
                     // iterate over each vert in the triangle
-                    for vert in &[x, y, z] {
+                    for vert in &tri {
                         let pos_idx = vert.0;
                         if let Some(ref uv_idx) = vert.1 {
                             coords.push(to_point3(obj.position[pos_idx]));
@@ -64,7 +71,7 @@ pub fn obj_parse(buf: &[u8]) -> Result<Vec<(String, textured_tri_mesh::TriMesh)>
                             }
                         }
                     }
-                });
+                }
             }
         }
 

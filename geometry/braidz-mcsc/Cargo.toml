@@ -18,6 +18,7 @@ zip.workspace = true
 nalgebra.workspace = true
 camino.workspace = true
 re_sdk = { workspace = true, optional = true }
+re_build_info = { workspace = true, optional = true }
 levenberg-marquardt-sparse.workspace = true
 cam-geom.workspace = true
 approx.workspace = true
@@ -40,5 +41,5 @@ tempfile.workspace = true
 mcsc-structs.workspace = true
 
 [features]
-with-rerun = ["dep:re_sdk", "bundle-adj/with-rerun"]
+with-rerun = ["dep:re_sdk", "dep:re_build_info", "bundle-adj/with-rerun"]
 with-octave = ["mcsc-structs/with-octave"]

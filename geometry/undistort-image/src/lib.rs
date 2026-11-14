@@ -8,8 +8,8 @@ use opencv_ros_camera::RosOpenCvIntrinsics;
 
 #[derive(Clone)]
 pub struct UndistortionCache {
-    mapx: kornia_tensor::CpuTensor2<f32>,
-    mapy: kornia_tensor::CpuTensor2<f32>,
+    mapx: kornia_image::image::Image<f32, 1>,
+    mapy: kornia_image::image::Image<f32, 1>,
 }
 
 impl UndistortionCache {
@@ -29,7 +29,10 @@ impl UndistortionCache {
         })
         .unwrap();
 
-        Ok(Self { mapx, mapy })
+        Ok(Self {
+            mapx: mapx.try_into()?,
+            mapy: mapy.try_into()?,
+        })
     }
 }
 
@@ -63,15 +66,13 @@ pub fn undistort_image(
             let rgb8 = decoded.into_pixel_format::<pixel_format::RGB8>().unwrap();
             let data_u8: &[u8] = rgb8.image_data();
             let data_f32: Vec<f32> = data_u8.iter().map(|x| *x as f32).collect();
-            let image = kornia_image::image::Image::<f32, 3, _>::new(
+            let image = kornia_image::image::Image::<f32, 3>::new(
                 kornia_image::image::ImageSize { width, height },
                 data_f32,
-                kornia_image::allocator::CpuAllocator,
             )?;
-            let mut undistorted_img = kornia_image::image::Image::<f32, 3, _>::from_size_val(
+            let mut undistorted_img = kornia_image::image::Image::<f32, 3>::from_size_val(
                 kornia_image::image::ImageSize { width, height },
                 0.0,
-                kornia_image::allocator::CpuAllocator,
             )?;
             kornia_imgproc::interpolation::remap(
                 &image,
@@ -80,7 +81,7 @@ pub fn undistort_image(
                 &undist_cache.mapy,
                 kornia_imgproc::interpolation::InterpolationMode::Bilinear,
             )?;
-            let tensor: kornia_tensor::Tensor<f32, 3, _> = undistorted_img.0;
+            let tensor: kornia_tensor::Tensor3<f32> = undistorted_img.0;
             if tensor.shape[2] != 3 {
                 eyre::bail!("expected exactly 3 channels");
             }

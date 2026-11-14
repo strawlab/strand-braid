@@ -579,7 +579,7 @@ pub(crate) async fn do_run_forever(
         }
         Err(e) => {
             tracing::debug!("cookie store {STRAND_CAM_COOKIE_KEY} not loaded: {e} {e:?}");
-            cookie_store::CookieStore::new(None)
+            cookie_store::CookieStore::new()
         }
     };
     let jar = Arc::new(RwLock::new(jar.clone()));

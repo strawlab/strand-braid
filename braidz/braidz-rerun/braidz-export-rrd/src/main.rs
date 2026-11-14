@@ -57,7 +57,7 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
             "{name} {version} (rerun {rerun_version})",
             name = env!("CARGO_PKG_NAME"),
             version = env!("CARGO_PKG_VERSION"),
-            rerun_version = re_sdk::build_info().version,
+            rerun_version = re_build_info::CrateVersion::LOCAL,
         );
         return Ok(());
     }
@@ -156,7 +156,7 @@ fn export_rrd(opt: Opt) -> eyre::Result<()> {
             rrd_logger.log_video(mp4_filename, my_mp4_writer)?;
             Ok::<(), eyre::ErrReport>(())
         })?;
-    let re_version = re_sdk::build_info().version;
+    let re_version = re_build_info::CrateVersion::LOCAL;
     tracing::info!("Exported to Rerun {re_version} RRD file: {output}");
 
     let rec = rrd_logger.close();

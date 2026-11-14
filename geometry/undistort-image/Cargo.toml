@@ -7,9 +7,9 @@ description = "undistort images using camera calibration parameters"
 
 [dependencies]
 eyre.workspace = true
-kornia-image = "0.1.10"
-kornia-imgproc = "0.1.8"
-kornia-tensor = "0.1.10"
+kornia-image = "0.2.0"
+kornia-imgproc = "0.2.0"
+kornia-tensor = "0.2.0"
 machine-vision-formats.workspace = true
 nalgebra.workspace = true
 opencv-ros-camera.workspace = true
