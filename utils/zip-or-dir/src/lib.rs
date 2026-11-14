@@ -505,10 +505,16 @@ impl SlashJoin for PathBuf {
 /// either a directory or a .zip file, and copy the contents into a newly
 /// created zip file. The contents of the source are walked recursively to copy
 /// it entirely.
+///
+/// The zip file is written beside `dest` and moved there only once it is
+/// complete.
 pub fn copy_to_zip<P1: AsRef<Path>, P2: AsRef<Path>>(src: P1, dest: P2) -> Result<()> {
     let mut src_archive = ZipDirArchive::auto_from_path(src.as_ref()).unwrap();
-    let mut zipfile = File::create(dest)?;
-    copy_archive_to_zipfile(&mut src_archive, &mut zipfile)
+    let (mut zipfile, pending) = pending_file::PendingFile::create(dest)?;
+    copy_archive_to_zipfile(&mut src_archive, &mut zipfile)?;
+    drop(zipfile);
+    pending.commit()?;
+    Ok(())
 }
 
 /// Copy `src`, an already open archive, to `dest`, an already open file.
@@ -643,6 +649,35 @@ mod tests {
     //     // (Since we do not make zip files in this crate, we do not need to
     //     // validate that they always have forward slashes.)
     // }
+
+    /// `copy_to_zip` writes under a temporary name and moves the result into
+    /// place: afterwards only the source and the zip file may be there.
+    #[test]
+    fn copy_to_zip_leaves_only_the_zip() {
+        let root = tempfile::tempdir().unwrap();
+        let src = root.path().join("src");
+        std::fs::create_dir(&src).unwrap();
+        std::fs::write(src.join("a.txt"), "contents").unwrap();
+        let dest = root.path().join("dest.zip");
+
+        copy_to_zip(&src, &dest).unwrap();
+
+        let mut names: Vec<String> = std::fs::read_dir(root.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        assert_eq!(names, ["dest.zip", "src"]);
+
+        let mut archive = ZipDirArchive::auto_from_path(&dest).unwrap();
+        let mut contents = String::new();
+        archive
+            .open("a.txt")
+            .unwrap()
+            .read_to_string(&mut contents)
+            .unwrap();
+        assert_eq!(contents, "contents");
+    }
 
     #[test]
     fn it_works() {

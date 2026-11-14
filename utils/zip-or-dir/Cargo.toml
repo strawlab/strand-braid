@@ -12,5 +12,7 @@ zip.workspace = true
 thiserror.workspace = true
 libflate.workspace = true
 
+pending-file.workspace = true
+
 [dev-dependencies]
 tempfile.workspace = true

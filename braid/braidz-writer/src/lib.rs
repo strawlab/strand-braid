@@ -19,12 +19,17 @@ pub enum Error {
     },
 }
 
-// zip the output_dirname directory
+/// Zip the `output_dirname` directory into the `.braidz` file `output_zipfile`.
+///
+/// The file is written beside `output_zipfile` and moved there only once it is
+/// complete, so that an interrupted conversion never leaves a truncated
+/// `.braidz` file. `output_dirname` is left untouched: it remains the copy to
+/// fall back on.
 pub fn dir_to_braidz<P1: AsRef<Path>, P2: AsRef<Path>>(
     output_dirname: P1,
     output_zipfile: P2,
 ) -> Result<(), Error> {
-    let mut file = std::fs::File::create(&output_zipfile)?;
+    let (mut file, pending) = pending_file::PendingFile::create(&output_zipfile)?;
 
     let header = "BRAIDZ file. This is a standard ZIP file with a \
                         specific schema. You can view the contents of this \
@@ -65,6 +70,45 @@ pub fn dir_to_braidz<P1: AsRef<Path>, P2: AsRef<Path>>(
         .unix_permissions(0o755);
 
     zip_dir::zip_dir(&mut files.into_iter(), &output_dirname, &mut zipw, options)?;
+    // This returns the file, which is closed here.
     zipw.finish()?;
+    pending.commit()?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The names in `dir`, sorted.
+    fn names_in(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        names
+    }
+
+    /// The `.braidz` file is written under a temporary name and moved into
+    /// place. Afterwards there must be the source directory, the `.braidz`
+    /// file, and nothing else; and an existing `.braidz` file is replaced.
+    #[test]
+    fn dir_to_braidz_leaves_only_the_braidz() -> anyhow::Result<()> {
+        let root = tempfile::tempdir()?;
+        let src = root.path().join("rec.braid");
+        std::fs::create_dir(&src)?;
+        std::fs::write(src.join(braid_types::README_MD_FNAME), "readme")?;
+        std::fs::write(src.join("data.csv"), "a,b\n1,2\n")?;
+        let dest = root.path().join("rec.braidz");
+        std::fs::write(&dest, "stale")?;
+
+        dir_to_braidz(&src, &dest)?;
+        assert_eq!(names_in(root.path()), ["rec.braid", "rec.braidz"]);
+
+        let mut archive = zip::ZipArchive::new(std::fs::File::open(&dest)?)?;
+        assert_eq!(archive.len(), 2);
+        assert!(archive.by_name("data.csv").is_ok());
+        Ok(())
+    }
 }
