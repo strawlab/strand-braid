@@ -15,9 +15,6 @@
 #![warn(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-#[macro_use]
-extern crate static_assertions;
-
 use ordered_float::NotNan;
 use std::net::SocketAddr;
 use strand_cam_bui_types::{ClockModel, RecordingPath};

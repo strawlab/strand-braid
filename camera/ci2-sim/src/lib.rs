@@ -16,7 +16,7 @@
 //! evaluates the deterministic world for its current frame and projects it with
 //! its own calibration, so multiple sim cameras need no coordination.
 
-extern crate machine_vision_formats as formats;
+use machine_vision_formats as formats;
 
 use std::time::{Duration, Instant};
 

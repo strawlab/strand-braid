@@ -5,7 +5,7 @@
 //!
 //! This allows using Braid to perform Kalman-filter based tracking in 3D from
 //! purely 2D images from a single camera.
-extern crate nalgebra as na;
+use nalgebra as na;
 
 use braid_types::RawCamName;
 pub type MyFloat = f64;

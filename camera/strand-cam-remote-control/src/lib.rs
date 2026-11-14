@@ -3,11 +3,6 @@
 
 //! Types for [Strand Camera](https://strawlab.org/strand-cam) remote control and configuration
 
-extern crate serde;
-extern crate strand_cam_bui_types;
-extern crate strand_cam_enum_iter;
-extern crate strand_cam_types;
-
 use serde::{Deserialize, Serialize};
 use strand_cam_bui_types::ClockModel;
 use strand_cam_enum_iter::EnumIter;

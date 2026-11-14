@@ -25,7 +25,7 @@
 //! Each frame from the webcam (commonly YUYV or MJPEG) is decoded on the host.
 //! Both [`PixFmt::RGB8`] and [`PixFmt::Mono8`] are offered; RGB8 is the default.
 
-extern crate machine_vision_formats as formats;
+use machine_vision_formats as formats;
 
 use std::sync::OnceLock;
 

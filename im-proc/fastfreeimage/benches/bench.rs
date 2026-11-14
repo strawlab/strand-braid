@@ -3,12 +3,7 @@
 
 #![allow(dead_code)]
 
-extern crate fastfreeimage;
-extern crate itertools;
-#[macro_use]
-extern crate criterion;
-
-use criterion::Criterion;
+use criterion::{Criterion, criterion_group, criterion_main};
 use itertools::multizip;
 
 use fastfreeimage::{CompareOp, FastImage, FastImageData, ipp_ctypes, ripp};

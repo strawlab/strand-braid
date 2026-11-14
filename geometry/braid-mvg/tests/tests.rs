@@ -1,8 +1,7 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-#[macro_use]
-extern crate approx;
+use approx::assert_relative_eq;
 
 use eyre as anyhow;
 use opencv_ros_camera::{Distortion, NamedIntrinsicParameters, RosOpenCvIntrinsics, from_ros_yaml};

@@ -59,7 +59,7 @@ impl<S> From<FlydraFloatTimestampLocal<S>> for chrono::DateTime<Utc> {
     }
 }
 
-assert_impl_all!(FlydraFloatTimestampLocal<Triggerbox>: PartialEq);
+static_assertions::assert_impl_all!(FlydraFloatTimestampLocal<Triggerbox>: PartialEq);
 
 impl<S> FlydraFloatTimestampLocal<S> {
     /// Create a timestamp from a chrono DateTime.

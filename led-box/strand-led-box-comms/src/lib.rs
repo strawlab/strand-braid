@@ -14,8 +14,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![warn(missing_docs)]
 
-extern crate serde;
-
 #[cfg(not(feature = "std"))]
 extern crate core as std;
 
