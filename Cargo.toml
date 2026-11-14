@@ -114,6 +114,7 @@ members = [
     "utils/download-verify",
     "utils/groupby",
     "utils/license-check",
+    "utils/pending-file",
     "utils/env-tracing-logger",
     "utils/env-tracing-logger/env-tracing-logger-sample",
     "utils/strand-cam-enum-iter",
