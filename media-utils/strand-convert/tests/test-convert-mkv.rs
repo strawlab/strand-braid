@@ -90,6 +90,16 @@ fn get_metadata<P: AsRef<Path>>(fname: P) -> Result<H264Metadata> {
     }
 }
 
+/// The names in `dir`, sorted.
+fn names_in(dir: &Path) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .collect();
+    names.sort();
+    names
+}
+
 fn do_convert<P: AsRef<Path>>(
     fname: P,
     autoscale_hdr: bool,
@@ -113,6 +123,10 @@ fn do_convert<P: AsRef<Path>>(
     }
     let cli = clap::Parser::try_parse_from(&args)?;
     strand_convert::run_cli(cli)?;
+
+    // The movie is written under a temporary name beside its destination. On
+    // success only the destination may remain.
+    assert_eq!(names_in(outdir.path()), ["output.mp4"]);
 
     // // Actually test output of mp4
     // assert!(are_equivalent(&fname, &outfile)?);
@@ -288,5 +302,49 @@ fn fmf_gz_mono() -> Result<()> {
     )?;
 
     do_convert(&local_fname, false, false)?;
+    Ok(())
+}
+
+/// A conversion which fails after it has started writing must leave nothing at
+/// its destination: a movie cut short there would pass for a finished one.
+/// With `--truncate-on-error`, what was written is kept.
+#[traced_test]
+#[test]
+fn failed_conversion_leaves_no_output() -> Result<()> {
+    const FNAME: &str = "movie20211109_080701_Basler-21714402.fmf.gz";
+    let local_fname = format!("scratch/{}", FNAME);
+    const URL_BASE: &str =
+        "https://strawlab-cdn.com/assets/flycube6-videos/fc6-led-4fps-5-cams-bright";
+    const SHA256SUM: &str = "fa1ef64b4ab967fd081ab3f026805662212e6b7696a52d1ccc06b61703c3c467";
+
+    download_verify::download_verify(
+        format!("{URL_BASE}/{FNAME}").as_str(),
+        &local_fname,
+        &download_verify::Hash::Sha256(SHA256SUM.into()),
+    )?;
+
+    // An FMF file holds no H264 stream to copy. That is found out only when
+    // the first frame is to be written, after the output has been created.
+    let convert = |extra_arg: Option<&str>| -> Result<Vec<String>> {
+        let outdir = tempfile::tempdir()?;
+        let outfile = outdir.path().join("output.mp4");
+        let mut args = vec![
+            "strand-convert",
+            "-i",
+            &local_fname,
+            "-o",
+            outfile.to_str().unwrap(),
+            "--no-progress",
+            "--encoder",
+            "none-copy-existing-h264",
+        ];
+        args.extend(extra_arg);
+        let cli = clap::Parser::try_parse_from(&args)?;
+        assert!(strand_convert::run_cli(cli).is_err());
+        Ok(names_in(outdir.path()))
+    };
+
+    assert!(convert(None)?.is_empty());
+    assert_eq!(convert(Some("--truncate-on-error"))?, ["output.mp4"]);
     Ok(())
 }

@@ -23,6 +23,7 @@ tiff-decoder.workspace = true
 mp4-writer = { workspace = true, features = ["openh264-encode", "nv-encode"] }
 strand-cam-remote-control.workspace = true
 nvenc.workspace = true
+pending-file.workspace = true
 
 [dev-dependencies]
 download-verify.workspace = true
