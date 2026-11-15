@@ -95,8 +95,8 @@ struct FMFWriterInner<F: Write + Seek> {
 //    timestamps (or minimally specify which)
 //  * Allow metadata such as camera name.
 //
-// Note also the file replacing-fmf.md which discusses eliminating FMF
-// completely.
+// Rather than a new FMF version, Strand Cam now saves MP4 files with per-frame
+// timestamps; `strand-convert` converts existing FMF files to MP4.
 
 impl<F: Write + Seek> FMFWriter<F> {
     /// Open a new writer.
