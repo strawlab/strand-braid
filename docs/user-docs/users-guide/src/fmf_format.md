@@ -65,7 +65,6 @@ FLAGS:
 SUBCOMMANDS:
     export-fmf       export an fmf file
     export-jpeg      export a sequence of jpeg images
-    export-mp4       export to mp4
     export-png       export a sequence of png images
     export-y4m       export to y4m (YUV4MPEG2) format
     help             Prints this message or the help of the given subcommand(s)
@@ -74,6 +73,13 @@ SUBCOMMANDS:
 ```
 
 See https://github.com/strawlab/strand-braid/tree/main/fmf/fmf-cli for more information.
+
+To convert an `.fmf` file to `.mp4`, keeping the timestamp of each frame, use
+the `strand-convert` program:
+
+```ignore
+strand-convert -i movie.fmf -o movie.mp4
+```
 
 ## File Structure
 
