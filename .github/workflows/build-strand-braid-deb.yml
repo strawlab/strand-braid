@@ -70,8 +70,11 @@ jobs:
             dpkg-dev debhelper libudev-dev zlib1g-dev pkg-config curl \
             build-essential git libvpx-dev clang libclang-dev llvm-dev zip cmake
 
-      - name: Install Rust wasm target and trunk
+      # The toolchain preinstalled on the runner trails a new Rust release by
+      # days to weeks, and this repository uses the latest one.
+      - name: Install the latest stable Rust, its wasm target, and trunk
         run: |
+          rustup update stable --no-self-update
           rustup target add wasm32-unknown-unknown
           curl --location --remote-name https://github.com/trunk-rs/trunk/releases/download/v0.21.14/trunk-x86_64-unknown-linux-musl.tar.gz
           tar xzf trunk-x86_64-unknown-linux-musl.tar.gz

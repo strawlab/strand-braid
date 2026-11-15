@@ -20,6 +20,10 @@ jobs:
         working-directory: media-utils/fmf/fmf-cli
     steps:
       - uses: actions/checkout@v6
+      # The toolchain preinstalled on the runner trails a new Rust release by
+      # days to weeks, and this repository uses the latest one.
+      - name: Update to the latest stable Rust
+        run: rustup update stable --no-self-update
       - name: Build FMF CLI app
         run: |
           cargo build --release
@@ -41,6 +45,10 @@ jobs:
         working-directory: media-utils/fmf/fmf-cli
     steps:
       - uses: actions/checkout@v6
+      # The toolchain preinstalled on the runner trails a new Rust release by
+      # days to weeks, and this repository uses the latest one.
+      - name: Update to the latest stable Rust
+        run: rustup update stable --no-self-update
       - name: Build FMF CLI app
         run: |
           cargo build --release
@@ -63,6 +71,10 @@ jobs:
         working-directory: media-utils/fmf/fmf-cli
     steps:
       - uses: actions/checkout@v6
+      # The toolchain preinstalled on the runner trails a new Rust release by
+      # days to weeks, and this repository uses the latest one.
+      - name: Update to the latest stable Rust
+        run: rustup update stable --no-self-update
       - name: Build FMF CLI app
         run: |
           cargo build --release

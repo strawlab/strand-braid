@@ -15,6 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      # The toolchain preinstalled on the runner trails a new Rust release by
+      # days to weeks, and this repository uses the latest one.
+      - name: Update to the latest stable Rust
+        run: rustup update stable --no-self-update
       - name: Install cargo-audit
         run: |
           cargo install cargo-audit --version 0.22.2 --locked
@@ -26,6 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      # The toolchain preinstalled on the runner trails a new Rust release by
+      # days to weeks, and this repository uses the latest one.
+      - name: Update to the latest stable Rust
+        run: rustup update stable --no-self-update
       - name: Test that README.md is up to date
         run: |
           cargo run -p workspace-docs -- --check
@@ -34,6 +42,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      # The toolchain preinstalled on the runner trails a new Rust release by
+      # days to weeks, and this repository uses the latest one.
+      - name: Update to the latest stable Rust
+        run: rustup update stable --no-self-update
       - name: Test that `cargo fmt` is happy
         run: |
           cargo fmt --check
@@ -42,6 +54,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      # The toolchain preinstalled on the runner trails a new Rust release by
+      # days to weeks, and this repository uses the latest one.
+      - name: Update to the latest stable Rust
+        run: rustup update stable --no-self-update
       - name: Test that every .rs file has an SPDX license header
         run: |
           cargo run -p license-check
@@ -50,6 +66,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      # The toolchain preinstalled on the runner trails a new Rust release by
+      # days to weeks, and this repository uses the latest one.
+      - name: Update to the latest stable Rust
+        run: rustup update stable --no-self-update
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: check
@@ -87,6 +107,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      # The toolchain preinstalled on the runner trails a new Rust release by
+      # days to weeks, and this repository uses the latest one.
+      - name: Update to the latest stable Rust
+        run: rustup update stable --no-self-update
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: check
@@ -120,6 +144,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      # The toolchain preinstalled on the runner trails a new Rust release by
+      # days to weeks, and this repository uses the latest one.
+      - name: Update to the latest stable Rust
+        run: rustup update stable --no-self-update
       - uses: Swatinem/rust-cache@v2
         with:
           shared-key: test
