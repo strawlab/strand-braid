@@ -473,6 +473,7 @@ dependencies = [
  "download-verify",
  "eyre",
  "machine-vision-formats",
+ "pending-file",
  "serde",
  "y4m",
  "y4m-writer",
@@ -1677,12 +1678,14 @@ dependencies = [
  "mp4-writer",
  "nalgebra 0.35.0",
  "ordered-float 4.6.0",
+ "pending-file",
  "resvg 0.47.0",
  "serde",
  "serde_json",
  "strand-cam-remote-control",
  "strand-dynamic-frame",
  "tagger",
+ "tempfile",
  "tokio",
  "tokio-stream",
  "toml 0.5.11",
@@ -1885,14 +1888,17 @@ dependencies = [
  "braidz-rerun",
  "camino",
  "clap",
+ "download-verify",
  "env-tracing-logger",
  "eyre",
  "frame-source",
  "mp4-writer",
+ "pending-file",
  "rayon",
  "re_build_info",
  "re_sdk",
  "strand-cam-remote-control",
+ "tempfile",
  "tracing",
 ]
 
@@ -1919,6 +1925,7 @@ dependencies = [
  "mcsc-structs",
  "nalgebra 0.35.0",
  "opencv-ros-camera",
+ "pending-file",
  "re_build_info",
  "re_sdk",
  "serde",
@@ -2020,6 +2027,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "braid-types",
+ "pending-file",
  "tempfile",
  "thiserror 2.0.21",
  "walkdir",
@@ -3158,7 +3166,9 @@ dependencies = [
  "h264-reader",
  "indicatif 0.17.11",
  "mp4-writer",
+ "pending-file",
  "strand-cam-remote-control",
+ "tempfile",
 ]
 
 [[package]]
@@ -4302,6 +4312,7 @@ name = "download-verify"
 version = "0.1.0"
 dependencies = [
  "hex",
+ "pending-file",
  "sha2 0.10.9",
  "tempfile",
  "thiserror 2.0.21",
@@ -5560,6 +5571,7 @@ dependencies = [
  "machine-vision-formats",
  "mp4-writer",
  "nvenc",
+ "pending-file",
  "strand-cam-remote-control",
  "strand-dynamic-frame",
  "tempfile",
@@ -8579,8 +8591,12 @@ dependencies = [
  "eyre",
  "frame-source",
  "h264-reader",
+ "machine-vision-formats",
  "mp4-writer",
+ "pending-file",
  "strand-cam-remote-control",
+ "strand-dynamic-frame",
+ "tempfile",
 ]
 
 [[package]]
@@ -10111,6 +10127,13 @@ name = "peg-runtime"
 version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7011d97b484a5ebdc4b1fdb3b12d5e4bbbea56e9d22b688f2e79e04b65a7d8a6"
+
+[[package]]
+name = "pending-file"
+version = "0.1.0"
+dependencies = [
+ "tempfile",
+]
 
 [[package]]
 name = "peniko"
@@ -16081,6 +16104,7 @@ dependencies = [
  "mp4-writer",
  "nvenc",
  "ordered-float 4.6.0",
+ "pending-file",
  "serde_json",
  "strand-cam-remote-control",
  "strand-dynamic-frame",
@@ -17916,11 +17940,13 @@ dependencies = [
  "frame-source",
  "indicatif 0.17.11",
  "opencv-ros-camera",
+ "pending-file",
  "re_build_info",
  "re_chunk",
  "re_sdk",
  "re_sdk_types",
  "serde_yaml",
+ "tempfile",
  "tracing",
  "undistort-image",
 ]
@@ -19607,6 +19633,7 @@ name = "zip-or-dir"
 version = "0.1.0"
 dependencies = [
  "libflate",
+ "pending-file",
  "tempfile",
  "thiserror 2.0.21",
  "zip",
