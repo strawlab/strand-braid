@@ -25,7 +25,7 @@
 //!
 //! # async fn example() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a cookie store for session management
-//! let jar = Arc::new(RwLock::new(cookie_store::CookieStore::new(None)));
+//! let jar = Arc::new(RwLock::new(cookie_store::CookieStore::new()));
 //!
 //! // Server information with authentication token
 //! let server_info = strand_bui_backend_session_types::BuiServerAddrInfo::new(
@@ -122,7 +122,7 @@ pub struct HttpSession {
 /// use std::sync::{Arc, RwLock};
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let jar = Arc::new(RwLock::new(cookie_store::CookieStore::new(None)));
+/// let jar = Arc::new(RwLock::new(cookie_store::CookieStore::new()));
 /// let server_info = strand_bui_backend_session_types::BuiServerAddrInfo::new(
 ///     "127.0.0.1:8080".parse()?,
 ///     AccessToken::PreSharedToken("secret123".to_string())
@@ -471,7 +471,7 @@ fn test_serialized_cookie_store() {
 
     // What do we expect?
     let expected = {
-        let mut expected = cookie_store::CookieStore::new(None);
+        let mut expected = cookie_store::CookieStore::new();
         let cookie_str1 = "abc=def; Expires=";
         let cookie_str = format!("{}{}", cookie_str1, expires_str1);
         let request_url = "http://127.0.0.1/".try_into().unwrap();
