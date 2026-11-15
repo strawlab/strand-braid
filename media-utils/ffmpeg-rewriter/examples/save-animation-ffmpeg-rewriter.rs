@@ -51,6 +51,7 @@ fn main() -> eyre::Result<()> {
                     ffmpeg_codec_args,
                     rate,
                     h264_metadata,
+                    ffmpeg_rewriter::IfUnfinished::Delete,
                 )?;
 
                 // Load the font

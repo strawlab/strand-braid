@@ -80,6 +80,9 @@ impl MyFfmpegWriter {
             ffmpeg_codec_args,
             rate,
             cfg.h264_metadata.clone(),
+            // This is original data. Whatever is recorded stays, to be
+            // finished by `ffmpeg-rewriter-doctor` if we do not get to.
+            ffmpeg_rewriter::IfUnfinished::KeepForRepair,
         )?;
         Ok(Self { inner: Some(fwtr) })
     }

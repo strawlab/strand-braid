@@ -19,6 +19,7 @@ strand-dynamic-frame.workspace = true
 ffmpeg-writer.workspace = true
 mp4-writer = { workspace = true, features = ["nv-encode"] }
 frame-source = { workspace = true, features = ["openh264"] }
+pending-file.workspace = true
 srt-writer.workspace = true
 
 [dev-dependencies]

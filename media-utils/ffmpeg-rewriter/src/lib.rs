@@ -10,32 +10,57 @@
 //! per-frame capture times as it encodes:
 //!
 //! 1. **Capture.** Frames are piped to an ffmpeg process which encodes them into
-//!    `<name>.mp4`, while each frame's capture time is appended to a temporary
-//!    SubRip sidecar file, `<name>-ffmpeg-rewriter.srt`. Any [`H264Metadata`] is
-//!    saved to `<name>-metadata.json` up front so it, too, survives a crash.
+//!    `<name>.mp4.partial`, while each frame's capture time is appended to a
+//!    temporary SubRip sidecar file, `<name>-ffmpeg-rewriter.srt`. Any
+//!    [`H264Metadata`] is saved to `<name>-metadata.json` up front so it, too,
+//!    survives a crash.
 //! 2. **Rewrite.** [`FfmpegReWriter::close`] re-muxes that MP4 (no transcoding)
-//!    into `<name>.mp4-rewritten.mp4`, now with each frame's capture time
+//!    into `<name>.mp4-rewritten.partial`, now with each frame's capture time
 //!    embedded as a MISB ST 0604 precision-timestamp SEI NAL unit and with the
-//!    H264 metadata included. That file is renamed over `<name>.mp4`, and the
-//!    two sidecar files are deleted.
+//!    H264 metadata included. Once that is complete, the capture file is
+//!    deleted, the rewritten file is renamed to `<name>.mp4`, and the two
+//!    sidecar files are deleted.
+//!
+//! `<name>.mp4` therefore only ever names a finished recording, with its capture
+//! times inside it. Everything unfinished ends in `.partial`.
 //!
 //! # Crash leftovers, and repairing them
 //!
-//! A crash, power loss or `kill -9` between those steps leaves the sidecar files
-//! behind, and -- if it landed inside stage 2 -- a partial
-//! `<name>.mp4-rewritten.mp4` as well. Such a recording still holds all the
-//! video ffmpeg managed to write, but its timestamps live only in the `.srt`
-//! sidecar instead of inside the MP4 where every downstream tool looks for them.
+//! A crash, power loss or `kill -9` leaves the `.partial` and sidecar files
+//! behind. Such a recording still holds all the video ffmpeg managed to write,
+//! but its timestamps live only in the `.srt` sidecar instead of inside the MP4
+//! where every downstream tool looks for them.
 //!
 //! [`inspect`] classifies such a leftover recording and [`repair`] finishes it,
 //! from whichever stage the crash interrupted. [`find_interrupted`] locates them
-//! by their sidecar files. The `ffmpeg-rewriter-doctor` command-line tool is a
+//! by the files they leave. The `ffmpeg-rewriter-doctor` command-line tool is a
 //! thin wrapper over these three.
+//!
+//! Which files exist says how far the recording got, because the capture file is
+//! deleted only once the rewritten file is complete:
+//!
+//! - the capture file is there: the rewrite has to be done, or done again;
+//! - only the rewritten file is there: it is complete, and just has to be moved
+//!   into place;
+//! - neither is there: nothing is left to do but remove the sidecar files.
 //!
 //! Repair cannot invent the timestamps that were never written: the sidecar is
 //! written one frame behind (a frame's stanza needs the *next* frame's time to
 //! close it), so the frames of the group of pictures in progress when the crash
 //! happened are dropped. See [`RewriteOutcome::truncated_reason`].
+//!
+//! # Recording and converting
+//!
+//! What should become of those leftovers when [`FfmpegReWriter`] itself fails,
+//! or is dropped without [`FfmpegReWriter::close`], depends on what is being
+//! written. See [`IfUnfinished`].
+//!
+//! # Other encoders
+//!
+//! A recording made by an encoder which embeds the capture times as it goes
+//! needs no rewrite, but is written as `<name>.mp4.partial` and renamed when it
+//! is finished all the same. [`inspect`] and [`repair`] know such a file: one
+//! which was finished but not renamed is moved into place.
 
 use chrono::{DateTime, Local};
 use frame_source::{FrameDataSource, h264_source::SeekableH264Source};
@@ -86,19 +111,21 @@ pub enum Error {
     },
     #[error(
         "\"{mp4_filename}\" was never finalized (it has no `moov` box), so its frames cannot be \
-        read. Either ffmpeg is still writing it, or ffmpeg itself was killed before it could \
-        write the index; in the latter case a tool such as `untrunc` may be able to rebuild it."
+        read. Either it is still being written, or what was writing it was killed before it \
+        could write the index; in the latter case a tool such as `untrunc` may be able to \
+        rebuild it."
     )]
     Mp4NotFinalized { mp4_filename: String },
     #[error(
-        "\"{mp4_filename}\" is missing or empty, but the leftover \"{rewritten}\" of an \
-        interrupted rewrite is present. Inspect \"{rewritten}\" by hand: if it is complete, \
-        rename it to \"{mp4_filename}\"."
+        "\"{rewritten}\" should be a finished recording, because the capture file it was made \
+        from is gone, but it does not hold per-frame capture times. Inspect it by hand."
     )]
-    OriginalMissing {
-        mp4_filename: String,
-        rewritten: String,
-    },
+    RewrittenNotUsable { rewritten: String },
+    #[error(
+        "\"{leftover}\" already exists. It belongs to an unfinished recording of the same \
+        name: finish that with `ffmpeg-rewriter-doctor`, or move it away, first."
+    )]
+    UnfinishedRecordingExists { leftover: String },
     #[error(
         "\"{mp4_filename}\" still needs its timestamps embedded, but the timestamp sidecar \
         \"{srt}\" is gone, so they are lost."
@@ -121,23 +148,51 @@ pub const SRT_SIDECAR_SUFFIX: &str = "-ffmpeg-rewriter.srt";
 /// survives a crash. Appended with the `.mp4` extension removed.
 pub const METADATA_SIDECAR_SUFFIX: &str = "-metadata.json";
 
-/// Suffix of the file the rewrite stage writes before renaming it over the
-/// recording. Appended to the *full* filename, so `x.mp4` becomes
-/// `x.mp4-rewritten.mp4`.
-pub const REWRITTEN_SUFFIX: &str = "-rewritten.mp4";
+/// Suffix of the file the capture stage writes, and of the file any encoder
+/// writes until its recording is finished. Appended to the *full* filename, so
+/// `x.mp4` becomes `x.mp4.partial`.
+pub const CAPTURE_SUFFIX: &str = pending_file::PARTIAL_SUFFIX;
 
-/// The files that make up one recording: the MP4 itself, the two sidecar files
-/// used while recording, and the temporary output of the rewrite stage.
+/// Suffix of the file the rewrite stage writes before renaming it to the
+/// recording's own name. Appended to the *full* filename, so `x.mp4` becomes
+/// `x.mp4-rewritten.partial`.
+pub const REWRITTEN_SUFFIX: &str = "-rewritten.partial";
+
+/// What becomes of the files of a recording which [`FfmpegReWriter`] could not
+/// finish: one it is dropped on without [`FfmpegReWriter::close`], or whose
+/// `close` fails.
+///
+/// This cannot cover a process that is killed. Its files are always left.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IfUnfinished {
+    /// Leave them, to be finished by [`repair`].
+    ///
+    /// This is for original data, which cannot be recorded again. For the same
+    /// reason a new recording then refuses to start over the leftovers of an
+    /// earlier one of the same name.
+    KeepForRepair,
+    /// Delete them.
+    ///
+    /// This is for a conversion of existing data, which can be run again, and
+    /// which should leave nothing behind that might be taken for its result.
+    Delete,
+}
+
+/// The files that make up one recording: the MP4 itself, and the files which
+/// exist only until it is finished.
 #[derive(Debug, Clone)]
 pub struct Sidecars {
-    /// The recording itself, `<name>.mp4`.
+    /// The finished recording, `<name>.mp4`.
     pub mp4: String,
+    /// Where the capture stage writes, `<name>.mp4.partial`. Deleted once the
+    /// rewrite stage has completed.
+    pub capture: String,
     /// Capture times written during recording, deleted once they have been
     /// embedded into the MP4.
     pub srt: String,
     /// [`H264Metadata`] saved during recording, deleted along with `srt`.
     pub metadata_json: String,
-    /// Where the rewrite stage writes its output before renaming it over `mp4`.
+    /// Where the rewrite stage writes its output before renaming it to `mp4`.
     pub rewritten: String,
 }
 
@@ -152,6 +207,7 @@ impl Sidecars {
             return Err(Error::FilenameDoesNotEndWithMp4);
         };
         Ok(Self {
+            capture: format!("{mp4}{CAPTURE_SUFFIX}"),
             srt: format!("{basename}{SRT_SIDECAR_SUFFIX}"),
             metadata_json: format!("{basename}{METADATA_SIDECAR_SUFFIX}"),
             rewritten: format!("{mp4}{REWRITTEN_SUFFIX}"),
@@ -159,10 +215,15 @@ impl Sidecars {
         })
     }
 
-    /// Delete the sidecar files (and any leftover rewrite output), ignoring
-    /// those that are already gone.
+    /// Delete everything but the finished recording, ignoring what is already
+    /// gone.
     fn remove(&self) -> Result<()> {
-        for path in [&self.srt, &self.metadata_json, &self.rewritten] {
+        for path in [
+            &self.capture,
+            &self.srt,
+            &self.metadata_json,
+            &self.rewritten,
+        ] {
             match std::fs::remove_file(path) {
                 Ok(()) => {}
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
@@ -190,9 +251,10 @@ pub struct FfmpegReWriter {
     ffmpeg_wtr: FfmpegWriter,
     mp4_cfg: Mp4RecordingConfig,
     swtr: srt_writer::BufferingSrtFrameWriter,
-    /// Whether the [`H264Metadata`] was saved to
-    /// [`Sidecars::metadata_json`] (only done when there is any).
-    wrote_metadata_json: bool,
+    /// For [`IfUnfinished::Delete`]: deletes the unfinished files unless
+    /// [`Self::close`] dismisses it. Declared last, so that on a drop it runs
+    /// after the fields above have closed their files.
+    delete_if_unfinished: Option<std::mem::DropGuard<Sidecars, fn(Sidecars)>>,
 }
 
 impl FfmpegReWriter {
@@ -201,6 +263,7 @@ impl FfmpegReWriter {
         ffmpeg_codec_args: FfmpegCodecArgs,
         rate: Option<(usize, usize)>,
         h264_metadata: Option<H264Metadata>,
+        if_unfinished: IfUnfinished,
     ) -> Result<Self> {
         tracing::debug!(
             "Creating FfmpegReWriter for {} with h264_metadata: {h264_metadata:?}",
@@ -214,18 +277,41 @@ impl FfmpegReWriter {
         // conflict.
         let sidecars = Sidecars::for_mp4(mp4_path.as_ref())?;
 
-        let wrote_metadata_json = if let Some(h264_metadata) = &h264_metadata {
+        let delete_if_unfinished = match if_unfinished {
+            IfUnfinished::KeepForRepair => {
+                // What an earlier recording of this name left may be all there
+                // is of it. Do not write over it.
+                for leftover in [&sidecars.capture, &sidecars.srt, &sidecars.rewritten] {
+                    if Path::new(leftover).exists() {
+                        return Err(Error::UnfinishedRecordingExists {
+                            leftover: leftover.clone(),
+                        });
+                    }
+                }
+                None
+            }
+            IfUnfinished::Delete => {
+                let delete: fn(Sidecars) = |sidecars| {
+                    if let Err(e) = sidecars.remove() {
+                        tracing::error!("removing the files of an unfinished conversion: {e}");
+                    }
+                };
+                Some(std::mem::DropGuard::new(sidecars.clone(), delete))
+            }
+        };
+
+        if let Some(h264_metadata) = &h264_metadata {
             // Save the metadata to a file in case we crash before
             // Self::close(). That way this information can be recovered (by
             // `repair`).
             let buf = serde_json::to_string(h264_metadata)?;
             std::fs::write(&sidecars.metadata_json, buf)?;
-            true
-        } else {
-            false
-        };
+        }
 
-        let ffmpeg_wtr = FfmpegWriter::new(&sidecars.mp4, ffmpeg_codec_args, rate)?;
+        // The name ffmpeg writes to no longer ends in `.mp4`, so it has to be
+        // told the container format.
+        let ffmpeg_wtr = FfmpegWriter::new(&sidecars.capture, ffmpeg_codec_args, rate)?
+            .with_container_format("mp4");
         let mp4_cfg = mp4_cfg(h264_metadata);
 
         let out_fd = std::fs::File::create(&sidecars.srt)?;
@@ -235,7 +321,7 @@ impl FfmpegReWriter {
             ffmpeg_wtr,
             mp4_cfg,
             swtr,
-            wrote_metadata_json,
+            delete_if_unfinished,
         })
     }
 
@@ -273,8 +359,9 @@ impl FfmpegReWriter {
 
         // Having just written the SRT sidecar ourselves, it covers every frame,
         // so a truncated rewrite means something is wrong. Fail without
-        // committing: the original MP4 and its sidecars are left in place, so
-        // the recording stays repairable (see [`repair`]).
+        // committing: with [`IfUnfinished::KeepForRepair`] the capture file and
+        // its sidecars are left in place, so the recording stays repairable
+        // (see [`repair`]).
         if let Some(reason) = outcome.truncated_reason {
             return Err(Error::IncompleteRewrite {
                 mp4_filename: self.sidecars.mp4,
@@ -284,7 +371,12 @@ impl FfmpegReWriter {
             });
         }
 
-        commit_rewritten(&self.sidecars, self.wrote_metadata_json)?;
+        commit_rewritten(&self.sidecars)?;
+
+        // The recording is in place. There is nothing unfinished left to delete.
+        if let Some(delete_if_unfinished) = self.delete_if_unfinished {
+            std::mem::DropGuard::dismiss(delete_if_unfinished);
+        }
 
         Ok(())
     }
@@ -312,7 +404,7 @@ pub struct RewriteOutcome {
     pub truncated_reason: Option<String>,
 }
 
-/// Run the rewrite stage: re-mux `sidecars.mp4` (without transcoding) into
+/// Run the rewrite stage: re-mux `sidecars.capture` (without transcoding) into
 /// `sidecars.rewritten`, embedding the capture times from `sidecars.srt` as
 /// precision-timestamp SEI NAL units and `mp4_cfg`'s metadata.
 ///
@@ -326,7 +418,7 @@ pub struct RewriteOutcome {
 /// which case no output file is left behind.
 fn write_rewritten(sidecars: &Sidecars, mp4_cfg: Mp4RecordingConfig) -> Result<RewriteOutcome> {
     // Create reader for h264 data from .mp4 and timestamps from .srt.
-    let mut frame_src = frame_source::FrameSourceBuilder::new(&sidecars.mp4)
+    let mut frame_src = frame_source::FrameSourceBuilder::new(&sidecars.capture)
         .do_decode_h264(false)
         .timestamp_source(frame_source::TimestampSource::SrtFile)
         .srt_file_path(Some(PathBuf::from(&sidecars.srt)))
@@ -367,7 +459,7 @@ fn write_rewritten(sidecars: &Sidecars, mp4_cfg: Mp4RecordingConfig) -> Result<R
     tracing::debug!(
         "Copying \"{}\" into \"{}\" with timestamps and metadata. frame0_time: {frame0_time}, \
         mp4_cfg: {mp4_cfg:?}",
-        sidecars.mp4,
+        sidecars.capture,
         sidecars.rewritten,
     );
     let fd = std::fs::File::create(&sidecars.rewritten)?;
@@ -465,34 +557,51 @@ fn write_rewritten(sidecars: &Sidecars, mp4_cfg: Mp4RecordingConfig) -> Result<R
     })
 }
 
-/// Put the output of [`write_rewritten`] in place: rename it over the original
-/// recording and delete the now-redundant sidecar files.
-fn commit_rewritten(sidecars: &Sidecars, remove_metadata_json: bool) -> Result<()> {
+/// Put the output of [`write_rewritten`] in place: delete the capture file it
+/// replaces, rename it to the recording's own name, and delete the sidecar
+/// files.
+///
+/// The order matters. The capture file goes first, and only once the rewritten
+/// file is safely on disk, so that the capture file's absence always means the
+/// rewritten file is complete. That is what lets [`inspect`] tell a rewrite
+/// which was interrupted from one which only still has to be moved into place.
+fn commit_rewritten(sidecars: &Sidecars) -> Result<()> {
+    // The rewritten file is about to be the only copy of the video.
+    std::fs::File::open(&sidecars.rewritten)?.sync_all()?;
     tracing::debug!(
-        "Renaming \"{}\" to \"{}\", thereby deleting the original.",
+        "Deleting \"{}\" and renaming \"{}\" to \"{}\".",
+        sidecars.capture,
         sidecars.rewritten,
         sidecars.mp4,
     );
-    std::fs::rename(&sidecars.rewritten, &sidecars.mp4)?;
+    std::fs::remove_file(&sidecars.capture)?;
+    move_into_place(&sidecars.rewritten, sidecars)
+}
 
-    // Remove no longer needed .srt and .json files.
-    std::fs::remove_file(&sidecars.srt)?;
-    if remove_metadata_json {
-        std::fs::remove_file(&sidecars.metadata_json)?;
-    }
-    Ok(())
+/// Rename `finished`, a complete recording with its capture times embedded, to
+/// the recording's own name, and delete everything else.
+fn move_into_place(finished: &str, sidecars: &Sidecars) -> Result<()> {
+    std::fs::rename(finished, &sidecars.mp4)?;
+    sidecars.remove()
 }
 
 /// The state [`inspect`] found a recording in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum State {
-    /// The recording was closed normally: none of the sidecar files are present.
+    /// The recording was closed normally: only the recording itself is there.
     NotInterrupted,
-    /// The recording holds video, but its capture times are still only in the
-    /// SRT sidecar. [`repair`] embeds them.
+    /// The capture file holds video, but its capture times are still only in
+    /// the SRT sidecar. [`repair`] embeds them.
     NeedsRewrite,
-    /// The crash came after the rewrite was already in place, leaving only the
-    /// sidecar files behind. [`repair`] removes them.
+    /// The rewrite had completed, but its output had not been renamed to the
+    /// recording's own name yet. [`repair`] does that.
+    RewrittenNotInPlace,
+    /// The `.partial` file is a finished recording which already holds its
+    /// capture times, as an encoder that embeds them itself writes, and was
+    /// only not renamed. [`repair`] does that.
+    FinishedNotInPlace,
+    /// The crash came after the recording was already in place, leaving only
+    /// the sidecar files behind. [`repair`] removes them.
     StaleSidecars,
     /// Sidecar files are present but no video was ever written (ffmpeg is
     /// spawned on the first frame), so there is nothing to recover. [`repair`]
@@ -500,61 +609,68 @@ pub enum State {
     NothingRecorded,
 }
 
+fn nonzero_size(path: &str) -> Result<bool> {
+    match std::fs::metadata(path) {
+        Ok(md) => Ok(md.len() > 0),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+        Err(e) => Err(e.into()),
+    }
+}
+
 /// Classify the recording `mp4_path`, without modifying anything.
+///
+/// `mp4_path` is the name of the finished recording, `<name>.mp4`, whether or
+/// not it exists yet.
 ///
 /// Returns an error when a recording that needs repair cannot be repaired, e.g.
 /// because its MP4 was never finalized. Note that this is also what happens for
-/// a recording still in progress: an MP4 ffmpeg has not closed yet has no `moov`
-/// box, so a live recording is reported as [`Error::Mp4NotFinalized`] rather
-/// than being mistaken for a crashed one.
+/// a recording still in progress: an MP4 which has not been closed yet has no
+/// `moov` box, so a live recording is reported as [`Error::Mp4NotFinalized`]
+/// rather than being mistaken for a crashed one.
 pub fn inspect<P: AsRef<Path>>(mp4_path: P) -> Result<State> {
     let sidecars = Sidecars::for_mp4(mp4_path.as_ref())?;
     let has_srt = Path::new(&sidecars.srt).exists();
-    let has_metadata_json = Path::new(&sidecars.metadata_json).exists();
-    let has_rewritten = Path::new(&sidecars.rewritten).exists();
 
-    let mp4_size = match std::fs::metadata(&sidecars.mp4) {
-        Ok(md) => Some(md.len()),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-        Err(e) => return Err(e.into()),
-    };
-
-    if !has_srt && !has_metadata_json && !has_rewritten {
-        // With nothing left behind there is nothing to repair -- but say so
-        // rather than reporting a mistyped path as a healthy recording.
-        return match mp4_size {
-            Some(_) => Ok(State::NotInterrupted),
-            None => Err(Error::NoSuchRecording {
-                mp4_filename: sidecars.mp4,
-            }),
+    // The capture file is deleted only once the rewritten file is complete. So
+    // if it holds anything, the rewrite still has to be done, whatever else is
+    // lying around: a rewritten file beside it is one that was being written.
+    if nonzero_size(&sidecars.capture)? {
+        return if has_precision_timestamps(&sidecars.capture)? {
+            Ok(State::FinishedNotInPlace)
+        } else if !has_srt {
+            Err(Error::MissingSrtSidecar {
+                mp4_filename: sidecars.capture,
+                srt: sidecars.srt,
+            })
+        } else {
+            Ok(State::NeedsRewrite)
         };
     }
 
-    match mp4_size {
-        None | Some(0) => {
-            if has_rewritten {
-                // The rewrite output is only ever renamed *onto* the recording,
-                // so this combination cannot arise from a crash. Rather than
-                // guess, say what was found.
-                return Err(Error::OriginalMissing {
-                    mp4_filename: sidecars.mp4,
-                    rewritten: sidecars.rewritten,
-                });
-            }
-            Ok(State::NothingRecorded)
-        }
-        Some(_) => {
-            if has_precision_timestamps(&sidecars.mp4)? {
-                Ok(State::StaleSidecars)
-            } else if !has_srt {
-                Err(Error::MissingSrtSidecar {
-                    mp4_filename: sidecars.mp4,
-                    srt: sidecars.srt,
-                })
-            } else {
-                Ok(State::NeedsRewrite)
-            }
-        }
+    // No capture file, so a rewritten file is a complete one.
+    if Path::new(&sidecars.rewritten).exists() {
+        return if has_precision_timestamps(&sidecars.rewritten)? {
+            Ok(State::RewrittenNotInPlace)
+        } else {
+            Err(Error::RewrittenNotUsable {
+                rewritten: sidecars.rewritten,
+            })
+        };
+    }
+
+    let has_recording = Path::new(&sidecars.mp4).exists();
+    let has_leftovers = has_srt
+        || Path::new(&sidecars.metadata_json).exists()
+        || Path::new(&sidecars.capture).exists();
+    match (has_recording, has_leftovers) {
+        (true, false) => Ok(State::NotInterrupted),
+        (true, true) => Ok(State::StaleSidecars),
+        (false, true) => Ok(State::NothingRecorded),
+        // With nothing there at all there is nothing to repair -- but say so
+        // rather than reporting a mistyped path as a healthy recording.
+        (false, false) => Err(Error::NoSuchRecording {
+            mp4_filename: sidecars.mp4,
+        }),
     }
 }
 
@@ -565,8 +681,11 @@ pub enum Repair {
     NotInterrupted,
     /// The rewrite stage was run and its result is now in place.
     Rewritten(RewriteOutcome),
-    /// The rewrite itself had completed before the crash; only the stale sidecar
-    /// files were removed.
+    /// A recording which was already finished, but still under its `.partial`
+    /// name, was renamed to its own.
+    MovedIntoPlace,
+    /// The recording had been put in place before the crash; only the stale
+    /// sidecar files were removed.
     RemovedStaleSidecars,
     /// The recording never got any video; only the stale sidecar files were
     /// removed.
@@ -577,14 +696,14 @@ pub enum Repair {
 ///
 /// Embeds the capture times from the SRT sidecar (and the metadata from the JSON
 /// sidecar) into the recording exactly as [`FfmpegReWriter::close`] would have,
-/// then renames the result over `mp4_path` and removes the sidecar files. A
-/// partial `-rewritten.mp4` left by a crash inside the rewrite stage is
-/// discarded and the stage redone: an interrupted [`mp4_writer::Mp4Writer`] never
-/// wrote the index its output needs, while the inputs the stage reads are still
+/// then moves the result to `mp4_path` and removes the other files. A partial
+/// `-rewritten.partial` left by a crash inside the rewrite stage is discarded
+/// and the stage redone: an interrupted [`mp4_writer::Mp4Writer`] never wrote
+/// the index its output needs, while the inputs the stage reads are still
 /// intact.
 ///
 /// Doing nothing is a normal outcome: a recording with no sidecar files, or one
-/// whose rewrite had already been put in place, needs no repair (see [`State`]).
+/// which had already been put in place, needs no repair (see [`State`]).
 /// Repairing a recording twice is therefore harmless.
 pub fn repair<P: AsRef<Path>>(mp4_path: P) -> Result<Repair> {
     let sidecars = Sidecars::for_mp4(mp4_path.as_ref())?;
@@ -598,11 +717,18 @@ pub fn repair<P: AsRef<Path>>(mp4_path: P) -> Result<Repair> {
             sidecars.remove()?;
             Ok(Repair::RemovedEmptyRecording)
         }
+        State::RewrittenNotInPlace => {
+            move_into_place(&sidecars.rewritten, &sidecars)?;
+            Ok(Repair::MovedIntoPlace)
+        }
+        State::FinishedNotInPlace => {
+            move_into_place(&sidecars.capture, &sidecars)?;
+            Ok(Repair::MovedIntoPlace)
+        }
         State::NeedsRewrite => {
             let h264_metadata = read_metadata_sidecar(&sidecars)?;
-            let remove_metadata_json = h264_metadata.is_some();
             let outcome = write_rewritten(&sidecars, mp4_cfg(h264_metadata))?;
-            commit_rewritten(&sidecars, remove_metadata_json)?;
+            commit_rewritten(&sidecars)?;
             Ok(Repair::Rewritten(outcome))
         }
     }
@@ -683,22 +809,27 @@ fn is_mp4_finalized(mp4_filename: &str) -> Result<bool> {
     Ok(false)
 }
 
-/// The recording a leftover file belongs to, if `path` is one of the files this
-/// crate leaves behind when interrupted -- its SRT sidecar, or the partial
-/// output of the rewrite stage. `None` for anything else, including a plain
+/// The recording a leftover file belongs to, if `path` is one of the files an
+/// unfinished recording consists of -- its `.partial` file, its SRT sidecar, or
+/// the output of the rewrite stage. `None` for anything else, including a plain
 /// `.mp4`.
 pub fn recording_for_leftover<P: AsRef<Path>>(path: P) -> Option<PathBuf> {
     let path = path.as_ref().to_str()?;
-    match path.strip_suffix(SRT_SIDECAR_SUFFIX) {
-        Some(basename) => Some(PathBuf::from(format!("{basename}.mp4"))),
-        // Stripping this suffix leaves the recording's own name, `<name>.mp4`.
-        None => path.strip_suffix(REWRITTEN_SUFFIX).map(PathBuf::from),
+    if let Some(basename) = path.strip_suffix(SRT_SIDECAR_SUFFIX) {
+        return Some(PathBuf::from(format!("{basename}.mp4")));
     }
+    // Stripping either of these suffixes leaves the recording's own name,
+    // `<name>.mp4`. Other programs write `.partial` files too, so insist on it.
+    [REWRITTEN_SUFFIX, CAPTURE_SUFFIX]
+        .into_iter()
+        .filter_map(|suffix| path.strip_suffix(suffix))
+        .find(|mp4| mp4.ends_with(".mp4"))
+        .map(PathBuf::from)
 }
 
-/// Find the recordings under `dir` (searched recursively) whose rewrite stage
-/// did not finish, by the files it leaves behind. Returns their `.mp4` paths,
-/// deduplicated and sorted.
+/// Find the recordings under `dir` (searched recursively) which were not
+/// finished, by the files that leaves behind. Returns the names of the
+/// recordings, `<name>.mp4`, deduplicated and sorted.
 ///
 /// The metadata sidecar is deliberately not searched for: `-metadata.json` is a
 /// generic enough name that another program could own such a file, and we only
@@ -709,7 +840,7 @@ pub fn find_interrupted<P: AsRef<Path>>(dir: P) -> Result<Vec<PathBuf>> {
     // read as a glob metacharacter.
     let escaped_dir = glob::Pattern::escape(dir);
     let mut found = std::collections::BTreeSet::new();
-    for suffix in [SRT_SIDECAR_SUFFIX, REWRITTEN_SUFFIX] {
+    for suffix in [SRT_SIDECAR_SUFFIX, REWRITTEN_SUFFIX, CAPTURE_SUFFIX] {
         let pattern = Path::new(&escaped_dir)
             .join("**")
             .join(format!("*{suffix}"));
@@ -776,7 +907,13 @@ mod test {
 
             let rate = None;
             let h264_metadata = None;
-            let mut wtr = FfmpegReWriter::new(&mp4_fname, ffmpeg_codec_args, rate, h264_metadata)?;
+            let mut wtr = FfmpegReWriter::new(
+                &mp4_fname,
+                ffmpeg_codec_args,
+                rate,
+                h264_metadata,
+                IfUnfinished::KeepForRepair,
+            )?;
 
             for (i, ts) in timestamps.iter().enumerate() {
                 let value = (i % 255) as u8;
@@ -883,7 +1020,13 @@ mod test {
                 max_bframes: None,
             };
 
-            let mut wtr = FfmpegReWriter::new(&mp4_fname, ffmpeg_codec_args, None, None)?;
+            let mut wtr = FfmpegReWriter::new(
+                &mp4_fname,
+                ffmpeg_codec_args,
+                None,
+                None,
+                IfUnfinished::KeepForRepair,
+            )?;
 
             for (i, ts) in timestamps.iter().enumerate() {
                 // Vary the content per frame so the encoder has real motion to
@@ -1092,7 +1235,13 @@ mod test {
         reorder: Reorder,
     ) -> Result<()> {
         let (w, h) = (64u32, 48u32);
-        let mut wtr = FfmpegReWriter::new(mp4_fname, reorder.codec_args(), None, None)?;
+        let mut wtr = FfmpegReWriter::new(
+            mp4_fname,
+            reorder.codec_args(),
+            None,
+            None,
+            IfUnfinished::KeepForRepair,
+        )?;
         for (i, ts) in timestamps.iter().enumerate() {
             let mut data = vec![0u8; w as usize * h as usize * 3];
             for (px, chunk) in data.as_chunks_mut::<3>().0.iter_mut().enumerate() {
@@ -1598,6 +1747,40 @@ mod test {
         strand_dynamic_frame::DynamicFrameOwned::from_static(frame)
     }
 
+    /// The names in `dir`, sorted.
+    fn names_in(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        names
+    }
+
+    /// Record the [`CRASH_TEST_FRAMES`] test frames into `mp4`, and return the
+    /// writer without closing it.
+    fn record_crash_test_recording(
+        mp4: &str,
+        if_unfinished: IfUnfinished,
+    ) -> Result<FfmpegReWriter> {
+        let timestamps = crash_test_timestamps();
+        let mut h264_metadata =
+            H264Metadata::new("ffmpeg-rewriter-crash-test", timestamps[0].fixed_offset());
+        h264_metadata.camera_name = Some(CRASH_TEST_CAMERA_NAME.to_string());
+
+        let mut wtr = FfmpegReWriter::new(
+            mp4,
+            crash_test_codec_args(),
+            None,
+            Some(h264_metadata),
+            if_unfinished,
+        )?;
+        for (i, ts) in timestamps.iter().enumerate() {
+            wtr.write_dynamic_frame(&crash_test_frame(i).borrow(), *ts)?;
+        }
+        Ok(wtr)
+    }
+
     /// Helper process for the crash tests: records [`CRASH_TEST_FRAMES`] frames
     /// into `<dir>/crashed.mp4` and then dies suddenly, in the stage named by
     /// [`CHILD_STAGE_ENV`].
@@ -1611,22 +1794,7 @@ mod test {
         let stage = std::env::var(CHILD_STAGE_ENV).expect("crash child needs a stage");
         let mp4 = crash_test_mp4(Path::new(&dir));
 
-        let timestamps = crash_test_timestamps();
-        let mut h264_metadata =
-            H264Metadata::new("ffmpeg-rewriter-crash-test", timestamps[0].fixed_offset());
-        h264_metadata.camera_name = Some(CRASH_TEST_CAMERA_NAME.to_string());
-
-        let mut wtr = FfmpegReWriter::new(
-            &mp4,
-            crash_test_codec_args(),
-            None,
-            Some(h264_metadata.clone()),
-        )
-        .unwrap();
-        for (i, ts) in timestamps.iter().enumerate() {
-            wtr.write_dynamic_frame(&crash_test_frame(i).borrow(), *ts)
-                .unwrap();
-        }
+        let wtr = record_crash_test_recording(&mp4, IfUnfinished::KeepForRepair).unwrap();
 
         if stage == STAGE_CAPTURE {
             // Vanish as `kill -9` would: no unwinding, no destructors, no
@@ -1668,16 +1836,17 @@ mod test {
     }
 
     /// Wait for the ffmpeg process orphaned by the crashed child to finish
-    /// writing the MP4.
+    /// writing the capture file of the recording `mp4`.
     ///
     /// ffmpeg writes the sample index (`moov`) only when its input ends, which
     /// for it is when the dead child's pipe closes; until then the file cannot be
     /// read. Waiting for a successful open (rather than merely for the `moov`
     /// header to appear) avoids racing a half-written index.
     fn wait_for_finalized_mp4(mp4: &str) {
+        let capture = Sidecars::for_mp4(mp4).unwrap().capture;
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
         loop {
-            let readable = frame_source::FrameSourceBuilder::new(mp4)
+            let readable = frame_source::FrameSourceBuilder::new(&capture)
                 .do_decode_h264(false)
                 .timestamp_source(frame_source::TimestampSource::Mp4Pts)
                 .build_h264_in_mp4_source()
@@ -1687,7 +1856,7 @@ mod test {
             }
             assert!(
                 std::time::Instant::now() < deadline,
-                "ffmpeg never finished writing \"{mp4}\""
+                "ffmpeg never finished writing \"{capture}\""
             );
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
@@ -1699,7 +1868,12 @@ mod test {
     /// the crashed writer was given.
     fn assert_repaired(mp4: &str, expected_frames: usize) -> Result<()> {
         let sidecars = Sidecars::for_mp4(mp4)?;
-        for leftover in [&sidecars.srt, &sidecars.metadata_json, &sidecars.rewritten] {
+        for leftover in [
+            &sidecars.capture,
+            &sidecars.srt,
+            &sidecars.metadata_json,
+            &sidecars.rewritten,
+        ] {
             assert!(
                 !Path::new(leftover).exists(),
                 "\"{leftover}\" should have been cleaned up"
@@ -1787,8 +1961,11 @@ mod test {
         wait_for_finalized_mp4(&mp4);
 
         // The crash left exactly the state repair is meant to pick up: video
-        // plus sidecars, and no rewrite output (it never got that far).
+        // plus sidecars, and no rewrite output (it never got that far). Nothing
+        // is at the recording's own name: that is only ever a finished one.
         let sidecars = Sidecars::for_mp4(&mp4)?;
+        assert!(Path::new(&sidecars.capture).exists());
+        assert!(!Path::new(&sidecars.mp4).exists());
         assert!(Path::new(&sidecars.srt).exists());
         assert!(Path::new(&sidecars.metadata_json).exists());
         assert!(!Path::new(&sidecars.rewritten).exists());
@@ -1832,8 +2009,8 @@ mod test {
     }
 
     /// A writer killed *inside* the rewrite stage leaves a partial
-    /// `<name>.mp4-rewritten.mp4` behind, next to a complete MP4 and complete
-    /// sidecars. [`repair`] must discard that unusable partial file and redo the
+    /// `<name>.mp4-rewritten.partial` behind, next to a complete capture file
+    /// and complete sidecars. [`repair`] must discard that unusable partial file and redo the
     /// stage -- losing nothing, since every capture time was already written.
     #[test]
     fn test_repair_after_crash_during_rewrite() -> Result<()> {
@@ -1849,6 +2026,8 @@ mod test {
             "the crash should have left a partial \"{}\" behind",
             sidecars.rewritten
         );
+        assert!(Path::new(&sidecars.capture).exists());
+        assert!(!Path::new(&sidecars.mp4).exists());
         assert!(Path::new(&sidecars.srt).exists());
         assert_eq!(inspect(&mp4)?, State::NeedsRewrite);
         assert_eq!(find_interrupted(tempdir.path())?, vec![PathBuf::from(&mp4)]);
@@ -1916,7 +2095,7 @@ mod test {
         Ok(())
     }
 
-    /// Sidecar files left behind by a crash *after* the rewrite was already in
+    /// Sidecar files left behind by a crash *after* the recording was already in
     /// place are stale: the recording is complete and must be left alone, with
     /// only the sidecars cleaned up.
     #[test]
@@ -1926,18 +2105,12 @@ mod test {
 
         // A normally-closed recording, i.e. one already rewritten.
         {
-            let timestamps = crash_test_timestamps();
-            let mut h264_metadata =
-                H264Metadata::new("ffmpeg-rewriter-crash-test", timestamps[0].fixed_offset());
-            h264_metadata.camera_name = Some(CRASH_TEST_CAMERA_NAME.to_string());
-            let mut wtr =
-                FfmpegReWriter::new(&mp4, crash_test_codec_args(), None, Some(h264_metadata))?;
-            for (i, ts) in timestamps.iter().enumerate() {
-                wtr.write_dynamic_frame(&crash_test_frame(i).borrow(), *ts)?;
-            }
-            wtr.close()?;
+            record_crash_test_recording(&mp4, IfUnfinished::KeepForRepair)?.close()?;
         }
         let before = std::fs::read(&mp4)?;
+
+        // A normal close leaves the recording and nothing else.
+        assert_eq!(names_in(tempdir.path()), ["crashed.mp4"]);
 
         // Now put the sidecars back, as a crash between renaming the rewritten
         // file into place and deleting them would have.
@@ -1977,19 +2150,133 @@ mod test {
 
         run_crash_child(tempdir.path(), STAGE_CAPTURE, None);
         wait_for_finalized_mp4(&mp4);
-        assert!(is_mp4_finalized(&mp4)?);
+        let capture = Sidecars::for_mp4(&mp4)?.capture;
+        assert!(is_mp4_finalized(&capture)?);
 
         // Drop the index, as a recording ffmpeg has not closed yet lacks.
-        let complete = std::fs::read(&mp4)?;
+        let complete = std::fs::read(&capture)?;
         let moov_at = complete
             .windows(4)
             .position(|w| w == b"moov")
             .expect("a finalized MP4 has a moov box");
-        std::fs::write(&mp4, &complete[..moov_at - 4])?;
+        std::fs::write(&capture, &complete[..moov_at - 4])?;
 
-        assert!(!is_mp4_finalized(&mp4)?);
+        assert!(!is_mp4_finalized(&capture)?);
         std::assert_matches!(inspect(&mp4), Err(Error::Mp4NotFinalized { .. }));
         std::assert_matches!(repair(&mp4), Err(Error::Mp4NotFinalized { .. }));
         Ok(())
+    }
+
+    /// The capture file is deleted before the rewritten file is renamed, so a
+    /// crash between the two leaves a complete rewritten file which only has to
+    /// be moved into place.
+    #[test]
+    fn test_repair_moves_a_completed_rewrite_into_place() -> Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let mp4 = crash_test_mp4(tempdir.path());
+        record_crash_test_recording(&mp4, IfUnfinished::KeepForRepair)?.close()?;
+
+        // Put things back to where such a crash would have left them.
+        let sidecars = Sidecars::for_mp4(&mp4)?;
+        std::fs::rename(&sidecars.mp4, &sidecars.rewritten)?;
+        std::fs::write(&sidecars.srt, "1\n00:00:00,000 --> 00:00:00,040\n{}\n\n")?;
+        std::fs::write(&sidecars.metadata_json, "{}")?;
+
+        assert_eq!(inspect(&mp4)?, State::RewrittenNotInPlace);
+        assert_eq!(find_interrupted(tempdir.path())?, vec![PathBuf::from(&mp4)]);
+        std::assert_matches!(repair(&mp4)?, Repair::MovedIntoPlace);
+        assert_eq!(names_in(tempdir.path()), ["crashed.mp4"]);
+        assert_repaired(&mp4, CRASH_TEST_FRAMES)?;
+        Ok(())
+    }
+
+    /// An encoder which embeds the capture times itself writes
+    /// `<name>.mp4.partial` and renames it when done. One which was finished but
+    /// not renamed is found, recognized, and moved into place.
+    #[test]
+    fn test_repair_moves_a_finished_partial_file_into_place() -> Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let mp4 = crash_test_mp4(tempdir.path());
+        record_crash_test_recording(&mp4, IfUnfinished::KeepForRepair)?.close()?;
+
+        // A finished recording holds its capture times, which is all that
+        // distinguishes this case. There is no sidecar file.
+        let sidecars = Sidecars::for_mp4(&mp4)?;
+        std::fs::rename(&sidecars.mp4, &sidecars.capture)?;
+        assert_eq!(names_in(tempdir.path()), ["crashed.mp4.partial"]);
+
+        assert_eq!(inspect(&mp4)?, State::FinishedNotInPlace);
+        assert_eq!(find_interrupted(tempdir.path())?, vec![PathBuf::from(&mp4)]);
+        std::assert_matches!(repair(&mp4)?, Repair::MovedIntoPlace);
+        assert_eq!(names_in(tempdir.path()), ["crashed.mp4"]);
+        assert_repaired(&mp4, CRASH_TEST_FRAMES)?;
+        Ok(())
+    }
+
+    /// A recording which is dropped unfinished keeps its files, so that it can
+    /// be repaired, and a new recording of the same name refuses to write over
+    /// them. A conversion which is dropped unfinished leaves nothing.
+    #[test]
+    fn test_unfinished_files_are_kept_or_deleted_as_asked() -> Result<()> {
+        // Recording: kept.
+        let tempdir = tempfile::tempdir()?;
+        let mp4 = crash_test_mp4(tempdir.path());
+        drop(record_crash_test_recording(
+            &mp4,
+            IfUnfinished::KeepForRepair,
+        )?);
+        assert_eq!(
+            names_in(tempdir.path()),
+            [
+                "crashed-ffmpeg-rewriter.srt",
+                "crashed-metadata.json",
+                "crashed.mp4.partial"
+            ]
+        );
+        std::assert_matches!(
+            record_crash_test_recording(&mp4, IfUnfinished::KeepForRepair).err(),
+            Some(Error::UnfinishedRecordingExists { .. })
+        );
+        // What was kept can be repaired.
+        wait_for_finalized_mp4(&mp4);
+        std::assert_matches!(repair(&mp4)?, Repair::Rewritten(_));
+        assert_eq!(names_in(tempdir.path()), ["crashed.mp4"]);
+
+        // Conversion: deleted, and an existing result is left as it was.
+        let tempdir = tempfile::tempdir()?;
+        let mp4 = crash_test_mp4(tempdir.path());
+        std::fs::write(&mp4, "the result of an earlier conversion")?;
+        drop(record_crash_test_recording(&mp4, IfUnfinished::Delete)?);
+        assert_eq!(names_in(tempdir.path()), ["crashed.mp4"]);
+        assert_eq!(
+            std::fs::read_to_string(&mp4)?,
+            "the result of an earlier conversion"
+        );
+
+        // A conversion which completes replaces it.
+        record_crash_test_recording(&mp4, IfUnfinished::Delete)?.close()?;
+        assert_eq!(names_in(tempdir.path()), ["crashed.mp4"]);
+        assert_repaired(&mp4, CRASH_TEST_FRAMES)?;
+        Ok(())
+    }
+
+    /// Which recording a leftover file belongs to. Other programs write
+    /// `.partial` files as well; those are not ours.
+    #[test]
+    fn test_recording_for_leftover() {
+        for (leftover, recording) in [
+            ("dir/movie.mp4.partial", Some("dir/movie.mp4")),
+            ("dir/movie.mp4-rewritten.partial", Some("dir/movie.mp4")),
+            ("dir/movie-ffmpeg-rewriter.srt", Some("dir/movie.mp4")),
+            ("dir/movie.mp4", None),
+            ("dir/tracking.braidz.partial", None),
+            ("dir/movie-metadata.json", None),
+        ] {
+            assert_eq!(
+                recording_for_leftover(leftover),
+                recording.map(PathBuf::from),
+                "{leftover}"
+            );
+        }
     }
 }
