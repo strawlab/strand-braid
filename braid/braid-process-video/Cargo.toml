@@ -41,7 +41,10 @@ flydra2 = { workspace = true, default-features = true }
 flydra-mvg.workspace = true
 braid-mvg.workspace = true
 frame-source = { workspace = true, features = ["openh264"] }
+pending-file.workspace = true
 
 [dev-dependencies]
-download-verify.workspace = true
 serde_json.workspace = true
+tempfile.workspace = true
+
+download-verify.workspace = true

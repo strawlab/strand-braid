@@ -29,6 +29,7 @@ env-tracing-logger.workspace = true
 flydra-mvg.workspace = true
 braid-types.workspace = true
 mcsc-native.workspace = true
+pending-file.workspace = true
 zip-or-dir.workspace = true
 braid-mvg.workspace = true
 

@@ -37,6 +37,15 @@ impl BraidStorage {
             } else {
                 anyhow::bail!("extension of braidz output file must be '.braidz'.");
             };
+        // The directory is deleted again if processing fails, so it must be
+        // ours alone: never one that was already there.
+        if output_dirname.exists() {
+            anyhow::bail!(
+                "Path {} exists. The braidz output is assembled there, so it must not \
+                 exist beforehand. If it is left over from an earlier run, remove it.",
+                output_dirname.display()
+            );
+        }
 
         let recon = match cfg.processing_config.camera_calibration_source {
             CameraCalibrationSource::None => None,
@@ -130,6 +139,10 @@ impl BraidStorage {
             per_cam_data: braidz_per_cam_save_data,
             print_stats: true,
             save_performance_histograms: false,
+            // This output is computed from existing videos and can be computed
+            // again. If processing does not get to the end, see `close()`,
+            // write no .braidz file: one cut short would look complete.
+            if_interrupted: flydra2::IfSavingInterrupted::Delete,
         };
 
         coord_processor
@@ -220,11 +233,21 @@ impl BraidStorage {
             coord_proc_jh,
         } = self;
 
+        // Announce the end of the stream. This is what tells the coord
+        // processor, and through it the writer, that what was saved is
+        // complete. A channel which merely closes, as it does when this is
+        // dropped after an error instead of being closed, counts as an
+        // interruption, and the writer then deletes the directory rather than
+        // converting it to a .braidz file.
+        let sent_eof = frame_data_tx.send(flydra2::StreamItem::EOF).await;
+
         // Stop transmitting frames, which causes coord processor to end.
         std::mem::drop(frame_data_tx);
 
-        // Wait for coord processor to finish.
+        // Wait for coord processor to finish. If it has failed, that error
+        // says more than the failure to send to it.
         coord_proc_jh.await??;
+        sent_eof?;
         Ok(())
     }
 }

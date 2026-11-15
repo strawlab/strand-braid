@@ -11,6 +11,7 @@ zip.workspace = true
 thiserror.workspace = true
 
 braid-types.workspace = true
+pending-file.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

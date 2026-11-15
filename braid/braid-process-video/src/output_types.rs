@@ -56,9 +56,21 @@ impl<'lib, 'fonts> OutputStorage<'lib, 'fonts> {
 pub(crate) struct DebugStorage {
     pub(crate) fd: std::fs::File,
     pub(crate) path: std::path::PathBuf,
+    /// Moves the finished file to `path`; see [`Self::close`].
+    pending: pending_file::PendingFile,
 }
 
 impl DebugStorage {
+    /// Start a debug text file which appears at `path` once it is closed.
+    pub(crate) fn new(path: &std::path::Path) -> Result<Self> {
+        let (fd, pending) = pending_file::PendingFile::create(path)?;
+        Ok(Self {
+            fd,
+            path: path.to_path_buf(),
+            pending,
+        })
+    }
+
     pub(crate) fn render_frame(
         &mut self,
         out_fno: usize,
@@ -113,6 +125,9 @@ impl DebugStorage {
     }
 
     pub(crate) async fn close(self) -> Result<()> {
+        let Self { fd, pending, .. } = self;
+        drop(fd);
+        pending.commit()?;
         Ok(())
     }
 }

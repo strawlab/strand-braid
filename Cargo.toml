@@ -114,6 +114,7 @@ members = [
     "utils/download-verify",
     "utils/groupby",
     "utils/license-check",
+    "utils/pending-file",
     "utils/env-tracing-logger",
     "utils/env-tracing-logger/env-tracing-logger-sample",
     "utils/strand-cam-enum-iter",
@@ -354,6 +355,7 @@ mp4-writer = { path = "media-utils/mp4-writer" }
 ncollide-geom = { path = "geometry/freemovr-calibration/ncollide-geom" }
 nvenc = { path = "media-utils/nvenc" }
 parry-geom = { path = "geometry/parry-geom" }
+pending-file = { path = "utils/pending-file" }
 refraction = { path = "geometry/refraction" }
 simple-obj-parse = { path = "geometry/simple-obj-parse" }
 srt-writer = { path = "media-utils/srt-writer" }

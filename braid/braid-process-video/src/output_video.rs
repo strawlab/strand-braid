@@ -13,6 +13,9 @@ use crate::{OutTimepointPerCamera, PerCamRenderFrame, config::VideoOutputOptions
 pub(crate) struct VideoStorage<'lib, 'fonts> {
     pub(crate) path: std::path::PathBuf,
     pub(crate) mp4_writer: mp4_writer::Mp4Writer<'lib, std::fs::File>,
+    /// Moves the finished movie to `path`. Until [`Self::close`] it is written
+    /// beside it, so a failed run leaves no truncated movie there.
+    pending: pending_file::PendingFile,
     /// timestamp of first frame
     pub(crate) first_timestamp: Option<DateTime<FixedOffset>>,
     pub(crate) composite_margin_pixels: usize,
@@ -49,7 +52,7 @@ impl<'lib, 'fonts> VideoStorage<'lib, 'fonts> {
         {
             anyhow::bail!("expected extension mp4");
         }
-        let fd = std::fs::File::create(output_filename)?;
+        let (fd, pending) = pending_file::PendingFile::create(output_filename)?;
 
         let mp4_cfg = match v.video_options.codec {
             crate::config::VideoCodecConfig::OpenH264 => {
@@ -112,6 +115,7 @@ impl<'lib, 'fonts> VideoStorage<'lib, 'fonts> {
         Ok(Self {
             path: output_filename.to_path_buf(),
             mp4_writer,
+            pending,
             first_timestamp: None,
             composite_margin_pixels,
             feature_radius,
@@ -323,6 +327,14 @@ impl<'lib, 'fonts> VideoStorage<'lib, 'fonts> {
     }
 
     pub(crate) async fn close(self) -> Result<()> {
+        let Self {
+            mut mp4_writer,
+            pending,
+            ..
+        } = self;
+        mp4_writer.finish()?;
+        drop(mp4_writer);
+        pending.commit()?;
         Ok(())
     }
 }

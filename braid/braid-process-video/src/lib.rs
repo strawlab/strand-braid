@@ -798,10 +798,9 @@ pub async fn run_config(
                 OutputConfig::Video(v) => Ok(OutputStorage::Video(Box::new(
                     output_video::VideoStorage::new(&v, &output_filename, &sources)?,
                 ))),
-                OutputConfig::DebugTxt(_) => Ok(OutputStorage::Debug(DebugStorage {
-                    path: output_filename.clone(),
-                    fd: std::fs::File::create(&output_filename)?,
-                })),
+                OutputConfig::DebugTxt(_) => {
+                    Ok(OutputStorage::Debug(DebugStorage::new(&output_filename)?))
+                }
                 OutputConfig::Braidz(b) => {
                     let braidz_storage = output_braidz::BraidStorage::new(
                         cfg,

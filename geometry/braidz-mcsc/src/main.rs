@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use bundle_adj::CameraModelType;
-use camino::{Utf8Path, Utf8PathBuf};
+use camino::Utf8PathBuf;
 use clap::Parser;
 use eyre::{self, Context, Result};
 use flydra_mvg::flydra_xml_support::{FlydraDistortionModel, SingleCameraCalibration};
@@ -10,11 +10,11 @@ use levenberg_marquardt_sparse::LeastSquaresProblem;
 use opencv_ros_camera::RosOpenCvIntrinsics;
 use std::{
     collections::{BTreeMap, HashMap},
-    io::{Read, Write},
-    mem::DropGuard,
+    io::Read,
 };
 
 use mcsc_native::McscCfg;
+use pending_file::PendingFile;
 
 #[cfg(test)]
 mod tests;
@@ -699,15 +699,13 @@ pub(crate) fn braidz_mcsc(
     };
 
     let xml_out_name = Utf8PathBuf::from(format!("{}-unaligned.xml", input_base_name));
-    if std::fs::exists(&xml_out_name)? {
-        // Remove existing file for test re-runs
-        std::fs::remove_file(&xml_out_name)?;
-    }
-    let mut out_fd = create_deleted_unless_dismissed(&xml_out_name)
+    // Written beside its destination and moved there once complete, replacing
+    // the result of an earlier run only at that point.
+    let (mut out_fd, pending) = PendingFile::create(&xml_out_name)
         .with_context(|| format!("While creating XML calibration output file {xml_out_name}"))?;
-    multi_cam_system.to_flydra_xml(&mut *out_fd)?;
-    out_fd.flush()?;
-    DropGuard::dismiss(out_fd);
+    multi_cam_system.to_flydra_xml(&mut out_fd)?;
+    drop(out_fd);
+    pending.commit()?;
 
     Ok((xml_out_name, multi_cam_system, final_mean_repoj_distance))
 }
@@ -798,21 +796,4 @@ fn ba_mean_reproj_distance(
     }
 
     mean(&all_dists)
-}
-
-/// Create a new file at `path` which is deleted again when the returned guard
-/// is dropped.
-///
-/// Pass the guard to [`DropGuard::dismiss`] once the file is completely
-/// written to keep it.
-pub(crate) fn create_deleted_unless_dismissed(
-    path: &Utf8Path,
-) -> Result<DropGuard<std::fs::File, impl FnOnce(std::fs::File) + use<>>> {
-    let file = std::fs::File::create_new(path)?;
-    let path = path.to_owned();
-    Ok(DropGuard::new(file, move |file| {
-        // Close the file first: Windows does not delete an open file.
-        drop(file);
-        std::fs::remove_file(&path).unwrap();
-    }))
 }

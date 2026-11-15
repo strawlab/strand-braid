@@ -12,6 +12,8 @@ use strand_cam_remote_control::{Mp4RecordingConfig, NvidiaH264Options, OpenH264O
 use strand_dynamic_frame::{DynamicFrame, match_all_dynamic_fmts};
 use y4m::Colorspace;
 
+use pending_file::PendingFile;
+
 /*
 
 Examples of exporting from FMF to MKV with `ffv1` codec. Note these all loose
@@ -284,7 +286,7 @@ fn export_fmf(
 
     let output_fname = output_fname.unwrap(); // XXX temp hack FIXME
 
-    let f = std::fs::File::create(&output_fname)?;
+    let (f, pending) = PendingFile::create(&output_fname)?;
     let mut writer = fmf::FMFWriter::new(f)?;
 
     for res_frame in reader {
@@ -309,13 +311,15 @@ fn export_fmf(
             anyhow::anyhow!("unimplemented pixel format {}", fmt)
         );
     }
+    writer.close()?;
+    pending.commit()?;
     Ok(())
 }
 
 fn import_images(pattern: &str, output_fname: PathBuf) -> Result<()> {
     let opts = glob::MatchOptions::new();
     let paths = glob::glob_with(pattern, opts)?;
-    let f = std::fs::File::create(&output_fname)?;
+    let (f, pending) = PendingFile::create(&output_fname)?;
     let mut writer = fmf::FMFWriter::new(f)?;
 
     for path in paths {
@@ -323,6 +327,8 @@ fn import_images(pattern: &str, output_fname: PathBuf) -> Result<()> {
         let converted_frame = convert_image::image_to_rgb8(piston_image)?;
         writer.write(&converted_frame, chrono::Utc::now())?;
     }
+    writer.close()?;
+    pending.commit()?;
     Ok(())
 }
 
@@ -375,11 +381,11 @@ fn export_mp4(x: ExportMp4) -> Result<()> {
         display_filename(&output_fname, "<stdout>").display()
     );
 
-    let out_fd = match &output_fname {
+    let (out_fd, pending) = match &output_fname {
         None => {
             anyhow::bail!("Cannot export mp4 to stdout."); // Seek required
         }
-        Some(path) => std::fs::File::create(path)?,
+        Some(path) => PendingFile::create(path)?,
     };
 
     let mut reader = fmf::FMFReader::new(&x.input)?;
@@ -460,6 +466,8 @@ fn export_mp4(x: ExportMp4) -> Result<()> {
 
     debug!("finishing file");
     my_mp4_writer.finish()?;
+    drop(my_mp4_writer);
+    pending.commit()?;
     Ok(())
 }
 
@@ -474,9 +482,12 @@ fn export_y4m(x: ExportY4m) -> Result<()> {
         display_filename(&output_fname, "<stdout>").display()
     );
 
-    let out_fd: Box<dyn Write> = match output_fname {
-        None => Box::new(std::io::stdout()),
-        Some(path) => Box::new(std::fs::File::create(&path)?),
+    let (out_fd, pending): (Box<dyn Write>, _) = match output_fname {
+        None => (Box::new(std::io::stdout()), None),
+        Some(path) => {
+            let (out_fd, pending) = PendingFile::create(&path)?;
+            (Box::new(out_fd), Some(pending))
+        }
     };
 
     let opts = y4m_writer::Y4MOptions {
@@ -492,6 +503,10 @@ fn export_y4m(x: ExportY4m) -> Result<()> {
     for res_frame in reader {
         let (frame, _) = res_frame?;
         y4m_writer.write_dynamic_frame(&frame.borrow())?;
+    }
+    drop(y4m_writer);
+    if let Some(pending) = pending {
+        pending.commit()?;
     }
     Ok(())
 }
@@ -536,6 +551,101 @@ fn main() -> Result<()> {
             import_images(&input, output)?;
         }
     }
+    Ok(())
+}
+
+/// The names in `dir`, sorted.
+#[cfg(test)]
+fn names_in(dir: &Path) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .collect();
+    names.sort();
+    names
+}
+
+/// Write an FMF file of three small frames at `path`.
+#[cfg(test)]
+fn write_test_fmf(path: &Path) -> anyhow::Result<()> {
+    use machine_vision_formats::pixel_format::Mono8;
+
+    let mut writer = fmf::FMFWriter::new(std::fs::File::create(path)?)?;
+    for i in 0..3u8 {
+        let frame =
+            machine_vision_formats::owned::OImage::<Mono8>::new(32, 16, 32, vec![i * 60; 32 * 16])
+                .unwrap();
+        let stamp = chrono::DateTime::from_timestamp(61 + i64::from(i), 0).unwrap();
+        writer.write(&frame, stamp)?;
+    }
+    writer.close()?;
+    Ok(())
+}
+
+/// Each export writes under a temporary name beside its output and moves the
+/// finished file into place, so afterwards only the output is there.
+#[test]
+fn exports_leave_only_their_output() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let input = dir.path().join("in.fmf");
+    write_test_fmf(&input)?;
+
+    export_fmf(input.clone(), None, Some(dir.path().join("out.fmf")), None)?;
+    assert_eq!(names_in(dir.path()), ["in.fmf", "out.fmf"]);
+    assert_eq!(fmf::FMFReader::new(dir.path().join("out.fmf"))?.count(), 3);
+
+    export_mp4(ExportMp4 {
+        input: input.clone(),
+        output: Some(dir.path().join("out.mp4")),
+        bitrate: None,
+        codec: Codec::OpenH264,
+    })?;
+    assert_eq!(names_in(dir.path()), ["in.fmf", "out.fmf", "out.mp4"]);
+    assert!(std::fs::metadata(dir.path().join("out.mp4"))?.len() > 0);
+
+    export_y4m(ExportY4m {
+        input,
+        output: Some(dir.path().join("out.y4m")),
+        colorspace: Colorspace::Cmono,
+        fps_numerator: 25,
+        fps_denominator: 1,
+        aspect_numerator: 1,
+        aspect_denominator: 1,
+    })?;
+    assert_eq!(
+        names_in(dir.path()),
+        ["in.fmf", "out.fmf", "out.mp4", "out.y4m"]
+    );
+    Ok(())
+}
+
+/// An export which fails partway, here because its input is cut short, leaves
+/// nothing behind, and leaves an output from an earlier run as it was.
+#[test]
+fn failed_export_leaves_no_output() -> anyhow::Result<()> {
+    let dir = tempfile::tempdir()?;
+    let complete = dir.path().join("complete.fmf");
+    write_test_fmf(&complete)?;
+    let truncated = dir.path().join("truncated.fmf");
+    let bytes = std::fs::read(&complete)?;
+    std::fs::write(&truncated, &bytes[..bytes.len() - 100])?;
+    let before = names_in(dir.path());
+
+    assert!(
+        export_fmf(
+            truncated.clone(),
+            None,
+            Some(dir.path().join("out.fmf")),
+            None
+        )
+        .is_err()
+    );
+    assert_eq!(names_in(dir.path()), before);
+
+    let earlier = dir.path().join("earlier.fmf");
+    std::fs::write(&earlier, "from an earlier run")?;
+    assert!(export_fmf(truncated, None, Some(earlier.clone()), None).is_err());
+    assert_eq!(std::fs::read_to_string(&earlier)?, "from an earlier run");
     Ok(())
 }
 

@@ -18,6 +18,7 @@ use ordered_float::NotNan;
 use strand_cam_remote_control::H264Metadata;
 
 use frame_source::{FrameData, FrameDataSource, ImageData, fmf_source, pv_tiff_stack};
+use pending_file::PendingFile;
 use strand_dynamic_frame::DynamicFrame;
 use tiff_decoder::HdrConfig;
 
@@ -723,11 +724,12 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
     // ---------
 
-    let mut output_writer = if cli.export_pngs {
-        FrameWriter::Image(ImageSequenceWriter {
+    let (mut output_writer, pending_mp4) = if cli.export_pngs {
+        let writer = FrameWriter::Image(ImageSequenceWriter {
             dirname: output_fname.clone(),
             index: 0,
-        })
+        });
+        (writer, None)
     } else {
         tracing::debug!(
             "Saving metadata: {}",
@@ -751,26 +753,34 @@ pub fn run_cli(cli: Cli) -> Result<()> {
             h264_metadata,
         };
 
-        let out_fd = std::fs::File::create(&output_fname)
-            .with_context(|| format!("writing to {}", output_fname.display()))?;
-        FrameWriter::Mp4(Box::new(mp4_writer::Mp4Writer::new(
+        // The movie is written beside its destination and moved there only
+        // once it is complete, so that a failed or interrupted conversion
+        // leaves nothing which looks like a finished movie. With
+        // --truncate-on-error the user wants whatever was written to survive a
+        // failure, so then it is written straight to its destination.
+        let (out_fd, pending) = if cli.truncate_on_error {
+            (std::fs::File::create(&output_fname), None)
+        } else {
+            match PendingFile::create(&output_fname) {
+                Ok((out_fd, pending)) => (Ok(out_fd), Some(pending)),
+                Err(e) => (Err(e), None),
+            }
+        };
+        let out_fd = out_fd.with_context(|| format!("writing to {}", output_fname.display()))?;
+        let writer = FrameWriter::Mp4(Box::new(mp4_writer::Mp4Writer::new(
             out_fd,
             mp4_cfg,
             libs_and_nv_enc,
-        )?))
+        )?));
+        (writer, pending)
     };
 
-    // Unless dismissed at the end of this function, this deletes the output
-    // being written when an error makes us return early.
-    let delete_on_error = (!cli.truncate_on_error).then(|| {
+    // A directory of PNG files cannot be moved into place in one step. Unless
+    // dismissed at the end of this function, this deletes it when an error
+    // makes us return early.
+    let delete_png_dir_on_error = (cli.export_pngs && !cli.truncate_on_error).then(|| {
         DropGuard::new(output_fname.clone(), |path| {
-            if std::fs::metadata(&path).unwrap().is_file() {
-                // unlink file
-                std::fs::remove_file(&path).unwrap();
-            } else {
-                // unlink dir
-                std::fs::remove_dir_all(&path).unwrap();
-            }
+            std::fs::remove_dir_all(&path).unwrap();
         })
     });
 
@@ -949,6 +959,9 @@ pub fn run_cli(cli: Cli) -> Result<()> {
     // stop saving
     output_writer.finish()?;
     std::mem::drop(output_writer);
+    if let Some(pending) = pending_mp4 {
+        pending.commit()?;
+    }
 
     // Done writing. Summarize writing.
 
@@ -967,8 +980,8 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         );
     }
 
-    if let Some(delete_on_error) = delete_on_error {
-        DropGuard::dismiss(delete_on_error);
+    if let Some(delete_png_dir_on_error) = delete_png_dir_on_error {
+        DropGuard::dismiss(delete_png_dir_on_error);
     }
     Ok(())
 }

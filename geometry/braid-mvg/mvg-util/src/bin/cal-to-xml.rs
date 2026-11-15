@@ -31,7 +31,10 @@ fn main() -> eyre::Result<()> {
         .with_context(|| format!("while reading calibration at {}", cal_path.display()))?;
 
     println!("Writing calibration to {out_fname}");
-    let mut out_fd = std::fs::File::create(&out_fname)?;
-    calibration.to_flydra_xml(&mut out_fd)?;
+    // Serialize before creating the file, so that a failure to do so does not
+    // leave an empty file behind.
+    let mut xml_buf: Vec<u8> = Vec::new();
+    calibration.to_flydra_xml(&mut xml_buf)?;
+    std::fs::write(&out_fname, xml_buf)?;
     Ok(())
 }

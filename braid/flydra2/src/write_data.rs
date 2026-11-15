@@ -15,12 +15,16 @@ use braidz_types::BraidMetadata;
 
 use crate::{
     ConnectedCamerasManager, ExperimentInfoRow, FrameDataAndPoints, HistogramWritingState,
-    KalmanEstimateRecord, OrderingWriter, Result, SaveToDiskMsg, StartSavingCsvConfig,
-    TrackingParamsSaver, finish_histogram, histogram_record, save_hlog,
+    IfSavingInterrupted, KalmanEstimateRecord, OrderingWriter, Result, SaveToDiskMsg,
+    StartSavingCsvConfig, TrackingParamsSaver, finish_histogram, histogram_record, save_hlog,
 };
 
 struct WritingState {
     output_dirname: std::path::PathBuf,
+    /// What to do in `drop()` if `stopped` was never set.
+    if_interrupted: IfSavingInterrupted,
+    /// Set when saving was stopped on purpose, by `SaveToDiskMsg::StopSavingCsv`.
+    stopped: bool,
     /// The readme file in the output directory.
     ///
     /// We keep this file open to establish locking on the open directory.
@@ -103,6 +107,7 @@ impl WritingState {
         metadata_builder: BraidMetadataBuilder,
     ) -> Result<Self> {
         let output_dirname = cfg.out_dir;
+        let if_interrupted = cfg.if_interrupted;
         let local = cfg.local;
         let git_revision = cfg.git_rev;
         let fps = cfg.fps;
@@ -367,6 +372,8 @@ impl WritingState {
 
         Ok(Self {
             output_dirname,
+            if_interrupted,
+            stopped: false,
             readme_fd,
             save_empty_data2d,
             kalman_estimates_wtr,
@@ -471,6 +478,37 @@ impl Drop for WritingState {
                     &reproj_dist_pixels.histograms,
                     self.file_start_time,
                 );
+            }
+        }
+
+        if !self.stopped {
+            // Saving was not stopped on purpose: the sender went away or this
+            // writer failed. What is in the directory may be incomplete.
+            match self.if_interrupted {
+                IfSavingInterrupted::SaveBraidz => {}
+                IfSavingInterrupted::Delete => {
+                    tracing::warn!(
+                        "Saving to {} was interrupted. Deleting it and writing no .braidz file.",
+                        output_dirname.display()
+                    );
+                    self.readme_fd = None;
+                    if let Err(err) = std::fs::remove_dir_all(&output_dirname) {
+                        tracing::error!(
+                            "Error removing directory {}: {err}",
+                            output_dirname.display()
+                        );
+                    }
+                    return;
+                }
+                IfSavingInterrupted::KeepDir => {
+                    tracing::warn!(
+                        "Saving to {} was interrupted. Keeping it for inspection and writing \
+                         no .braidz file.",
+                        output_dirname.display()
+                    );
+                    self.readme_fd = None;
+                    return;
+                }
             }
         }
 
@@ -662,16 +700,32 @@ pub(crate) fn writer_task_main(
                 // simply drop data if no file opened
             }
             StartSavingCsv(cfg) => {
-                writing_state = Some(WritingState::new(
+                let out_dir = cfg.out_dir.clone();
+                let if_interrupted = cfg.if_interrupted;
+                match WritingState::new(
                     cfg,
                     cam_manager.sample(),
                     &recon,
                     tracking_params.clone(),
                     save_empty_data2d,
                     metadata_builder.clone(),
-                )?);
+                ) {
+                    Ok(ws) => writing_state = Some(ws),
+                    Err(err) => {
+                        // No `WritingState` exists to clean up a directory
+                        // which was only partly set up.
+                        if if_interrupted == IfSavingInterrupted::Delete {
+                            let _ = std::fs::remove_dir_all(&out_dir);
+                        }
+                        return Err(err);
+                    }
+                }
             }
             StopSavingCsv => {
+                // Saving ends on purpose, so what was saved is complete.
+                if let Some(ws) = writing_state.as_mut() {
+                    ws.stopped = true;
+                }
                 // This will drop `writing_state`, and thus the writers, and
                 // thus close them.
                 writing_state = None;
@@ -773,6 +827,7 @@ mod test {
             per_cam_data,
             print_stats: false,
             save_performance_histograms: false,
+            if_interrupted: Default::default(),
         };
         let cam_manager = ConnectedCamerasManager::new(
             &None,
@@ -886,6 +941,7 @@ mod test {
                 per_cam_data: Default::default(),
                 print_stats: false,
                 save_performance_histograms: false,
+                if_interrupted: Default::default(),
             };
 
             let cam_manager = ConnectedCamerasManager::new(
@@ -924,6 +980,77 @@ mod test {
         assert!(braidz_name.exists());
 
         std::fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Start saving into a fresh directory, end it either stopped or
+    /// interrupted, and report whether the `.braid` directory and the `.braidz`
+    /// file exist afterwards.
+    fn end_saving(if_interrupted: IfSavingInterrupted, stopped: bool) -> (bool, bool) {
+        let root = tempfile::tempdir().unwrap();
+        let braid_root = root.path().join("test.braid");
+        let braidz_name = root.path().join("test.braidz");
+
+        let cfg = StartSavingCsvConfig {
+            out_dir: braid_root.clone(),
+            local: None,
+            git_rev: "<impossible git rev>".into(),
+            fps: None,
+            per_cam_data: Default::default(),
+            print_stats: false,
+            save_performance_histograms: false,
+            if_interrupted,
+        };
+        let cam_manager = ConnectedCamerasManager::new(
+            &None,
+            std::collections::BTreeSet::new(),
+            Arc::new(AtomicBool::new(true)),
+            Arc::new(AtomicBool::new(true)),
+            None,
+            None,
+        );
+        let mut ws = WritingState::new(
+            cfg,
+            cam_manager.sample(),
+            &None,
+            Arc::new(braid_types::default_tracking_params_full_3d()),
+            false,
+            BraidMetadataBuilder::saving_program_name(format!("{}:{}", file!(), line!())),
+        )
+        .unwrap();
+        assert!(braid_root.exists());
+        ws.stopped = stopped;
+        std::mem::drop(ws);
+
+        let result = (braid_root.exists(), braidz_name.exists());
+        // Whatever the outcome, nothing else may be left lying around.
+        let expected_entries = usize::from(result.0) + usize::from(result.1);
+        assert_eq!(
+            std::fs::read_dir(root.path()).unwrap().count(),
+            expected_entries
+        );
+        result
+    }
+
+    /// Saving which was stopped on purpose always becomes a `.braidz` file.
+    /// Saving which was interrupted does what its `IfSavingInterrupted` says.
+    #[test]
+    fn interrupted_saving_follows_its_policy() {
+        use IfSavingInterrupted::{Delete, KeepDir, SaveBraidz};
+        // (policy, stopped) -> (directory still there, .braidz written)
+        for (policy, stopped, expected) in [
+            (SaveBraidz, false, (false, true)),
+            (SaveBraidz, true, (false, true)),
+            (Delete, false, (false, false)),
+            (Delete, true, (false, true)),
+            (KeepDir, false, (true, false)),
+            (KeepDir, true, (false, true)),
+        ] {
+            assert_eq!(
+                end_saving(policy, stopped),
+                expected,
+                "{policy:?}, stopped: {stopped}"
+            );
+        }
     }
 
     /// Ensure that .braidz files can exceed 4GB.
@@ -975,6 +1102,7 @@ mod test {
                 per_cam_data: Default::default(),
                 print_stats: false,
                 save_performance_histograms: false,
+                if_interrupted: Default::default(),
             };
 
             let cam_manager = ConnectedCamerasManager::new(

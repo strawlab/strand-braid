@@ -1411,6 +1411,7 @@ pub(crate) async fn toggle_saving_csv_tables(
             per_cam_data,
             print_stats: false,
             save_performance_histograms: true,
+            if_interrupted: flydra2::IfSavingInterrupted::SaveBraidz,
         };
 
         match braidz_write_tx_weak.upgrade() {

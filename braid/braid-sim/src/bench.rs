@@ -346,6 +346,7 @@ pub async fn run_once(
                 per_cam_data: Default::default(),
                 print_stats: false,
                 save_performance_histograms: false,
+                if_interrupted: Default::default(),
             },
         ))
         .await

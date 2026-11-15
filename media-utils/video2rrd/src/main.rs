@@ -1,13 +1,12 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-use std::mem::DropGuard;
-
 use clap::Parser;
 use eyre::{self, WrapErr};
 use indicatif::{ProgressBar, ProgressStyle};
 
 use frame_source::{ImageData, Timestamp};
+use pending_file::PendingFile;
 
 #[derive(Debug, Parser)]
 #[command(version, about)]
@@ -167,18 +166,20 @@ fn main() -> eyre::Result<()> {
         (None, true) => None,
     };
 
-    let (rec, drop_guard) = if opt.connect {
+    let (rec, pending_output) = if opt.connect {
         (rec_builder.connect_grpc()?, None)
     } else {
         let output = output.unwrap();
+        // The recording is written beside its destination and moved there only
+        // once it is complete. Rerun creates the file itself, so it gets the
+        // path rather than the open file.
+        let (_, pending) = PendingFile::create(&output)
+            .wrap_err_with(|| format!("Creating output file {output}"))?;
         let rec = rec_builder
-            .save(&output)
+            .save(pending.path())
             .wrap_err_with(|| format!("Creating output file {output}"))?;
         tracing::info!("Saving output to {output}");
-        // Unless dismissed below, this removes the incomplete file again.
-        let delete_incomplete =
-            DropGuard::new(output, |output| std::fs::remove_file(output).unwrap());
-        (rec, Some(delete_incomplete))
+        (rec, Some(pending))
     };
 
     // Read in presentation (display) order so wall-clock timestamps line up with
@@ -300,9 +301,12 @@ fn main() -> eyre::Result<()> {
         )?;
     }
 
-    if let Some(delete_incomplete) = drop_guard {
-        // The file is complete, so keep it.
-        DropGuard::dismiss(delete_incomplete);
+    // Rerun writes in the background. Everything must be in the file, and the
+    // file closed, before it is moved into place.
+    rec.flush_blocking()?;
+    drop(rec);
+    if let Some(pending) = pending_output {
+        pending.commit()?;
     }
     Ok(())
 }

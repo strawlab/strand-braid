@@ -659,6 +659,34 @@ fn histogram_record(
     Ok(())
 }
 
+/// What becomes of the `.braid` directory when saving ends without having been
+/// stopped with [`SaveToDiskMsg::StopSavingCsv`].
+///
+/// Saving ends that way when the sending side goes away, or the writer itself
+/// fails, before the stop message arrives. [`CoordProcessor::consume_stream`]
+/// sends that message once it has processed a stream through to its
+/// [`StreamItem::EOF`], so a stream which breaks off early counts as
+/// interrupted.
+///
+/// Saving that *is* stopped always converts the directory to a `.braidz` file.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum IfSavingInterrupted {
+    /// Convert it to a `.braidz` file all the same.
+    ///
+    /// This is right for a live recording: what was captured cannot be
+    /// captured again, so as much of it as possible is kept.
+    #[default]
+    SaveBraidz,
+    /// Delete it, and write no `.braidz` file.
+    ///
+    /// This is right for results computed from existing data: they can be
+    /// computed again, and a truncated `.braidz` file is indistinguishable
+    /// from a complete one.
+    Delete,
+    /// Leave it for inspection, and write no `.braidz` file.
+    KeepDir,
+}
+
 #[derive(Debug)]
 pub struct StartSavingCsvConfig {
     pub out_dir: std::path::PathBuf,
@@ -668,6 +696,7 @@ pub struct StartSavingCsvConfig {
     pub per_cam_data: BTreeMap<RawCamName, braid_types::PerCamSaveData>,
     pub print_stats: bool,
     pub save_performance_histograms: bool,
+    pub if_interrupted: IfSavingInterrupted,
 }
 
 #[derive(Debug)]
@@ -854,13 +883,19 @@ impl CoordProcessor {
         let mut prev_frame = SyncFno(0);
         use futures::stream::StreamExt;
 
+        // Whether the incoming stream announced its own end, as opposed to
+        // simply breaking off.
+        let saw_eof = std::sync::atomic::AtomicBool::new(false);
+
         // As first step, save raw incoming data. The raw data is saved by
         // cloning each packet and sending this to the writing task. A new
         // `Stream<Item = StreamItem>` is returned which simply moves the items
         // from the original stream.
         let stream1 = Box::pin(frame_data_rx.then(|si: StreamItem| async {
             match &si {
-                StreamItem::EOF => {}
+                StreamItem::EOF => {
+                    saw_eof.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
                 StreamItem::Packet(fdp) => {
                     if fdp.frame_data.synced_frame.0 == u64::MAX {
                         // We have seen a bug after making a contiguous stream
@@ -1020,6 +1055,17 @@ impl CoordProcessor {
             }
         }
         debug!("consume_stream future done");
+
+        if saw_eof.load(std::sync::atomic::Ordering::Relaxed) {
+            // Everything up to the end of the stream has been handed to the
+            // writer, so what it saved is complete. Say so: unless told, it
+            // must take the closing of this channel for an interruption (see
+            // `IfSavingInterrupted`). It may already be gone, having failed.
+            let _ = self
+                .braidz_write_tx
+                .send(SaveToDiskMsg::StopSavingCsv)
+                .await;
+        }
 
         Ok(self.writer_join_handle)
     }
