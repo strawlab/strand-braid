@@ -19,27 +19,44 @@
 * `braid-offline-retrack --keep-braid-dir-on-fail` keeps the `.braid` directory
   in which the output was being assembled when tracking fails, for inspection.
   Without it the directory is deleted (see "Changed").
+* `strand-convert --encoder ffmpeg` encodes with the `ffmpeg` program, which
+  must be installed, using the video codec given by `--ffmpeg-codec` (default
+  `libx264`). The capture time of every frame is embedded as with the built-in
+  encoders.
 
 ### Changed
 
-* Programs which compute their output from existing data no longer leave an
-  incomplete file at the output's name. They write to `<name>.partial` beside
-  it and move that into place only once it is complete, so a run that fails, is
-  interrupted with Ctrl-C or is killed leaves the destination as it was; an
-  existing output is replaced only by a complete new one. A run that fails
-  deletes its `.partial` file. One that is killed leaves it behind, and the
-  next run to the same destination replaces it. Two runs writing to the same
-  destination at once are detected, and the second fails. This applies to
-  `strand-convert` (unless `--truncate-on-error` is given), `video2rrd`,
-  `braidz-export-rrd`, `braid-process-video`, `braidz-mcsc`,
-  `apriltag-track-movie`, `create-timelapse`, `fmf export-fmf`, `export-mp4`,
-  `export-y4m` and `import-images`, `dir2zip` and `mp4-bframe-doctor fix`.
-  Programs which record original data are unchanged and still write straight
-  to their destination, so that an interrupted recording can be rescued.
-* A `.braidz` file is likewise written under a temporary name and appears only
-  once it is complete, including at the end of a live recording in Braid and
-  Strand Camera. The `.braid` directory it is made from is, as before, removed
-  only after that.
+* A file being written is now named `<name>.partial`, and gets its own name
+  only once it is complete. A name without `.partial` therefore always belongs
+  to a finished file.
+  * Recordings. Strand Camera and Braid write an MP4 recording as
+    `<name>.mp4.partial`, with every encoder, and rename it to `<name>.mp4` when
+    the recording is finished. If recording is interrupted, what was recorded
+    stays under the `.partial` name and nothing is deleted. Previously an
+    interrupted recording was left at `<name>.mp4`; one made through ffmpeg
+    then played normally but had no capture times embedded, which only its
+    sidecar files revealed. A new recording refuses to start over the
+    `.partial` file of an earlier one of the same name.
+  * `ffmpeg-rewriter-doctor` works with these names. It finishes a recording
+    left as `<name>.mp4.partial` with its sidecar files, and renames a
+    `.partial` file which is in fact a finished recording. It no longer
+    recognizes the files an interrupted recording left with earlier versions
+    (`<name>.mp4` with sidecar files, `<name>.mp4-rewritten.mp4`); rename
+    `<name>.mp4` to `<name>.mp4.partial` to have such a recording finished.
+  * Programs which compute their output from existing data delete their
+    `.partial` file if they fail, so a run that fails, is interrupted with
+    Ctrl-C or is killed leaves the destination as it was, and an existing
+    output is replaced only by a complete new one. A run that is killed leaves
+    its `.partial` file behind; the next run to the same destination replaces
+    it. Two runs writing to the same destination at once are detected, and the
+    second fails. This applies to `strand-convert` (unless
+    `--truncate-on-error` is given), `video2rrd`, `braidz-export-rrd`,
+    `braid-process-video`, `braidz-mcsc`, `apriltag-track-movie`,
+    `create-timelapse`, `fmf export-fmf`, `export-y4m` and `import-images`,
+    `dir2zip`, `burn-timestamps` and `mp4-bframe-doctor fix`.
+  * A `.braidz` file is written the same way, including at the end of a live
+    recording in Braid and Strand Camera. The `.braid` directory it is made
+    from is, as before, removed only after that.
 * `braid-offline-retrack`, `flytrax-csv-to-braidz` and `braid-process-video`
   write no `.braidz` file when they fail, and delete the `.braid` directory in
   which they were assembling it. They also refuse to start if that directory
@@ -70,6 +87,10 @@
 
 ### Removed
 
+* `fmf export-mp4`. Use `strand-convert -i <movie.fmf> -o <movie.mp4>`, which
+  does the same conversion and also offers ffmpeg's encoders. `export-mp4`
+  could not be run without `--codec`, because its default codec was one it did
+  not accept.
 * `braid_types::PtpStamp` no longer converts to and from `chrono::DateTime`
   with `TryFrom`, which assumed UTC. Use `PtpStamp::to_utc` and
   `PtpStamp::from_utc`, which take the timescale's offset from UTC.

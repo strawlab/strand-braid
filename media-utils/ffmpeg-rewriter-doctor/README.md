@@ -1,35 +1,59 @@
 # ffmpeg-rewriter-doctor
 
-Finish MP4 recordings whose timestamp-embedding rewrite was interrupted by a
-crash.
+Finish MP4 recordings which were interrupted by a crash.
 
-Strand Camera and Braid record an MP4 through ffmpeg in two stages:
+Strand Camera and Braid write a recording as `<name>.mp4.partial` and rename it
+to `<name>.mp4` only once it is finished. A file named `<name>.mp4` is therefore
+always a finished recording, with its capture times inside it. Everything
+unfinished ends in `.partial`.
 
-1. ffmpeg encodes the video into `<name>.mp4`, while each frame's capture time is
-   logged to a temporary sidecar file, `<name>-ffmpeg-rewriter.srt` (any camera
-   metadata goes to `<name>-metadata.json`); and
+Through ffmpeg, they record in two stages:
+
+1. ffmpeg encodes the video into `<name>.mp4.partial`, while each frame's capture
+   time is logged to a temporary sidecar file, `<name>-ffmpeg-rewriter.srt` (any
+   camera metadata goes to `<name>-metadata.json`); and
 2. when the recording is closed, that MP4 is re-muxed — without transcoding —
-   so every frame carries its capture time as a precision-timestamp SEI NAL unit,
-   the result is renamed over `<name>.mp4`, and the sidecar files are deleted.
+   into `<name>.mp4-rewritten.partial`, so every frame carries its capture time
+   as a precision-timestamp SEI NAL unit. Once that is complete,
+   `<name>.mp4.partial` is deleted, the result is renamed to `<name>.mp4`, and
+   the sidecar files are deleted.
 
 A crash, power loss or `kill -9` in between leaves stage 2 undone. The video is
 all there, but its timestamps are only in the sidecar file rather than inside the
-MP4 where every other tool looks for them, and — if the crash landed inside
-stage 2 — a partial `<name>.mp4-rewritten.mp4` is lying around as well. Those
-leftover files are how such a recording is recognized:
+MP4 where every other tool looks for them. Those leftover files are how such a
+recording is recognized:
 
 ```
-2024-05-04_09-30-00_cam1.mp4                    the video, no timestamps in it
+2024-05-04_09-30-00_cam1.mp4.partial            the video, no timestamps in it
 2024-05-04_09-30-00_cam1-ffmpeg-rewriter.srt    the capture times
 2024-05-04_09-30-00_cam1-metadata.json          the camera metadata
-2024-05-04_09-30-00_cam1.mp4-rewritten.mp4      partial output of stage 2, if it had started
+2024-05-04_09-30-00_cam1.mp4-rewritten.partial  output of stage 2, if it had started
 ```
 
 This tool finishes stage 2 for such recordings, producing the same MP4 the
-interrupted recording would have. A partial `-rewritten.mp4` is discarded rather
-than salvaged: an interrupted writer never got to write the sample index its
-output needs, whereas the inputs stage 2 reads are still intact, so the stage is
-simply redone.
+interrupted recording would have. Which files are there says how far the
+recording had got:
+
+- With `<name>.mp4.partial` there, stage 2 was not finished. A
+  `-rewritten.partial` beside it is discarded rather than salvaged: an
+  interrupted writer never got to write the sample index its output needs,
+  whereas the inputs stage 2 reads are still intact, so the stage is simply
+  redone.
+- With only `<name>.mp4-rewritten.partial` there, stage 2 was finished, because
+  `<name>.mp4.partial` is deleted only then. It is renamed to `<name>.mp4`.
+
+Name a recording to this tool by the name it has when finished, `<name>.mp4`,
+or by any of its leftover files.
+
+## Recordings made by the other encoders
+
+Strand Camera's built-in encoders embed the capture times as they record, so
+they need no second stage and write no sidecar files. They, too, write
+`<name>.mp4.partial` and rename it when the recording is finished. If such a file
+is in fact a finished recording, which happens when recording stops with an
+error after the file could still be closed properly, this tool recognizes it by
+the capture times inside it and renames it to `<name>.mp4`. One which was never
+closed is reported as not finalized, as below.
 
 ## What cannot be recovered
 
@@ -41,9 +65,10 @@ without the timing of every frame in it). So the last group of pictures is lost
 — typically a fraction of a second, but it depends on the keyframe interval the
 encoder was using. How many frames were kept is always reported.
 
-A recording whose MP4 ffmpeg itself never finished (no `moov` box, because ffmpeg
-was killed too rather than being left to drain its input) cannot be repaired by
-this tool; it is reported rather than touched. A tool such as
+A recording whose MP4 was never finished (no `moov` box, because ffmpeg was
+killed too rather than being left to drain its input, or because Strand Camera
+was killed while recording with a built-in encoder) cannot be repaired by this
+tool; it is reported rather than touched. A tool such as
 [`untrunc`](https://github.com/ponchio/untrunc) may be able to rebuild the index
 first.
 

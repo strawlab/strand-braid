@@ -2,13 +2,12 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 use anyhow::Result;
-use tracing::{debug, info};
+use tracing::info;
 
 use clap::Parser;
 use convert_image::EncoderOptions;
 use machine_vision_formats::{Stride, pixel_format, pixel_format::PixFmt};
 use std::path::{Path, PathBuf};
-use strand_cam_remote_control::{Mp4RecordingConfig, NvidiaH264Options, OpenH264Options};
 use strand_dynamic_frame::{DynamicFrame, match_all_dynamic_fmts};
 use y4m::Colorspace;
 
@@ -38,9 +37,9 @@ video in ffmpeg with the option `-metadata creation_time="2012-02-07 12:15:27"`.
 However, as of the time of writing, ffmpeg only parses the command line date to
 the second (whereas the MKV spec allows better precision).
 
-Example export to mp4:
+To convert to mp4 and keep the timestamps, use `strand-convert`:
 
-    fmf export-mp4 test_rgb8.fmf -o /tmp/test.mp4
+    strand-convert -i test_rgb8.fmf -o /tmp/test.mp4
 
 */
 
@@ -122,9 +121,6 @@ enum Opt {
     /// export to y4m (YUV4MPEG2) format
     ExportY4m(ExportY4m),
 
-    /// export to mp4
-    ExportMp4(ExportMp4),
-
     /// import a sequence of images, converting it to an FMF file
     ImportImages {
         /// Input images (glob pattern like "*.png")
@@ -174,45 +170,6 @@ fn str_to_colorspace(s: &str) -> anyhow::Result<Colorspace> {
     }
 }
 
-#[derive(Parser, Debug)]
-struct ExportMp4 {
-    /// Filename of input fmf
-    input: PathBuf,
-
-    /// Filename of output .mp4, "-" for stdout
-    #[arg(short, long)]
-    output: Option<PathBuf>,
-
-    /// video bitrate
-    #[arg(short, long)]
-    bitrate: Option<u32>,
-
-    /// video codec
-    #[arg(long, default_value = "vp9", help=VALID_CODECS)]
-    codec: Codec,
-}
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-enum Codec {
-    NvencH264,
-    OpenH264,
-}
-
-const VALID_CODECS: &str = "Codec must be one of: nvenc-h264 open-h264";
-
-impl std::str::FromStr for Codec {
-    type Err = String;
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        let s = s.to_lowercase();
-        match s.as_str() {
-            "nvenc-h264" => Ok(Codec::NvencH264),
-            "open-h264" => Ok(Codec::OpenH264),
-            c => Err(format!("unknown codec: {} ({})", c, VALID_CODECS)),
-        }
-    }
-}
-
-/// convert None into default name, convert "-" into None (for stdout)
 fn default_filename(path: &Path, output: Option<PathBuf>, ext: &str) -> Option<PathBuf> {
     match output {
         Some(x) => {
@@ -369,108 +326,6 @@ fn export_images(path: PathBuf, opts: EncoderOptions) -> Result<()> {
     Ok(())
 }
 
-fn export_mp4(x: ExportMp4) -> Result<()> {
-    // TODO: read this https://www.webmproject.org/docs/encoder-parameters/
-    // also this https://www.webmproject.org/docs/webm-sdk/example_vp9_lossless_encoder.html
-
-    let output_fname = default_filename(&x.input, x.output, "mp4");
-
-    info!(
-        "exporting {} to {}",
-        x.input.display(),
-        display_filename(&output_fname, "<stdout>").display()
-    );
-
-    let (out_fd, pending) = match &output_fname {
-        None => {
-            anyhow::bail!("Cannot export mp4 to stdout."); // Seek required
-        }
-        Some(path) => PendingFile::create(path)?,
-    };
-
-    let mut reader = fmf::FMFReader::new(&x.input)?;
-
-    let libs = if x.codec == Codec::NvencH264 {
-        Some(nvenc::Dynlibs::new()?)
-    } else {
-        None
-    };
-
-    let (codec, nv_enc) = match x.codec {
-        Codec::NvencH264 => {
-            let opts = NvidiaH264Options {
-                bitrate: x.bitrate,
-                ..Default::default()
-            };
-            let nv_enc = Some(nvenc::NvEnc::new(libs.as_ref().unwrap())?);
-            (strand_cam_remote_control::Mp4Codec::H264NvEnc(opts), nv_enc)
-        }
-        Codec::OpenH264 => {
-            let opts = match x.bitrate {
-                None => OpenH264Options {
-                    debug: false,
-                    preset: strand_cam_remote_control::OpenH264Preset::AllFrames,
-                },
-                Some(bitrate) => OpenH264Options {
-                    debug: false,
-                    preset: strand_cam_remote_control::OpenH264Preset::SkipFramesBitrate(bitrate),
-                },
-            };
-            dbg!(&opts);
-            (
-                strand_cam_remote_control::Mp4Codec::H264OpenH264(opts),
-                None,
-            )
-        }
-    };
-
-    // read first frames to get duration.
-    const BUFSZ: usize = 50;
-    let mut buffered_first = Vec::with_capacity(BUFSZ);
-    for next in reader.by_ref() {
-        buffered_first.push(Ok(next?));
-        if buffered_first.len() >= BUFSZ {
-            break;
-        }
-    }
-    // collect timestamps
-    let ts_first: Vec<_> = buffered_first
-        .iter()
-        .map(|res_frame| res_frame.as_ref().unwrap().1)
-        .collect();
-    // collect deltas
-    let dt_first: Vec<f64> = ts_first
-        .windows(2)
-        .map(|tss| {
-            assert_eq!(tss.len(), 2);
-            dbg!(&tss);
-            (tss[1] - tss[0]).to_std().unwrap().as_secs_f64()
-        })
-        .collect();
-    dbg!(&dt_first);
-
-    let cfg = Mp4RecordingConfig {
-        codec,
-        max_framerate: strand_cam_remote_control::RecordingFrameRate::Unlimited,
-        h264_metadata: None,
-    };
-
-    debug!("opening file {}", output_fname.unwrap().display());
-    let mut my_mp4_writer = mp4_writer::Mp4Writer::new(out_fd, cfg, nv_enc)?;
-
-    for (fno, res_frame) in buffered_first.into_iter().chain(reader).enumerate() {
-        let (fmf_frame, ts) = res_frame?;
-        debug!("saving frame {}", fno);
-        my_mp4_writer.write_dynamic(&fmf_frame.borrow(), ts)?;
-    }
-
-    debug!("finishing file");
-    my_mp4_writer.finish()?;
-    drop(my_mp4_writer);
-    pending.commit()?;
-    Ok(())
-}
-
 fn export_y4m(x: ExportY4m) -> Result<()> {
     use std::io::Write;
 
@@ -544,9 +399,6 @@ fn main() -> Result<()> {
         // Opt::ExportBgr24(x) => {
         //     export_bgr24(x)?;
         // },
-        Opt::ExportMp4(x) => {
-            export_mp4(x)?;
-        }
         Opt::ImportImages { input, output } => {
             import_images(&input, output)?;
         }
@@ -594,15 +446,6 @@ fn exports_leave_only_their_output() -> anyhow::Result<()> {
     assert_eq!(names_in(dir.path()), ["in.fmf", "out.fmf"]);
     assert_eq!(fmf::FMFReader::new(dir.path().join("out.fmf"))?.count(), 3);
 
-    export_mp4(ExportMp4 {
-        input: input.clone(),
-        output: Some(dir.path().join("out.mp4")),
-        bitrate: None,
-        codec: Codec::OpenH264,
-    })?;
-    assert_eq!(names_in(dir.path()), ["in.fmf", "out.fmf", "out.mp4"]);
-    assert!(std::fs::metadata(dir.path().join("out.mp4"))?.len() > 0);
-
     export_y4m(ExportY4m {
         input,
         output: Some(dir.path().join("out.y4m")),
@@ -612,10 +455,7 @@ fn exports_leave_only_their_output() -> anyhow::Result<()> {
         aspect_numerator: 1,
         aspect_denominator: 1,
     })?;
-    assert_eq!(
-        names_in(dir.path()),
-        ["in.fmf", "out.fmf", "out.mp4", "out.y4m"]
-    );
+    assert_eq!(names_in(dir.path()), ["in.fmf", "out.fmf", "out.y4m"]);
     Ok(())
 }
 

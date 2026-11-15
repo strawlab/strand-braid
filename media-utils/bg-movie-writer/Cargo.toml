@@ -19,3 +19,7 @@ strand-dynamic-frame.workspace = true
 
 ffmpeg-rewriter.workspace = true
 ffmpeg-writer.workspace = true
+pending-file.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

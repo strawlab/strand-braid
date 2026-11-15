@@ -225,4 +225,65 @@ mod tests {
         let _ = wtr.write(frame, ts);
         wtr.finish().unwrap();
     }
+
+    /// The names in `dir`, sorted.
+    fn names_in(dir: &std::path::Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect();
+        names.sort();
+        names
+    }
+
+    /// Poll until `done()` holds. The writer works in its own thread.
+    fn wait_until(what: &str, done: impl Fn() -> bool) {
+        for _ in 0..1000 {
+            if done() {
+                return;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+        panic!("timed out waiting until {what}");
+    }
+
+    /// A recording made by a built-in encoder is written as
+    /// `<name>.mp4.partial`, and is at `<name>.mp4` only once it is finished.
+    #[test]
+    fn recording_is_at_its_own_name_only_when_finished() {
+        use strand_cam_remote_control::{
+            Mp4Codec, Mp4RecordingConfig, RecordingConfig, RecordingFrameRate,
+        };
+
+        let dir = tempfile::tempdir().unwrap();
+        let mp4_path = dir.path().join("movie.mp4");
+        let cfg = RecordingConfig::Mp4(Mp4RecordingConfig {
+            codec: Mp4Codec::H264LessAvc,
+            max_framerate: RecordingFrameRate::Unlimited,
+            h264_metadata: None,
+        });
+        let mut wtr = BgMovieWriter::new(cfg, 10, mp4_path.clone());
+
+        let frame = Arc::new(
+            DynamicFrameOwned::from_buf(32, 16, 32, vec![0u8; 32 * 16], PixFmt::Mono8).unwrap(),
+        );
+        let start = chrono::Local::now();
+        for i in 0..3 {
+            wtr.write(
+                frame.clone(),
+                start + chrono::Duration::milliseconds(40 * i),
+            )
+            .unwrap();
+        }
+
+        wait_until("the recording has started", || {
+            names_in(dir.path()) == ["movie.mp4.partial"]
+        });
+
+        wtr.finish().unwrap();
+        wait_until("the recording is in place", || {
+            names_in(dir.path()) == ["movie.mp4"]
+        });
+        assert!(std::fs::metadata(&mp4_path).unwrap().len() > 0);
+    }
 }

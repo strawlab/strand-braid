@@ -107,8 +107,14 @@ fn main() -> Result<()> {
         codec: Some("libx264".to_string()),
         ..Default::default()
     };
-    let mut ffmpeg_wtr =
-        ffmpeg_rewriter::FfmpegReWriter::new(cli.output.as_str(), ffmpeg_codec_args, None, None)?;
+    // This is a conversion: if it does not finish, leave nothing behind.
+    let mut ffmpeg_wtr = ffmpeg_rewriter::FfmpegReWriter::new(
+        cli.output.as_str(),
+        ffmpeg_codec_args,
+        None,
+        None,
+        ffmpeg_rewriter::IfUnfinished::Delete,
+    )?;
 
     let mut pb: Option<ProgressBar> = if !cli.no_progress {
         let (lower_bound, _upper_bound) = src.decode_order_iter().size_hint();

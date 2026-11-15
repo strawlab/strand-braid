@@ -22,7 +22,6 @@ Commands:
   export-jpeg    export a sequence of jpeg images
   export-png     export a sequence of png images
   export-y4m     export to y4m (YUV4MPEG2) format
-  export-mp4     export to mp4
   import-images  import a sequence of images, converting it to an FMF file
   help           Print this message or the help of the given subcommand(s)
 

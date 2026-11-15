@@ -348,3 +348,104 @@ fn failed_conversion_leaves_no_output() -> Result<()> {
     assert_eq!(convert(Some("--truncate-on-error"))?, ["output.mp4"]);
     Ok(())
 }
+
+/// The number of frames in an MP4 file which carry a capture time.
+fn count_timestamped_frames(mp4: &Path) -> Result<usize> {
+    let mut src = frame_source::FrameSourceBuilder::new(mp4)
+        .do_decode_h264(false)
+        .timestamp_source(frame_source::TimestampSource::MispMicrosectime)
+        .build_h264_in_mp4_source()?;
+    let mut count = 0;
+    for frame in src.decode_order_iter() {
+        frame?;
+        count += 1;
+    }
+    Ok(count)
+}
+
+/// Encoding with ffmpeg gives the same frames, each with its capture time, and
+/// the metadata, as encoding with a built-in encoder does, and leaves none of
+/// the files it works with behind.
+#[traced_test]
+#[test]
+fn mkv_mono_uncompressed_with_ffmpeg() -> Result<()> {
+    // libx264 wants even dimensions for 4:2:0 video, which this recording has.
+    const FNAME: &str = "movie20221123_115611.593125675_DEV_1AB22C00E48D.mkv";
+    const URL_BASE: &str = "https://strawlab-cdn.com/assets/braid-mkvs/uncompressed";
+    const SHA256SUM: &str = "0cbe7a9c7a7be151dc8c401eb59e3fcd7d3589636bc70d0968f21673f8c95e45";
+
+    let local_fname = format!("scratch/{}", FNAME);
+    download_verify::download_verify(
+        format!("{URL_BASE}/{FNAME}").as_str(),
+        &local_fname,
+        &download_verify::Hash::Sha256(SHA256SUM.into()),
+    )?;
+
+    let convert = |extra_args: &[&str]| -> Result<tempfile::TempDir> {
+        let outdir = tempfile::tempdir()?;
+        let outfile = outdir.path().join("output.mp4");
+        let mut args = vec![
+            "strand-convert",
+            "-i",
+            &local_fname,
+            "-o",
+            outfile.to_str().unwrap(),
+            "--no-progress",
+        ];
+        args.extend(extra_args);
+        strand_convert::run_cli(clap::Parser::try_parse_from(&args)?)?;
+        assert_eq!(names_in(outdir.path()), ["output.mp4"]);
+        Ok(outdir)
+    };
+
+    let built_in = convert(&[])?;
+    let ffmpeg = convert(&["--encoder", "ffmpeg"])?;
+
+    let built_in = built_in.path().join("output.mp4");
+    let ffmpeg = ffmpeg.path().join("output.mp4");
+    let n_frames = count_timestamped_frames(&built_in)?;
+    assert!(n_frames > 0);
+    assert_eq!(count_timestamped_frames(&ffmpeg)?, n_frames);
+
+    let mut ffmpeg_md = get_metadata(&ffmpeg)?;
+    let built_in_md = get_metadata(&built_in)?;
+    ffmpeg_md.writing_app = built_in_md.writing_app.clone(); // names the encoder
+    assert_eq!(ffmpeg_md, built_in_md);
+    Ok(())
+}
+
+/// A conversion with ffmpeg which fails leaves nothing behind either.
+#[traced_test]
+#[test]
+fn failed_ffmpeg_conversion_leaves_no_output() -> Result<()> {
+    const FNAME: &str = "movie20211109_080701_Basler-21714402.fmf.gz";
+    let local_fname = format!("scratch/{}", FNAME);
+    const URL_BASE: &str =
+        "https://strawlab-cdn.com/assets/flycube6-videos/fc6-led-4fps-5-cams-bright";
+    const SHA256SUM: &str = "fa1ef64b4ab967fd081ab3f026805662212e6b7696a52d1ccc06b61703c3c467";
+
+    download_verify::download_verify(
+        format!("{URL_BASE}/{FNAME}").as_str(),
+        &local_fname,
+        &download_verify::Hash::Sha256(SHA256SUM.into()),
+    )?;
+
+    let outdir = tempfile::tempdir()?;
+    let outfile = outdir.path().join("output.mp4");
+    // ffmpeg starts, and then finds that it has no such encoder.
+    let args = [
+        "strand-convert",
+        "-i",
+        &local_fname,
+        "-o",
+        outfile.to_str().unwrap(),
+        "--no-progress",
+        "--encoder",
+        "ffmpeg",
+        "--ffmpeg-codec",
+        "no-such-codec",
+    ];
+    assert!(strand_convert::run_cli(clap::Parser::try_parse_from(args)?).is_err());
+    assert!(names_in(outdir.path()).is_empty());
+    Ok(())
+}

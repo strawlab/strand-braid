@@ -422,6 +422,9 @@ fn raw_video_input_args(
 /// and pixel format are known.
 pub struct FfmpegWriter {
     fname: String,
+    /// The container format, where it is not left to ffmpeg to tell from the
+    /// name of the file. See [`Self::with_container_format`].
+    container_format: Option<String>,
     ffmpeg_codec_args: FfmpegCodecArgs,
     raten: usize,
     rated: usize,
@@ -432,7 +435,12 @@ pub struct FfmpegWriter {
 /// Where a spawned ffmpeg writes its encoded output.
 pub enum FfmpegOutput {
     /// A file, named by the path handed to ffmpeg as its output argument.
+    /// ffmpeg chooses the container format by the name's extension.
     File(String),
+    /// A file in the named container format (ffmpeg's `-f`), for a name whose
+    /// extension does not say, such as that of a file which is renamed once it
+    /// is complete.
+    FileWithFormat { fname: String, format: String },
     /// ffmpeg's own stdout (`pipe:1`), for a caller that wants the encoded
     /// bytes back rather than a file. Take the pipe with
     /// [`FfmpegFrameSink::take_stdout`] and keep reading it: an undrained
@@ -559,9 +567,12 @@ impl FfmpegFrameSink {
 
         let input_args = raw_video_input_args(ff_pixfmt, width, height, raten, rated);
         let mut args = ffmpeg_codec_args.to_args(&input_args);
-        args.push(match &output {
-            FfmpegOutput::File(fname) => fname.clone(),
-            FfmpegOutput::Stdout => "pipe:1".to_string(),
+        args.extend(match &output {
+            FfmpegOutput::File(fname) => vec![fname.clone()],
+            FfmpegOutput::FileWithFormat { fname, format } => {
+                vec!["-f".to_string(), format.clone(), fname.clone()]
+            }
+            FfmpegOutput::Stdout => vec!["pipe:1".to_string()],
         });
 
         let show_ffmpeg = match std::env::var_os("FFMPEG_WRITER_SHOW") {
@@ -594,7 +605,7 @@ impl FfmpegFrameSink {
             FfmpegOutput::Stdout => Some(child.stdout.take().expect("stdout was piped")),
             // Left on the child, unread: ffmpeg writing to a file says nothing
             // on stdout, and `collect_error` wants whatever is there.
-            FfmpegOutput::File(_) => None,
+            FfmpegOutput::File(_) | FfmpegOutput::FileWithFormat { .. } => None,
         };
         let stderr = child.stderr.take().map(StderrTail::spawn);
 
@@ -901,12 +912,22 @@ impl FfmpegWriter {
         // width, height and pixel format needed for the raw-video input options.
         Ok(Self {
             fname: fname.to_string(),
+            container_format: None,
             ffmpeg_codec_args,
             raten,
             rated,
             count: 0,
             sink: None,
         })
+    }
+
+    /// Write in the named container format (ffmpeg's `-f`, e.g. `mp4`) rather
+    /// than leaving ffmpeg to choose one by the extension of the file name.
+    ///
+    /// This is needed to write to a name such as `movie.mp4.partial`.
+    pub fn with_container_format(mut self, format: &str) -> Self {
+        self.container_format = Some(format.to_string());
+        self
     }
 
     /// Write a frame. Return the presentation timestamp (PTS).
@@ -920,7 +941,13 @@ impl FfmpegWriter {
                 frame,
                 &self.ffmpeg_codec_args,
                 (self.raten, self.rated),
-                FfmpegOutput::File(self.fname.clone()),
+                match &self.container_format {
+                    Some(format) => FfmpegOutput::FileWithFormat {
+                        fname: self.fname.clone(),
+                        format: format.clone(),
+                    },
+                    None => FfmpegOutput::File(self.fname.clone()),
+                },
             )?),
         };
         sink.send(frame)?;
