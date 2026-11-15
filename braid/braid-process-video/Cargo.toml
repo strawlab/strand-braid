@@ -44,5 +44,7 @@ frame-source = { workspace = true, features = ["openh264"] }
 pending-file.workspace = true
 
 [dev-dependencies]
-download-verify.workspace = true
 serde_json.workspace = true
+tempfile.workspace = true
+
+download-verify.workspace = true
