@@ -14,6 +14,7 @@ use std::{
 
 use chrono::{DateTime, Local};
 use mp4_writer::Mp4Writer;
+use pending_file::PendingFile;
 use strand_cam_remote_control::FfmpegRecordingConfig;
 use strand_dynamic_frame::DynamicFrame;
 
@@ -42,7 +43,10 @@ enum RawWriter<'lib, T>
 where
     T: Write + Seek,
 {
-    Mp4Writer(Box<Mp4Writer<'lib, T>>),
+    /// The MP4 writer, and what renames `<name>.mp4.partial`, which it writes
+    /// to, to `<name>.mp4` once the recording is finished. Both are `None` once
+    /// that has been done.
+    Mp4Writer(Option<Box<Mp4Writer<'lib, T>>>, Option<PendingFile>),
     FfmpegReWriter(Box<MyFfmpegWriter>),
 }
 
@@ -116,7 +120,11 @@ fn create_writer<'a>(
     use strand_cam_remote_control::RecordingConfig::*;
     let raw: RawWriter<'_, File> = match &recording_config {
         Mp4(mp4_recording_config) => {
-            let mp4_file = std::fs::File::create(mp4_path)?;
+            // This is original data. It is written as `<name>.mp4.partial` and
+            // renamed when the recording is finished, so that `<name>.mp4` is
+            // only ever a finished recording. If we do not get that far, what
+            // was recorded stays under the `.partial` name.
+            let (mp4_file, pending) = PendingFile::create_original(mp4_path)?;
 
             let nv_enc = match &mp4_recording_config.codec {
                 strand_cam_remote_control::Mp4Codec::H264NvEnc(_opts) => {
@@ -139,11 +147,14 @@ fn create_writer<'a>(
                 _ => None,
             };
 
-            RawWriter::Mp4Writer(Box::new(mp4_writer::Mp4Writer::new(
-                mp4_file,
-                mp4_recording_config.clone(),
-                nv_enc,
-            )?))
+            RawWriter::Mp4Writer(
+                Some(Box::new(mp4_writer::Mp4Writer::new(
+                    mp4_file,
+                    mp4_recording_config.clone(),
+                    nv_enc,
+                )?)),
+                Some(pending),
+            )
         }
         Ffmpeg(c) => RawWriter::FfmpegReWriter(Box::new(MyFfmpegWriter::new(mp4_path, c)?)),
     };
@@ -160,8 +171,10 @@ fn save_frame(
     last_saved_stamp: &mut Option<DateTime<Local>>,
 ) -> Result<()> {
     match raw {
-        RawWriter::Mp4Writer(r) => {
-            r.write_dynamic(frame, stamp)?;
+        RawWriter::Mp4Writer(r, _) => {
+            r.as_mut()
+                .ok_or(Error::AlreadyClosed)?
+                .write_dynamic(frame, stamp)?;
             *last_saved_stamp = Some(stamp);
         }
         RawWriter::FfmpegReWriter(r) => {
@@ -175,8 +188,16 @@ fn save_frame(
 /// Finish the writer. Runs inside writer thread loop.
 fn finish_writer(raw: &mut RawWriter<'_, File>) -> Result<()> {
     match raw {
-        RawWriter::Mp4Writer(mp4_writer) => {
-            mp4_writer.finish()?;
+        RawWriter::Mp4Writer(mp4_writer, pending) => {
+            if let Some(mut mp4_writer) = mp4_writer.take() {
+                mp4_writer.finish()?;
+                // Dropping the writer closes the file. Do that before the
+                // file is renamed, which not every platform is certain to
+                // allow while it is open.
+            }
+            if let Some(pending) = pending.take() {
+                pending.commit()?;
+            }
         }
         RawWriter::FfmpegReWriter(ffmpeg_wtr) => {
             ffmpeg_wtr.finish()?;
