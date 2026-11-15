@@ -16,8 +16,34 @@
   neither UTC nor TAI (such as a camera that has become grandmaster) is
   reported there, instead of Braid dropping every frame with "Is time running
   backwards?".
+* `braid-offline-retrack --keep-braid-dir-on-fail` keeps the `.braid` directory
+  in which the output was being assembled when tracking fails, for inspection.
+  Without it the directory is deleted (see "Changed").
 
 ### Changed
+
+* Programs which compute their output from existing data no longer leave an
+  incomplete file at the output's name. They write to `<name>.partial` beside
+  it and move that into place only once it is complete, so a run that fails, is
+  interrupted with Ctrl-C or is killed leaves the destination as it was; an
+  existing output is replaced only by a complete new one. A run that fails
+  deletes its `.partial` file. One that is killed leaves it behind, and the
+  next run to the same destination replaces it. Two runs writing to the same
+  destination at once are detected, and the second fails. This applies to
+  `strand-convert` (unless `--truncate-on-error` is given), `video2rrd`,
+  `braidz-export-rrd`, `braid-process-video`, `braidz-mcsc`,
+  `apriltag-track-movie`, `create-timelapse`, `fmf export-fmf`, `export-mp4`,
+  `export-y4m` and `import-images`, `dir2zip` and `mp4-bframe-doctor fix`.
+  Programs which record original data are unchanged and still write straight
+  to their destination, so that an interrupted recording can be rescued.
+* A `.braidz` file is likewise written under a temporary name and appears only
+  once it is complete, including at the end of a live recording in Braid and
+  Strand Camera. The `.braid` directory it is made from is, as before, removed
+  only after that.
+* `braid-offline-retrack`, `flytrax-csv-to-braidz` and `braid-process-video`
+  write no `.braidz` file when they fail, and delete the `.braid` directory in
+  which they were assembling it. They also refuse to start if that directory
+  already exists.
 
 * Every field of the object detection configuration
   (`point_detection_config` in a Braid `.toml` config, `ImPtDetectCfg` in the
@@ -38,6 +64,9 @@
 * A `Polygon` `valid_region` with fewer than three distinct vertices, or with
   all vertices in a line, is now reported as a configuration error instead of
   panicking inside the geometry library.
+* `braid-offline-retrack` no longer writes a truncated `.braidz` file, which
+  looked complete, when the input data could not be read to its end. It
+  previously wrote one and then panicked.
 
 ### Removed
 
