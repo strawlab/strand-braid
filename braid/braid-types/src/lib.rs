@@ -675,7 +675,7 @@ pub struct BraidHttpApiSharedState {
     /// Directory path for CSV table recordings.
     pub csv_tables_dirname: Option<RecordingPath>,
     // This is "fake" because it only signals if each of the connected computers
-    // is recording MKVs.
+    // is recording MP4s.
     /// Path for MP4 recording (signals if cameras are recording).
     pub fake_mp4_recording_path: Option<RecordingPath>,
     /// Size of post-trigger buffer in frames.
@@ -1397,13 +1397,13 @@ pub enum BraidHttpApiCallback {
     /// Start or stop recording data (.braid directory with csv tables for later
     /// .braidz file)
     DoRecordCsvTables(bool),
-    /// Start or stop recording MKV videos for all cameras
+    /// Start or stop recording MP4 videos for all cameras
     DoRecordMp4Files(bool),
     /// set uuid in the experiment_info table
     SetExperimentUuid(String),
     /// Set the number of frames to buffer in each camera
     SetPostTriggerBufferSize(usize),
-    /// Initiate MKV recording using post trigger
+    /// Initiate MP4 recording using post trigger
     PostTriggerMp4Recording,
     /// Take a new background image on all cameras.
     ///

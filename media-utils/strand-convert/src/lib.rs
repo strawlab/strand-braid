@@ -1,8 +1,9 @@
 // Copyright (C) The Strand-Braid Authors
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-//! Convert MKV videos saved by Strand Cam and Tiff Images saved by Micromanager
-//! from Photometrics cameras into MP4 videos of the format saved by Strand Cam.
+//! Convert FMF and legacy MKV videos saved by Strand Cam, existing MP4 videos,
+//! and Tiff Images saved by Micromanager from Photometrics cameras into MP4
+//! videos of the format saved by Strand Cam.
 use std::{
     mem::DropGuard,
     path::{Path, PathBuf},
@@ -466,6 +467,9 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                 let fmf_video = fmf_source::from_path(&input_path)?;
                 tracing::debug!("  FMF video");
                 src = Box::new(fmf_video);
+                // TODO: this is lossless only for mono8 input. less-avc stores
+                // color as 4:2:0, and no encoder here offers a lossless MP4 for
+                // RGB or Bayer FMF input.
                 default_encoder = Encoder::LessAvc;
             }
             _ => {

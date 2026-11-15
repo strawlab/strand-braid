@@ -15,31 +15,22 @@ use pending_file::PendingFile;
 
 /*
 
-Examples of exporting from FMF to MKV with `ffv1` codec. Note these all loose
-timestamp data:
+To convert an FMF file to MP4 and keep the timestamps, use `strand-convert`:
 
-    fmf export-y4m test_rgb8.fmf -o - | ffmpeg -i - -vcodec ffv1 test_yuv.mkv
+    strand-convert -i test_mono8.fmf -o test_mono8.mp4
 
-Example export to mkv for mono8. Will lose timestamps:
+For FMF input this defaults to the `less-avc` encoder, which writes uncompressed
+H.264: lossless for mono8, while color input is stored as 4:2:0 and so loses
+chroma resolution.
 
-    fmf export-y4m test_mono8.fmf -o - | ffmpeg -i - -vcodec ffv1 test_mono8.mkv
-
-Example export to mkv via RGB (should be lossless for image data). Will loose timestamps:
-
-    fmf export-bgr24 test_rgb8.fmf -o - | ffmpeg -i - -f rawvideo -pix_fmt bgr0 -s 332x332 -r 30 -vcodec ffv1 test_bgr.mkv
-
-Example export to mp4 with hardware h264 encoding using VAAPI. Will loose timestamps:
+The `export-y4m` command can feed other tools such as ffmpeg, but the per-frame
+timestamps are lost: y4m carries only a fixed frame rate (`--fps-numerator`,
+`--fps-denominator`, default 25). For example, with hardware H.264 encoding
+using VAAPI:
 
     fmf export-y4m test_rgb8.fmf -o - | ffmpeg -vaapi_device /dev/dri/renderD128 -i - -vf format=nv12,hwupload -c:v h264_vaapi -b:v 5M from-fmf.mp4
 
-Note that MKV's `DateUTC` metadata creation time can be set when creating an MKV
-video in ffmpeg with the option `-metadata creation_time="2012-02-07 12:15:27"`.
-However, as of the time of writing, ffmpeg only parses the command line date to
-the second (whereas the MKV spec allows better precision).
-
-To convert to mp4 and keep the timestamps, use `strand-convert`:
-
-    strand-convert -i test_rgb8.fmf -o /tmp/test.mp4
+For mono8 input, pass `--colorspace mono` to `export-y4m`.
 
 */
 
