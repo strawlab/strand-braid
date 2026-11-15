@@ -65,6 +65,12 @@ pub struct Cli {
     #[arg(long, value_enum)]
     encoder: Option<Encoder>,
 
+    /// The video codec ffmpeg encodes with, when `--encoder ffmpeg` is given.
+    ///
+    /// Any encoder the installed ffmpeg offers, e.g. `libx264` or `h264_vaapi`.
+    #[arg(long, default_value = "libx264")]
+    ffmpeg_codec: String,
+
     /// Limit the number of frames to process
     #[arg(long)]
     take: Option<usize>,
@@ -139,7 +145,9 @@ enum Encoder {
     NvEnc,
     /// Copy existing H264 stream
     NoneCopyExistingH264,
-    // FfmpegH264,
+    /// Encode with the `ffmpeg` program, which must be installed. See
+    /// `--ffmpeg-codec`.
+    Ffmpeg,
 }
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -169,6 +177,8 @@ impl ImageSequenceWriter {
 
 enum FrameWriter<'a, T: std::io::Write + std::io::Seek> {
     Mp4(Box<mp4_writer::Mp4Writer<'a, T>>),
+    /// `None` once finished.
+    Ffmpeg(Option<Box<ffmpeg_rewriter::FfmpegReWriter>>),
     Image(ImageSequenceWriter),
 }
 
@@ -180,6 +190,10 @@ impl<'a, T: std::io::Write + std::io::Seek> FrameWriter<'a, T> {
     ) -> Result<()> {
         match self {
             Self::Mp4(x) => x.write_dynamic(frame, timestamp)?,
+            Self::Ffmpeg(x) => x
+                .as_mut()
+                .ok_or_else(|| anyhow::anyhow!("the movie is already finished"))?
+                .write_dynamic_frame(frame, timestamp)?,
             Self::Image(x) => x.write_dynamic(frame)?,
         }
         Ok(())
@@ -202,6 +216,9 @@ impl<'a, T: std::io::Write + std::io::Seek> FrameWriter<'a, T> {
                 frame0_time,
                 insert_precision_timestamp,
             )?,
+            Self::Ffmpeg(_) => {
+                anyhow::bail!("cannot pass an existing h264 frame through ffmpeg");
+            }
             Self::Image(_) => {
                 anyhow::bail!("cannot decode individual h264 frame to image");
             }
@@ -211,6 +228,11 @@ impl<'a, T: std::io::Write + std::io::Seek> FrameWriter<'a, T> {
     fn finish(&mut self) -> Result<()> {
         match self {
             Self::Mp4(x) => x.finish()?,
+            Self::Ffmpeg(x) => {
+                if let Some(x) = x.take() {
+                    x.close()?;
+                }
+            }
             Self::Image(_) => {}
         }
         Ok(())
@@ -622,9 +644,14 @@ pub fn run_cli(cli: Cli) -> Result<()> {
         cli.encoder.clone().unwrap_or(default_encoder)
     };
 
+    // The codec for our own MP4 writer. ffmpeg writes its own MP4 file.
     let (codec, libs_and_nv_enc) = match encoder {
-        Encoder::NoneCopyExistingH264 => (strand_cam_remote_control::Mp4Codec::H264RawStream, None),
-        Encoder::LessAvc => (strand_cam_remote_control::Mp4Codec::H264LessAvc, None),
+        Encoder::Ffmpeg => (None, None),
+        Encoder::NoneCopyExistingH264 => (
+            Some(strand_cam_remote_control::Mp4Codec::H264RawStream),
+            None,
+        ),
+        Encoder::LessAvc => (Some(strand_cam_remote_control::Mp4Codec::H264LessAvc), None),
         Encoder::OpenH264 => {
             let codec = strand_cam_remote_control::Mp4Codec::H264OpenH264({
                 let preset = if let Some(bitrate) = h264_bitrate {
@@ -637,13 +664,13 @@ pub fn run_cli(cli: Cli) -> Result<()> {
                     debug: false,
                 }
             });
-            (codec, None)
+            (Some(codec), None)
         }
         Encoder::NvEnc => {
             nvenc_libs = Some(nvenc::Dynlibs::new()?);
             let codec = strand_cam_remote_control::Mp4Codec::H264NvEnc(Default::default());
             (
-                codec,
+                Some(codec),
                 Some(nvenc::NvEnc::new(nvenc_libs.as_ref().unwrap())?),
             )
         }
@@ -724,55 +751,95 @@ pub fn run_cli(cli: Cli) -> Result<()> {
 
     // ---------
 
-    let (mut output_writer, pending_mp4) = if cli.export_pngs {
-        let writer = FrameWriter::Image(ImageSequenceWriter {
-            dirname: output_fname.clone(),
-            index: 0,
-        });
-        (writer, None)
-    } else {
-        tracing::debug!(
-            "Saving metadata: {}",
-            serde_json::to_string(&serde_json::to_value(&h264_metadata)?)?
-        );
-
-        let h264_metadata = match encoder {
-            Encoder::NoneCopyExistingH264 => {
-                if h264_already_has_metadata {
-                    None
-                } else {
-                    Some(h264_metadata)
-                }
-            }
-            _ => Some(h264_metadata),
-        };
-
-        let mp4_cfg = strand_cam_remote_control::Mp4RecordingConfig {
-            codec,
-            max_framerate: Default::default(),
-            h264_metadata,
-        };
-
-        // The movie is written beside its destination and moved there only
-        // once it is complete, so that a failed or interrupted conversion
-        // leaves nothing which looks like a finished movie. With
-        // --truncate-on-error the user wants whatever was written to survive a
-        // failure, so then it is written straight to its destination.
-        let (out_fd, pending) = if cli.truncate_on_error {
-            (std::fs::File::create(&output_fname), None)
+    let (mut output_writer, pending_mp4) = 'writer: {
+        if cli.export_pngs {
+            let writer = FrameWriter::Image(ImageSequenceWriter {
+                dirname: output_fname.clone(),
+                index: 0,
+            });
+            (writer, None)
         } else {
-            match PendingFile::create(&output_fname) {
-                Ok((out_fd, pending)) => (Ok(out_fd), Some(pending)),
-                Err(e) => (Err(e), None),
-            }
-        };
-        let out_fd = out_fd.with_context(|| format!("writing to {}", output_fname.display()))?;
-        let writer = FrameWriter::Mp4(Box::new(mp4_writer::Mp4Writer::new(
-            out_fd,
-            mp4_cfg,
-            libs_and_nv_enc,
-        )?));
-        (writer, pending)
+            tracing::debug!(
+                "Saving metadata: {}",
+                serde_json::to_string(&serde_json::to_value(&h264_metadata)?)?
+            );
+
+            let h264_metadata = match encoder {
+                Encoder::NoneCopyExistingH264 => {
+                    if h264_already_has_metadata {
+                        None
+                    } else {
+                        Some(h264_metadata)
+                    }
+                }
+                _ => Some(h264_metadata),
+            };
+
+            let Some(codec) = codec else {
+                // ffmpeg encodes at a fixed frame rate. Where the frames are to
+                // be put on a regular cadence, tell it that one; the capture
+                // times embedded afterwards are exact either way.
+                let rate = match &timing_info {
+                    TimingInfo::Desired {
+                        desired_interval, ..
+                    } => {
+                        let frames_per_1000_secs =
+                            (1000.0 / desired_interval.as_secs_f64()).round();
+                        Some((frames_per_1000_secs as usize, 1000))
+                    }
+                    TimingInfo::Ignore => None,
+                };
+                let ffmpeg_codec_args = ffmpeg_writer::FfmpegCodecArgs {
+                    codec: Some(cli.ffmpeg_codec.clone()),
+                    ..Default::default()
+                };
+                // Like the other encoders' output, the movie appears at its
+                // destination only when it is complete. What becomes of the files
+                // it is made from if it is not follows --truncate-on-error.
+                let if_unfinished = if cli.truncate_on_error {
+                    ffmpeg_rewriter::IfUnfinished::KeepForRepair
+                } else {
+                    ffmpeg_rewriter::IfUnfinished::Delete
+                };
+                let writer = ffmpeg_rewriter::FfmpegReWriter::new(
+                    &output_fname,
+                    ffmpeg_codec_args,
+                    rate,
+                    h264_metadata,
+                    if_unfinished,
+                )
+                .with_context(|| format!("writing to {}", output_fname.display()))?;
+                break 'writer (FrameWriter::Ffmpeg(Some(Box::new(writer))), None);
+            };
+
+            let mp4_cfg = strand_cam_remote_control::Mp4RecordingConfig {
+                codec,
+                max_framerate: Default::default(),
+                h264_metadata,
+            };
+
+            // The movie is written beside its destination and moved there only
+            // once it is complete, so that a failed or interrupted conversion
+            // leaves nothing which looks like a finished movie. With
+            // --truncate-on-error the user wants whatever was written to survive a
+            // failure, so then it is written straight to its destination.
+            let (out_fd, pending) = if cli.truncate_on_error {
+                (std::fs::File::create(&output_fname), None)
+            } else {
+                match PendingFile::create(&output_fname) {
+                    Ok((out_fd, pending)) => (Ok(out_fd), Some(pending)),
+                    Err(e) => (Err(e), None),
+                }
+            };
+            let out_fd =
+                out_fd.with_context(|| format!("writing to {}", output_fname.display()))?;
+            let writer = FrameWriter::Mp4(Box::new(mp4_writer::Mp4Writer::new(
+                out_fd,
+                mp4_cfg,
+                libs_and_nv_enc,
+            )?));
+            (writer, pending)
+        }
     };
 
     // A directory of PNG files cannot be moved into place in one step. Unless
