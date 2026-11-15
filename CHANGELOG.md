@@ -57,6 +57,8 @@
   * A `.braidz` file is written the same way, including at the end of a live
     recording in Braid and Strand Camera. The `.braid` directory it is made
     from is, as before, removed only after that.
+* The `pybraidz-chunked-iter` Python package requires Python 3.10 or newer;
+  it was 3.8. Its wheels target the Python 3.10 stable ABI.
 * `braid-offline-retrack`, `flytrax-csv-to-braidz` and `braid-process-video`
   write no `.braidz` file when they fail, and delete the `.braid` directory in
   which they were assembling it. They also refuse to start if that directory

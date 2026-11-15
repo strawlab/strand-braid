@@ -16,9 +16,9 @@ def main() -> None:
         raise RuntimeError(f"expected one artifact, found: {artifacts}")
 
     artifact = artifacts[0]
-    if artifact.endswith(".whl") and "-cp38-abi3-" not in artifact:
+    if artifact.endswith(".whl") and "-cp310-abi3-" not in artifact:
         raise RuntimeError(
-            f"wheel does not target the Python 3.8 stable ABI: {artifact}"
+            f"wheel does not target the Python 3.10 stable ABI: {artifact}"
         )
 
     subprocess.check_call(

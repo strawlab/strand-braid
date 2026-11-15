@@ -6,9 +6,10 @@ This package is available through PyPI and can be installed with pip:
 
     pip install pybraidz_chunked_iter
 
-Python 3.8 or newer is required. Wheels use Python's stable ABI with Python 3.8
-as the deliberate minimum, matching the oldest Python version supported by
-PyO3 0.29 while retaining compatibility with newer Python 3 releases.
+Python 3.10 or newer is required. Wheels use Python's stable ABI with Python
+3.10 as the minimum, so one wheel serves every later Python 3 release. Python
+3.10 is the default on Ubuntu 22.04, and the oldest version the wheels can
+still be tested with on GitHub's current Ubuntu runners.
 
 ## Example usage
 
